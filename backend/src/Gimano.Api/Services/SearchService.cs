@@ -424,13 +424,16 @@ public sealed class SearchService(PlaceSearchIndex index, AliasStore aliases, Ar
         return new SearchResponse([summary], Interpretation: new SearchInterpretation(kind, TextNormalizer.Normalize(r.Q)));
     }
 
+    public const double StreetLabelRadiusM = 30;
+
     private sealed record ContainingRow(string? City, string? AdminCity, string? Local, bool HasAdmin);
 
     /// <summary>
     /// City and neighbourhood from the admin boundaries that CONTAIN the point (smallest first), not merely the nearest place
     /// node: KLCC is in Kuala Lumpur, not Ampang Jaya across the border. City = the nearest city/town node inside the smallest
     /// containing boundary of level ≤ 6, else that boundary's name; area = the nearest suburb/neighbourhood inside the smallest
-    /// containing boundary. Without boundary data, the nearest place nodes are used.
+    /// containing boundary. Without boundary data, the nearest place nodes are used. (Columns are snake_case: EF maps
+    /// SqlQueryRaw results through the naming convention.)
     /// </summary>
     private async Task<(string? Local, string? Town)> ContainingAreasAsync(GeoPoint p, CancellationToken ct)
     {
@@ -443,13 +446,13 @@ public sealed class SearchService(PlaceSearchIndex index, AliasStore aliases, Ar
               (SELECT pl.name FROM places pl, pt, city_area c
                  WHERE pl.category = 'Area' AND pl.tags->>'place' IN ('city', 'town') AND ST_DWithin(pl.location, pt.g, 25000)
                    AND ST_Covers(c.geom, pl.location)
-                 ORDER BY pl.location <-> pt.g LIMIT 1) AS "City",
-              (SELECT name FROM city_area) AS "AdminCity",
+                 ORDER BY pl.location <-> pt.g LIMIT 1) AS city,
+              (SELECT name FROM city_area) AS admin_city,
               (SELECT pl.name FROM places pl, pt, local_area l
                  WHERE pl.category = 'Area' AND pl.tags->>'place' IN ('suburb', 'neighbourhood', 'quarter', 'village')
                    AND ST_DWithin(pl.location, pt.g, 2500) AND ST_Covers(l.geom, pl.location)
-                 ORDER BY pl.location <-> pt.g LIMIT 1) AS "Local",
-              EXISTS (SELECT 1 FROM inside) AS "HasAdmin"
+                 ORDER BY pl.location <-> pt.g LIMIT 1) AS local,
+              EXISTS (SELECT 1 FROM inside) AS has_admin
             """;
         try
         {
@@ -482,10 +485,14 @@ public sealed class SearchService(PlaceSearchIndex index, AliasStore aliases, Ar
             .Select(a => a.Postcode).FirstOrDefaultAsync(ct);
         var (localName, townName) = await ContainingAreasAsync(p, ct);
 
-        var label = ReverseLabel(addr?.HouseNumber, street, localName, townName ?? addr?.City, lang);
-
         var nearby = (await places.NearbyAsync(p, null, 50, 8, viewer, ct))
             .Where(s => s.Category is not (PlaceCategory.Area or PlaceCategory.Parking)).Take(5).ToList();
+
+        // No house address and no street within ~30 m (e.g. inside KLCC): name the spot after the nearest named place.
+        string? first = addr is not null ? $"{addr.HouseNumber}, {addr.Street}" : null;
+        if (first is null && street is not null && await geo.StreetNameAsync(p, ct, StreetLabelRadiusM) is { } close) first = close;
+        first ??= nearby.FirstOrDefault(n => SearchResults.ChainKey(n.Name, null).Length > 0 || n.Brand is not null)?.Name ?? street;
+        var label = ReverseLabel(null, first, localName, townName ?? addr?.City, lang);
         var basic = await geo.ReverseAsync(p, ct);   // name/address as before (nearest place within 40 m, else street)
         var name = basic.Name == "Dropped pin" ? L10n.DroppedPin(lang) : basic.Name;
         return basic with

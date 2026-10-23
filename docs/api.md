@@ -140,7 +140,8 @@ places within 50 m, nearest first (max 5), for "Adakah ini FamilyMart?".
 `city`/`area` come from the OSM administrative boundaries that contain the point (smallest first): `city` is the
 nearest city/town inside the smallest containing boundary of admin_level ≤ 6 (else that boundary's name), `area` the
 nearest suburb/neighbourhood inside the smallest containing boundary, so KLCC is "Kuala Lumpur", not a town across the
-border.
+border. When there is no house address and no street within ~30 m, the label is built from the nearest named
+place in `nearby` ("Dekat Suria KLCC, Kuala Lumpur").
 
 ### Search misses (anonymous zero-result counts)
 
