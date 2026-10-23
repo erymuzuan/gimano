@@ -604,4 +604,13 @@
     <string name="formerly_gimano">Dahulu Gimano · Formerly Gimano</string>
     <string name="restore_from_gimano">Restore from a backup</string>
     <string name="backup_this_phone">this phone</string>
+    <string name="origin_unknown">Your location unknown</string>
+    <string name="origin_locating">Finding your location…</string>
+    <string name="origin_unknown_body">Manotu doesn\'t know where you are, so it can\'t plan from here. Turn on location, or choose where you\'re starting from.</string>
+    <string name="allow_location">Allow location</string>
+    <string name="choose_start_on_map">Choose start on the map</string>
+    <string name="search_start">Search a start place</string>
+    <string name="already_here">You\'re already here</string>
+    <string name="already_here_body">Your start is less than 50 m from the destination. Choose another start if you\'re planning ahead.</string>
+    <string name="change_start">Change start</string>
 </resources>
