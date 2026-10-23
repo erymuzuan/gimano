@@ -20,6 +20,16 @@ public sealed record AdminStatusRequest(string Status);
 public sealed record AdminOsmNote(Guid IssueId, IssueKind Kind, string? Subtype, IssueState State, double Lat, double Lng, string Note,
     string? OsmUrl, string? NoteUrl, int StillVotes, int ClearedVotes, DateTimeOffset CreatedAt, DateTimeOffset? ConfirmedAt,
     DateTimeOffset? ExportedAt, IReadOnlyDictionary<string, string> Payload);
+/// <summary>DEV ONLY seed: the same body as POST /issues, plus the state to create it in (default confirmed).</summary>
+public sealed record SeedIssueRequest(CreateIssueRequest Issue, IssueState? State);
+
+/// <summary>Dev-only endpoints answer 404 unless Features:DevSeed is true (set in deploy/docker-compose.yml only).</summary>
+public sealed class DevSeedFilter(IConfiguration config) : IEndpointFilter
+{
+    public async ValueTask<object?> InvokeAsync(EndpointFilterInvocationContext context, EndpointFilterDelegate next) =>
+        config.GetValue("Features:DevSeed", false) ? await next(context) : TypedResults.NotFound();
+}
+
 public sealed record AdminSearchMiss(string Query, string Cell, string Week, int Count);
 
 /// <summary>
@@ -40,6 +50,10 @@ public static class AdminEndpoints
         g.MapPost("/contacts/{subject}/{id:guid}/reveal", RevealContact);
         g.MapGet("/search-misses", SearchMissReport);
         g.MapGet("/osm-queue", OsmQueue);
+        // DEV ONLY: seed issues for app testing (404 unless Features:DevSeed=true; never set in production).
+        var dev = g.MapGroup("/dev").AddEndpointFilter<DevSeedFilter>();
+        dev.MapPost("/issues", SeedIssue);
+        dev.MapDelete("/issues/{id:guid}", DeleteSeededIssue);
         g.MapPost("/osm-queue/{id:guid}/exported", MarkExported);
         g.MapPost("/search/aliases/reload", (Services.AliasStore store) => TypedResults.Ok(new { rows = store.Reload() }));
         return api;
@@ -79,6 +93,15 @@ public static class AdminEndpoints
                 i.StillVotes, i.ClearedVotes, i.CreatedAt, i.ConfirmedAt, i.ExportedAt, i.Payload);
         }).ToList());
     }
+
+    private static async Task<Created<IssueDto>> SeedIssue(SeedIssueRequest req, HttpContext http, Services.IssueService issues, CancellationToken ct)
+    {
+        var dto = await issues.SeedAsync(req.Issue, req.State ?? IssueState.Confirmed, http.Lang(), ct);
+        return TypedResults.Created($"/api/v1/issues/{dto.Id}", dto);
+    }
+
+    private static async Task<Results<NoContent, NotFound>> DeleteSeededIssue(Guid id, Services.IssueService issues, CancellationToken ct) =>
+        await issues.DeleteAsync(id, ct) ? TypedResults.NoContent() : TypedResults.NotFound();
 
     private static async Task<Results<NoContent, NotFound>> MarkExported(Guid id, GimanoDbContext db, TimeProvider clock, CancellationToken ct) =>
         await db.Issues.Where(i => i.Id == id).ExecuteUpdateAsync(s => s.SetProperty(i => i.ExportedAt, clock.GetUtcNow()), ct) > 0

@@ -86,6 +86,51 @@ public sealed class IssueService(GimanoDbContext db, IEventPublisher bus, IssueD
         return ToDto(issue, userId, IssueRules.IsFeedbackOnly(kind) ? null : IssueAnswer.Still, lang, await PlaceNameAsync(placeId, ct));
     }
 
+    /// <summary>
+    /// DEV ONLY (Features:DevSeed + X-Admin-Key): creates an issue directly in a given state, snapped like a report, with no
+    /// reporter, so the apps can test complaint flows (a confirmed closure on a route, a suspected place issue).
+    /// </summary>
+    public async Task<IssueDto> SeedAsync(CreateIssueRequest req, IssueState state, string lang, CancellationToken ct)
+    {
+        var kind = req.Kind ?? throw new ValidationException("kind", "kind is required.");
+        var now = clock.GetUtcNow();
+        var payload = ValidatePayload(kind, req.Payload, now);
+        var at = new GeoPoint(req.Lat, req.Lng);
+        Snapped? snap = null;
+        if (IssueRules.IsPlace(kind))
+            at = await PlaceAsync(req.PlaceId ?? throw new ValidationException("placeId", "placeId is required."), ct)
+                 ?? throw new NotFoundException($"Place {req.PlaceId} not found.");
+        else if (IssueRules.IsRoad(kind))
+            at = (snap = await SnapAsync(at, req.Heading, ct) ?? throw new ValidationException("lat", "No road within 30 m of this point.")).At;
+        var issue = new Issue
+        {
+            Kind = kind, Subtype = req.Subtype, State = state, Source = req.Source ?? IssueSource.Report,
+            WayId = snap?.WayId, Seq = snap?.Seq, Direction = kind is IssueKind.OnewayWrongClosedDir or IssueKind.OnewayWrongOpenDir ? snap?.Direction ?? IssueDirection.Both : IssueDirection.Both,
+            Highway = snap?.Highway, RoadName = snap?.Name, MajorRoad = IssueRules.IsMajor(snap?.Highway), PlaceId = req.PlaceId,
+            Location = new GeoPoint(IssueRules.Round5m(at.Lat), IssueRules.Round5m(at.Lng)).ToPoint(), Vehicle = req.Vehicle,
+            CreatedAt = now, LastEvidenceAt = now, Payload = payload, ConfirmedAt = state == IssueState.Confirmed ? now : null,
+            ExpiresAt = IssueRules.InitialExpiry(kind, req.Subtype, req.DurationHint, payload.GetValueOrDefault("until"), now),
+            WeightedStill = state == IssueState.Confirmed ? IssueRules.Required(new Issue { Kind = kind, MajorRoad = IssueRules.IsMajor(snap?.Highway), Location = at.ToPoint() }) : 1,
+            StillVotes = state == IssueState.Confirmed ? 2 : 1,
+        };
+        issue.History.Add(string.Create(CultureInfo.InvariantCulture, $"{now:yyyy-MM-ddTHH:mm}Z seeded ({GimanoJson.ToWire(state)}, dev)"));
+        issue.Confidence = IssueRules.Confidence(issue);
+        db.Issues.Add(issue);
+        await db.SaveChangesAsync(ct);
+        await PublishAsync(issue, issue.State, ct);
+        return ToDto(issue, null, null, lang, await PlaceNameAsync(issue.PlaceId, ct));
+    }
+
+    /// <summary>DEV ONLY: removes a (seeded) issue and its votes.</summary>
+    public async Task<bool> DeleteAsync(Guid id, CancellationToken ct)
+    {
+        await db.IssueVotes.Where(v => v.IssueId == id).ExecuteDeleteAsync(ct);
+        await db.IssueSalts.Where(s => s.IssueId == id).ExecuteDeleteAsync(ct);
+        var n = await db.Issues.Where(i => i.Id == id).ExecuteDeleteAsync(ct);
+        directory.Invalidate();
+        return n > 0;
+    }
+
     public async Task<IssueVoteResult> VoteAsync(Guid userId, Guid id, IssueVoteRequest req, CancellationToken ct)
     {
         var answer = req.Answer ?? throw new ValidationException("answer", "answer must be still, cleared or unsure.");
