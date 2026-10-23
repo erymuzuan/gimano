@@ -64,6 +64,8 @@ public readonly record struct BBox(double MinLng, double MinLat, double MaxLng, 
     {
         bbox = default;
         if (v is not { Count: 4 }) return false;
+        // "NaN" parses as a double and fails every comparison below, so it would slip through (and past the size limits).
+        if (v.Any(x => !double.IsFinite(x))) return false;
         if (v[0] < -180 || v[2] > 180 || v[1] < -90 || v[3] > 90) return false;
         if (v[0] > v[2] || v[1] > v[3]) return false;
         bbox = new BBox(v[0], v[1], v[2], v[3]);

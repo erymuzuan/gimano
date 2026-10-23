@@ -196,6 +196,19 @@ public class InboxUnreadRegressionTests
     }
 }
 
+public class BBoxRegressionTests
+{
+    [Theory]
+    [InlineData("NaN,NaN,NaN,NaN")]
+    [InlineData("101.5,NaN,101.7,3.2")]
+    [InlineData("-Infinity,3.0,101.7,3.2")]
+    public void Non_finite_bboxes_are_rejected(string bbox) =>
+        Assert.False(BBox.TryParse(bbox, out _));   // before: NaN passed validation and the 1°/2° size limits
+
+    [Fact]
+    public void A_normal_bbox_still_parses() => Assert.True(BBox.TryParse("101.5,3.0,101.7,3.2", out _));
+}
+
 public class IssueDirectoryExpiryRegressionTests
 {
     private static readonly DateTimeOffset Now = new(2026, 10, 23, 10, 0, 0, TimeSpan.Zero);
