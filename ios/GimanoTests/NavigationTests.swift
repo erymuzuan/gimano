@@ -2,13 +2,43 @@ import Foundation
 import Testing
 @testable import Gimano
 
+/// Synthetic geometry helpers for unit-test fixtures only (the app never fabricates routes).
+enum TestGeometry {
+    static func densify(_ corners: [LatLng], stepM: Double) -> [LatLng] {
+        var out: [LatLng] = []
+        for i in 0..<(corners.count - 1) {
+            let a = corners[i], b = corners[i + 1]
+            let n = max(1, Int(Geo.distance(a, b) / stepM))
+            for k in 0..<n { out.append(Geo.interpolate(a, b, Double(k) / Double(n))) }
+        }
+        out.append(corners.last!)
+        return out
+    }
+
+    static func cornerIndices(corners: [LatLng], in pts: [LatLng]) -> [Int] {
+        var result: [Int] = []
+        var start = 0
+        for c in corners.dropFirst().dropLast() {
+            var best = start, bestD = Double.infinity
+            for k in start..<pts.count {
+                let dd = Geo.distance(c, pts[k])
+                if dd < bestD { bestD = dd; best = k }
+            }
+            result.append(best)
+            start = best
+        }
+        return result
+    }
+
+}
+
 /// A straight 1 km eastbound road with a left turn at 600 m, then 400 m north.
 private func makeRoute() -> Route {
     let start = LatLng(lat: 3.15, lng: 101.70)
     let corner = Geo.offset(start, northM: 0, eastM: 600)
     let end = Geo.offset(corner, northM: 400, eastM: 0)
-    let pts = DemoRouteBuilder.densify([start, corner, end], stepM: 50)
-    let cornerIdx = DemoRouteBuilder.cornerIndices(corners: [start, corner, end], in: pts)[0]
+    let pts = TestGeometry.densify([start, corner, end], stepM: 50)
+    let cornerIdx = TestGeometry.cornerIndices(corners: [start, corner, end], in: pts)[0]
     let maneuvers = [
         Maneuver(type: .depart, instruction: "", streetName: "Jalan A", exitNumber: nil, roadRef: nil, distanceM: 600, durationS: 60, beginShapeIndex: 0, endShapeIndex: cornerIdx, verbalPre: nil, verbalPost: nil),
         Maneuver(type: .left, instruction: "", streetName: "Jalan B", exitNumber: nil, roadRef: nil, distanceM: 400, durationS: 40, beginShapeIndex: cornerIdx, endShapeIndex: pts.count - 1, verbalPre: nil, verbalPost: nil),
@@ -318,5 +348,60 @@ struct CannedRouteTests {
         #expect(routes.first?.isBest == true)
         let alertCount = routes.first?.alerts?.count ?? 0
         #expect(alertCount > 0)
+    }
+}
+
+@Suite("Demo data stays on real roads")
+struct DemoOnRoadTests {
+    /// Distance from p to the nearest captured route polyline.
+    private func distanceToCapturedRoads(_ p: LatLng, _ polylines: [[LatLng]]) -> Double {
+        var best = Double.infinity
+        for pts in polylines where pts.count > 1 {
+            for i in 0..<(pts.count - 1) {
+                best = min(best, Geo.project(p, onto: pts[i], pts[i + 1]).distanceM)
+                if best < 0.5 { return best }
+            }
+        }
+        return best
+    }
+
+    @Test("Every demo jam, alert and driver coordinate lies within 15 m of a captured route polyline")
+    func onRoad() async throws {
+        let polylines = CannedRoutes.shared.allPolylines
+        #expect(!polylines.isEmpty)
+        let repo = DemoRepository(latency: .zero)
+        let live = try await repo.live(bbox: BBox(minLng: 101.4, minLat: 2.8, maxLng: 101.9, maxLat: 3.4))
+        #expect(live.alerts.count >= 8)
+        #expect(live.jams.count >= 4)
+        #expect(!live.drivers.isEmpty)
+        for a in live.alerts {
+            let d = distanceToCapturedRoads(a.location, polylines)
+            #expect(d <= 15, "alert \(a.id) is \(d) m off-road")
+        }
+        for j in live.jams {
+            let pts = Polyline.decode(j.polyline)
+            #expect((300...800).contains(Int(j.lengthM.rounded())), "jam \(j.id) length \(j.lengthM)")
+            for p in pts {
+                let d = distanceToCapturedRoads(p, polylines)
+                #expect(d <= 15, "jam \(j.id) vertex is \(d) m off-road")
+            }
+        }
+        for drv in live.drivers {
+            let d = distanceToCapturedRoads(LatLng(lat: drv.lat, lng: drv.lng), polylines)
+            #expect(d <= 15)
+        }
+    }
+
+    @Test("Trips outside the captured set get the nearest captured route, labelled — never fabricated geometry")
+    func noFabrication() async throws {
+        let repo = DemoRepository(latency: .zero)
+        // Putrajaya: not a captured destination, from a non-fixture origin.
+        let routes = try await repo.routes(RouteRequest(origin: RouteEndpoint(lat: 3.0, lng: 101.6), destination: RouteEndpoint(lat: 2.936, lng: 101.6897)))
+        #expect(!routes.isEmpty)
+        let polylines = Set(CannedRoutes.shared.file!.destinations.flatMap(\.routes).map(\.polyline))
+        for r in routes {
+            #expect(polylines.contains(r.polyline))
+            #expect(r.demoNote != nil)
+        }
     }
 }

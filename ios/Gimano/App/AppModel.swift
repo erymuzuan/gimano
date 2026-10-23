@@ -122,6 +122,13 @@ final class AppModel {
             planRoute(to: dest)
             try? await Task.sleep(for: .seconds(1.5))
             startNavigation()
+        case "overview":
+            map.setCamera(.center(LatLng(lat: 3.13, lng: 101.68), zoom: 11.6))
+        case "route-far":
+            // Not a captured destination → nearest captured route, labelled "Demo route".
+            if let klia = DemoData.places.first(where: { $0.id == "demo:klia" }) {
+                planRoute(to: Destination(name: klia.name, address: klia.address, location: klia.location, placeId: klia.id, category: klia.category))
+            }
         case "report":
             showReport = true
         case "menu":
@@ -239,12 +246,17 @@ final class AppModel {
             map.routes = planner.routes.map {
                 RouteLine(id: $0.id, points: Polyline.decode($0.polyline), selected: $0.id == sel, traffic: $0.trafficSegments ?? [])
             }
-            map.destination = planner.destination.location
+            // A substituted demo route ends at its own (captured) destination; pin that, not the requested place.
+            if let r = planner.selected, r.demoNote != nil, let end = Polyline.decode(r.polyline).last {
+                map.destination = end
+            } else {
+                map.destination = planner.destination.location
+            }
             map.bubbleAnchors = Self.bubbleAnchors(for: planner.routes.map { ($0.id, Polyline.decode($0.polyline)) })
         case .navigating:
             guard let nav = navigation else { break }
             map.routes = [RouteLine(id: nav.route.id, points: nav.geometry.points, selected: true, traffic: nav.route.trafficSegments ?? [])]
-            map.destination = nav.destination.location
+            map.destination = nav.route.demoNote != nil ? (nav.geometry.points.last ?? nav.destination.location) : nav.destination.location
             map.bubbleAnchors = [:]
         case .place(let p):
             map.routes = []
@@ -375,7 +387,8 @@ final class AppModel {
 
     /// Demo drives: no backend, no real GPS fix (e.g. Simulator), or forced from Debug settings.
     var shouldSimulate: Bool {
-        config.simulateDrive || backendStatus == .demoForced || !hasRealFix
+        // Demo routes are captured fixtures that may not start where the device is, so always simulate them.
+        config.simulateDrive || isDemo || !hasRealFix || planner?.selected?.demoNote != nil
     }
 
     private func startSimulator(on route: Route) {

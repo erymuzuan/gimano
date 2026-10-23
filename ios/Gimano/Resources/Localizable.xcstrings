@@ -603,6 +603,16 @@
         }
       }
     },
+    "Demo route: no captured route for this trip. Showing the nearest one, to %@.": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Laluan demo: tiada laluan dirakam untuk perjalanan ini. Memaparkan yang terdekat, ke %@."
+          }
+        }
+      }
+    },
     "Developer settings": {
       "localizations": {
         "ms": {

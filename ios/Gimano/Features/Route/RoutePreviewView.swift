@@ -18,6 +18,16 @@ struct RoutePreviewView: View {
 
                 VStack(spacing: 10) {
                     header(planner)
+                    if let note = planner.selected?.demoNote {
+                        Label(note, systemImage: "play.circle.fill")
+                            .font(Tokens.Font.label)
+                            .foregroundStyle(Color.brandOn)
+                            .padding(.horizontal, 14)
+                            .padding(.vertical, 8)
+                            .background(Color.brand.opacity(0.94), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                            .padding(.horizontal, Tokens.Space.gutter)
+                            .accessibilityIdentifier("demoRouteNote")
+                    }
                     HStack {
                         Spacer()
                         avoidMenu(planner)
@@ -126,8 +136,9 @@ struct RoutePreviewView: View {
 
     private func bubbles(_ planner: RoutePlanner) -> some View {
         ZStack(alignment: .topLeading) {
+            let positions = Self.separated(planner.routes.compactMap { r in model.map.bubblePoints[r.id].map { (r.id, $0) } })
             ForEach(planner.routes) { r in
-                if let pt = model.map.bubblePoints[r.id] {
+                if let pt = positions[r.id] {
                     let selected = r.id == planner.selected?.id
                     Button {
                         stopCountdown()
@@ -156,6 +167,21 @@ struct RoutePreviewView: View {
             }
         }
         .ignoresSafeArea()
+    }
+
+    /// Nudges bubbles apart in screen space so they never stack (alternatives often share road).
+    static func separated(_ points: [(String, CGPoint)], minDX: CGFloat = 110, minDY: CGFloat = 56) -> [String: CGPoint] {
+        var placed: [(String, CGPoint)] = []
+        for (id, p) in points {
+            var q = p
+            var guardCount = 0
+            while let hit = placed.first(where: { abs($0.1.x - q.x) < minDX && abs($0.1.y - q.y) < minDY }), guardCount < 6 {
+                q.y = hit.1.y + (q.y >= hit.1.y ? minDY : -minDY)
+                guardCount += 1
+            }
+            placed.append((id, q))
+        }
+        return Dictionary(uniqueKeysWithValues: placed)
     }
 
     private func bottomCard(_ planner: RoutePlanner) -> some View {

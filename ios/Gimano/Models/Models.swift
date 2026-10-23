@@ -282,6 +282,8 @@ struct Route: Codable, Sendable, Identifiable, Hashable {
     var legs: [RouteLeg]
     var trafficSegments: [TrafficSegment]?
     var alerts: [AlertOnRoute]?
+    /// Client-side only (demo mode): explains that a captured route was substituted. Not part of the API contract.
+    var demoNote: String?
 
     var isBest: Bool { label == "best" }
     /// Duration including live traffic when available.

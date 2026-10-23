@@ -50,8 +50,10 @@ The two plists are maintained by hand, so keep them in sync.
 Demo routes come from `Resources/DemoRoutes.json`: 8 destinations from a fixed KL origin, 2–3
 alternatives each, in the exact `Route` contract shape (precision-6 polylines, maneuvers with shape
 indexes). They were captured once from OpenStreetMap data through the public OSRM demo server
-(© OpenStreetMap contributors, ODbL). Trips that don't match a fixture (another origin or destination) fall back to
-synthetic geometry, which does not follow roads.
+(© OpenStreetMap contributors, ODbL). **Demo mode never fabricates geometry.** A trip outside the captured set gets
+the captured routes to the nearest captured destination, labelled "Demo route: …" in the preview.
+Demo jams are 300–800 m slices of those routes; demo alerts and nearby-driver dots sit on their vertices.
+A unit test asserts every one of them lies within 15 m of a captured polyline.
 
 ## Architecture
 
@@ -108,7 +110,7 @@ app language: `ms-MY` voice, falling back to `id-ID` and then English if no Mala
 ## Debug launch arguments (screenshots / demos)
 
 `-GimanoDataMode demo|auto|live`, `-GimanoSimulateDrive YES`,
-`-GimanoDemoScene search|place|route|nav|report|menu` (DEBUG builds only), `-GimanoDemoQuery <text>`.
+`-GimanoDemoScene search|place|route|route-far|nav|report|menu|overview` (DEBUG builds only), `-GimanoDemoQuery <text>`.
 
 ## Licences / attribution
 

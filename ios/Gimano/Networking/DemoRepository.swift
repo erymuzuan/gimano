@@ -1,6 +1,6 @@
 import Foundation
 
-/// Offline demo backend: Kuala Lumpur places, synthetic multi-alternative routes, live alerts/jams/drivers.
+/// Offline demo backend: Kuala Lumpur places, captured real-road routes, and live alerts/jams/drivers placed on those roads.
 /// Everything is generated locally so the whole UI can be demoed without the .NET backend.
 actor DemoRepository: GimanoRepository {
     static let defaultLocation = LatLng(lat: 3.152613, lng: 101.703718) // on Jalan Sultan Ismail, KL (road-snapped; origin of DemoRoutes.json)
@@ -33,25 +33,22 @@ actor DemoRepository: GimanoRepository {
                    reportedBy: ReportAuthor(displayName: ["Aina", "Raj", "Mei Ling", "Hafiz", "Siti"][abs(id.hashValue) % 5], mood: "🙂"),
                    createdAt: now.addingTimeInterval(-minsAgo * 60), expiresAt: now.addingTimeInterval(3600), confirmations: conf, thanks: conf / 2)
         }
-        reports = [
-            r("demo-a1", .police, "visible", 3.1601, 101.7110, "Jalan Ampang", 6, conf: 4),
-            r("demo-a2", .hazard, "pothole", 3.1485, 101.6950, "Jalan Kuching", 18, conf: 2),
-            r("demo-a3", .accident, "minor", 3.1365, 101.6960, "Jalan Tun Sambanthan", 9, conf: 7),
-            r("demo-a4", .traffic, "heavy", 3.1310, 101.7220, "Jalan Tun Razak", 3, conf: 12),
-            r("demo-a5", .weather, "heavy_rain", 3.1700, 101.6600, "Jalan Kuching", 25, conf: 5),
-            r("demo-a6", .hazard, "flood", 3.1210, 101.6890, "Jalan Klang Lama", 40, conf: 9),
-            r("demo-a7", .closure, nil, 3.1450, 101.7200, "Jalan Bukit Bintang", 55, conf: 1),
-            r("demo-a8", .animal, "on_shoulder", 3.1850, 101.6950, "Jalan Pahang", 12, conf: 1),
+        // Every demo alert sits on a vertex of a captured real-road route (never off-road).
+        let seeds: [(String, ReportType, String?, String, Int, Double, Double, Int)] = [
+            ("demo-route-police", .police, "visible", "midvalley", 0, 0.18, 4, 6),
+            ("demo-route-hazard", .hazard, "pothole", "midvalley", 0, 0.55, 11, 3),
+            ("demo-a1", .police, "visible", "klcc", 0, 0.5, 6, 4),
+            ("demo-a2", .hazard, "pothole", "batucaves", 0, 0.35, 18, 2),
+            ("demo-a3", .accident, "minor", "klsentral", 0, 0.6, 9, 7),
+            ("demo-a4", .traffic, "heavy", "home", 0, 0.45, 3, 12),
+            ("demo-a5", .weather, "heavy_rain", "batucaves", 1, 0.7, 25, 5),
+            ("demo-a6", .hazard, "flood", "work", 0, 0.7, 40, 9),
+            ("demo-a7", .closure, nil, "pavilion", 1, 0.5, 55, 1),
+            ("demo-a8", .animal, "on_shoulder", "sunway", 0, 0.8, 12, 1),
         ]
-        // Alerts sitting on the real Mid Valley demo route, so the "alert ahead" card shows during demo drives.
-        if let mv = CannedRoutes.shared.file?.destinations.first(where: { $0.key == "midvalley" })?.routes.first {
-            let pts = Polyline.decode(mv.polyline)
-            let cum = Geo.cumulativeDistances(pts)
-            let total = cum.last ?? 0
-            let p1 = Geo.point(along: pts, cumulative: cum, distance: total * 0.18).point
-            let p2 = Geo.point(along: pts, cumulative: cum, distance: total * 0.55).point
-            reports.append(r("demo-route-police", .police, "visible", p1.lat, p1.lng, "Jalan Raja Chulan", 4, conf: 6))
-            reports.append(r("demo-route-hazard", .hazard, "pothole", p2.lat, p2.lng, "Jalan Syed Putra", 11, conf: 3))
+        reports = seeds.compactMap { id, type, sub, key, route, fraction, mins, conf in
+            guard let v = CannedRoutes.shared.vertex(key: key, routeIndex: route, fraction: fraction) else { return nil }
+            return r(id, type, sub, v.point.lat, v.point.lng, v.street ?? "", mins, conf: conf)
         }
     }
 
@@ -150,14 +147,22 @@ actor DemoRepository: GimanoRepository {
         let o = LatLng(lat: request.origin.lat, lng: request.origin.lng)
         let d = LatLng(lat: request.destination.lat, lng: request.destination.lng)
         var routes: [Route]
-        if request.waypoints.isEmpty, let canned = CannedRoutes.shared.match(origin: o, destination: d) {
+        let canned = CannedRoutes.shared
+        if request.waypoints.isEmpty, let exact = canned.match(origin: o, destination: d) {
             // Real road geometry (OSM/OSRM fixture) so demo drives stay on roads.
-            routes = DemoRouteBuilder.decorate(canned, vehicle: request.vehicle, avoid: request.avoid, departAt: request.departAt,
+            routes = DemoRouteBuilder.decorate(exact, vehicle: request.vehicle, avoid: request.avoid, departAt: request.departAt,
                                                seed: routeCounter, alerts: reports)
+        } else if let nearest = canned.nearest(to: d) {
+            // No captured route for this trip: never fabricate geometry — offer the nearest captured route, labelled.
+            let place = DemoData.places.min { Geo.distance($0.location, LatLng(lat: nearest.lat, lng: nearest.lng)) < Geo.distance($1.location, LatLng(lat: nearest.lat, lng: nearest.lng)) }
+            let name = place?.name ?? nearest.key
+            routes = DemoRouteBuilder.decorate(nearest.routes, vehicle: request.vehicle, avoid: request.avoid, departAt: request.departAt,
+                                               seed: routeCounter, alerts: reports)
+            for i in routes.indices {
+                routes[i].demoNote = String(localized: "Demo route: no captured route for this trip. Showing the nearest one, to \(name).")
+            }
         } else {
-            var stops = [o] + request.waypoints.map { LatLng(lat: $0.lat, lng: $0.lng) } + [d]
-            if stops.count < 2 { stops = [o, d] }
-            routes = DemoRouteBuilder.build(stops: stops, vehicle: request.vehicle, avoid: request.avoid, departAt: request.departAt, seed: routeCounter, alerts: reports)
+            throw APIError.notAvailable
         }
         routeCounter += 1
         routes = Array(routes.prefix(max(1, request.alternatives + 1)))
@@ -196,11 +201,11 @@ actor DemoRepository: GimanoRepository {
         reports.removeAll { $0.expiresAt < now }
         let center = LatLng(lat: (bbox.minLat + bbox.maxLat) / 2, lng: (bbox.minLng + bbox.maxLng) / 2)
         var gen = SeededGenerator(seed: UInt64(abs(Int(center.lat * 100)) * 1000 + abs(Int(center.lng * 100))))
-        let drivers: [Driver] = (0..<18).map { _ in
-            Driver(lat: Double.random(in: bbox.minLat...max(bbox.minLat + 0.0001, bbox.maxLat), using: &gen),
-                   lng: Double.random(in: bbox.minLng...max(bbox.minLng + 0.0001, bbox.maxLng), using: &gen),
-                   heading: Double.random(in: 0..<360, using: &gen),
-                   mood: ["🙂", "😎", "😴", "🤠", "😇"].randomElement(using: &gen))
+        // Other drivers are placed on real road vertices inside the viewport.
+        let onRoad = CannedRoutes.shared.roadVertices.filter { bbox.contains($0.point) }
+        let drivers: [Driver] = onRoad.isEmpty ? [] : (0..<min(18, onRoad.count)).map { _ in
+            let v = onRoad.randomElement(using: &gen)!
+            return Driver(lat: v.point.lat, lng: v.point.lng, heading: v.bearing, mood: ["🙂", "😎", "😴", "🤠", "😇"].randomElement(using: &gen))
         }
         return LiveResponse(alerts: reports.filter { bbox.contains($0.location) }, jams: DemoData.jams, drivers: drivers, serverTime: now)
     }
@@ -255,88 +260,8 @@ struct SeededGenerator: RandomNumberGenerator {
     }
 }
 
-/// Builds plausible-looking alternative routes between stops: an "L" via one axis, the other axis, and a
-/// gently curved diagonal. Geometry is densified and run through the precision-6 encoder so the app
-/// exercises the same decoding path as with the real backend.
+/// Decorates captured real-road demo routes per request. Demo mode never fabricates route geometry.
 enum DemoRouteBuilder {
-    static let streets = [
-        "Jalan Sultan Ismail", "Jalan Tun Razak", "Jalan Ampang", "Jalan Kuching", "Jalan Pahang", "Jalan Tun Sambanthan",
-        "Jalan Klang Lama", "Jalan Duta", "Jalan Semantan", "Jalan Syed Putra", "Jalan Cheras", "Jalan Ipoh",
-    ]
-    static let highways: [(ref: String, name: String)] = [
-        ("E11", "Lebuhraya Damansara–Puchong"), ("E23", "Lebuhraya SPRINT"), ("E33", "Lebuhraya DUKE"), ("E37", "Lebuhraya Kuala Lumpur–Putrajaya"),
-    ]
-
-    static func build(stops: [LatLng], vehicle: Vehicle, avoid: AvoidOptions, departAt: Date?, seed: Int, alerts: [Report]) -> [Route] {
-        let o = stops.first!, d = stops.last!
-        let mids = Array(stops.dropFirst().dropLast())
-        let straight = Geo.distance(o, d)
-        let variants: [[LatLng]] = [
-            [o] + mids + (mids.isEmpty ? [curvePoint(o, d, bend: 0.12)] : []) + [d],
-            [o] + mids + [LatLng(lat: o.lat, lng: d.lng)] + [d],
-            [o] + mids + [LatLng(lat: d.lat, lng: o.lng)] + [d],
-        ]
-        let speedKmh: Double = vehicle == .motorcycle ? 46 : 38
-        let trafficFactors: [Double] = [1.08, 1.22, 1.4]
-        let descriptions: [LocalizedStringResource] = ["Typical traffic", "Heavier than usual", "Light traffic"]
-        var routes: [Route] = []
-
-        for (i, corners) in variants.enumerated() {
-            let pts = densify(corners, stepM: 25)
-            let cum = Geo.cumulativeDistances(pts)
-            let dist = max(cum.last ?? 0, 50)
-            let isHighway = straight > 6000 && i == 1
-            let hasTolls = isHighway
-            if hasTolls && avoid.tolls { continue }
-            if isHighway && avoid.highways { continue }
-            let duration = dist / ((isHighway ? speedKmh * 1.6 : speedKmh) / 3.6)
-            var factor = trafficFactors[i % 3]
-            if let departAt {
-                let hour = Double(Calendar.current.component(.hour, from: departAt))
-                factor *= 1 + 0.4 * (exp(-pow(hour - 8, 2) / 3) + exp(-pow(hour - 18, 2) / 3)) - 0.1
-            }
-            let names = streetNames(count: corners.count, seed: seed + i * 3, highway: isHighway ? highways[(seed + i) % highways.count] : nil)
-            let maneuvers = makeManeuvers(points: pts, cornerIndices: cornerIndices(corners: corners, in: pts), names: names, totalDuration: duration * factor)
-            let n = pts.count
-            let trafficSegments = n > 20 ? [
-                TrafficSegment(fromIndex: n / 4, toIndex: n / 4 + max(2, n / 12), level: i == 1 ? 3 : 2),
-                TrafficSegment(fromIndex: n * 3 / 5, toIndex: n * 3 / 5 + max(2, n / 15), level: i == 2 ? 4 : 1),
-            ] : []
-            let bbox = BBox.around(pts)!
-            let routeAlerts: [AlertOnRoute] = alerts.compactMap { a in
-                var best = (d: Double.infinity, along: 0.0)
-                for k in 0..<(pts.count - 1) {
-                    let pr = Geo.project(a.location, onto: pts[k], pts[k + 1])
-                    if pr.distanceM < best.d { best = (pr.distanceM, cum[k] + (cum[k + 1] - cum[k]) * pr.t) }
-                }
-                return best.d < 120 ? AlertOnRoute(report: a, distanceAlongRouteM: best.along) : nil
-            }
-            routes.append(Route(
-                id: "demo-route-\(seed)-\(i)",
-                label: "alternative",
-                durationS: duration,
-                distanceM: dist,
-                trafficDurationS: duration * factor,
-                summary: isHighway ? "Via \(names[1])" : "Via \(names[0]) and \(names[min(1, names.count - 1)])",
-                trafficDescription: String(localized: descriptions[i % 3]),
-                hasTolls: hasTolls,
-                tollEstimateMyr: hasTolls ? 2.30 : nil,
-                polyline: Polyline.encode(pts),
-                bbox: [bbox.minLng, bbox.minLat, bbox.maxLng, bbox.maxLat],
-                legs: [RouteLeg(maneuvers: maneuvers)],
-                trafficSegments: trafficSegments,
-                alerts: routeAlerts
-            ))
-        }
-        if routes.isEmpty {
-            // Everything was avoided: fall back to the curved route without tolls.
-            return build(stops: stops, vehicle: vehicle, avoid: AvoidOptions(), departAt: departAt, seed: seed, alerts: alerts)
-        }
-        routes.sort { $0.effectiveDurationS < $1.effectiveDurationS }
-        routes[0].label = "best"
-        return routes
-    }
-
     /// Applies per-request decoration to canned real-road routes: unique ids, traffic factor, avoid-tolls,
     /// localized instructions and alerts projected onto the geometry.
     static func decorate(_ canned: [Route], vehicle: Vehicle, avoid: AvoidOptions, departAt: Date?, seed: Int, alerts: [Report]) -> [Route] {
@@ -383,82 +308,6 @@ enum DemoRouteBuilder {
         }
     }
 
-    static func curvePoint(_ a: LatLng, _ b: LatLng, bend: Double) -> LatLng {
-        let mid = Geo.interpolate(a, b, 0.5)
-        return LatLng(lat: mid.lat + (b.lng - a.lng) * bend, lng: mid.lng - (b.lat - a.lat) * bend)
-    }
-
-    static func densify(_ corners: [LatLng], stepM: Double) -> [LatLng] {
-        var out: [LatLng] = []
-        for i in 0..<(corners.count - 1) {
-            let a = corners[i], b = corners[i + 1]
-            let n = max(1, Int(Geo.distance(a, b) / stepM))
-            for k in 0..<n { out.append(Geo.interpolate(a, b, Double(k) / Double(n))) }
-        }
-        out.append(corners.last!)
-        return out
-    }
-
-    static func cornerIndices(corners: [LatLng], in pts: [LatLng]) -> [Int] {
-        var result: [Int] = []
-        var start = 0
-        for c in corners.dropFirst().dropLast() {
-            var best = start, bestD = Double.infinity
-            for k in start..<pts.count {
-                let dd = Geo.distance(c, pts[k])
-                if dd < bestD { bestD = dd; best = k }
-            }
-            result.append(best)
-            start = best
-        }
-        return result
-    }
-
-    static func streetNames(count: Int, seed: Int, highway: (ref: String, name: String)?) -> [String] {
-        var names = (0..<max(2, count)).map { streets[(seed + $0 * 5) % streets.count] }
-        if let highway { names[min(1, names.count - 1)] = "\(highway.ref) \(highway.name)" }
-        return names
-    }
-
-    static func makeManeuvers(points: [LatLng], cornerIndices: [Int], names: [String], totalDuration: Double) -> [Maneuver] {
-        let cum = Geo.cumulativeDistances(points)
-        let total = max(cum.last ?? 1, 1)
-        var begins = [0] + cornerIndices.filter { $0 > 0 && $0 < points.count - 1 } + [points.count - 1]
-        begins = begins.enumerated().filter { $0.offset == 0 || $0.element > begins[$0.offset - 1] }.map(\.element)
-        var out: [Maneuver] = []
-        for (k, b) in begins.enumerated() {
-            let end = k + 1 < begins.count ? begins[k + 1] : b
-            let dist = cum[end] - cum[b]
-            let isLast = k == begins.count - 1
-            var type: ManeuverType = .depart
-            if isLast { type = .arrive } else if k > 0 {
-                let inB = Geo.bearing(points[max(0, b - 1)], points[b])
-                let outB = Geo.bearing(points[b], points[min(points.count - 1, b + 1)])
-                let delta = Geo.angleDelta(inB, outB)
-                type = switch delta {
-                case ..<(-120): .sharpLeft
-                case ..<(-45): .left
-                case ..<(-15): .slightLeft
-                case ...15: .straight
-                case ...45: .slightRight
-                case ...120: .right
-                default: .sharpRight
-                }
-            }
-            let street = isLast ? nil : names[min(k, names.count - 1)]
-            var ref: String?
-            var streetName = street
-            if let s = street, let first = s.split(separator: " ").first, first.first == "E", first.dropFirst().allSatisfy(\.isNumber) {
-                ref = String(first)
-                streetName = String(s.dropFirst(first.count + 1))
-            }
-            out.append(Maneuver(type: type, instruction: "", streetName: streetName, exitNumber: nil, roadRef: ref,
-                                distanceM: dist, durationS: totalDuration * dist / total, beginShapeIndex: b, endShapeIndex: end,
-                                verbalPre: nil, verbalPost: nil))
-        }
-        for i in out.indices { out[i].instruction = ManeuverFormatter.instruction(for: out[i]) }
-        return out
-    }
 }
 
 enum DemoData {
@@ -502,18 +351,21 @@ enum DemoData {
         PlaceSummary(id: id, name: name, category: cat, address: addr, lat: lat, lng: lng, distanceM: nil, brand: brand)
     }
 
-    static let jams: [Jam] = [
-        jam("demo-j1", 3, [(3.1590, 101.7080), (3.1600, 101.7130), (3.1606, 101.7200)], "Jalan Ampang"),
-        jam("demo-j2", 2, [(3.1300, 101.7180), (3.1360, 101.7230), (3.1440, 101.7240)], "Jalan Tun Razak"),
-        jam("demo-j3", 4, [(3.1180, 101.6790), (3.1230, 101.6830), (3.1290, 101.6850)], "Jalan Syed Putra"),
-        jam("demo-j4", 1, [(3.1500, 101.6950), (3.1560, 101.6960), (3.1650, 101.6975)], "Jalan Kuching"),
-    ]
-
-    private static func jam(_ id: String, _ level: Int, _ pts: [(Double, Double)], _ street: String) -> Jam {
-        let line = DemoRouteBuilder.densify(pts.map { LatLng(lat: $0.0, lng: $0.1) }, stepM: 40)
-        return Jam(id: id, level: level, speedKmh: [0, 25, 15, 8, 2][level], delayS: Double(level) * 120,
-                   lengthM: Geo.cumulativeDistances(line).last ?? 0, polyline: Polyline.encode(line), street: street, updatedAt: .now)
-    }
+    /// Demo jams are 300–800 m slices of captured real-road routes.
+    static let jams: [Jam] = {
+        let specs: [(String, Int, String, Int, Double, Double)] = [
+            ("demo-j1", 3, "midvalley", 0, 0.30, 600),
+            ("demo-j2", 2, "klcc", 0, 0.35, 500),
+            ("demo-j3", 4, "home", 0, 0.50, 800),
+            ("demo-j4", 1, "batucaves", 0, 0.40, 700),
+            ("demo-j5", 2, "sunway", 0, 0.55, 800),
+        ]
+        return specs.compactMap { id, level, key, route, from, len in
+            guard let slice = CannedRoutes.shared.slice(key: key, routeIndex: route, fromFraction: from, lengthM: len) else { return nil }
+            return Jam(id: id, level: level, speedKmh: [0, 25, 15, 8, 2][level], delayS: Double(level) * 120,
+                       lengthM: Geo.cumulativeDistances(slice.points).last ?? 0, polyline: Polyline.encode(slice.points), street: slice.street, updatedAt: .now)
+        }
+    }()
 }
 
 /// Real-road demo routes captured once from OpenStreetMap data (OSRM demo server, ODbL) into
@@ -542,6 +394,62 @@ struct CannedRoutes: Sendable {
         } else {
             file = nil
         }
+    }
+
+    /// Captured destination closest to `destination` (used when no exact fixture matches).
+    func nearest(to destination: LatLng) -> Destination? {
+        file?.destinations.min { Geo.distance(destination, LatLng(lat: $0.lat, lng: $0.lng)) < Geo.distance(destination, LatLng(lat: $1.lat, lng: $1.lng)) }
+    }
+
+    func route(key: String, routeIndex: Int) -> Route? {
+        guard let d = file?.destinations.first(where: { $0.key == key }), !d.routes.isEmpty else { return nil }
+        return d.routes[min(routeIndex, d.routes.count - 1)]
+    }
+
+    private static func street(of route: Route, atVertex i: Int) -> String? {
+        let m = route.maneuvers.last { $0.beginShapeIndex <= i && $0.type != .arrive }
+        return m.flatMap { ManeuverFormatter.roadName($0) }
+    }
+
+    /// The route vertex at a fraction of the route length, with the street it is on.
+    func vertex(key: String, routeIndex: Int, fraction: Double) -> (point: LatLng, street: String?)? {
+        guard let r = route(key: key, routeIndex: routeIndex) else { return nil }
+        let pts = Polyline.decode(r.polyline)
+        let cum = Geo.cumulativeDistances(pts)
+        guard let total = cum.last, total > 0 else { return nil }
+        let target = total * fraction
+        let i = cum.indices.min { abs(cum[$0] - target) < abs(cum[$1] - target) } ?? 0
+        return (pts[i], Self.street(of: r, atVertex: i))
+    }
+
+    /// A stretch of a captured route between `fromFraction` and `fromFraction + lengthM` (points on the polyline).
+    func slice(key: String, routeIndex: Int, fromFraction: Double, lengthM: Double) -> (points: [LatLng], street: String?)? {
+        guard let r = route(key: key, routeIndex: routeIndex) else { return nil }
+        let pts = Polyline.decode(r.polyline)
+        let cum = Geo.cumulativeDistances(pts)
+        guard let total = cum.last, total > lengthM else { return nil }
+        let d0 = total * fromFraction, d1 = min(total, d0 + lengthM)
+        let start = Geo.point(along: pts, cumulative: cum, distance: d0)
+        let end = Geo.point(along: pts, cumulative: cum, distance: d1)
+        var out = [start.point]
+        for i in pts.indices where cum[i] > d0 && cum[i] < d1 { out.append(pts[i]) }
+        out.append(end.point)
+        return (out, Self.street(of: r, atVertex: start.segment))
+    }
+
+    /// Every vertex of every captured route with its travel bearing (for placing demo drivers on roads).
+    var roadVertices: [(point: LatLng, bearing: Double)] {
+        guard let file else { return [] }
+        return file.destinations.flatMap(\.routes).flatMap { r -> [(point: LatLng, bearing: Double)] in
+            let pts = Polyline.decode(r.polyline)
+            guard pts.count > 1 else { return [] }
+            return stride(from: 0, to: pts.count - 1, by: 3).map { (pts[$0], Geo.bearing(pts[$0], pts[$0 + 1])) }
+        }
+    }
+
+    /// All captured route polylines, decoded.
+    var allPolylines: [[LatLng]] {
+        file?.destinations.flatMap(\.routes).map { Polyline.decode($0.polyline) } ?? []
     }
 
     /// Canned alternatives when the request starts near the fixture origin and ends near a fixture destination.
