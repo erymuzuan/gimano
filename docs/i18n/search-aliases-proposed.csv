@@ -1,0 +1,342 @@
+alias,canonical,kind,locale,note
+pam minyak,fuel,category,ms,Everyday Malay for petrol station
+stesen minyak,fuel,category,ms,Standard Malay for petrol station
+kedai minyak,fuel,category,ms,Colloquial Malay for petrol station
+isi minyak,fuel,category,ms,Intent phrase for refuelling
+petrol,fuel,category,en,Malaysian English for fuel station
+petrol station,fuel,category,en,Malaysian English for fuel station
+gas station,fuel,category,en,American English synonym
+stesen pengecas,ev_charging,category,ms,Standard Malay for EV charging station
+pengecas ev,ev_charging,category,ms,Malay EV charger query
+cas kereta,ev_charging,category,ms,Colloquial Malay for charging an EV
+ev charger,ev_charging,category,en,Common English EV query
+charging station,ev_charging,category,en,Common English EV query
+r&r,rest_area,category,ms,Rehat & Rawat highway rest stop
+rnr,rest_area,category,ms,Typed shorthand for R&R without ampersand
+rehat dan rawat,rest_area,category,ms,Full Malay name for highway R&R
+kawasan rehat,rest_area,category,ms,Standard Malay for rest area
+hentian sebelah,rest_area,category,ms,Highway lay-by / side stop on Malaysian expressways
+plaza tol,toll_booth,category,ms,Standard Malay for toll plaza
+tol,toll_booth,category,ms,Short Malay query for toll booth
+tempat letak kereta,parking,category,ms,Formal Malay for car park
+parkir,parking,category,ms,Short Malay for parking
+parking kereta,parking,category,ms,Colloquial Manglish/Malay for car park
+carpark,parking,category,en,Malaysian English single-word spelling
+car park,parking,category,en,Malaysian/British English for parking
+kedai mamak,restaurant:mamak,category,ms,Mamak stall or restaurant
+mamak,restaurant:mamak,category,ms,Short query for Mamak restaurant
+restoran mamak,restaurant:mamak,category,ms,Mamak restaurant
+nasi kandar,restaurant:mamak,category,ms,Penang/Malaysian nasi kandar eatery
+kedai makan,restaurant,category,ms,Everyday Malay for eatery or restaurant
+tempat makan,restaurant,category,ms,Everyday Malay for place to eat
+restoran,restaurant,category,ms,Standard Malay for restaurant
+gerai makan,restaurant,category,ms,Roadside food stall
+warung,restaurant,category,ms,Traditional Malay food stall
+medan selera,restaurant,category,ms,Food court in Malay
+food court,restaurant,category,en,Food court
+hawker centre,restaurant,category,en,Malaysian/Singaporean hawker centre
+kopitiam,cafe,category,ms,Traditional Malaysian coffee shop
+kedai kopi,cafe,category,ms,Malay for coffee shop / kopitiam
+kafe,cafe,category,ms,Standard Malay for cafe
+makanan segera,fast_food,category,ms,Standard Malay for fast food
+pandu lalu,fast_food,category,ms,Malay for drive-thru
+drive thru,fast_food,category,en,Common shorthand for drive-through
+pusat beli-belah,mall,category,ms,Standard Malay for shopping mall
+shopping mall,mall,category,en,Shopping mall
+kompleks beli-belah,mall,category,ms,Shopping complex
+pasar malam,marketplace,category,ms,Night market
+pasar tani,marketplace,category,ms,Farmers' market
+pasar pagi,marketplace,category,ms,Morning wet market
+pasar basah,marketplace,category,ms,Wet market
+pasar minggu,marketplace,category,ms,Weekend market
+tamu,marketplace,dialect,ms,Sabah & Sarawak open-air native market (Pasar Tamu)
+pasar tamu,marketplace,dialect,ms,Sabah & Sarawak weekly market
+nat,marketplace,dialect,ms,Kedah & Perlis (Utara) dialect for weekly morning market (Pasar Nat)
+pasar nat,marketplace,dialect,ms,Kedah & Perlis (Utara) weekly market
+pasar karat,marketplace,category,ms,Flea market / vintage street market
+bazar ramadan,marketplace,category,ms,Ramadan food bazaar
+pasar raya,supermarket,category,ms,Supermarket / hypermarket
+grocer,supermarket,category,en,Malaysian English for supermarket
+kedai runcit,convenience,category,ms,Neighbourhood sundry / grocery shop
+kedai serbaneka,convenience,category,ms,Standard Malay for convenience store
+mini market,convenience,category,en,Neighbourhood mini-mart
+minimart,convenience,category,en,Single-word mini-mart
+kede,convenience,dialect,ms,Sarawak Malay dialect for kedai (shop)
+kede runcit,convenience,dialect,ms,Sarawak Malay dialect for kedai runcit
+kedai pati,convenience,dialect,ms,Kelantan/Terengganu colloquial usage for sundry shop
+masjid,mosque,category,ms,Mosque
+mesjid,mosque,dialect,ms,Common regional/spoken spelling variant of masjid
+sejid,mosque,dialect,ms,Kelantan & Terengganu (Pantai Timur) dialect for masjid
+sijik,mosque,dialect,ms,Terengganu dialect for masjid
+surau,surau,category,ms,Islamic prayer room
+musolla,surau,category,ms,Prayer room in malls/R&Rs
+musalla,surau,category,ms,Alternative spelling of musolla
+tempat solat,surau,category,ms,Place to pray
+bilik solat,surau,category,ms,Prayer room
+balai sah,surau,dialect,ms,Kelantan dialect for village surau / prayer hall
+balaisah,surau,dialect,ms,Kelantan dialect (single word) for surau
+madrasah,surau,dialect,ms,East Coast (Kelantan/Terengganu) usage for local surau
+tokong,temple,category,ms,Chinese Buddhist/Taoist temple in Malaysia
+kuil,temple,category,ms,Hindu temple in Malaysia
+wat,temple,dialect,ms,Thai Buddhist temple (common in Kelantan / Kedah / Perlis)
+gereja,church,category,ms,Church
+sib,church,dialect,ms,Sidang Injil Borneo church (Sabah & Sarawak)
+balai polis,police,category,ms,Police station
+pondok polis,police,category,ms,Community police beat base
+ipd,police,category,ms,Ibu Pejabat Polis Daerah (District Police HQ)
+ipk,police,category,ms,Ibu Pejabat Polis Kontinjen (State Police HQ)
+bomba,government,category,ms,Balai Bomba dan Penyelamat (Fire & Rescue station)
+balai bomba,government,category,ms,Fire station
+hospital,hospital,category,ms,Hospital
+spital,hospital,dialect,ms,Kedah/Utara & Kelantan spoken form for hospital
+sepital,hospital,dialect,ms,Kelantan/Terengganu dialect for hospital
+kecemasan,hospital,category,ms,Emergency department (A&E)
+klinik,clinic,category,ms,Clinic
+klinik kesihatan,clinic,category,ms,Government health clinic (KK)
+kk,clinic,category,ms,Common Malaysian shorthand for Klinik Kesihatan
+klinik pergigian,clinic,category,ms,Dental clinic
+klinik gigi,clinic,category,ms,Everyday Malay for dental clinic
+poliklinik,clinic,category,ms,Polyclinic
+farmasi,pharmacy,category,ms,Pharmacy
+kedai ubat,pharmacy,category,ms,Everyday Malay for pharmacy / medicine shop
+sekolah,school,category,ms,School
+sk,school,category,ms,Sekolah Kebangsaan (national primary school)
+smk,school,category,ms,Sekolah Menengah Kebangsaan (national secondary school)
+sjkc,school,category,ms,Sekolah Jenis Kebangsaan Cina (Chinese vernacular primary school)
+sjkt,school,category,ms,Sekolah Jenis Kebangsaan Tamil (Tamil vernacular primary school)
+mrsm,school,category,ms,Maktab Rendah Sains MARA
+sekolah agama,school,category,ms,Islamic religious school
+tadika,school,category,ms,Kindergarten / preschool
+taska,school,category,ms,Childcare centre / nursery
+pasti,school,category,ms,Pusat Asuhan Tunas Islam preschool
+kemas,school,category,ms,Tabika KEMAS kindergarten
+universiti,university,category,ms,University
+kolej,university,category,ms,College
+politeknik,university,category,ms,Polytechnic
+uitm,university,brand,ms,Universiti Teknologi MARA
+um,university,brand,ms,Universiti Malaya
+ukm,university,brand,ms,Universiti Kebangsaan Malaysia
+upm,university,brand,ms,Universiti Putra Malaysia
+usm,university,brand,ms,Universiti Sains Malaysia
+utm,university,brand,ms,Universiti Teknologi Malaysia
+uia,university,brand,ms,Universiti Islam Antarabangsa Malaysia (IIUM)
+iium,university,brand,en,International Islamic University Malaysia
+ums,university,brand,ms,Universiti Malaysia Sabah
+unimas,university,brand,ms,Universiti Malaysia Sarawak
+hotel,hotel,category,ms,Hotel
+homestay,hotel,category,en,Malaysian homestay / guesthouse
+inap desa,hotel,category,ms,Formal Malay for homestay
+chalet,hotel,category,en,Beach or kampung chalet accommodation
+resort,hotel,category,en,Resort
+atm,atm,category,en,Automated Teller Machine
+mesin atm,atm,category,ms,Malay for ATM machine
+cucuk duit,atm,dialect,ms,Colloquial Malaysian phrase for withdrawing cash at an ATM
+keluar duit,atm,category,ms,Everyday Malay for cash withdrawal
+bank,bank,category,ms,Bank branch
+bengkel,car_repair,category,ms,Vehicle workshop
+bengkel kereta,car_repair,category,ms,Car repair workshop
+bengkel motor,car_repair,category,ms,Motorcycle workshop
+workshop,car_repair,category,en,Malaysian English for auto repair shop
+pomen,car_repair,dialect,ms,Colloquial Malaysian (from foreman) for car mechanic
+kedai tayar,car_repair,category,ms,Tyre shop
+tayar,car_repair,category,ms,Tyre / alignment shop
+bateri kereta,car_repair,category,ms,Car battery shop
+cuci kereta,car_wash,category,ms,Car wash
+basuh kereta,car_wash,category,ms,Everyday Peninsular Malay for car wash
+basuh kete,car_wash,dialect,ms,Colloquial Peninsular / Terengganu / Pahang spoken form for car wash
+cucioto,car_wash,dialect,ms,Sabah colloquial term (oto = car) for car wash
+cucian kereta,car_wash,category,ms,Car wash
+carwash,car_wash,category,en,Single-word car wash
+stesen bas,transit_station,category,ms,Bus station / terminal
+tesen bas,transit_station,dialect,ms,Kelantan/Terengganu/Kedah spoken form for stesen bas
+terminal bas,transit_station,category,ms,Express bus terminal
+stesen keretapi,transit_station,category,ms,Train / railway station
+stesen ktm,transit_station,category,ms,KTM Komuter / ETS station
+stesen lrt,transit_station,category,ms,LRT station
+stesen mrt,transit_station,category,ms,MRT station
+monorel,transit_station,category,ms,KL Monorail station
+jetti,transit_station,dialect,ms,Common spelling variant of jeti (ferry jetty)
+jeti,transit_station,category,ms,Ferry or boat jetty
+pangkalan,transit_station,dialect,ms,Kelantan/Perak river boat landing or jetty (e.g. Pangkalan Kubor)
+lapangan terbang,airport,category,ms,Airport
+airport,airport,category,en,Airport
+epot,airport,dialect,ms,Spoken Malaysian / East Malaysia colloquial spelling for airport
+klia,Kuala Lumpur International Airport,brand,en,Main international airport in Sepang
+klia2,Kuala Lumpur International Airport Terminal 2,brand,en,Terminal 2 (formerly klia2) in Sepang
+subang airport,Sultan Abdul Aziz Shah Airport,rename,en,Common name for SZB Subang Airport
+pejabat kerajaan,government,category,ms,Government office
+opis kerajaan,government,dialect,ms,Colloquial Malaysian (from office) for government office
+utc,Urban Transformation Centre,brand,ms,One-stop government service centre
+rtc,Rural Transformation Centre,brand,ms,Rural one-stop government service centre
+jpj,Jabatan Pengangkutan Jalan,brand,ms,Road Transport Department
+jpn,Jabatan Pendaftaran Negara,brand,ms,National Registration Department (IC / MyKad)
+kwsp,Kumpulan Wang Simpanan Pekerja,brand,ms,Employees Provident Fund (EPF)
+epf,Kumpulan Wang Simpanan Pekerja,brand,en,Employees Provident Fund (KWSP)
+perkeso,Pertubuhan Keselamatan Sosial,brand,ms,Social Security Organisation (SOCSO)
+socso,Pertubuhan Keselamatan Sosial,brand,en,Social Security Organisation (PERKESO)
+lhdn,Lembaga Hasil Dalam Negeri,brand,ms,Inland Revenue Board (tax office)
+pejabat pos,Pos Malaysia,brand,ms,Post office
+pos laju,Pos Laju,brand,ms,Pos Malaysia courier centre
+puspakom,Puspakom,brand,ms,Vehicle inspection centre
+tnb,Tenaga Nasional,brand,ms,National electric utility (Kedai Tenaga)
+syabas,Air Selangor,rename,ms,Former Selangor water utility name now Air Selangor
+indah water,Indah Water Konsortium,brand,ms,National sewerage company (IWK)
+tabung haji,Lembaga Tabung Haji,brand,ms,Pilgrims Fund Board branch
+majlis perbandaran,government,category,ms,Municipal council office
+majlis bandaraya,government,category,ms,City council office
+pejabat tanah,government,category,ms,Land office (Pejabat Daerah dan Tanah)
+mahkamah,government,category,ms,Court complex
+tempat pelancongan,tourism,category,ms,Tourist attraction
+muzium,tourism,category,ms,Museum
+air terjun,tourism,category,ms,Waterfall recreational area
+jeram,tourism,dialect,ms,Rapids / waterfall recreational spot (Kelantan / Pahang / Perak / Negeri Sembilan)
+lata,tourism,dialect,ms,Waterfall in Kelantan / Terengganu / Perak (e.g. Lata Rek / Lata Iskandar)
+pantai,tourism,category,ms,Beach
+pata,tourism,dialect,ms,Kelantan / Terengganu dialect for pantai (beach)
+mcd,McDonald's,brand,en,Common Malaysian shorthand for McDonald's
+mekdi,McDonald's,brand,ms,Localised Malaysian nickname for McDonald's
+mcdonalds,McDonald's,brand,en,McDonald's without apostrophe
+kfc,KFC,brand,en,Kentucky Fried Chicken
+kepci,KFC,dialect,ms,Colloquial Malaysian slang for KFC
+marrybrown,Marrybrown,brand,en,Malaysian halal fast-food chain
+a&w,A&W,brand,en,A&W fast-food restaurant
+anw,A&W,brand,en,Typed shorthand for A&W
+burger king,Burger King,brand,en,Burger King
+bk,Burger King,brand,en,Shorthand for Burger King
+texas chicken,Texas Chicken,brand,en,Texas Chicken
+4fingers,4Fingers Crispy Chicken,brand,en,4Fingers chicken chain
+dominos,Domino's Pizza,brand,en,Domino's without apostrophe
+pizza hut,Pizza Hut,brand,en,Pizza Hut
+secret recipe,Secret Recipe,brand,en,Malaysian cake & cafe chain
+oldtown,OldTown White Coffee,brand,en,OldTown White Coffee chain
+oriental kopi,Oriental Kopi,brand,en,Malaysian kopitiam chain
+zus,ZUS Coffee,brand,en,Malaysian coffee chain ZUS Coffee
+zus coffee,ZUS Coffee,brand,en,ZUS Coffee
+gigi coffee,Gigi Coffee,brand,en,Malaysian coffee chain Gigi Coffee
+starbucks,Starbucks,brand,en,Starbucks
+cbdt,The Coffee Bean & Tea Leaf,brand,en,Coffee Bean shorthand
+coffee bean,The Coffee Bean & Tea Leaf,brand,en,Common short name for The Coffee Bean & Tea Leaf
+tealive,Tealive,brand,en,Malaysian bubble tea brand
+chatime,Tealive,rename,en,Many former Chatime outlets in Malaysia rebranded to Tealive (also searches Chatime)
+chagee,CHAGEE,brand,en,CHAGEE tea chain
+mixue,Mixue,brand,en,Mixue ice cream & tea chain
+familymart,FamilyMart,brand,en,FamilyMart convenience store
+family mart,FamilyMart,brand,en,Two-word spelling for FamilyMart
+cu mart,CU,brand,en,CU Korean convenience store in Malaysia
+mynews,myNEWS,brand,en,myNEWS convenience store
+7e,7-Eleven,brand,en,Malaysian shorthand for 7-Eleven
+7-11,7-Eleven,brand,en,Numeric shorthand for 7-Eleven
+7 eleven,7-Eleven,brand,en,7-Eleven without hyphen
+speedmart,99 Speedmart,brand,en,99 Speedmart mini-market chain
+99 speedmart,99 Speedmart,brand,en,99 Speedmart
+99speedmart,99 Speedmart,brand,en,Single-word 99 Speedmart
+kk mart,KK Super Mart,brand,en,KK Super Mart 24-hour convenience chain
+kkmart,KK Super Mart,brand,en,Single-word KK Super Mart
+mr diy,MR.DIY,brand,en,MR.DIY home improvement store without dot
+mr.diy,MR.DIY,brand,en,MR.DIY canonical name
+eco shop,Eco-Shop,brand,en,RM2.40 Eco-Shop chain
+kedai eco,Eco-Shop,brand,ms,Colloquial Malay for Eco-Shop
+kedai rm2,Eco-Shop,brand,ms,Colloquial Malay for RM2 store / Eco-Shop
+ninso,Ninso,brand,en,Ninso household value store
+daiso,Daiso,brand,en,Daiso Japan store
+tesco,Lotus's,rename,en,Tesco Malaysia rebranded to Lotus's in 2021
+lotus,Lotus's,brand,en,Lotus's hypermarket without apostrophe
+lotuss,Lotus's,brand,en,Lotus's hypermarket without apostrophe
+jusco,AEON,rename,en,Jaya Jusco rebranded to AEON in Malaysia
+jaya jusco,AEON,rename,en,Former name of AEON malls and department stores
+carrefour,AEON BiG,rename,en,Carrefour Malaysia was acquired and rebranded to AEON BiG
+aeon big,AEON BiG,brand,en,AEON BiG hypermarket
+giant,Giant,brand,en,Giant hypermarket
+mydin,Mydin,brand,ms,Mydin hypermarket & emporium
+econsave,Econsave,brand,en,Econsave cash & carry supermarket
+tf value mart,TF Value-Mart,brand,en,TF Value-Mart supermarket
+nsks,NSK Trade City,brand,en,NSK wholesale hypermarket
+nsk,NSK Trade City,brand,en,NSK Trade City
+jaya grocer,Jaya Grocer,brand,en,Jaya Grocer supermarket
+village grocer,Village Grocer,brand,en,Village Grocer supermarket
+bataras,Bataras,brand,ms,Sabah local hypermarket chain
+servay,Servay Hypermarket,brand,en,Sabah & Sarawak hypermarket chain
+cks,CKS Supermarket,brand,en,Sabah supermarket chain
+everrise,Everrise,brand,en,Sarawak & Sabah supermarket chain
+emart,Emart,brand,en,Sarawak hypermarket chain
+farley,Farley,brand,en,Sarawak supermarket chain
+petronas,Petronas,brand,ms,PETRONAS fuel station
+shell,Shell,brand,en,Shell fuel station
+petron,Petron,brand,en,Petron fuel station
+esso,Petron,rename,en,Esso Malaysia stations rebranded to Petron in 2012–2013
+mobil,Petron,rename,en,Mobil Malaysia stations rebranded to Petron in 2012–2013
+caltex,Caltex,brand,en,Caltex fuel station
+bhp,BHPetrol,brand,en,Short name for BHPetrol station
+bhpetrol,BHPetrol,brand,en,BHPetrol fuel station
+five,FIVE,brand,en,FIVE Petroleum Malaysia fuel station
+maybank,Maybank,brand,en,Malayan Banking Berhad
+mbb,Maybank,brand,en,Shorthand for Maybank
+cimb,CIMB Bank,brand,en,CIMB Bank
+public bank,Public Bank,brand,en,Public Bank
+pbb,Public Bank,brand,en,Shorthand for Public Bank
+rhb,RHB Bank,brand,en,RHB Bank
+hlb,Hong Leong Bank,brand,en,Shorthand for Hong Leong Bank
+hong leong,Hong Leong Bank,brand,en,Hong Leong Bank
+ambank,AmBank,brand,en,AmBank
+bank islam,Bank Islam,brand,ms,Bank Islam Malaysia
+bimb,Bank Islam,brand,ms,Shorthand for Bank Islam
+bank rakyat,Bank Rakyat,brand,ms,Bank Kerjasama Rakyat Malaysia
+bsn,Bank Simpanan Nasional,brand,ms,Bank Simpanan Nasional
+bank muamalat,Bank Muamalat,brand,ms,Bank Muamalat
+affin,Affin Bank,brand,en,Affin Bank
+agrobank,Agrobank,brand,ms,Agrobank (formerly Bank Pertanian)
+bank pertanian,Agrobank,rename,ms,Bank Pertanian Malaysia rebranded to Agrobank
+watsons,Watsons,brand,en,Watsons pharmacy & personal care
+guardian,Guardian,brand,en,Guardian pharmacy
+caring,Caring Pharmacy,brand,en,Caring Pharmacy
+big pharmacy,BIG Pharmacy,brand,en,BIG Pharmacy
+alpro,Alpro Pharmacy,brand,en,Alpro Pharmacy
+aa pharmacy,AA Pharmacy,brand,en,AA Pharmacy
+ikea,IKEA,brand,en,IKEA home furnishings
+decathlon,Decathlon,brand,en,Decathlon sports store
+harvey norman,Harvey Norman,brand,en,Harvey Norman electronics & furniture
+senheng,Senheng,brand,en,Senheng electrical store
+senq,senQ,brand,en,senQ digital station
+courts,Courts,brand,en,Courts Mammoth furniture & electronics
+courts mammoth,Courts,rename,en,Former full name of Courts Malaysia
+midvalley,Mid Valley Megamall,brand,en,Single-word query for Mid Valley Megamall
+mid valley,Mid Valley Megamall,brand,en,Mid Valley Megamall
+1u,1 Utama,brand,en,Common Klang Valley shorthand for 1 Utama Shopping Centre
+one utama,1 Utama,brand,en,Spelled-out query for 1 Utama Shopping Centre
+ou,1 Utama,brand,en,Shorthand for One Utama
+ioi city,IOI City Mall,brand,en,IOI City Mall Putrajaya
+sunway pyramid,Sunway Pyramid,brand,en,Sunway Pyramid mall
+pavilion,Pavilion Kuala Lumpur,brand,en,Pavilion KL mall
+klcc,Suria KLCC,brand,en,Petronas Twin Towers / Suria KLCC
+trx,The Exchange TRX,brand,en,Tun Razak Exchange / The Exchange TRX
+tbs,Terminal Bersepadu Selatan,brand,ms,Main southern express bus hub in Bandar Tasik Selatan
+kl sentral,KL Sentral,brand,en,Main rail transit hub in Kuala Lumpur
+jb sentral,JB Sentral,brand,en,Johor Bahru Sentral rail & CIQ hub
+ciq,Sultan Iskandar Building,brand,en,Johor Bahru CIQ complex (Woodlands crossing)
+second link,Kompleks Sultan Abu Bakar,brand,en,Tuas Second Link CIQ complex in Tanjung Kupang
+plus,PLUS,brand,ms,Projek Lebuhraya Utara-Selatan (North-South Expressway)
+lpt,Lebuhraya Pantai Timur,brand,ms,East Coast Expressway (ECE)
+kesas,Lebuhraya Shah Alam,brand,ms,Shah Alam Expressway (KESAS)
+ldp,Lebuhraya Damansara-Puchong,brand,ms,Damansara-Puchong Expressway
+nkve,New Klang Valley Expressway,brand,en,New Klang Valley Expressway
+elite,ELITE Highway,brand,en,North-South Expressway Central Link
+mex,Maju Expressway,brand,en,KL-Putrajaya Maju Expressway
+duke,DUKE Highway,brand,en,Duta-Ulu Kelang Expressway
+suke,SUKE Highway,brand,en,Sungai Besi-Ulu Kelang Elevated Expressway
+dash,DASH Highway,brand,en,Damansara-Shah Alam Elevated Expressway
+guthrie,Guthrie Corridor Expressway,brand,en,Guthrie Corridor Expressway (GCE)
+latar,LATAR Expressway,brand,ms,KL-Kuala Selangor Expressway
+silk,SILK Highway,brand,en,Kajang Dispersal Link Expressway
+lekas,LEKAS Highway,brand,ms,Kajang-Seremban Expressway
+sprint,SPRINT Highway,brand,en,Sistem Penyuraian Trafik KL Barat
+smart,SMART Tunnel,brand,en,Stormwater Management and Road Tunnel
+penang bridge,Jambatan Pulau Pinang,brand,en,First Penang Bridge
+second penang bridge,Jambatan Sultan Abdul Halim Muadzam Shah,brand,en,Second Penang Bridge
+jambatan kedua,Jambatan Sultan Abdul Halim Muadzam Shah,brand,ms,Second Penang Bridge in Malay
+pan borneo,Lebuhraya Pan Borneo,brand,ms,Pan Borneo Highway (Sabah & Sarawak)
+kodai,convenience,dialect,ms,Negeri Sembilan dialect for kedai (shop)
+kodai makan,restaurant,dialect,ms,Negeri Sembilan dialect for kedai makan (eatery)
+polok,restaurant,dialect,ms,Johor colloquial/dialect term for eating place (port makan)
+port makan,restaurant,dialect,ms,Malaysian slang for popular hangout / eating spot
+market,marketplace,dialect,ms,Penang / Utara / Sarawak everyday spoken word for wet market (pasar basah)
+meket,marketplace,dialect,ms,Penang / Kedah (Utara) dialect for wet market (pasar)
