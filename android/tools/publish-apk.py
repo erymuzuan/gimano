@@ -1,9 +1,14 @@
 #!/usr/bin/env python3
 """
-Produce version.json for a release APK (served next to it at https://www.bukitbunga.com/gimano/download/).
+Produce version.json for a release APK, served next to the APK in the channel's download folder:
 
-  tools/publish-apk.py app/build/outputs/apk/release/gimano-0.2.0.apk \
+  --channel gimano  my.gimano.app  -> https://www.bukitbunga.com/gimano/download/  (legacy package, installed base)
+  --channel manotu  my.manotu.app  -> https://manotu.app/download/                (new package from 0.3.0)
+
+  tools/publish-apk.py --channel manotu app/build/outputs/apk/manotu/release/manotu-0.3.0.apk \
       --notes-ms notes-ms.txt --notes-en notes-en.txt [--min-supported 1] [--out version.json]
+
+The two channels never share a manifest: an app only installs an APK whose package matches its own.
 
 versionCode / versionName / package are read from the APK with aapt2 (Android SDK build-tools),
 sha256 and size from the file. The app downloads apkUrl, checks sha256, package, versionCode and
@@ -11,8 +16,10 @@ that the signing certificate matches the installed app before handing it to Pack
 """
 import argparse, datetime, glob, hashlib, json, os, re, subprocess, sys
 
-BASE = "https://www.bukitbunga.com/gimano/download/"
-PACKAGE = "my.gimano.app"
+CHANNELS = {
+    "gimano": ("https://www.bukitbunga.com/gimano/download/", "my.gimano.app"),
+    "manotu": ("https://manotu.app/download/", "my.manotu.app"),
+}
 
 def aapt2():
     sdk = os.environ.get("ANDROID_HOME") or os.environ.get("ANDROID_SDK_ROOT") or "/opt/homebrew/share/android-commandlinetools"
@@ -23,6 +30,8 @@ def aapt2():
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("apk")
+    ap.add_argument("--channel", choices=sorted(CHANNELS), required=True, help="gimano (my.gimano.app) or manotu (my.manotu.app)")
+    ap.add_argument("--base-url", help="override the channel's download folder URL (must end with /)")
     ap.add_argument("--notes-ms", help="file with Bahasa Melayu release notes")
     ap.add_argument("--notes-en", help="file with English release notes")
     ap.add_argument("--min-supported", type=int, default=1, help="versionCodes below this get the blocking 'Update required' gate")
@@ -33,7 +42,9 @@ def main():
     m = re.search(r"package: name='([^']+)' versionCode='(\d+)' versionName='([^']+)'", badging)
     if not m: sys.exit("could not read package info from the APK")
     pkg, code, name = m.group(1), int(m.group(2)), m.group(3)
-    if pkg != PACKAGE: sys.exit(f"unexpected package {pkg}")
+    base, package = CHANNELS[a.channel]
+    if a.base_url: base = a.base_url if a.base_url.endswith("/") else a.base_url + "/"
+    if pkg != package: sys.exit(f"APK package {pkg} does not belong to channel {a.channel} ({package})")
     if a.min_supported > code: sys.exit("--min-supported cannot exceed the APK's own versionCode")
 
     h = hashlib.sha256()
@@ -45,7 +56,7 @@ def main():
         "versionCode": code,
         "versionName": name,
         # Published next to version.json under the APK's own file name (manotu-<ver>.apk from 0.2.3; gimano-<ver>.apk before).
-        "apkUrl": f"{BASE}{os.path.basename(a.apk)}",
+        "apkUrl": f"{base}{os.path.basename(a.apk)}",
         "minSupported": a.min_supported,
         "sha256": h.hexdigest(),
         "sizeBytes": os.path.getsize(a.apk),
