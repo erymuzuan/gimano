@@ -30,10 +30,20 @@ public sealed class ReportService(GimanoDbContext db, IEventPublisher bus, GeoLo
         var dup = nearby.FirstOrDefault(r => AlertRules.IsDuplicate(req.Type, loc, req.Heading, r.Type, GeoPoint.From(r.Location), r.Heading));
         if (dup is not null)
         {
-            dup.Confirmations++;
-            dup.ExpiresAt = AlertRules.ExtendOnStillThere(dup.Type, dup.CreatedAt, dup.ExpiresAt, now);
-            if (dup.ReporterId != userId && dup.Reporter is not null) dup.Reporter.Points += AlertRules.Points.Confirmed;
-            user.Points += AlertRules.Points.Vote;
+            // A duplicate report is a "still there" vote: once per pseudonym (the reporter's own report already counts), so
+            // reporting the same hazard again and again doesn't add confirmations or points.
+            var vote = await db.ReportVotes.FindAsync([dup.Id, userId], ct);
+            var effect = AlertRules.OnVote(dup.ReporterId == userId ? true : vote?.StillThere, stillThere: true);
+            if (vote is not null) { vote.StillThere = true; vote.CreatedAt = now; }
+            else if (dup.ReporterId != userId)
+                db.ReportVotes.Add(new ReportVote { ReportId = dup.Id, UserId = userId, StillThere = true, Weight = AlertRules.VoteWeight(user.Reputation), CreatedAt = now });
+            dup.Confirmations += effect.ConfirmationsDelta;
+            if (effect.ExtendExpiry) dup.ExpiresAt = AlertRules.ExtendOnStillThere(dup.Type, dup.CreatedAt, dup.ExpiresAt, now);
+            if (effect.AwardPoints)
+            {
+                if (dup.Reporter is not null) dup.Reporter.Points += AlertRules.Points.Confirmed;
+                user.Points += AlertRules.Points.Vote;
+            }
             await db.SaveChangesAsync(ct);
             var merged = dup.ToDto();
             await bus.PublishAsync(RoutingKeys.ReportUpdated, merged, ct);

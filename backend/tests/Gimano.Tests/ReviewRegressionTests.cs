@@ -141,6 +141,16 @@ public class ReportVoteRegressionTests
         Assert.Equal(1, awards);          // before: 5 voter awards and 3 reporter "confirmed" awards
     }
 
+    [Fact]
+    public void Reporting_the_same_hazard_again_counts_once()
+    {
+        // ReportService.CreateAsync merge path: the first duplicate from a driver is a "still there"; repeats are no-ops.
+        var first = Gimano.Core.Alerts.AlertRules.OnVote(null, true);
+        var again = Gimano.Core.Alerts.AlertRules.OnVote(true, true);
+        Assert.Equal((1, true), (first.ConfirmationsDelta, first.AwardPoints));
+        Assert.Equal((0, false), (again.ConfirmationsDelta, again.AwardPoints));   // before: +1 confirmation, +3/+1 points every time
+    }
+
     [Theory]
     [InlineData(null, true, 1, true, true)]
     [InlineData(null, false, 0, false, true)]
