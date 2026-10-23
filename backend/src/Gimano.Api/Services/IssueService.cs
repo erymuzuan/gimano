@@ -15,7 +15,11 @@ namespace Gimano.Api.Services;
 /// <summary>Road and place complaints (docs/complaints.md, docs/api.md "Issues").</summary>
 public sealed class IssueService(GimanoDbContext db, IEventPublisher bus, IssueDirectory directory, TimeProvider clock, ILogger<IssueService> logger)
 {
-    public const double SnapRadiusM = 30;
+    /// <summary>
+    /// Dual carriageways are separate one-way ways; on the E12 (AKLEH) they are ~37 m apart, so a westbound driver whose fix
+    /// sits mid-structure had no heading-compatible road within 30 m. 50 m, nearest compatible first.
+    /// </summary>
+    public const double SnapRadiusM = 50;
     public const int ProximityWithinM = 1_000;
 
     private sealed record Snapped(long WayId, int Seq, string? Name, string? Highway, bool Oneway, IssueDirection Direction, GeoPoint At);
@@ -44,7 +48,7 @@ public sealed class IssueService(GimanoDbContext db, IEventPublisher bus, IssueD
         else if (IssueRules.IsRoad(kind))
         {
             snap = await SnapAsync(at, req.Heading, ct)
-                   ?? throw new ValidationException("lat", "No road within 30 m of this point.");
+                   ?? throw new ValidationException("lat", "No road within 50 m of this point.");
             at = snap.At;
         }
         var direction = kind switch
@@ -101,7 +105,7 @@ public sealed class IssueService(GimanoDbContext db, IEventPublisher bus, IssueD
             at = await PlaceAsync(req.PlaceId ?? throw new ValidationException("placeId", "placeId is required."), ct)
                  ?? throw new NotFoundException($"Place {req.PlaceId} not found.");
         else if (IssueRules.IsRoad(kind))
-            at = (snap = await SnapAsync(at, req.Heading, ct) ?? throw new ValidationException("lat", "No road within 30 m of this point.")).At;
+            at = (snap = await SnapAsync(at, req.Heading, ct) ?? throw new ValidationException("lat", "No road within 50 m of this point.")).At;
         var issue = new Issue
         {
             Kind = kind, Subtype = req.Subtype, State = state, Source = req.Source ?? IssueSource.Report,
@@ -256,7 +260,7 @@ public sealed class IssueService(GimanoDbContext db, IEventPublisher bus, IssueD
     {
         var pt = p.ToPoint();
         var candidates = await db.RoadSegments.AsNoTracking().Where(s => s.Geom.IsWithinDistance(pt, SnapRadiusM))
-            .OrderBy(s => s.Geom.Distance(pt)).Take(8).ToListAsync(ct);
+            .OrderBy(s => s.Geom.Distance(pt)).Take(16).ToListAsync(ct);
         Snapped? best = null;
         var bestDist = double.MaxValue;
         foreach (var s in candidates)
@@ -313,13 +317,18 @@ public sealed class IssueService(GimanoDbContext db, IEventPublisher bus, IssueD
         var d = new Dictionary<string, string>();
         string? Str(string key, int max)
         {
-            var v = p?[key]?.GetValue<string>()?.Trim();
+            var v = (p?[key] is JsonValue sv ? (sv.TryGetValue<string>(out var t) ? t : sv.ToJsonString()) : null)?.Trim();
             if (v is null || v.Length == 0) return null;
             if (v.Length > max) throw new ValidationException($"payload.{key}", $"{key} is too long (max {max}).");
             if (TextFilter.Default.Check(v, rejectLinks: key != "website") != TextVerdict.Ok) throw new ValidationException($"payload.{key}", "Please keep it friendly.");
             return v;
         }
-        double? Num(string key) => p?[key] is JsonValue jv && jv.TryGetValue<double>(out var x) ? x : null;
+        // JSON numbers or numeric strings ("3.1196"): iOS sends strings.
+        double? Num(string key) => p?[key] is JsonValue jv
+            ? jv.TryGetValue<double>(out var x) ? x
+              : jv.TryGetValue<string>(out var str) && double.TryParse(str, NumberStyles.Float, CultureInfo.InvariantCulture, out var y) ? y
+              : throw new ValidationException($"payload.{key}", $"{key} must be a number.")
+            : null;
         string F(double x) => x.ToString("0.#####", CultureInfo.InvariantCulture);
 
         switch (kind)
@@ -365,7 +374,9 @@ public sealed class IssueService(GimanoDbContext db, IEventPublisher bus, IssueD
                 break;
             case IssueKind.NewRoad:
                 if (p?["trace"] is not JsonArray arr || arr.Count < 2) throw new ValidationException("payload.trace", "trace [[lat,lng],…] (only the new road) is required.");
-                var pts = arr.Select(e => e is JsonArray a && a.Count == 2 ? (a[0]!.GetValue<double>(), a[1]!.GetValue<double>()) : throw new ValidationException("payload.trace", "trace items are [lat,lng].")).Take(2000).ToList();
+                static double D(JsonNode? n) => n is JsonValue v && (v.TryGetValue<double>(out var x) || (v.TryGetValue<string>(out var t)
+                    && double.TryParse(t, NumberStyles.Float, CultureInfo.InvariantCulture, out x))) ? x : throw new ValidationException("payload.trace", "trace items are [lat,lng].");
+                var pts = arr.Select(e => e is JsonArray a && a.Count == 2 ? (D(a[0]), D(a[1])) : throw new ValidationException("payload.trace", "trace items are [lat,lng].")).Take(2000).ToList();
                 var trimmed = IssueRules.TrimTrace(pts);
                 if (trimmed.Count < 2) throw new ValidationException("payload.trace", "The trace must be longer than 400 m (200 m is trimmed at each end).");
                 d["trace"] = string.Join(';', trimmed.Select(t => $"{F(t.Lat)},{F(t.Lng)}"));
@@ -387,7 +398,12 @@ public sealed class IssueDirectory(IServiceScopeFactory scopes, TimeProvider clo
     public sealed record Snapshot(
         IReadOnlyList<RoadIssue> Exclusions, IReadOnlyList<RoadIssue> Warnings,
         IReadOnlyDictionary<string, Issue> PlaceBadges, IReadOnlySet<string> ClosedPlaces,
-        IReadOnlyDictionary<string, Issue> NavPoints, IReadOnlyDictionary<string, string> Hours, DateTimeOffset At);
+        IReadOnlyDictionary<string, Issue> NavPoints, IReadOnlyDictionary<string, string> Hours, DateTimeOffset At,
+        IReadOnlySet<string>? ClosedNow = null)
+    {
+        /// <summary>Places that are shut right now: an open place_closed_temp (until its date) or a confirmed place_closed_perm.</summary>
+        public bool IsClosedNow(string placeId) => ClosedNow?.Contains(placeId) == true;
+    }
 
     private Snapshot? _snap;
     private readonly SemaphoreSlim _gate = new(1, 1);
@@ -443,7 +459,9 @@ public sealed class IssueDirectory(IServiceScopeFactory scopes, TimeProvider clo
             .GroupBy(i => i.PlaceId!).ToDictionary(g => g.Key, g => g.OrderByDescending(i => i.ConfirmedAt).First());
         var hours = place.Where(i => i.Kind == IssueKind.PlaceHoursWrong && i.State == IssueState.Confirmed && i.Payload.ContainsKey("openingHours"))
             .GroupBy(i => i.PlaceId!).ToDictionary(g => g.Key, g => g.OrderByDescending(i => i.ConfirmedAt).First().Payload["openingHours"]);
-        return new Snapshot(exclusions, warnings, badges, closed, nav, hours, clock.GetUtcNow());
+        var closedNow = place.Where(i => i.Kind == IssueKind.PlaceClosedTemp || (i.Kind == IssueKind.PlaceClosedPerm && i.State == IssueState.Confirmed))
+            .Select(i => i.PlaceId!).ToHashSet();
+        return new Snapshot(exclusions, warnings, badges, closed, nav, hours, clock.GetUtcNow(), closedNow);
     }
 
     public static PlaceBadge? Badge(Snapshot s, string placeId, string lang)

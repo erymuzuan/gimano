@@ -363,7 +363,7 @@ POST /issues/{id}/votes            (auth, signed)  {answer: "still"|"cleared"|"u
 | `place_info_wrong` | placeId | payload any of `name`, `category`, `phone`, `website`, `comment` |
 | `place_duplicate` | placeId | payload `duplicateOf` (place id) |
 
-Road reports snap to the nearest road segment within 30 m whose direction fits `heading` (400 Bad Request if none). A report of the
+Road reports snap to the nearest road segment within 50 m whose direction fits `heading` (400 Bad Request if none; 50 m because dual carriageways such as the E12 are mapped ~37 m apart). Coordinates in `payload` (`navLat`/`navLng`, `toLat`/`toLng`, odd-route ends, trace points) may be JSON numbers or numeric strings. A report of the
 same kind on the same segment / place (or within 50 m) while one is open is **merged**: it counts as a "still" vote and
 the existing issue is returned with `merged: true`. Limits: 30 reports and 20 answers per pseudonym per day; answers
 need `proximity` like place vetting (`cell` = geohash-6 around the issue, `withinM` ≤ 1000). One answer per pseudonym:
@@ -417,7 +417,8 @@ ignored ones), with `distanceAlongRouteM`.
 
 **Places**: `PlaceSummary.badge?` / `Place.badge?` = `{issueId, kind, state, label, until?}` for open `place_closed_perm`,
 `place_closed_temp`, `place_hours_wrong` (`label` in the request language: "Dilaporkan tutup · sahkan?", "Tutup sementara
-sehingga 2026-11-01", "Waktu mungkin berubah"). Confirmed `place_closed_perm` places are left out of `/search` and
+sehingga 2026-11-01", "Waktu mungkin berubah"). While a `place_closed_temp` is open (until its date) or a
+`place_closed_perm` is confirmed, `openNow` is `false` whatever the opening hours say. Confirmed `place_closed_perm` places are left out of `/search` and
 `/search/nearby`. `Place.navigationPoint?` = `{lat, lng, issueId}` (confirmed entrance correction; the display pin is
 unchanged).
 

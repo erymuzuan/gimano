@@ -199,6 +199,8 @@ public sealed class PostgresIntegrationIssueTests : IAsyncLifetime
         Assert.Contains("n77", snap.ClosedPlaces);
         Assert.Equal("Tutup kekal", IssueDirectory.Badge(snap, "n77", "ms")!.Label);
 
+        Assert.True(snap.IsClosedNow("n77"));   // openNow=false while closed
+
         // Two "masih buka" answers reopen it (spec: reopened by 2 votes).
         var r1 = await svc.VoteAsync(users[1].Id, a.Id, new IssueVoteRequest(IssueAnswer.Cleared, Near), default);
         Assert.Equal(IssueState.Confirmed, r1.State);
@@ -206,6 +208,15 @@ public sealed class PostgresIntegrationIssueTests : IAsyncLifetime
         Assert.Equal(IssueState.Refuted, r2.State);
         directory.Invalidate();
         Assert.DoesNotContain("n77", (await directory.GetAsync(default)).ClosedPlaces);
+        Assert.False((await directory.GetAsync(default)).IsClosedNow("n77"));
+
+        // A temporary closure (even before it's confirmed) makes the place "not open now" until its date.
+        await svc.CreateAsync(users[1].Id, new CreateIssueRequest(IssueKind.PlaceClosedTemp, null, Lat, Lng, null, "n77", null, null, IssueSource.PlaceEdit,
+            System.Text.Json.Nodes.JsonNode.Parse("""{"until":"2026-11-15"}""")!.AsObject()), "ms", default);
+        directory.Invalidate();
+        var s2 = await directory.GetAsync(default);
+        Assert.True(s2.IsClosedNow("n77"));
+        Assert.Equal("Tutup sementara sehingga 2026-11-15", IssueDirectory.Badge(s2, "n77", "ms")!.Label);
     }
 
     [Fact]

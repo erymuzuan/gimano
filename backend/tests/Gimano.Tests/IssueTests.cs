@@ -172,6 +172,37 @@ public class IssueRulesTests
         Assert.Empty(IssueRules.TrimTrace(trace.Take(30).ToList()));   // < 400 m: nothing left
     }
 
+    [Theory]
+    [InlineData("""{"navLat":3.1196,"navLng":101.6214}""")]
+    [InlineData("""{"navLat":"3.1196","navLng":"101.6214"}""")]
+    public void Entrance_coordinates_accept_numbers_and_numeric_strings(string json)
+    {
+        var p = IssueService.ValidatePayload(IssueKind.PlaceEntranceWrong, JsonNode.Parse(json)!.AsObject(), T0);
+        Assert.Equal("3.11960", p["navLat"].PadRight(7, '0'));
+        Assert.StartsWith("101.6214", p["navLng"]);
+    }
+
+    [Theory]
+    [InlineData("""{"toLat":3.1196,"toLng":101.6214}""")]
+    [InlineData("""{"toLat":"3.1196","toLng":"101.6214"}""")]
+    public void Turn_targets_accept_numbers_and_numeric_strings(string json)
+    {
+        var p = IssueService.ValidatePayload(IssueKind.TurnNotAllowed, JsonNode.Parse(json)!.AsObject(), T0);
+        Assert.StartsWith("3.1196", p["toLat"]);
+        Assert.StartsWith("101.6214", p["toLng"]);
+    }
+
+    [Fact]
+    public void Non_numeric_coordinates_are_rejected_and_strings_work_elsewhere()
+    {
+        Assert.Throws<ValidationException>(() => IssueService.ValidatePayload(IssueKind.PlaceEntranceWrong, JsonNode.Parse("""{"navLat":"abc","navLng":"101.6"}""")!.AsObject(), T0));
+        var odd = IssueService.ValidatePayload(IssueKind.OddRoute, JsonNode.Parse("""{"fromLat":"3.147851","fromLng":"101.615312"}""")!.AsObject(), T0);
+        Assert.Equal("3.15", odd["fromLat"]);
+        var trace = IssueService.ValidatePayload(IssueKind.NewRoad, new JsonObject { ["trace"] = new JsonArray(Enumerable.Range(0, 60)
+            .Select(k => (JsonNode)new JsonArray((3.1 + k * 0.0002).ToString(System.Globalization.CultureInfo.InvariantCulture), "101.6")).ToArray()) }, T0);
+        Assert.Contains(';', trace["trace"]);
+    }
+
     [Fact]
     public void Payloads_are_validated_and_normalised()
     {

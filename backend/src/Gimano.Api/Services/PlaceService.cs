@@ -65,7 +65,7 @@ public sealed class PlaceService(GimanoDbContext db, PlaceSearchIndex index, Tim
         var s = await issues.GetAsync(ct);
         if (s.PlaceBadges.Count == 0) return results.ToList();
         return results.Where(r => !s.ClosedPlaces.Contains(r.Id))
-            .Select(r => IssueDirectory.Badge(s, r.Id, lang) is { } b ? r with { Badge = b } : r).ToList();
+            .Select(r => IssueDirectory.Badge(s, r.Id, lang) is { } b ? r with { Badge = b, OpenNow = s.IsClosedNow(r.Id) ? false : r.OpenNow } : r).ToList();
     }
 
     public async Task<IReadOnlyList<PlaceSummary>> NearbyAsync(GeoPoint at, PlaceCategory? category, double radiusM, int limit, Guid? viewer, CancellationToken ct, string lang = "en")
@@ -105,7 +105,9 @@ public sealed class PlaceService(GimanoDbContext db, PlaceSearchIndex index, Tim
         return dto with
         {
             Badge = IssueDirectory.Badge(s, id, lang), NavigationPoint = nav,
-            OpeningHours = hours, OpenNow = hours == dto.OpeningHours ? dto.OpenNow : OpeningHours.IsOpen(hours, local),
+            OpeningHours = hours,
+            // Temporarily (or confirmed permanently) closed: not open now, whatever the hours say.
+            OpenNow = s.IsClosedNow(id) ? false : hours == dto.OpeningHours ? dto.OpenNow : OpeningHours.IsOpen(hours, local),
         };
     }
 
