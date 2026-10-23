@@ -79,6 +79,7 @@ fun SettingsScreen(s: AppSettings, vm: MainViewModel, fallback: Boolean, display
             // Developer settings: debug builds only.
             if (BuildConfig.DEBUG) {
                 SwitchRow(stringResource(R.string.simulate_drive), stringResource(R.string.simulate_drive_desc), s.simulateDrive, vm::setSimulate)
+                SwitchRow(stringResource(R.string.simulate_detour), stringResource(R.string.simulate_detour_desc), s.simulateDetour, vm::setSimulateDetour)
                 Section(stringResource(R.string.server_url))
                 TextSetting(null, s.apiBaseUrl, onApply = vm::setApiBaseUrl)
                 Section(stringResource(R.string.map_style))

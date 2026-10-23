@@ -26,27 +26,38 @@ class DeviationTracker {
         /** Only the next stretch of the old route counts as "rejoining". */
         const val LOOKAHEAD_M = 3_000.0
         const val SEGMENT_INTO_M = 30.0
+        const val REJOIN_PAST_M = 150.0
     }
 
     private var candidate: Deviation? = null
     private var oldRoute: RouteGeometry? = null
     private var leftAlongM = 0.0
+    private var decisionAlongM = 0.0
     var confirmed: Deviation? = null
         private set
 
     fun reset() { candidate = null; oldRoute = null; confirmed = null }
 
     /**
-     * [alongM] = last on-route position along [route]; the segment reported is the one the route wanted next:
-     * [SEGMENT_INTO_M] past the decision point, with its direction.
+     * [alongM] = last on-route position along [route]. The decision point is the next manoeuvre if it is within
+     * [DECISION_M] ahead, else the previous one if it was passed within [DECISION_M] (off-route is noticed a few
+     * seconds after the turn). The segment reported is the one the route wanted: [SEGMENT_INTO_M] past that point.
      */
-    fun onLeftRoute(alongM: Double, distanceToNextManeuverM: Double, road: String?, route: RouteGeometry) {
+    fun onLeftRoute(
+        alongM: Double, distanceToNextManeuverM: Double, nextRoad: String?, route: RouteGeometry,
+        sinceLastManeuverM: Double? = null, lastRoad: String? = null,
+    ) {
         if (confirmed != null || candidate != null) return
-        if (distanceToNextManeuverM > DECISION_M) return
-        val (pt, bearing) = route.pointAt(alongM + distanceToNextManeuverM + SEGMENT_INTO_M)
-        candidate = Deviation(pt, bearing, road?.takeIf { it.isNotBlank() }, route.pointAt(alongM + distanceToNextManeuverM).first)
+        val (decision, road) = when {
+            distanceToNextManeuverM <= DECISION_M -> (alongM + distanceToNextManeuverM) to nextRoad
+            sinceLastManeuverM != null && sinceLastManeuverM <= DECISION_M -> (alongM - sinceLastManeuverM) to lastRoad
+            else -> return
+        }
+        val (pt, bearing) = route.pointAt(decision + SEGMENT_INTO_M)
+        candidate = Deviation(pt, bearing, road?.takeIf { it.isNotBlank() }, route.pointAt(decision).first)
         oldRoute = route
         leftAlongM = alongM
+        decisionAlongM = decision
     }
 
     /** Returns the deviation the moment it is confirmed (once). */
@@ -54,10 +65,12 @@ class DeviationTracker {
         val c = candidate ?: return null
         val g = oldRoute ?: return null
         val from = g.segmentAt(leftAlongM)
-        val endSeg = if (leftAlongM + LOOKAHEAD_M >= g.lengthM) g.points.size - 2 else g.segmentAt(leftAlongM + LOOKAHEAD_M)
+        val endSeg = if (decisionAlongM + LOOKAHEAD_M >= g.lengthM) g.points.size - 2 else g.segmentAt(decisionAlongM + LOOKAHEAD_M)
         val window = endSeg - from + 1
         val snap = g.snap(p, from + 2, window.coerceAtLeast(1))
-        if (snap != null && snap.distanceFromRouteM <= REJOIN_M && snap.distanceAlongM >= leftAlongM - 20) {
+        // Rejoined = back on the old route clearly past the decision point (a slip road that runs beside the road the
+        // driver stayed on must not count as rejoining).
+        if (snap != null && snap.distanceFromRouteM <= REJOIN_M && snap.distanceAlongM >= decisionAlongM + REJOIN_PAST_M) {
             candidate = null; oldRoute = null      // rejoined: the driver just took a shortcut back
             return null
         }
@@ -98,4 +111,15 @@ class RecentTrace(private val maxM: Double = 1_500.0, private val stepM: Double 
     fun points(): List<GeoPoint> = pts.toList()
     fun lengthM(): Double = total
     fun clear() { pts.clear(); gaps.clear(); total = 0.0 }
+}
+
+/** Debug "Simulate a detour": follow the route to the first turn ≥ 300 m in, then carry straight on for 900 m. */
+object SimDetour {
+    fun geometry(route: RouteGeometry, maneuverAlongM: List<Double>): RouteGeometry {
+        val turnAt = maneuverAlongM.firstOrNull { it >= 300 && it < route.lengthM - 50 } ?: (route.lengthM / 2)
+        val head = route.slice(0.0, turnAt)
+        val bearing = route.pointAt((turnAt - 20).coerceAtLeast(0.0)).second
+        val tail = (1..18).map { GeoMath.offset(head.last(), bearing, it * 50.0) }
+        return RouteGeometry(head + tail)
+    }
 }

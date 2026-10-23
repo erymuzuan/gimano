@@ -227,6 +227,9 @@ val DEFAULT_POINT = GeoPoint(3.1340, 101.6865)
 
 @OptIn(FlowPreview::class)
 class MainViewModel(private val c: AppContainer) : ViewModel() {
+    // Declared before the init block: refreshAccount() starts in init and can reach migrateLegacy() without
+    // suspending (demo data answers at once), so the lock must already exist (startup NPE in 0.3.1-dev).
+    private val migrationLock = kotlinx.coroutines.sync.Mutex()
     val container: AppContainer get() = c
     private val repo = c.repo
     private val local = c.local
@@ -302,7 +305,6 @@ class MainViewModel(private val c: AppContainer) : ViewModel() {
     }
 
     /** One-time: pull any server-side favourites/recents into the device, then delete them there. */
-    private val migrationLock = kotlinx.coroutines.sync.Mutex()
 
     private suspend fun migrateLegacy() = migrationLock.withLock {
         if (settings.current.legacyMigrated || repo.isDemo) return@withLock
@@ -611,7 +613,7 @@ class MainViewModel(private val c: AppContainer) : ViewModel() {
         if (!s.active) { navWasActive = false; return }
         if (!_ui.value.issuesAvailable || s.arrived) return
         val me = s.fix?.point ?: return
-        if (s.fix.simulated && !repo.isDemo) return
+        if (s.fix.simulated && !repo.isDemo && !debugSim()) return
         val now = System.currentTimeMillis()
         val moved = navIssuesAt?.let { GeoMath.distanceM(it, me) } ?: Double.MAX_VALUE
         if (moved > 1_500 || now - navIssuesMs > 180_000) {
@@ -652,12 +654,12 @@ class MainViewModel(private val c: AppContainer) : ViewModel() {
         // A turn is reported at the junction with where the route wanted to go; the rest at the segment not taken.
         val turn = kind == my.gimano.app.data.model.IssueKind.TURN_NOT_ALLOWED
         val at = if (turn) d.junction else d.point
-        val payload = buildMap {
-            d.road?.let { put("roadName", it) }
-            if (turn) { put("toLat", "%.5f".format(java.util.Locale.US, d.point.lat)); put("toLng", "%.5f".format(java.util.Locale.US, d.point.lng)) }
+        val payload = kotlinx.serialization.json.buildJsonObject {
+            d.road?.let { put("roadName", kotlinx.serialization.json.JsonPrimitive(it)) }
+            if (turn) { put("toLat", kotlinx.serialization.json.JsonPrimitive(round5(d.point.lat))); put("toLng", kotlinx.serialization.json.JsonPrimitive(round5(d.point.lng))) }
         }
         sendIssue(CreateIssueRequest(kind, lat = round5(at.lat), lng = round5(at.lng), heading = d.heading, vehicle = settings.current.vehicle,
-            source = "deviation", payload = jsonOf(payload)), R.string.issue_sent)
+            source = "deviation", payload = payload.takeIf { it.isNotEmpty() }), R.string.issue_sent)
     }
 
     /** "Masih ditutup?" answers: still | cleared | unsure. */
@@ -694,10 +696,12 @@ class MainViewModel(private val c: AppContainer) : ViewModel() {
     }
 
     /** "Cadangkan suntingan": a place issue with its payload (until / openingHours / navLat+navLng / comment). */
-    fun reportPlaceIssue(kind: String, payload: Map<String, String>? = null, at: GeoPoint? = null) {
+    fun reportPlaceIssue(kind: String, payload: Map<String, String>? = null, at: GeoPoint? = null) = reportPlaceIssueJson(kind, jsonOf(payload), at)
+
+    private fun reportPlaceIssueJson(kind: String, payload: kotlinx.serialization.json.JsonObject?, at: GeoPoint? = null) {
         val p = _ui.value.place?.summary ?: return
         val pt = at ?: GeoPoint(p.lat, p.lng)
-        sendIssue(CreateIssueRequest(kind, lat = round5(pt.lat), lng = round5(pt.lng), placeId = p.id, source = "place_edit", payload = jsonOf(payload)), R.string.issue_sent) {
+        sendIssue(CreateIssueRequest(kind, lat = round5(pt.lat), lng = round5(pt.lng), placeId = p.id, source = "place_edit", payload = payload), R.string.issue_sent) {
             loadPlaceIssues(p.id, GeoPoint(p.lat, p.lng))
         }
     }
@@ -946,8 +950,11 @@ class MainViewModel(private val c: AppContainer) : ViewModel() {
             }
             SearchPurpose.ENTRANCE -> {
                 _ui.update { it.copy(screen = Screen.PlaceCard) }
-                reportPlaceIssue(my.gimano.app.data.model.IssueKind.PLACE_ENTRANCE_WRONG,
-                    mapOf("navLat" to "%.6f".format(java.util.Locale.US, p.lat), "navLng" to "%.6f".format(java.util.Locale.US, p.lng), "kind" to "entrance"))
+                // navLat/navLng are JSON numbers (docs/api.md); the server rejects strings.
+                reportPlaceIssueJson(my.gimano.app.data.model.IssueKind.PLACE_ENTRANCE_WRONG, kotlinx.serialization.json.buildJsonObject {
+                    put("navLat", kotlinx.serialization.json.JsonPrimitive(round5(p.lat))); put("navLng", kotlinx.serialization.json.JsonPrimitive(round5(p.lng)))
+                    put("kind", kotlinx.serialization.json.JsonPrimitive("entrance"))
+                })
             }
             SearchPurpose.SET_ORIGIN -> {
                 _ui.update { it.copy(screen = Screen.RoutePreview) }
@@ -1152,7 +1159,7 @@ class MainViewModel(private val c: AppContainer) : ViewModel() {
     /** The user's own position for routing: a fix no older than 2 min, else null. Never the camera centre. */
     private fun gpsFix(nowMs: Long = System.currentTimeMillis()): RouteOrigin.Gps {
         val f = nav.value.fix ?: _ui.value.myLocation
-        if (f != null && f.simulated && !repo.isDemo) return RouteOrigin.Gps.None
+        if (f != null && f.simulated && !repo.isDemo && !debugSim()) return RouteOrigin.Gps.None
         return RouteOrigin.classify(f?.point, f?.timeMs, nowMs)
     }
 
@@ -1395,11 +1402,12 @@ class MainViewModel(private val c: AppContainer) : ViewModel() {
         }
         val plan = _ui.value.plan ?: return
         // Never turn-by-turn from a point that isn't the live GPS position (chosen start → "Pandu ke … dahulu").
-        if (plan.goAction != GoAction.NAVIGATE) return
+        if (goActionFor(plan) != GoAction.NAVIGATE) return
         val route = plan.selected ?: return
         // Release: never fake a drive just because GPS has no fix yet (debug keeps that for desk testing).
         val simulate = repo.isDemo || settings.current.simulateDrive || (my.gimano.app.BuildConfig.DEBUG && _ui.value.myLocation == null)
-        c.navigation.start(route.copy(vehicle = route.vehicle ?: plan.mode.wire), plan.destination, plan.request, simulate, plan.stops)
+        c.navigation.start(route.copy(vehicle = route.vehicle ?: plan.mode.wire), plan.destination, plan.request, simulate, plan.stops,
+            detour = simulate && my.gimano.app.BuildConfig.DEBUG && settings.current.simulateDetour)
         _ui.update { it.copy(screen = Screen.Navigating, following = true, navExpanded = false, plan = plan.copy(countdownRunning = false)) }
     }
 
@@ -1535,6 +1543,14 @@ class MainViewModel(private val c: AppContainer) : ViewModel() {
         }
     }
     fun setSimulate(v: Boolean) = viewModelScope.launch { settings.setSimulateDrive(v) }
+    fun setSimulateDetour(v: Boolean) = viewModelScope.launch { settings.setSimulateDetour(v) }
+
+    /** Debug builds with "Simulate drive": simulated positions count as the user's, and a chosen start can be driven. */
+    private fun debugSim() = my.gimano.app.BuildConfig.DEBUG && settings.current.simulateDrive
+
+    /** What "Go" does for [plan] (debug simulation may drive from a chosen start; release never does). */
+    fun goActionFor(plan: RoutePlan): GoAction =
+        if (debugSim() && plan.originSource == OriginSource.CHOSEN && plan.goAction == GoAction.DRIVE_TO_START) GoAction.NAVIGATE else plan.goAction
     fun setVoiceLang(v: String) = viewModelScope.launch { settings.setVoiceLang(v) }
     fun setSoundMode(v: SoundMode) = viewModelScope.launch { settings.setSoundMode(v) }
     fun setUse24h(v: Boolean) = viewModelScope.launch { settings.setUse24h(v) }

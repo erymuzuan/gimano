@@ -88,7 +88,7 @@ fun PickOnMapOverlay(pick: PickState, vm: MainViewModel, purpose: my.gimano.app.
             Text(listOfNotNull(pick.area, fromYou).joinToString(" · "),
                 fontSize = 13.sp, fontWeight = FontWeight.ExtraBold, color = c.textMuted, maxLines = 2)
             if (pick.loading) LinearProgressIndicator(Modifier.fillMaxWidth().height(2.dp), color = c.brand, trackColor = c.surfaceAlt)
-            pick.nearPoi?.let { poi ->
+            pick.nearPoi?.takeIf { !entrance }?.let { poi ->
                 Text(stringResource(R.string.pick_is_this, poi.name, Formatters.distance(poi.distanceM ?: 0.0)),
                     Modifier.clip(RoundedCornerShape(999.dp)).background(c.brandMist).clickable(onClick = vm::pickPoi).padding(horizontal = 12.dp, vertical = 8.dp),
                     fontSize = 13.sp, fontWeight = FontWeight.Black, color = c.brandInk)
@@ -115,7 +115,7 @@ fun PinActionsSheet(pin: PinSel, vm: MainViewModel, modifier: Modifier = Modifie
         Box(Modifier.align(Alignment.CenterHorizontally).size(40.dp, 5.dp).clip(RoundedCornerShape(99.dp)).background(c.outline))
         Row(verticalAlignment = Alignment.Bottom) {
             Text(p.name, Modifier.weight(1f), fontSize = 20.sp, fontWeight = FontWeight.Black, color = c.text, maxLines = 2)
-            val trip = listOfNotNull(pin.etaS?.let { Formatters.duration(it, my.gimano.app.ui.report.currentLang()) }, (pin.routeM ?: p.distanceM)?.let { Formatters.distance(it) }).joinToString(" · ")
+            val trip = listOfNotNull(pin.etaS?.let { Formatters.duration(it, my.gimano.app.ui.report.currentLang()) }, (pin.routeM ?: p.distanceM?.takeIf { vm.myFreshLocation() != null })?.let { Formatters.distance(it) }).joinToString(" · ")
             if (trip.isNotEmpty()) Text(trip, fontSize = 14.sp, fontWeight = FontWeight.ExtraBold, color = c.textMuted)
         }
         if (p.address.isNotBlank()) Text(p.address, fontSize = 13.sp, fontWeight = FontWeight.ExtraBold, color = c.textMuted, maxLines = 2)

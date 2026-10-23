@@ -54,6 +54,14 @@ class RemoteRepository(
                 settings.saveAuth(r.token, r.userId ?: id.userId, r.displayName ?: id.displayName ?: settings.current.displayName)
                 return@withContext
             } catch (e: HttpException) {
+                // 401 = this server doesn't know the key (a fresh/reset server, or a dev build pointed at another
+                // server): register the same key there. A key it does know answers 409 and the 401 stands.
+                if (e.code() == 401) {
+                    val r = try { api.authRegister(RegisterRequest(identity.publicKeyB64(), "android", locale())) } catch (e2: HttpException) { throw e }
+                    settings.saveAuth(r.token, r.userId, r.displayName)
+                    identity.markRegistered(r.userId, r.displayName)
+                    return@withContext
+                }
                 if (!e.missingEndpoint()) throw e
             }
         } else {

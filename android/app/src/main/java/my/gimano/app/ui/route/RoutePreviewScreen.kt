@@ -124,7 +124,7 @@ fun RoutePreviewOverlay(plan: RoutePlan, settings: AppSettings, vm: MainViewMode
                     }
                 }
                 Spacer(Modifier.height(16.dp))
-                if (plan.goAction == GoAction.DRIVE_TO_START) {
+                if (vm.goActionFor(plan) == GoAction.DRIVE_TO_START) {
                     // Design LaluanMulaLain: turn-by-turn can't begin away from the phone, so drive to the start first.
                     val start = plan.originName ?: ""
                     Button(onClick = vm::driveToStart, modifier = Modifier.fillMaxWidth().height(56.dp), shape = RoundedCornerShape(Radius.md),
@@ -139,7 +139,7 @@ fun RoutePreviewOverlay(plan: RoutePlan, settings: AppSettings, vm: MainViewMode
                 } else Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
                     BigIconButton("add_stop", stringResource(R.string.add_stop), enabled = plan.stops.size < RouteLegs.MAX_STOPS, onClick = vm::addStopInPreview)
                     BigIconButton("recent", stringResource(R.string.plan_this_drive), enabled = !plan.loading && !plan.error, onClick = vm::planThisDrive)
-                    GoNowButton(plan, Modifier.weight(1f), onGo = vm::startNavigation)
+                    GoNowButton(plan, Modifier.weight(1f), vm.goActionFor(plan), onGo = vm::startNavigation)
                 }
             }
         }
@@ -381,10 +381,10 @@ private fun RouteInfo(r: Route, plan: RoutePlan, vm: MainViewModel) {
 
 /** Primary button that fills left→right as a countdown and auto-starts navigation. */
 @Composable
-private fun GoNowButton(plan: RoutePlan, modifier: Modifier, onGo: () -> Unit) {
+private fun GoNowButton(plan: RoutePlan, modifier: Modifier, goAction: GoAction = plan.goAction, onGo: () -> Unit) {
     val c = Gimano.colors
     val progress = remember { Animatable(0f) }
-    val enabled = plan.goAction == GoAction.NAVIGATE
+    val enabled = goAction == GoAction.NAVIGATE
     LaunchedEffect(plan.countdownRunning, plan.selectedId, plan.loading) {
         if (plan.countdownRunning && enabled) {
             progress.snapTo(0f)

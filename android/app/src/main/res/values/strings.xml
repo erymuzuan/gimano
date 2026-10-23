@@ -693,4 +693,6 @@
     <string name="backup_dest_file">file</string>
     <string name="auto_start_nav">Start navigation automatically</string>
     <string name="auto_start_nav_desc">After 10 s on the route preview, for Home, Work, favourites, recent places and planned drives. Never after a search.</string>
+    <string name="simulate_detour">Simulate a detour</string>
+    <string name="simulate_detour_desc">The simulated drive goes straight on at the first turn (debug).</string>
 </resources>

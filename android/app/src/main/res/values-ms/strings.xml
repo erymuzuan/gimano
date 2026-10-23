@@ -692,4 +692,6 @@
     <string name="backup_dest_file">fail</string>
     <string name="auto_start_nav">Mula navigasi secara automatik</string>
     <string name="auto_start_nav_desc">Selepas 10 s pada pratonton laluan, untuk Rumah, Kerja, kegemaran, tempat terkini dan perjalanan dirancang. Tidak selepas carian.</string>
+    <string name="simulate_detour">Simulasi lencongan</string>
+    <string name="simulate_detour_desc">Pemanduan simulasi terus lurus pada belokan pertama (nyahpepijat).</string>
 </resources>
