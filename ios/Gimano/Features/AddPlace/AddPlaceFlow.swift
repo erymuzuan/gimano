@@ -289,12 +289,12 @@ struct AddPlaceFlow: View {
                     ForEach(AddPlaceCategories.all, id: \.0) { cat, title in
                         Button { category = cat } label: {
                             VStack(spacing: 4) {
-                                GimanoIcon(icon: cat.tileIcon, size: 34, stroke: category == cat ? .brandOn : .brandInk, fill: category == cat ? .brandOn : .brandTint)
+                                GimanoIcon(icon: cat.tileIcon, size: 34)
                                 Text(title).font(Tokens.Font.small).lineLimit(1)
                             }
-                            .foregroundStyle(category == cat ? Color.brandOn : Color.brandInk)
+                            .foregroundStyle(Color.brandInk)
                             .frame(maxWidth: .infinity, minHeight: 72)
-                            .background(category == cat ? Color.brand : Color.brandMist, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+                            .selectableTile(category == cat, radius: 18)
                         }
                         .buttonStyle(.plain)
                         .accessibilityIdentifier("category.\(cat.rawValue)")

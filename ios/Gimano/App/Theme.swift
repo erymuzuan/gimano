@@ -15,6 +15,15 @@ enum ThemeMode: String, CaseIterable, Identifiable, Sendable {
         }
     }
 
+    var subtitle: LocalizedStringKey {
+        switch self {
+        case .light: "Default"
+        case .dark: "For night"
+        case .system: "System mode"
+        case .auto: "Switches at sunset"
+        }
+    }
+
     var systemImage: String {
         switch self {
         case .light: "sun.max.fill"

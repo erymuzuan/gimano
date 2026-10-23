@@ -7,7 +7,7 @@ import GRDB
 ///
 /// Versioning uses `PRAGMA user_version` (not GRDB's migrator table) so a snapshot contains only the shared tables.
 final class LocalStore: Sendable {
-    static let schemaVersion = 1
+    static let schemaVersion = 2
 
     /// Schema v1, verbatim from docs/privacy-and-backup.md.
     static let schemaV1 = """
@@ -48,8 +48,17 @@ final class LocalStore: Sendable {
       attempts INTEGER NOT NULL DEFAULT 0, next_attempt_at TEXT NOT NULL);
     """
 
+    /// Schema v2: the contributor pseudonym's signing key (docs/privacy-and-backup.md, identity-and-reputation.md).
+    /// `seed_b64` is wrapped with a device-only Keychain key here (`kc1:` prefix); backups carry the raw base64 seed.
+    static let schemaV2 = """
+    CREATE TABLE identity (
+      user_id TEXT PRIMARY KEY, display_name TEXT,
+      seed_b64 TEXT NOT NULL,
+      created_at TEXT NOT NULL);
+    """
+
     /// Tables included in backups (everything except the device-local outbox).
-    static let backedUpTables = ["saved_places", "recents", "private_places", "private_place_photos", "planned_drives", "settings"]
+    static let backedUpTables = ["saved_places", "recents", "private_places", "private_place_photos", "planned_drives", "settings", "identity"]
     static let maxRecents = 50
 
     let dbQueue: DatabaseQueue
@@ -86,7 +95,9 @@ final class LocalStore: Sendable {
             if version < 1 {
                 try db.execute(sql: schemaV1)
             }
-            // Future: if version < 2 { … }
+            if version < 2 {
+                try db.execute(sql: schemaV2)
+            }
             if version < schemaVersion {
                 try db.execute(sql: "PRAGMA user_version = \(schemaVersion)")
             }
@@ -278,6 +289,32 @@ final class LocalStore: Sendable {
     /// File URL for a `file_name` stored as "photos/<id>.webp".
     func photoURL(_ fileName: String) -> URL {
         photosDirectory.appendingPathComponent((fileName as NSString).lastPathComponent)
+    }
+
+    // MARK: identity (single row)
+
+    func identity() throws -> StoredIdentity? {
+        try dbQueue.read { db in
+            guard let row = try Row.fetchOne(db, sql: "SELECT user_id, display_name, seed_b64, created_at FROM identity ORDER BY created_at DESC LIMIT 1"),
+                  let seed = SeedVault.unwrap(row["seed_b64"]), let keys = IdentityKeys(seed: seed) else { return nil }
+            return StoredIdentity(userId: row["user_id"], displayName: row["display_name"], keys: keys, createdAt: row["created_at"])
+        }
+    }
+
+    func saveIdentity(_ id: StoredIdentity) throws {
+        try dbQueue.write { db in
+            try db.execute(sql: "DELETE FROM identity")
+            try db.execute(sql: "INSERT INTO identity (user_id, display_name, seed_b64, created_at) VALUES (?, ?, ?, ?)",
+                           arguments: [id.userId.lowercased(), id.displayName, SeedVault.wrap(id.keys.seed), id.createdAt])
+        }
+    }
+
+    func setIdentityDisplayName(_ name: String?) throws {
+        try dbQueue.write { db in try db.execute(sql: "UPDATE identity SET display_name = ?", arguments: [name]) }
+    }
+
+    func deleteIdentity() throws {
+        try dbQueue.write { db in try db.execute(sql: "DELETE FROM identity") }
     }
 
     // MARK: settings

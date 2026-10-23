@@ -4,3 +4,8 @@ DerivedData/
 build/
 .DS_Store
 Config/Google.xcconfig
+
+# App Store Connect API key (TestFlight)
+Config/asc.env
+*.p8
+build/

@@ -28,20 +28,26 @@ struct DriveView: View {
                     }
                     if model.driveShare != nil {
                         HStack {
-                            Button { model.showShareSheet = true } label: {
-                                Label("Sharing", systemImage: "dot.radiowaves.left.and.right")
-                                    .font(Tokens.Font.label)
-                                    .foregroundStyle(Color.brandOn)
-                                    .padding(.horizontal, 12).padding(.vertical, 8)
-                                    .background(Color.brand, in: Capsule())
+                            // One coral chip: "● Sharing | Stop" (board "Kongsi perjalanan").
+                            HStack(spacing: 0) {
+                                Button { model.showShareSheet = true } label: {
+                                    HStack(spacing: 8) {
+                                        Circle().fill(Color.white).frame(width: 8, height: 8)
+                                        Text("Sharing").font(Tokens.Font.label)
+                                    }
+                                    .padding(.leading, 14).padding(.trailing, 10).frame(height: 40)
+                                }
+                                .accessibilityIdentifier("sharingChip")
+                                Rectangle().fill(Color.white.opacity(0.4)).frame(width: 1, height: 20)
+                                Button { model.stopSharing() } label: {
+                                    Text("Stop").font(Tokens.Font.label).padding(.leading, 10).padding(.trailing, 14).frame(height: 40)
+                                }
+                                .accessibilityLabel(Text("Stop sharing"))
+                                .accessibilityIdentifier("stopSharingChip")
                             }
-                            .accessibilityIdentifier("sharingChip")
-                            Button { model.stopSharing() } label: {
-                                Image(systemName: "xmark").font(.system(size: 13, weight: .bold)).foregroundStyle(Color.brandOn)
-                                    .frame(width: 32, height: 32).background(Color.brandInk, in: Circle())
-                            }
-                            .accessibilityLabel(Text("Stop sharing"))
-                            .accessibilityIdentifier("stopSharingChip")
+                            .foregroundStyle(Color.white)
+                            .background(Color.report, in: Capsule())
+                            .shadow(color: .black.opacity(0.15), radius: 6, y: 2)
                             Spacer()
                         }
                         .padding(.horizontal, 12)
@@ -422,6 +428,34 @@ struct ShareDriveSheet: View {
     @Environment(\.dismiss) private var dismiss
     let session: DriveShareSession
     let nav: NavigationSession
+    @State private var copied = false
+    @Environment(\.openURL) private var openURL
+
+    private var message: String {
+        ShareCrypto.message(destination: nav.destination.name, eta: ETAFormatter.arrivalTime(remainingS: nav.remainingS), link: session.link)
+    }
+
+    private func tileLabel(_ title: LocalizedStringKey, system: String, tint: Color) -> some View {
+        VStack(spacing: 6) {
+            Image(systemName: system).font(.system(size: 26, weight: .bold)).foregroundStyle(.white)
+                .frame(width: 52, height: 52)
+                .background(tint, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+            Text(title).font(Tokens.Font.small).foregroundStyle(Color.textPrimary).lineLimit(1).minimumScaleFactor(0.8)
+        }
+        .frame(maxWidth: .infinity, minHeight: 78)
+    }
+
+    /// Opens a messaging app with the message pre-filled (falls back to the share sheet if it isn't installed).
+    private func appTile(_ title: LocalizedStringKey, system: String, tint: Color, url: String, id: String) -> some View {
+        Button {
+            let encoded = message.addingPercentEncoding(withAllowedCharacters: .alphanumerics) ?? ""
+            if let u = URL(string: url + encoded) {
+                openURL(u) { ok in if !ok { UIPasteboard.general.string = message; model.showToast(String(localized: "Link copied")) } }
+            }
+        } label: { tileLabel(title, system: system, tint: tint) }
+            .buttonStyle(.plain)
+            .accessibilityIdentifier(id)
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -435,17 +469,36 @@ struct ShareDriveSheet: View {
                         .font(Tokens.Font.caption).foregroundStyle(Color.textMuted)
                 }
             }
+            Text(verbatim: message)
+                .font(Tokens.Font.caption)
+                .foregroundStyle(Color.textPrimary)
+                .lineLimit(4)
+                .padding(14)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(Color.surfaceAlt, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+            HStack(spacing: 10) {
+                appTile("WhatsApp", system: "message.fill", tint: Color(uiColor: UIColor(hex: 0x25D366)),
+                        url: "whatsapp://send?text=", id: "shareWhatsApp")
+                appTile("Telegram", system: "paperplane.fill", tint: Color(uiColor: UIColor(hex: 0x229ED9)),
+                        url: "tg://msg?text=", id: "shareTelegram")
+                appTile("SMS", system: "bubble.left.fill", tint: .brand, url: "sms:&body=", id: "shareSMS")
+                Button {
+                    UIPasteboard.general.string = message
+                    copied = true
+                    model.showToast(String(localized: "Link copied"))
+                } label: { tileLabel("Copy", system: copied ? "checkmark" : "doc.on.doc.fill", tint: .brandInk) }
+                    .buttonStyle(.plain)
+                    .accessibilityIdentifier("shareCopy")
+            }
+            ShareLink(item: message) {
+                Label("More apps…", systemImage: "square.and.arrow.up")
+            }
+            .buttonStyle(SecondaryButtonStyle())
+            .accessibilityIdentifier("sendShareLink")
             Label("End-to-end encrypted: only people with the link can see your position. Gimano's server can't read it.",
                   systemImage: "lock.fill")
                 .font(Tokens.Font.caption)
                 .foregroundStyle(Color.textMuted)
-            ShareLink(item: ShareCrypto.message(destination: nav.destination.name,
-                                                eta: ETAFormatter.arrivalTime(remainingS: nav.remainingS),
-                                                link: session.link)) {
-                Label("Send link", systemImage: "square.and.arrow.up")
-            }
-            .buttonStyle(PrimaryButtonStyle())
-            .accessibilityIdentifier("sendShareLink")
             Text(verbatim: session.link.absoluteString)
                 .font(.system(size: 1)).opacity(0.01)
                 .accessibilityIdentifier("shareLink")

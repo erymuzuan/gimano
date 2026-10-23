@@ -164,9 +164,16 @@ struct BackupService: Sendable {
         try store.dbQueue.writeWithoutTransaction { db in
             try db.execute(sql: "VACUUM INTO ?", arguments: [snapshot.path])
         }
+        let rawIdentity = try store.identity()
         let snap = try DatabaseQueue(path: snapshot.path)
         try snap.writeWithoutTransaction { db in
             try db.execute(sql: "DROP TABLE IF EXISTS outbox")
+            // The seed leaves this phone only inside the user's own backup, as a raw base64 seed (portable across
+            // platforms); the backup's passphrase encryption is what protects it.
+            if let rawIdentity {
+                try db.execute(sql: "UPDATE identity SET seed_b64 = ? WHERE user_id = ?",
+                               arguments: [Data(rawIdentity.keys.seed).base64EncodedString(), rawIdentity.userId])
+            }
             try db.execute(sql: "PRAGMA user_version = \(LocalStore.schemaVersion)")
             try db.execute(sql: "VACUUM")
         }
@@ -322,6 +329,13 @@ struct BackupService: Sendable {
                     try db.execute(sql: """
                         DELETE FROM main.recents WHERE id NOT IN (SELECT id FROM main.recents ORDER BY last_used_at DESC LIMIT \(LocalStore.maxRecents))
                         """)
+                }
+                // Identity: the backup's pseudonym is restored (both modes), re-wrapped for this device.
+                if let row = try Row.fetchOne(db, sql: "SELECT user_id, display_name, seed_b64, created_at FROM b.identity ORDER BY created_at DESC LIMIT 1"),
+                   let seed = SeedVault.unwrap(row["seed_b64"]), seed.count == 32 {
+                    try db.execute(sql: "DELETE FROM main.identity")
+                    try db.execute(sql: "INSERT INTO main.identity (user_id, display_name, seed_b64, created_at) VALUES (?, ?, ?, ?)",
+                                   arguments: [(row["user_id"] as String).lowercased(), row["display_name"] as String?, SeedVault.wrap(seed), row["created_at"] as String])
                 }
                 return .commit
             }

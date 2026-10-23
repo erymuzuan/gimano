@@ -62,7 +62,13 @@ struct BackupView: View {
     var body: some View {
         @Bindable var backup = model.backup
         Form {
-            Section { PrivacyCard().listRowInsets(EdgeInsets()) }
+            Section {
+                statusCard.listRowInsets(EdgeInsets()).listRowBackground(Color.clear)
+            } footer: {
+                Label("Your places stay on your phone. Backups go straight to your own storage; Gimano can't read them.", systemImage: "lock.shield")
+                    .font(Tokens.Font.caption)
+                    .accessibilityIdentifier("privacyCard")
+            }
 
             Section("Back up to") {
                 HStack(spacing: 10) {
@@ -219,6 +225,41 @@ struct BackupView: View {
         }
     }
 
+    /// Board "Sandaran": big status card (last backup, where, size, locked or not).
+    private var statusCard: some View {
+        let at = model.backup.lastBackupAt
+        let kind: LocalizedStringKey = switch model.backup.destination {
+        case .icloud: "iCloud"
+        case .googleDrive: "Google Drive"
+        case .file: "File"
+        }
+        return HStack(spacing: 14) {
+            Image(systemName: at == nil ? "icloud.slash.fill" : "checkmark.icloud.fill")
+                .font(.system(size: 30, weight: .bold))
+                .foregroundStyle(at == nil ? Color.textMuted : Color.brand)
+                .frame(width: 56, height: 56)
+                .background(Color.brandMist, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+            VStack(alignment: .leading, spacing: 3) {
+                if let at {
+                    Text("Last backup: \(at.formatted(.relative(presentation: .named)))").font(Tokens.Font.bodyBold)
+                } else {
+                    Text("No backup yet").font(Tokens.Font.bodyBold)
+                }
+                HStack(spacing: 4) {
+                    Text(kind)
+                    if let size = model.backup.lastBackupSize { Text(verbatim: "· " + ByteCountFormatter.string(fromByteCount: size, countStyle: .file)) }
+                    if usePassphrase { Text("· locked") }
+                }
+                .font(Tokens.Font.caption).foregroundStyle(Color.textMuted)
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(16)
+        .background(Color.surface, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
+        .accessibilityElement(children: .combine)
+        .accessibilityIdentifier("backupStatusCard")
+    }
+
     private func destinationTile(_ kind: BackupDestinationKind, title: LocalizedStringKey, system: String) -> some View {
         let selected = backup.destination == kind
         return Button { model.backup.destination = kind } label: {
@@ -226,9 +267,9 @@ struct BackupView: View {
                 Image(systemName: system).font(.system(size: 30, weight: .semibold))
                 Text(title).font(Tokens.Font.label)
             }
-            .foregroundStyle(selected ? Color.brandOn : Color.brandInk)
-            .frame(maxWidth: .infinity, minHeight: 84)
-            .background(selected ? Color.brand : Color.brandMist, in: RoundedRectangle(cornerRadius: Tokens.Radius.shortcutTile, style: .continuous))
+            .foregroundStyle(Color.brandInk)
+            .frame(maxWidth: .infinity, minHeight: 96)
+            .selectableTile(selected, radius: Tokens.Radius.shortcutTile)
         }
         .buttonStyle(.plain)
         .accessibilityIdentifier("backupDestination.\(kind.rawValue)")

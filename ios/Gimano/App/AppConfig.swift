@@ -45,12 +45,21 @@ final class AppConfig {
         let plistStyle = (bundle.object(forInfoDictionaryKey: "GimanoMapStyleURL") as? String)?.trimmingCharacters(in: .whitespaces)
         bundleAPIBaseURL = (plistAPI?.isEmpty == false && !(plistAPI!.contains("$("))) ? plistAPI! : Self.fallbackAPIBaseURL
         bundleStyleURL = (plistStyle?.isEmpty == false && !(plistStyle!.contains("$("))) ? plistStyle! : Self.fallbackStyleURL
+        #if DEBUG
         apiBaseURLOverride = defaults.string(forKey: Keys.api) ?? ""
         styleURLOverride = defaults.string(forKey: Keys.style) ?? ""
         dataMode = DataMode(rawValue: defaults.string(forKey: Keys.mode) ?? "") ?? .auto
         simulateDrive = defaults.object(forKey: Keys.simulate) as? Bool ?? false
         simulationSpeedup = defaults.object(forKey: Keys.speedup) as? Double ?? 3
         applyLaunchArguments()
+        #else
+        // Release: no developer overrides; production server, demo data only when it's unreachable / 5xx.
+        apiBaseURLOverride = ""
+        styleURLOverride = ""
+        dataMode = .auto
+        simulateDrive = false
+        simulationSpeedup = 1
+        #endif
     }
 
     var apiBaseURL: URL {

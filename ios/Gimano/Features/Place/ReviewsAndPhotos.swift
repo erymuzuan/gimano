@@ -322,7 +322,11 @@ struct WriteReviewSheet: View {
                         }
                     }
                     .frame(maxWidth: .infinity)
-                    TextField(String(localized: "What was it like? (optional)"), text: $text, axis: .vertical)
+                    Text(StarWord.word(rating))
+                        .font(Tokens.Font.bodyBold).foregroundStyle(Color.brandInk)
+                        .frame(maxWidth: .infinity)
+                        .accessibilityIdentifier("ratingWord")
+                    TextField(String(localized: "Tell us about your visit"), text: $text, axis: .vertical)
                         .lineLimit(4...8)
                         .padding(14)
                         .background(Color.surfaceAlt, in: RoundedRectangle(cornerRadius: Tokens.Radius.md, style: .continuous))
@@ -455,6 +459,20 @@ struct MyContributionsView: View {
                     .padding(.horizontal, 8).padding(.vertical, 3)
                     .background(status == .published ? Color.brand : Color(uiColor: Tokens.Palette.traffic2), in: Capsule())
             }
+        }
+    }
+}
+
+/// The word under the stars (board "Tulis ulasan").
+enum StarWord {
+    static func word(_ rating: Int) -> LocalizedStringKey {
+        switch rating {
+        case 1: "Awful"
+        case 2: "Poor"
+        case 3: "Okay"
+        case 4: "Good"
+        case 5: "Excellent!"
+        default: "Tap a star"
         }
     }
 }

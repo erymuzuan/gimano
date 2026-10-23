@@ -26,8 +26,8 @@ settings:
     Debug:
       GIMANO_API_BASE_URL: "http://100.101.150.9:5080/api/v1/"
     Release:
-      # Placeholder until a production host exists; override in Debug settings or here.
-      GIMANO_API_BASE_URL: "http://localhost:5080/api/v1/"
+      # Production (ATS-strict, https). The live hub is derived: wss://gimano-api.bukitbunga.com/hubs/live
+      GIMANO_API_BASE_URL: "https://gimano-api.bukitbunga.com/api/v1/"
 
 packages:
   MapLibre:

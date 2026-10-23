@@ -103,12 +103,9 @@ struct IconPicker: View {
         LazyVGrid(columns: columns, spacing: 10) {
             ForEach(FavoriteIcon.pickable) { i in
                 Button { selection = i } label: {
-                    GimanoIcon(icon: i.gIcon, size: 32,
-                               stroke: selection == i ? .brandOn : .brandInk,
-                               fill: selection == i ? .brandOn : .brandTint)
-                        .frame(maxWidth: .infinity, minHeight: 56)
-                        .background(selection == i ? Color.brand : Color.brandMist,
-                                    in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+                    GimanoIcon(icon: i.gIcon, size: 32)
+                        .frame(maxWidth: .infinity, minHeight: 60)
+                        .selectableTile(selection == i, radius: 16)
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel(Text(i.rawValue))

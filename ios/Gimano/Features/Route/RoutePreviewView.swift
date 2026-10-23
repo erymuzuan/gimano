@@ -325,15 +325,12 @@ struct TravelModeTabs: View {
             ForEach(Vehicle.allCases) { v in
                 Button { selection = v } label: {
                     VStack(spacing: 2) {
-                        GimanoIcon(icon: v.gIcon, size: 34,
-                                   stroke: selection == v ? .brandOn : .brandInk,
-                                   fill: selection == v ? .brandOn : .brandTint)
+                        GimanoIcon(icon: v.gIcon, size: 34)
                         Text(v.shortTitle).font(Tokens.Font.nunito(12, .extrabold))
                     }
-                    .foregroundStyle(selection == v ? Color.brandOn : Color.brandInk)
+                    .foregroundStyle(Color.brandInk)
                     .frame(maxWidth: .infinity, minHeight: 64)
-                    .background(selection == v ? Color.brand : Color.brandMist,
-                                in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+                    .selectableTile(selection == v, radius: 18)
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel(Text(v.title))

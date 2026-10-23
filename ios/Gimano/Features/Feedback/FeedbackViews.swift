@@ -57,15 +57,12 @@ struct FeedbackForm: View {
                         ForEach(FeedbackCategory.allCases) { c in
                             Button { category = c } label: {
                                 VStack(spacing: 6) {
-                                    GimanoIcon(icon: c.gIcon, size: 40,
-                                               stroke: category == c ? .brandOn : .brandInk,
-                                               fill: category == c ? .brandOn : .brandTint)
+                                    GimanoIcon(icon: c.gIcon, size: 40)
                                     Text(c.title).font(Tokens.Font.label)
                                 }
-                                .foregroundStyle(category == c ? Color.brandOn : Color.brandInk)
+                                .foregroundStyle(Color.brandInk)
                                 .frame(maxWidth: .infinity, minHeight: 88)
-                                .background(category == c ? Color.brand : Color.brandMist,
-                                            in: RoundedRectangle(cornerRadius: Tokens.Radius.shortcutTile, style: .continuous))
+                                .selectableTile(category == c, radius: Tokens.Radius.shortcutTile, tint: c.tint, width: 3)
                             }
                             .buttonStyle(.plain)
                             .accessibilityIdentifier("feedbackCategory.\(c.rawValue)")
@@ -212,5 +209,17 @@ struct MyFeedbackView: View {
         }
         .accessibilityElement(children: .combine)
         .accessibilityIdentifier("feedbackRow")
+    }
+}
+
+extension FeedbackCategory {
+    /// Board tints: bug = red, idea = amber, other = grey, the rest cobalt.
+    var tint: Color {
+        switch self {
+        case .bug: Color(light: 0xFFE2E2, dark: 0x3A1A1E)
+        case .idea: Color(light: 0xFFF1CC, dark: 0x3A2E12)
+        case .other: Color(light: 0xEEF0F4, dark: 0x1E2636)
+        default: .brandMist
+        }
     }
 }

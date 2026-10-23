@@ -102,7 +102,7 @@ final class DriveBackupUITests: XCTestCase {
         XCTAssertTrue(backUp.isEnabled, "signed in to Google")
         shot("r-drive-signed-in")
         backUp.tap()
-        wait(app.staticTexts["lastBackup"], 90)
+        wait(app.staticTexts.matching(NSPredicate(format: "label == 'Backed up' OR label BEGINSWITH 'Last backup'")).firstMatch, 90)
         sleep(2)
         shot("r-drive-backed-up")
 

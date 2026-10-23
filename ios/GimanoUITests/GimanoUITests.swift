@@ -293,8 +293,8 @@ final class GimanoUITests: XCTestCase {
         app.secureTextFields["backupPassphrase"].tap()
         app.secureTextFields["backupPassphrase"].typeText("kampung-2026!")
         app.secureTextFields["backupPassphraseConfirm"].tap()
-        app.secureTextFields["backupPassphraseConfirm"].typeText("kampung-2026!")
-        for _ in 0..<5 where !selfTest.isHittable { app.swipeUp() }
+        app.secureTextFields["backupPassphraseConfirm"].typeText("kampung-2026!\n")
+        for _ in 0..<8 where !(selfTest.exists && selfTest.isHittable) { app.swipeUp() }
         selfTest.tap()
         let r2 = app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH 'PASS encrypted' OR label BEGINSWITH 'FAIL'")).firstMatch
         wait(r2, 90)

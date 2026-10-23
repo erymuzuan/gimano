@@ -49,7 +49,9 @@ struct SideMenu: View {
                 actionRow("My feedback", icon: "tray.full.fill", id: "menuMyFeedback") { model.showMenu = false; model.menuSheet = .myFeedback }
                 actionRow("Backup & restore", icon: "arrow.clockwise.icloud.fill", id: "menuBackup") { model.showMenu = false; model.menuSheet = .backup }
                 row("Help and feedback", icon: "questionmark.circle.fill", .help)
+                #if DEBUG
                 row("Developer settings", icon: "hammer.fill", .debug)
+                #endif
 
                 Spacer()
                 VStack(alignment: .leading, spacing: 4) {
@@ -133,7 +135,12 @@ struct MenuDestinationView: View {
                 case .inbox: InboxView()
                 case .settings: SettingsView()
                 case .help: HelpView()
-                case .debug: DebugSettingsView()
+                case .debug:
+                    #if DEBUG
+                    DebugSettingsView()
+                    #else
+                    EmptyView()
+                    #endif
                 }
             }
             .toolbar {
@@ -215,9 +222,19 @@ struct SettingsView: View {
                 LabeledContent("Distance", value: "km")
                 LabeledContent("Speed", value: "km/h")
             }
+            Section("About") {
+                LabeledContent("Version", value: "\(Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "") (\(Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? ""))")
+                LabeledContent("Server", value: model.config.apiBaseURL.host() ?? "")
+                    .accessibilityIdentifier("serverHost")
+                if let name = model.user?.displayName {
+                    LabeledContent("Your pseudonym", value: name).accessibilityIdentifier("pseudonym")
+                }
+            }
+            #if DEBUG
             Section {
                 NavigationLink("Developer settings") { DebugSettingsView() }
             }
+            #endif
         }
         .navigationTitle("Settings")
     }
@@ -279,26 +296,60 @@ struct ThemePicker: View {
     @Environment(AppModel.self) private var model
 
     var body: some View {
-        LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: 2), spacing: 8) {
-            ForEach(ThemeMode.allCases) { t in
-                let on = model.theme == t
-                Button { model.theme = t } label: {
-                    HStack(spacing: 8) {
-                        Image(systemName: t.systemImage).font(.system(size: 20, weight: .semibold))
-                        Text(t.title).font(Tokens.Font.label).lineLimit(1).minimumScaleFactor(0.8)
-                        Spacer(minLength: 0)
+        VStack(alignment: .leading, spacing: 12) {
+            LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 12), count: 2), spacing: 12) {
+                ForEach(ThemeMode.allCases) { t in
+                    let on = model.theme == t
+                    Button { model.theme = t } label: {
+                        VStack(alignment: .leading, spacing: 8) {
+                            ThemePreview(mode: t)
+                                .frame(height: 110)
+                                .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                            Label { Text(t.title).font(Tokens.Font.bodyBold) } icon: { Image(systemName: t.systemImage) }
+                                .lineLimit(1).minimumScaleFactor(0.8)
+                            Text(t.subtitle).font(Tokens.Font.small).foregroundStyle(Color.textMuted).lineLimit(1)
+                        }
+                        .foregroundStyle(Color.textPrimary)
+                        .padding(10)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .selectableTile(on, radius: 20, tint: .surface, width: 3)
                     }
-                    .padding(12)
-                    .frame(maxWidth: .infinity, minHeight: 56)
-                    .foregroundStyle(on ? Color.brandOn : Color.brandInk)
-                    .background(on ? Color.brand : Color.brandMist, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+                    .buttonStyle(.plain)
+                    .accessibilityIdentifier("theme.\(t.rawValue)")
                 }
-                .buttonStyle(.plain)
-                .accessibilityIdentifier("theme.\(t.rawValue)")
-                .accessibilityAddTraits(on ? .isSelected : [])
             }
+            Text("Light is the default: easier to read in sunshine while driving, even when your phone is in dark mode. The map changes too.")
+                .font(Tokens.Font.caption).foregroundStyle(Color.textMuted)
         }
         .listRowBackground(Color.clear)
+        .listRowInsets(EdgeInsets())
+    }
+}
+
+/// A tiny drawing of the home screen in that theme (board "Tema").
+private struct ThemePreview: View {
+    let mode: ThemeMode
+
+    var body: some View {
+        switch mode {
+        case .light: mini(dark: false)
+        case .dark: mini(dark: true)
+        case .system, .auto:
+            HStack(spacing: 0) { mini(dark: false); mini(dark: true) }
+        }
+    }
+
+    private func mini(dark: Bool) -> some View {
+        let bg = Color(uiColor: UIColor(hex: dark ? 0x0B1220 : 0xEEF2F8))
+        let card = Color(uiColor: UIColor(hex: dark ? 0x121B2E : 0xFFFFFF))
+        let accent = Color(uiColor: UIColor(hex: dark ? 0x5B8DEF : 0x0047AB))
+        return ZStack(alignment: .bottom) {
+            bg
+            Path { p in p.move(to: CGPoint(x: 8, y: 70)); p.addCurve(to: CGPoint(x: 140, y: 20), control1: CGPoint(x: 50, y: 20), control2: CGPoint(x: 90, y: 80)) }
+                .stroke(accent, style: StrokeStyle(lineWidth: 4, lineCap: .round))
+            RoundedRectangle(cornerRadius: 8).fill(card).frame(height: 30).padding(6)
+                .overlay(alignment: .leading) { Capsule().fill(accent.opacity(0.5)).frame(width: 40, height: 6).padding(.leading, 16) }
+        }
     }
 }
 
@@ -317,12 +368,17 @@ struct InboxView: View {
                                                          : "Inbox isn't available on the server yet. News about your public contributions will appear here."))
                     .accessibilityIdentifier("inboxEmpty")
             }
+            if !model.inboxItems.isEmpty {
+                Text("News about your contributions: places, reviews, reports and feedback.")
+                    .font(Tokens.Font.caption).foregroundStyle(Color.textMuted)
+                    .listRowBackground(Color.clear)
+            }
             ForEach(model.inboxItems) { item in
                 Button { open(item) } label: {
                     HStack(alignment: .top, spacing: 12) {
-                        GimanoIcon(icon: item.kind.icon, size: 26)
-                            .frame(width: 44, height: 44)
-                            .background(Color.brandMist, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                        GimanoIcon(icon: item.kind.icon, size: 28)
+                            .frame(width: 48, height: 48)
+                            .background(item.kind.tint, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
                         VStack(alignment: .leading, spacing: 3) {
                             Text(item.title).font(Tokens.Font.bodyBold).foregroundStyle(Color.textPrimary)
                             if let b = item.body { Text(b).font(Tokens.Font.caption).foregroundStyle(Color.textMuted) }
@@ -335,9 +391,24 @@ struct InboxView: View {
                     }
                 }
                 .accessibilityIdentifier("inboxItem")
+                .listRowBackground(
+                    HStack(spacing: 0) {
+                        if item.read != true { Color.report.frame(width: 4) }
+                        Color.surface
+                    }
+                )
             }
         }
         .navigationTitle("Inbox")
+        .toolbar {
+            if model.inboxUnread > 0 {
+                ToolbarItem(placement: .topBarLeading) {
+                    Button("Mark all as read") { model.markInboxRead() }
+                        .font(Tokens.Font.label)
+                        .accessibilityIdentifier("inboxMarkAllRead")
+                }
+            }
+        }
         .refreshable { await model.refreshInbox() }
         .task {
             await model.refreshInbox()
@@ -366,6 +437,16 @@ struct InboxView: View {
 }
 
 extension InboxKind {
+    /// Board tints: published = teal, thanks = coral, helpful = amber, everything else cobalt.
+    var tint: Color {
+        switch self {
+        case .placePublished, .editAccepted: .tealMist
+        case .reportThanked: .coralMist
+        case .reviewHelpful: .amberMist
+        default: .brandMist
+        }
+    }
+
     var icon: GIcon {
         switch self {
         case .placePublished: .map
