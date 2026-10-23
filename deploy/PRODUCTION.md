@@ -66,7 +66,7 @@ moving to the scoped token means a leak of that host's credentials can't push or
 
 ```bash
 sudo mkdir -p /opt/gimano && sudo chown $USER /opt/gimano && cd /opt/gimano
-git clone https://github.com/erymuzuan/gimano.git . # compose file, toll table, moderation lists (no secrets in the repo)
+git clone https://github.com/erymuzuan/manotu.git . # compose file, toll table, moderation lists (no secrets in the repo)
 cp deploy/.env.prod.example deploy/.env.prod && chmod 600 deploy/.env.prod
 # Fill in every CHANGE_ME (generation commands are in the file). Set TAG to the sha printed by build-push.
 C="sudo docker compose -f deploy/docker-compose.prod.yml --env-file deploy/.env.prod"

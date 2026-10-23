@@ -2,7 +2,7 @@
 
 Public downloads: https://www.bukitbunga.com/gimano/download/
 AltStore source: https://www.bukitbunga.com/gimano/altstore.json
-GitHub releases: https://github.com/erymuzuan/gimano/releases
+GitHub releases: https://github.com/erymuzuan/manotu/releases
 
 ## Android
 

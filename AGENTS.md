@@ -3,6 +3,11 @@
 Source of truth for the product: `docs/architecture.md`, `docs/api.md` (the mobile apps code against it —
 change it deliberately and say so). Backend: `backend/README.md`. Data/licensing: `data/README.md`.
 
+## Repository
+
+GitHub: **https://github.com/erymuzuan/manotu** (renamed from `erymuzuan/gimano` on 2026-10-23; GitHub redirects the
+old URL, so never create a new repo named `gimano`, or the redirect breaks). Local folders may still be named `gimano`.
+
 ## Layout
 
 | Path | What |
@@ -87,7 +92,7 @@ Smoke test from the Mac: `curl http://100.101.150.9:5080/readyz`.
   or other folders (`hiro`, `sma.eis`, `smartpay-eis`, …). From an Orca terminal on WS556-SERVER (PowerShell):
   ```powershell
   $tmp = Join-Path $env:TEMP "gimano-site"; Remove-Item $tmp -Recurse -Force -EA SilentlyContinue
-  Invoke-WebRequest https://github.com/erymuzuan/gimano/archive/refs/heads/main.zip -OutFile "$tmp.zip"
+  Invoke-WebRequest https://github.com/erymuzuan/manotu/archive/refs/heads/main.zip -OutFile "$tmp.zip"
   Expand-Archive "$tmp.zip" $tmp
   robocopy "$tmp\gimano-main\site\gimano" "\\172.30.30.13\apps\websites\www.bukitbunga.com\gimano" /E /NP /NFL /NDL
   ```

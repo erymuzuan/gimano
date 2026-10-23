@@ -63,7 +63,7 @@ gambar dan maklum balas.*
   speed pings.
 - Do **not** promise "military-grade" or similar. Say "end-to-end encrypted with a passphrase only you
   know" (libsodium Argon2id + XChaCha20-Poly1305), and only for passphrase-protected backups.
-- "Open source" claims link to https://github.com/erymuzuan/gimano.
+- "Open source" claims link to https://github.com/erymuzuan/manotu.
 - Store listings: keep the Google Play Data safety form and Apple's privacy nutrition label consistent with
   this page (data not collected: location history, contacts, search history; data shared
   voluntarily: user content).
