@@ -1,0 +1,19 @@
+html,body{height:100%}
+body{overflow:hidden}
+#map{position:fixed;inset:0}
+#panel{position:fixed;left:12px;right:12px;bottom:max(12px,env(safe-area-inset-bottom));margin:0 auto;max-width:520px;z-index:2}
+.row{display:flex;align-items:center;gap:12px}
+.row img{border-radius:10px}
+.grow{flex:1;min-width:0}
+.title{font-weight:900;font-size:20px;line-height:1.2}
+.muted{color:var(--muted)}
+.small{font-size:13px}
+.stats{display:flex;gap:24px;margin:12px 0 6px}
+.label{display:block;font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;color:var(--muted)}
+.big{font-size:26px;font-weight:900}
+.privacy{margin-top:6px}
+button.pill{border:0;cursor:pointer;color:var(--ink);font:inherit;font-weight:800}
+.car{width:34px;height:34px;border-radius:50%;background:var(--brand);border:3px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,.35);display:grid;place-items:center}
+.car::after{content:"";width:0;height:0;border-left:7px solid transparent;border-right:7px solid transparent;border-bottom:12px solid #fff;transform:translateY(-1px)}
+.state-arrived .title{color:#1E8E3E}
+.state-ended .title,.state-error .title{color:var(--report)}

@@ -1,0 +1,893 @@
+<!doctype html>
+<html lang="ms">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Manotu: navigasi komuniti Malaysia. Data anda, milik anda.</title>
+<meta name="description" content="Manotu: aplikasi navigasi komuniti sumber terbuka untuk Malaysia. Tempat dan sejarah anda kekal dalam telefon anda. Open-source community navigation; your data stays yours.">
+<meta property="og:title" content="Manotu: Ke mana pun anda pergi, rahsia anda kekal milik anda.">
+<meta property="og:description" content="Open-source community navigation for Malaysia. Your places stay on your phone.">
+<meta property="og:image" content="https://www.bukitbunga.com/manotu/logo.png">
+<meta property="og:url" content="https://www.bukitbunga.com/manotu/">
+<meta name="theme-color" content="#0047AB">
+<link rel="icon" href="logo.png">
+<link rel="preload" href="fonts/nunito-variable.ttf" as="font" type="font/ttf" crossorigin>
+<style>
+@font-face{font-family:Nunito;src:url("fonts/nunito-variable.ttf") format("truetype");font-weight:200 1000;font-display:swap}
+:root{--gx:24px}
+@media (max-width:600px){:root{--gx:16px}}
+html{scroll-behavior:smooth}
+@media (prefers-reduced-motion: reduce){html{scroll-behavior:auto}}
+body{margin:0;background:#F5F8FD;font-family:Nunito,system-ui,sans-serif}
+a{color:#0047AB}a:hover{color:#0A2E6E}
+.gm-box{transform-box:fill-box;transform-origin:center}
+.gm-pop{animation:gm-pop 6s ease-out infinite}
+.gm-pulse{animation:gm-pulse 2.4s ease-in-out infinite}
+.gm-ring{animation:gm-ring 2.4s ease-out infinite}
+.gm-try{animation:gm-try 4s ease-in-out infinite}
+.gm-bar{animation:gm-bar 4s ease-in-out infinite}
+.gm-travel{animation:gm-travel 5s ease-in-out infinite}
+.gm-dash{stroke-dasharray:10 10;animation:gm-dash 1s linear infinite}
+.gm-arrive{animation:gm-arrive 5s ease-out infinite}
+.gm-drive{animation:gm-drive 6s linear infinite}
+.gm-rise{animation:gm-rise 3s ease-out infinite}
+.gm-grow{animation:gm-grow 6s ease-in-out infinite}
+.gm-timer{stroke-dasharray:126;animation:gm-timer 6s linear infinite}
+.gm-hop1{animation:gm-hop1 6s ease-in-out infinite}
+.gm-hop2{animation:gm-hop2 6s ease-in-out infinite}
+.gm-key{animation:gm-key 6s ease-in-out infinite}
+.gm-c1{animation:gm-cycle 3s steps(1) infinite}
+.gm-c2{animation:gm-cycle 3s steps(1) infinite;animation-delay:-1s}
+.gm-c3{animation:gm-cycle 3s steps(1) infinite;animation-delay:-2s}
+.gm-line{transform-origin:left center;animation:gm-type 7s ease-out infinite}
+.gm-blink{animation:gm-blink 1s steps(1) infinite}
+.gm-marquee{animation:gm-marquee 28s linear infinite}
+.gm-float{animation:gm-float 5s ease-in-out infinite}
+@keyframes gm-pop{0%,8%{transform:scale(0);opacity:0}16%{transform:scale(1.18);opacity:1}22%,90%{transform:scale(1);opacity:1}100%{transform:scale(1);opacity:0}}
+@keyframes gm-pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.08)}}
+@keyframes gm-ring{0%{transform:scale(.7);opacity:.6}100%{transform:scale(1.9);opacity:0}}
+@keyframes gm-try{0%{transform:translateX(0);opacity:0}10%{opacity:1}45%{transform:translateX(190px)}52%{transform:translateX(165px)}85%{transform:translateX(0);opacity:1}100%{transform:translateX(0);opacity:0}}
+@keyframes gm-bar{0%,40%{transform:scale(1)}46%{transform:scale(1.25)}54%,100%{transform:scale(1)}}
+@keyframes gm-travel{0%{transform:translateX(0);opacity:0}8%{opacity:1}70%{transform:translateX(560px);opacity:1}80%,100%{transform:translateX(560px);opacity:0}}
+@keyframes gm-arrive{0%,66%{transform:scale(0);opacity:0}74%{transform:scale(1.2);opacity:1}80%,94%{transform:scale(1);opacity:1}100%{opacity:0}}
+@keyframes gm-dash{to{stroke-dashoffset:-40}}
+@keyframes gm-drive{from{transform:translateX(0)}to{transform:translateX(860px)}}
+@keyframes gm-rise{0%{transform:translateY(0);opacity:0}15%{opacity:1}80%{transform:translateY(-62px);opacity:1}100%{transform:translateY(-70px);opacity:0}}
+@keyframes gm-grow{0%,10%{transform:scaleX(0)}45%,85%{transform:scaleX(1)}100%{transform:scaleX(0)}}
+@keyframes gm-timer{from{stroke-dashoffset:0}to{stroke-dashoffset:126}}
+@keyframes gm-hop1{0%{transform:translateX(0);opacity:0}6%{opacity:1}40%{transform:translateX(330px);opacity:1}46%,100%{transform:translateX(330px);opacity:0}}
+@keyframes gm-hop2{0%,46%{transform:translateX(0);opacity:0}52%{opacity:1}86%{transform:translateX(330px);opacity:1}92%,100%{transform:translateX(330px);opacity:0}}
+@keyframes gm-key{0%,8%{transform:translate(0,0);opacity:0}14%{opacity:1}50%{transform:translate(330px,-60px)}86%{transform:translate(660px,0);opacity:1}92%,100%{transform:translate(660px,0);opacity:0}}
+@keyframes gm-cycle{0%{opacity:1}33.33%,100%{opacity:0}}
+@keyframes gm-type{0%{transform:scaleX(0)}12%,88%{transform:scaleX(1)}100%{transform:scaleX(0)}}
+@keyframes gm-blink{0%{opacity:1}50%{opacity:0}}
+@keyframes gm-marquee{from{transform:translateX(0)}to{transform:translateX(-50%)}}
+@keyframes gm-float{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}
+@media (prefers-reduced-motion: reduce){*{animation:none!important}}
+@media (prefers-reduced-motion: reduce){.gm-c2,.gm-c3{opacity:0}.gm-drive{transform:translateX(320px)}}
+a:focus-visible{outline:3px solid #0047AB;outline-offset:3px}
+.on-dark a:focus-visible{outline-color:#FFFFFF}
+.skip{position:absolute;left:16px;top:-60px;z-index:10;padding:10px 16px;border-radius:12px;background:#0B1B3A;color:#FFFFFF;font-weight:800;text-decoration:none}
+.skip:focus{top:12px}
+
+.gm-download-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,260px),1fr));gap:18px;margin-top:28px}
+.gm-download-card{background:#FFF;color:#0B1B3A;border-radius:24px;padding:24px;display:flex;flex-direction:column;align-items:flex-start;gap:12px;min-width:0}
+.gm-download-card svg{width:72px;height:72px}.gm-download-card h3{margin:0;font-size:25px;font-weight:900}.gm-download-card p{margin:0;color:#3A4A66;font-size:16px}
+.gm-download-card a{color:#0047AB;font-weight:800}.gm-download-card .gm-download-button{display:flex;align-items:center;justify-content:center;min-height:56px;box-sizing:border-box;width:100%;padding:12px 18px;background:#0047AB;color:#FFF;border-radius:16px;text-decoration:none;margin-top:auto}
+.gm-download-card a:focus-visible{outline:3px solid #FF6B4A;outline-offset:4px}.gm-download-button:hover{background:#0A2E6E}
+</style>
+</head>
+<body>
+<a class="skip" href="#kandungan">Langkau ke kandungan</a>
+<div style="width: 100%; min-height: 100vh; background: #F5F8FD; color: #0B1B3A; font-family: Nunito, system-ui, sans-serif;">
+
+  <header style="max-width: 1180px; margin: 0 auto; padding: 20px var(--gx); display: flex; flex-wrap: wrap; align-items: center; gap: 16px;">
+    <a href="#top" style="display: flex; align-items: center; gap: 12px; text-decoration: none; color: #0B1B3A;">
+      <svg width="44" height="44" viewBox="0 0 200 200" aria-hidden="true"><rect width="200" height="200" rx="44" fill="#0047AB"></rect><g transform="translate(0 11)"><path d="M100 26 L166 75 L136 75 L100 49 L64 75 L34 75 Z" fill="#FFFFFF"></path><path d="M100 70 L152 105 L125 105 L100 88 L75 105 L48 105 Z" fill="#FFFFFF" fill-opacity="0.85"></path><path d="M44 152 C68 122 132 122 156 152 C130 141 70 141 44 152 Z" fill="#FFFFFF"></path><circle cx="100" cy="124" r="11" fill="#FF6B4A"></circle></g></svg>
+      <span style="font-size: 26px; font-weight: 900; letter-spacing: -0.5px;">Manotu</span>
+    </a>
+    <nav style="margin-left: auto; display: flex; flex-wrap: wrap; align-items: center; gap: 20px; font-weight: 800; font-size: 16px;">
+      <a href="#skrin" style="text-decoration: none;">Lihat app</a>
+      <a href="#privasi" style="text-decoration: none;">Privasi</a>
+      <a href="#sumber-terbuka" style="text-decoration: none;">Sumber terbuka</a>
+      <a href="#ciri" style="text-decoration: none;">Ciri-ciri</a>
+      <a href="https://github.com/erymuzuan/gimano" style="display: inline-flex; align-items: center; gap: 8px; height: 44px; padding: 0 18px; border-radius: 999px; background: #0B1B3A; color: #FFFFFF; text-decoration: none;">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="#FFFFFF" aria-hidden="true"><path d="M12 2a10 10 0 0 0-3.2 19.5c.5.1.7-.2.7-.5v-1.7c-2.8.6-3.4-1.3-3.4-1.3-.5-1.2-1.1-1.5-1.1-1.5-.9-.6.1-.6.1-.6 1 .1 1.5 1 1.5 1 .9 1.6 2.4 1.1 3 .8.1-.7.4-1.1.6-1.4-2.2-.3-4.6-1.1-4.6-5 0-1.1.4-2 1-2.7-.1-.3-.4-1.3.1-2.7 0 0 .8-.3 2.8 1a9.6 9.6 0 0 1 5 0c1.9-1.3 2.8-1 2.8-1 .5 1.4.2 2.4.1 2.7.6.7 1 1.6 1 2.7 0 3.9-2.4 4.7-4.6 5 .4.3.7.9.7 1.9v2.8c0 .3.2.6.7.5A10 10 0 0 0 12 2z"></path></svg>
+        GitHub
+      </a>
+    </nav>
+  </header>
+
+  <main id="kandungan">
+  <section id="top" style="max-width: 1180px; margin: 0 auto; padding: 32px var(--gx) 56px; display: flex; flex-wrap: wrap; align-items: center; gap: 48px;">
+    <div style="flex: 999 1 460px; min-width: 0; display: flex; flex-direction: column; gap: 20px;">
+      <span style="align-self: flex-start; padding: 6px 14px; border-radius: 999px; background: #E3ECFA; color: #0A2E6E; font-weight: 800; font-size: 15px;">Navigasi komuniti · Malaysia</span>
+      <h1 style="margin: 0; font-size: clamp(2.4rem, 5vw, 4.2rem); line-height: 1.04; font-weight: 900; letter-spacing: -1.5px;">Ke mana pun anda pergi, rahsia anda kekal milik anda.</h1>
+<p style="margin:8px 0 0;font-size:15px;font-weight:800;opacity:.85">Manotu dahulu dikenali sebagai Gimano · Manotu was formerly Gimano. Aplikasi yang dipasang masih bernama Gimano sehingga kemas kini nama baharu.</p>
+      <p style="margin: 0; font-size: 1.3rem; line-height: 1.5; color: #3A4A66; max-width: 560px;">Wherever you're going, it stays your business. Rumah, kampung, rumah mertua: semua tempat anda disimpan <b style="color: #0B1B3A;">dalam telefon anda sahaja</b>.</p>
+      <div style="display: flex; flex-wrap: wrap; gap: 12px; margin-top: 8px;">
+        <a href="#muat-turun" style="height: 56px; padding: 0 28px; border-radius: 999px; background: #0047AB; color: #FFFFFF; font-weight: 800; font-size: 18px; display: inline-flex; align-items: center; text-decoration: none;">Muat turun · Download</a>
+        <a href="https://github.com/erymuzuan/gimano" style="height: 56px; padding: 0 24px; border-radius: 999px; background: #FFFFFF; color: #0B1B3A; font-weight: 800; font-size: 18px; display: inline-flex; align-items: center; gap: 10px; text-decoration: none; box-shadow: inset 0 0 0 2px #C9D6EE;">Lihat kod sumber →</a>
+      </div>
+    </div>
+
+    <div style="flex: 1 1 380px; min-width: 0; display: flex; justify-content: center;">
+      <svg viewBox="0 0 480 480" style="width: 100%; max-width: 480px; height: auto;" role="img" aria-label="Illustration: a phone showing the Manotu map with a lock shield, a kampung house pin and a heart pin, all kept inside the phone">
+        <circle cx="240" cy="240" r="220" fill="#E3ECFA"></circle>
+        <circle cx="240" cy="240" r="160" fill="#D3E1F7"></circle>
+        <g transform="translate(150 60)">
+          <rect x="0" y="0" width="180" height="360" rx="34" fill="#0B1B3A"></rect>
+          <rect x="10" y="12" width="160" height="336" rx="26" fill="#EEF2F8"></rect>
+          <path d="M10 120 L170 96" stroke="#FFFFFF" stroke-width="14"></path>
+          <path d="M60 12 L84 348" stroke="#FFFFFF" stroke-width="10"></path>
+          <path d="M10 250 L170 266" stroke="#FFFFFF" stroke-width="10"></path>
+          <path d="M120 40 C110 120 150 190 130 300" stroke="#BFD6F5" stroke-width="6" fill="none"></path>
+          <path d="M40 300 L75 200 L120 170 L150 110" stroke="#0047AB" stroke-width="9" fill="none" stroke-linecap="round" stroke-linejoin="round"></path>
+          <circle cx="40" cy="300" r="10" fill="#0047AB" stroke="#FFFFFF" stroke-width="4"></circle>
+          <rect x="10" y="276" width="160" height="72" rx="0" fill="#FFFFFF" opacity="0.92"></rect>
+          <rect x="22" y="290" width="136" height="20" rx="10" fill="#E3ECFA"></rect>
+          <rect x="22" y="318" width="40" height="18" rx="6" fill="#E3ECFA"></rect>
+          <rect x="70" y="318" width="40" height="18" rx="6" fill="#E3ECFA"></rect>
+          <rect x="118" y="318" width="40" height="18" rx="6" fill="#E3ECFA"></rect>
+        </g>
+        <g transform="translate(252 108)">
+          <path d="M22 0C10 0 0 10 0 22c0 16 22 38 22 38s22-22 22-38C44 10 34 0 22 0z" fill="#FF6B4A"></path>
+          <path d="M10 22 22 12l12 10M14 21v9h16v-9" stroke="#FFFFFF" stroke-width="3" fill="none" stroke-linejoin="round"></path>
+        </g>
+        <g transform="translate(176 168)">
+          <path d="M22 0C10 0 0 10 0 22c0 16 22 38 22 38s22-22 22-38C44 10 34 0 22 0z" fill="#0047AB"></path>
+          <path d="M22 31s-9-5.5-9-12a5 5 0 0 1 9-2.6A5 5 0 0 1 31 19c0 6.5-9 12-9 12z" fill="#FFFFFF"></path>
+        </g>
+        <g transform="translate(300 250)">
+          <path d="M60 0 L120 22 V70 C120 112 92 140 60 152 C28 140 0 112 0 70 V22 Z" fill="#0047AB"></path>
+          <path d="M60 14 L108 32 V70 C108 104 86 127 60 137 C34 127 12 104 12 70 V32 Z" fill="#2F6BC9"></path>
+          <rect x="38" y="66" width="44" height="38" rx="8" fill="#FFFFFF"></rect>
+          <path d="M46 66 V54 a14 14 0 0 1 28 0 V66" stroke="#FFFFFF" stroke-width="7" fill="none"></path>
+          <circle cx="60" cy="84" r="5" fill="#0047AB"></circle>
+        </g>
+        <g transform="translate(76 300)">
+          <rect width="104" height="56" rx="16" fill="#FFFFFF"></rect>
+          <path d="M18 34 30 20l12 12M24 31v10h12V31" stroke="#0A2E6E" stroke-width="3" fill="none" stroke-linejoin="round" transform="translate(-2 -6)"></path>
+          <text x="46" y="34" font-family="Nunito, sans-serif" font-size="15" font-weight="800" fill="#0B1B3A">Kampung</text>
+        </g>
+      </svg>
+    </div>
+  </section>
+
+  <section style="background: #0B1B3A; color: #FFFFFF;">
+    <div style="max-width: 1180px; margin: 0 auto; padding: 28px var(--gx); display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 20px;">
+      
+        <div style="display: flex; align-items: center; gap: 14px;">
+          <span style="width: 56px; height: 56px; border-radius: 18px; background: #16233D; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+            <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#8FB0E8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 2h10a2 2 0 0 1 2 2v16a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2zM11 18h2M9 9h6v5H9zM10 9V7.5a2 2 0 0 1 4 0V9"></path></svg>
+          </span>
+          <span style="display: flex; flex-direction: column;">
+            <span style="font-size: 19px; font-weight: 900;">Data kekal dalam telefon</span>
+            <span style="font-size: 15px; color: #A9B6CF;">Your data stays on your phone</span>
+          </span>
+        </div>
+      
+        <div style="display: flex; align-items: center; gap: 14px;">
+          <span style="width: 56px; height: 56px; border-radius: 18px; background: #16233D; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+            <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#8FB0E8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 7l-5 5 5 5M16 7l5 5-5 5M14 4l-4 16"></path></svg>
+          </span>
+          <span style="display: flex; flex-direction: column;">
+            <span style="font-size: 19px; font-weight: 900;">Kod Manotu berlesen MIT</span>
+            <span style="font-size: 15px; color: #A9B6CF;">MIT licence, on GitHub</span>
+          </span>
+        </div>
+      
+        <div style="display: flex; align-items: center; gap: 14px;">
+          <span style="width: 56px; height: 56px; border-radius: 18px; background: #16233D; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+            <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#8FB0E8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18M5.6 5.6l12.8 12.8"></path></svg>
+          </span>
+          <span style="display: flex; flex-direction: column;">
+            <span style="font-size: 19px; font-weight: 900;">Tiada teknologi Israel</span>
+            <span style="font-size: 15px; color: #A9B6CF;">No Israeli tech, no trackers</span>
+          </span>
+        </div>
+      
+    </div>
+  </section>
+
+  <section id="privasi" style="max-width: 1180px; margin: 0 auto; padding: 72px var(--gx) 24px; display: flex; flex-direction: column; gap: 28px;">
+    <div style="display: flex; flex-direction: column; gap: 8px; max-width: 760px;">
+      <span style="font-weight: 900; color: #0047AB; letter-spacing: 1px; font-size: 14px;">DATA ANDA, MILIK ANDA · YOUR DATA IS YOURS</span>
+      <h2 style="margin: 0; font-size: clamp(1.9rem, 3.4vw, 2.8rem); line-height: 1.1; font-weight: 900;">Kami tidak menyimpan data peribadi anda. Langsung.</h2>
+      <p style="margin: 0; font-size: 1.15rem; color: #3A4A66;">Your favourites, history and private places never touch our servers. Backups go from your phone straight to <b>your own</b> cloud, locked with a key only you know.</p>
+    </div>
+
+    <div style="background: #FFFFFF; border-radius: 28px; padding: 28px; box-shadow: 0 2px 12px rgba(11,27,58,.06);">
+      <svg viewBox="0 0 1100 360" style="width: 100%; height: auto;" role="img" aria-label="Diagram: your phone backs up directly to your Google Drive, your iCloud or a file. The path to Manotu's servers carries no personal data, only public reports and anonymous speeds.">
+        <g transform="translate(470 40)">
+          <rect width="160" height="280" rx="30" fill="#0B1B3A"></rect>
+          <rect x="10" y="12" width="140" height="256" rx="22" fill="#E3ECFA"></rect>
+          <g transform="translate(40 70)">
+            <path d="M40 0 L80 15 V48 C80 76 62 95 40 103 C18 95 0 76 0 48 V15 Z" fill="#0047AB"></path>
+            <rect x="24" y="42" width="32" height="28" rx="6" fill="#FFFFFF"></rect>
+            <path d="M30 42 V34 a10 10 0 0 1 20 0 V42" stroke="#FFFFFF" stroke-width="5" fill="none"></path>
+          </g>
+          <text x="80" y="210" text-anchor="middle" font-family="Nunito, sans-serif" font-size="18" font-weight="900" fill="#0B1B3A">Telefon anda</text>
+          <text x="80" y="232" text-anchor="middle" font-family="Nunito, sans-serif" font-size="13" font-weight="700" fill="#3A4A66">tempat · sejarah · sandaran</text>
+        </g>
+        <g fill="none" stroke="#0047AB" stroke-width="4" stroke-linecap="round">
+          <path d="M470 110 C 380 110, 330 70, 250 70"></path>
+          <path d="M470 180 C 380 180, 330 180, 250 180"></path>
+          <path d="M470 250 C 380 250, 330 290, 250 290"></path>
+        </g>
+        <g fill="#0047AB"><path d="M250 70l14-8v16z"></path><path d="M250 180l14-8v16z"></path><path d="M250 290l14-8v16z"></path></g>
+        <g font-family="Nunito, sans-serif" font-weight="800">
+          <rect x="30" y="40" width="220" height="60" rx="18" fill="#E3ECFA"></rect>
+          <text x="140" y="68" text-anchor="middle" font-size="18" fill="#0B1B3A">Google Drive anda</text>
+          <text x="140" y="88" text-anchor="middle" font-size="13" fill="#3A4A66">folder tersembunyi</text>
+          <rect x="30" y="150" width="220" height="60" rx="18" fill="#E3ECFA"></rect>
+          <text x="140" y="178" text-anchor="middle" font-size="18" fill="#0B1B3A">iCloud anda</text>
+          <text x="140" y="198" text-anchor="middle" font-size="13" fill="#3A4A66">pangkalan data peribadi</text>
+          <rect x="30" y="260" width="220" height="60" rx="18" fill="#E3ECFA"></rect>
+          <text x="140" y="288" text-anchor="middle" font-size="18" fill="#0B1B3A">Fail .manotu</text>
+          <text x="140" y="308" text-anchor="middle" font-size="13" fill="#3A4A66">WhatsApp, e-mel, USB</text>
+        </g>
+        <path d="M630 180 C 720 180, 760 180, 850 180" fill="none" stroke="#C3C8D0" stroke-width="4" stroke-dasharray="10 10" stroke-linecap="round"></path>
+        <g transform="translate(726 150)">
+          <circle cx="24" cy="30" r="26" fill="#FFE2E2"></circle>
+          <path d="M12 18l24 24M36 18 12 42" stroke="#C1121F" stroke-width="5" stroke-linecap="round"></path>
+        </g>
+        <g transform="translate(850 110)" font-family="Nunito, sans-serif">
+          <rect width="220" height="140" rx="20" fill="#F2F4F7" stroke="#C9D6EE" stroke-width="2"></rect>
+          <rect x="24" y="22" width="172" height="18" rx="6" fill="#C9D6EE"></rect>
+          <rect x="24" y="48" width="172" height="18" rx="6" fill="#C9D6EE"></rect>
+          <text x="110" y="94" text-anchor="middle" font-size="17" font-weight="900" fill="#0B1B3A">Pelayan Manotu</text>
+          <text x="110" y="116" text-anchor="middle" font-size="13" font-weight="700" fill="#C1121F">tiada data peribadi</text>
+        </g>
+        <text x="740" y="232" text-anchor="middle" font-family="Nunito, sans-serif" font-size="13" font-weight="700" fill="#3A4A66">hanya laporan awam &amp; kelajuan tanpa nama</text>
+      </svg>
+    </div>
+
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px;">
+      <div style="background: #FFFFFF; border-radius: 24px; padding: 24px; box-shadow: 0 2px 12px rgba(11,27,58,.06); display: flex; flex-direction: column; gap: 12px;">
+        <span style="font-size: 20px; font-weight: 900;">Kekal dalam telefon anda</span>
+        
+          <span style="display: flex; gap: 10px; align-items: center; font-size: 16px; font-weight: 700; color: #3A4A66;">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#0047AB" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 12 5 5 9-10"></path></svg>Rumah, tempat kerja &amp; kegemaran
+          </span>
+        
+          <span style="display: flex; gap: 10px; align-items: center; font-size: 16px; font-weight: 700; color: #3A4A66;">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#0047AB" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 12 5 5 9-10"></path></svg>Kampung, rumah mertua: label anda sendiri
+          </span>
+        
+          <span style="display: flex; gap: 10px; align-items: center; font-size: 16px; font-weight: 700; color: #3A4A66;">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#0047AB" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 12 5 5 9-10"></path></svg>Sejarah carian &amp; destinasi
+          </span>
+        
+          <span style="display: flex; gap: 10px; align-items: center; font-size: 16px; font-weight: 700; color: #3A4A66;">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#0047AB" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 12 5 5 9-10"></path></svg>Tempat peribadi &amp; gambarnya
+          </span>
+        
+          <span style="display: flex; gap: 10px; align-items: center; font-size: 16px; font-weight: 700; color: #3A4A66;">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#0047AB" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 12 5 5 9-10"></path></svg>Sandaran ke Drive / iCloud anda, boleh dikunci
+          </span>
+        
+      </div>
+      <div style="background: #FFFFFF; border-radius: 24px; padding: 24px; box-shadow: 0 2px 12px rgba(11,27,58,.06); display: flex; flex-direction: column; gap: 12px;">
+        <span style="font-size: 20px; font-weight: 900;">Tidak pernah · Never</span>
+        
+          <span style="display: flex; gap: 10px; align-items: center; font-size: 16px; font-weight: 700; color: #3A4A66;">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#C1121F" stroke-width="2.6" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"></path></svg>Jual atau kongsi data anda
+          </span>
+        
+          <span style="display: flex; gap: 10px; align-items: center; font-size: 16px; font-weight: 700; color: #3A4A66;">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#C1121F" stroke-width="2.6" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"></path></svg>Iklan atau penjejak (tracker)
+          </span>
+        
+          <span style="display: flex; gap: 10px; align-items: center; font-size: 16px; font-weight: 700; color: #3A4A66;">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#C1121F" stroke-width="2.6" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"></path></svg>Simpan sejarah perjalanan anda
+          </span>
+        
+          <span style="display: flex; gap: 10px; align-items: center; font-size: 16px; font-weight: 700; color: #3A4A66;">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#C1121F" stroke-width="2.6" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"></path></svg>Lokasi tepat dalam log pelayan
+          </span>
+        
+          <span style="display: flex; gap: 10px; align-items: center; font-size: 16px; font-weight: 700; color: #3A4A66;">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#C1121F" stroke-width="2.6" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"></path></svg>SDK iklan atau analitik
+          </span>
+        
+      </div>
+    </div>
+
+    <div style="background: #0B1B3A; color: #FFFFFF; border-radius: 24px; padding: 24px; display: flex; flex-wrap: wrap; gap: 16px 20px; align-items: center;">
+      <span style="width: 56px; height: 56px; border-radius: 18px; background: #16233D; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+        <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#8FB0E8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3a4 4 0 1 0 0 8 4 4 0 0 0 0-8zM4 21c0-4 3.6-7 8-7s8 3 8 7M3 3l18 18"></path></svg>
+      </span>
+      <span style="flex: 1 1 320px; min-width: 0; display: flex; flex-direction: column; gap: 4px;">
+        <span style="font-size: 20px; font-weight: 900;">Kami tidak pernah tahu siapa anda · We never know who you are</span>
+        <span style="font-size: 16px; color: #DCE6F7;">Sumbangan anda dikreditkan kepada nama samaran rawak yang hanya telefon anda dan sandaran anda sendiri boleh tandatangani. Kami tidak pernah meminta e-mel, nombor telefon atau nama anda untuk menggunakan Manotu.</span>
+        <span lang="en" style="font-size: 15px; color: #A9B6CF;">Your contributions are credited to a random pseudonym that only your phone and your own backup can sign for. We never ask for your email, phone number or name to use Manotu.</span>
+        <span style="font-size: 13px; color: #A9B6CF;">Jika anda memilih untuk meninggalkan e-mel/WhatsApp pada laporan maklum balas, ia hanya digunakan untuk membalas dan kemudian dipadam.</span>
+      </span>
+    </div>
+  </section>
+
+  <section id="aliran-data" style="max-width: 1180px; margin: 0 auto; padding: 56px var(--gx) 8px; display: flex; flex-direction: column; gap: 20px;">
+    <div style="display: flex; flex-direction: column; gap: 8px; max-width: 780px;">
+      <span style="font-weight: 900; color: #0047AB; letter-spacing: 1px; font-size: 14px;">BAGAIMANA DATA ANDA BERGERAK · HOW YOUR DATA MOVES</span>
+      <h2 style="margin: 0; font-size: clamp(1.9rem, 3.4vw, 2.8rem); line-height: 1.1; font-weight: 900;">Empat perjalanan data. Lihat sendiri.</h2>
+      <p style="margin: 0; font-size: 1.15rem; color: #3A4A66;">Four kinds of data, four different paths, and none of them ends with your personal life on our servers.</p>
+    </div>
+
+    <div style="background: #FFFFFF; border-radius: 28px; padding: 24px; box-shadow: 0 2px 12px rgba(11,27,58,.06); display: flex; flex-wrap: wrap; gap: 20px; align-items: center;">
+      <div style="flex: 1 1 240px; min-width: 0; display: flex; flex-direction: column; gap: 6px;">
+        <span style="width: 40px; height: 40px; border-radius: 12px; background: #0047AB; color: #FFFFFF; font-weight: 900; font-size: 20px; display: flex; align-items: center; justify-content: center;">1</span>
+        <span style="font-size: 22px; font-weight: 900;">Tempat peribadi</span>
+        <span style="font-size: 15px; color: #3A4A66;">Rumah, kampung, sejarah carian: tinggal dalam telefon. Tiada jalan keluar ke pelayan kami.</span>
+        <span style="font-size: 13px; font-weight: 800; color: #5A6984;">Private places never leave the phone.</span>
+      </div>
+      <svg viewBox="0 0 820 200" style="flex: 999 1 520px; min-width: 0; width: 100%; height: auto;" role="img" aria-label="Animation: your private places stay inside your phone; a packet trying to leave towards Manotu's server is blocked and returns.">
+        <rect x="20" y="10" width="120" height="180" rx="24" fill="#0B1B3A"></rect>
+        <rect x="28" y="20" width="104" height="160" rx="18" fill="#E3ECFA"></rect>
+        <g class="gm-box gm-pop"><path d="M60 52c-8 0-14 6-14 14 0 11 14 26 14 26s14-15 14-26c0-8-6-14-14-14z" fill="#FF6B4A"></path><circle cx="60" cy="66" r="5" fill="#FFFFFF"></circle></g>
+        <g class="gm-box gm-pop" style="animation-delay: .4s"><path d="M100 70c-8 0-14 6-14 14 0 11 14 26 14 26s14-15 14-26c0-8-6-14-14-14z" fill="#0047AB"></path><circle cx="100" cy="84" r="5" fill="#FFFFFF"></circle></g>
+        <g class="gm-box gm-pop" style="animation-delay: .8s"><path d="M72 104c-8 0-14 6-14 14 0 11 14 26 14 26s14-15 14-26c0-8-6-14-14-14z" fill="#0A7A5A"></path><circle cx="72" cy="118" r="5" fill="#FFFFFF"></circle></g>
+        <circle cx="80" cy="100" r="62" fill="none" stroke="#0047AB" stroke-width="3" class="gm-box gm-ring"></circle>
+        <g class="gm-box gm-pulse"><path d="M160 70 L188 80 V104 C188 122 176 132 160 138 C144 132 132 122 132 104 V80 Z" fill="#0047AB" transform="translate(28 0)"></path><rect x="179" y="98" width="18" height="16" rx="3" fill="#FFFFFF"></rect><path d="M182 98v-5a6 6 0 0 1 12 0v5" stroke="#FFFFFF" stroke-width="3" fill="none"></path></g>
+        <path d="M230 100 H 640" stroke="#C9D6EE" stroke-width="4" stroke-linecap="round" class="gm-dash"></path>
+        <g class="gm-try"><rect x="222" y="86" width="64" height="28" rx="8" fill="#FF6B4A"></rect><text x="254" y="105" text-anchor="middle" font-family="Nunito, sans-serif" font-size="13" font-weight="900" fill="#FFFFFF">Rumah</text></g>
+        <g class="gm-box gm-bar"><rect x="452" y="54" width="14" height="92" rx="7" fill="#C1121F"></rect><circle cx="459" cy="40" r="16" fill="#FFE2E2"></circle><path d="M452 33l14 14M466 33 452 47" stroke="#C1121F" stroke-width="4" stroke-linecap="round"></path></g>
+        <g font-family="Nunito, sans-serif"><rect x="650" y="50" width="160" height="100" rx="18" fill="#F2F4F7" stroke="#C9D6EE" stroke-width="2"></rect>
+          <text x="730" y="86" text-anchor="middle" font-size="15" font-weight="900" fill="#0B1B3A">Pelayan Manotu</text>
+          <text x="730" y="122" text-anchor="middle" font-size="30" font-weight="900" fill="#0047AB">0</text>
+          <text x="730" y="140" text-anchor="middle" font-size="11" font-weight="800" fill="#3A4A66">data peribadi</text></g>
+      </svg>
+    </div>
+
+    <div style="background: #FFFFFF; border-radius: 28px; padding: 24px; box-shadow: 0 2px 12px rgba(11,27,58,.06); display: flex; flex-wrap: wrap; gap: 20px; align-items: center;">
+      <div style="flex: 1 1 240px; min-width: 0; display: flex; flex-direction: column; gap: 6px;">
+        <span style="width: 40px; height: 40px; border-radius: 12px; background: #0047AB; color: #FFFFFF; font-weight: 900; font-size: 20px; display: flex; align-items: center; justify-content: center;">2</span>
+        <span style="font-size: 22px; font-weight: 900;">Sandaran</span>
+        <span style="font-size: 15px; color: #3A4A66;">Dikunci dalam telefon, kemudian dihantar terus ke Google Drive atau iCloud anda. Kami tidak berada di tengah.</span>
+        <span style="font-size: 13px; font-weight: 800; color: #5A6984;">Encrypted on the phone, straight to your own cloud.</span>
+      </div>
+      <svg viewBox="0 0 820 200" style="flex: 999 1 520px; min-width: 0; width: 100%; height: auto;" role="img" aria-label="Animation: a locked backup travels from your phone directly to your own Google Drive or iCloud, and a check mark appears.">
+        <rect x="20" y="10" width="120" height="180" rx="24" fill="#0B1B3A"></rect>
+        <rect x="28" y="20" width="104" height="160" rx="18" fill="#E3ECFA"></rect>
+        <g class="gm-box gm-pulse"><rect x="58" y="86" width="44" height="38" rx="8" fill="#0047AB"></rect><path d="M66 86v-10a14 14 0 0 1 28 0v10" stroke="#0047AB" stroke-width="7" fill="none"></path><circle cx="80" cy="104" r="5" fill="#FFFFFF"></circle></g>
+        <path d="M150 100 H 700" stroke="#8FB0E8" stroke-width="4" stroke-linecap="round" class="gm-dash"></path>
+        <g class="gm-travel"><rect x="140" y="80" width="64" height="40" rx="12" fill="#0047AB"></rect><rect x="160" y="96" width="24" height="18" rx="4" fill="#FFFFFF"></rect><path d="M164 96v-5a8 8 0 0 1 16 0v5" stroke="#FFFFFF" stroke-width="3" fill="none"></path></g>
+        <g font-family="Nunito, sans-serif"><rect x="700" y="40" width="110" height="120" rx="20" fill="#E3ECFA"></rect>
+          <path d="M735 78h40l20 34-12 20h-56l-12-20z" fill="#FFFFFF" stroke="#0047AB" stroke-width="3" stroke-linejoin="round"></path>
+          <text x="755" y="150" text-anchor="middle" font-size="13" font-weight="900" fill="#0B1B3A">Drive anda</text></g>
+        <g class="gm-box gm-arrive"><circle cx="796" cy="48" r="16" fill="#0A7A5A"></circle><path d="M789 48l5 5 9-10" stroke="#FFFFFF" stroke-width="3.5" fill="none" stroke-linecap="round" stroke-linejoin="round"></path></g>
+        <text x="425" y="150" text-anchor="middle" font-family="Nunito, sans-serif" font-size="13" font-weight="800" fill="#3A4A66">tiada pelayan Manotu di laluan ini</text>
+      </svg>
+    </div>
+
+    <div style="background: #FFFFFF; border-radius: 28px; padding: 24px; box-shadow: 0 2px 12px rgba(11,27,58,.06); display: flex; flex-wrap: wrap; gap: 20px; align-items: center;">
+      <div style="flex: 1 1 240px; min-width: 0; display: flex; flex-direction: column; gap: 6px;">
+        <span style="width: 40px; height: 40px; border-radius: 12px; background: #0047AB; color: #FFFFFF; font-weight: 900; font-size: 20px; display: flex; align-items: center; justify-content: center;">3</span>
+        <span style="font-size: 22px; font-weight: 900;">Trafik tanpa nama</span>
+        <span style="font-size: 15px; color: #3A4A66;">Ketika memandu, titik kelajuan tanpa nama menjadi warna jalan, kemudian dipadam dalam 30 saat. Perjalanan anda tidak disimpan.</span>
+        <span style="font-size: 13px; font-weight: 800; color: #5A6984;">Anonymous speeds become road colour, then vanish.</span>
+      </div>
+      <svg viewBox="0 0 820 200" style="flex: 999 1 520px; min-width: 0; width: 100%; height: auto;" role="img" aria-label="Animation: a car drives along a road, anonymous speed dots rise and disappear, the road segment turns orange for traffic, and a 30 second timer shows the raw points being deleted.">
+        <rect x="0" y="130" width="820" height="40" rx="6" fill="#D5D9DE"></rect>
+        <rect x="0" y="136" width="820" height="28" rx="4" fill="#FFFFFF"></rect>
+        <rect x="300" y="142" width="300" height="16" rx="8" fill="#FFB020" class="gm-grow"></rect>
+        <g class="gm-drive" style="animation-delay: -1s"><g transform="translate(-60 0)"><rect x="0" y="134" width="44" height="22" rx="7" fill="#0047AB"></rect><circle cx="10" cy="158" r="5" fill="#0B1B3A"></circle><circle cx="34" cy="158" r="5" fill="#0B1B3A"></circle></g></g>
+        <circle cx="340" cy="122" r="7" fill="#8FB0E8" class="gm-rise"></circle>
+        <circle cx="420" cy="122" r="7" fill="#8FB0E8" class="gm-rise" style="animation-delay: .7s"></circle>
+        <circle cx="500" cy="122" r="7" fill="#8FB0E8" class="gm-rise" style="animation-delay: 1.4s"></circle>
+        <circle cx="560" cy="122" r="7" fill="#8FB0E8" class="gm-rise" style="animation-delay: 2.1s"></circle>
+        <g font-family="Nunito, sans-serif">
+          <rect x="300" y="14" width="300" height="44" rx="14" fill="#F5F8FD" stroke="#C9D6EE" stroke-width="2"></rect>
+          <text x="450" y="42" text-anchor="middle" font-size="14" font-weight="900" fill="#0B1B3A">tanpa nama · dalam memori sahaja</text>
+          <circle cx="730" cy="60" r="20" fill="none" stroke="#E3ECFA" stroke-width="6"></circle>
+          <circle cx="730" cy="60" r="20" fill="none" stroke="#0047AB" stroke-width="6" stroke-linecap="round" class="gm-timer" transform="rotate(-90 730 60)"></circle>
+          <text x="730" y="65" text-anchor="middle" font-size="13" font-weight="900" fill="#0B1B3A">30s</text>
+          <text x="730" y="102" text-anchor="middle" font-size="12" font-weight="800" fill="#3A4A66">titik mentah dipadam</text>
+        </g>
+      </svg>
+    </div>
+
+    <div style="background: #FFFFFF; border-radius: 28px; padding: 24px; box-shadow: 0 2px 12px rgba(11,27,58,.06); display: flex; flex-wrap: wrap; gap: 20px; align-items: center;">
+      <div style="flex: 1 1 240px; min-width: 0; display: flex; flex-direction: column; gap: 6px;">
+        <span style="width: 40px; height: 40px; border-radius: 12px; background: #0047AB; color: #FFFFFF; font-weight: 900; font-size: 20px; display: flex; align-items: center; justify-content: center;">4</span>
+        <span style="font-size: 22px; font-weight: 900;">Kongsi perjalanan</span>
+        <span style="font-size: 15px; color: #3A4A66;">Lokasi disulitkan. Pelayan kami hanya nampak huruf rawak; kuncinya pergi terus kepada kawan anda dalam pautan.</span>
+        <span style="font-size: 13px; font-weight: 800; color: #5A6984;">End-to-end encrypted: our relay sees only gibberish.</span>
+      </div>
+      <svg viewBox="0 0 820 220" style="flex: 999 1 520px; min-width: 0; width: 100%; height: auto;" role="img" aria-label="Animation: an encrypted location travels from your phone through Manotu's relay, which sees only scrambled text, to your friend's phone; the key travels separately inside the link, over the top, never through the server.">
+        <rect x="20" y="40" width="100" height="160" rx="22" fill="#0B1B3A"></rect><rect x="27" y="50" width="86" height="140" rx="16" fill="#E3ECFA"></rect>
+        <path d="M70 92c-9 0-16 7-16 16 0 12 16 30 16 30s16-18 16-30c0-9-7-16-16-16z" fill="#0047AB"></path>
+        <rect x="700" y="40" width="100" height="160" rx="22" fill="#0B1B3A"></rect><rect x="707" y="50" width="86" height="140" rx="16" fill="#E3ECFA"></rect>
+        <path d="M707 150 L793 120" stroke="#FFFFFF" stroke-width="8"></path>
+        <g class="gm-box gm-pop" style="animation-duration: 6s; animation-delay: 4.6s"><path d="M750 92c-9 0-16 7-16 16 0 12 16 30 16 30s16-18 16-30c0-9-7-16-16-16z" fill="#0047AB"></path></g>
+        <g font-family="Nunito, sans-serif">
+          <rect x="350" y="88" width="120" height="84" rx="16" fill="#F2F4F7" stroke="#C9D6EE" stroke-width="2"></rect>
+          <text x="410" y="112" text-anchor="middle" font-size="12" font-weight="900" fill="#3A4A66">Relay Manotu</text>
+          <text x="410" y="146" text-anchor="middle" font-size="16" font-weight="900" fill="#0B1B3A" class="gm-c1">x9#Q@!7</text>
+          <text x="410" y="146" text-anchor="middle" font-size="16" font-weight="900" fill="#0B1B3A" class="gm-c2">%k2*Lz^</text>
+          <text x="410" y="146" text-anchor="middle" font-size="16" font-weight="900" fill="#0B1B3A" class="gm-c3">&amp;Rf8$wq</text>
+        </g>
+        <path d="M120 130 H 350 M470 130 H 700" stroke="#C9D6EE" stroke-width="4" stroke-linecap="round" class="gm-dash"></path>
+        <g class="gm-hop1"><rect x="124" y="118" width="36" height="24" rx="6" fill="#0B1B3A"></rect><text x="142" y="135" text-anchor="middle" font-family="Nunito, sans-serif" font-size="11" font-weight="900" fill="#8FB0E8">#@%</text></g>
+        <g class="gm-hop2"><rect x="374" y="118" width="36" height="24" rx="6" fill="#0B1B3A"></rect><text x="392" y="135" text-anchor="middle" font-family="Nunito, sans-serif" font-size="11" font-weight="900" fill="#8FB0E8">#@%</text></g>
+        <path d="M120 60 Q 410 -20 700 60" stroke="#FF6B4A" stroke-width="3" fill="none" stroke-dasharray="6 8"></path>
+        <g class="gm-key"><g transform="translate(70 44)"><circle cx="0" cy="0" r="18" fill="#FF6B4A"></circle><circle cx="-4" cy="0" r="5" fill="none" stroke="#FFFFFF" stroke-width="3"></circle><path d="M1 0h10M8 0v5" stroke="#FFFFFF" stroke-width="3" stroke-linecap="round"></path></g></g>
+        <text x="410" y="30" text-anchor="middle" font-family="Nunito, sans-serif" font-size="12" font-weight="900" fill="#C2410C">kunci dalam pautan #… (tidak melalui pelayan)</text>
+      </svg>
+    </div>
+  </section>
+
+  <section id="sumber-terbuka" style="max-width: 1180px; margin: 0 auto; padding: 56px var(--gx); display: flex; flex-wrap: wrap; gap: 24px;">
+    <div style="flex: 1 1 100%; display: flex; flex-direction: column; gap: 8px;">
+      <span style="font-weight: 900; color: #0047AB; letter-spacing: 1px; font-size: 14px;">SUMBER TERBUKA · OPEN SOURCE</span>
+      <h2 style="margin: 0; font-size: clamp(1.9rem, 3.4vw, 2.8rem); line-height: 1.1; font-weight: 900;">Jangan percaya kata-kata kami. Baca kodnya.</h2>
+    </div>
+    <div style="flex: 1 1 460px; min-width: 0; background: #0B1B3A; border-radius: 28px; padding: 20px; display: flex; flex-direction: column; gap: 14px;">
+      <div style="display: flex; gap: 8px; align-items: center;">
+        <span style="width: 12px; height: 12px; border-radius: 999px; background: #FF6B4A;"></span>
+        <span style="width: 12px; height: 12px; border-radius: 999px; background: #FFB020;"></span>
+        <span style="width: 12px; height: 12px; border-radius: 999px; background: #2BC79A;"></span>
+        <span style="margin-left: 10px; min-width: 0; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; font-weight: 800; color: #A9B6CF;">backend/src/Manotu.Api/Endpoints/LiveEndpoints.cs</span>
+      </div>
+      <div role="img" aria-label="Animation: lines of public source code being written, with a blinking cursor" style="display: flex; flex-direction: column; gap: 12px; padding: 8px 4px;">
+        
+          <div style="display: flex; gap: 10px; align-items: center; padding-left: 0px;">
+            <span style="width: 34%; height: 12px; border-radius: 6px; background: #8FB0E8; animation-delay: 0s;" class="gm-line"></span>
+            <span style="width: 22%; height: 12px; border-radius: 6px; background: #3A5A99; animation-delay: 0.15s;" class="gm-line"></span>
+          </div>
+        
+          <div style="display: flex; gap: 10px; align-items: center; padding-left: 0px;">
+            <span style="width: 20%; height: 12px; border-radius: 6px; background: #FFB020; animation-delay: 0.35s;" class="gm-line"></span>
+            <span style="width: 40%; height: 12px; border-radius: 6px; background: #3A5A99; animation-delay: 0.5s;" class="gm-line"></span>
+          </div>
+        
+          <div style="display: flex; gap: 10px; align-items: center; padding-left: 24px;">
+            <span style="width: 28%; height: 12px; border-radius: 6px; background: #2BC79A; animation-delay: 0.7s;" class="gm-line"></span>
+            <span style="width: 30%; height: 12px; border-radius: 6px; background: #3A5A99; animation-delay: 0.85s;" class="gm-line"></span>
+          </div>
+        
+          <div style="display: flex; gap: 10px; align-items: center; padding-left: 24px;">
+            <span style="width: 44%; height: 12px; border-radius: 6px; background: #8FB0E8; animation-delay: 1.05s;" class="gm-line"></span>
+            <span style="width: 14%; height: 12px; border-radius: 6px; background: #3A5A99; animation-delay: 1.2s;" class="gm-line"></span>
+          </div>
+        
+          <div style="display: flex; gap: 10px; align-items: center; padding-left: 48px;">
+            <span style="width: 18%; height: 12px; border-radius: 6px; background: #FF8266; animation-delay: 1.4s;" class="gm-line"></span>
+            <span style="width: 36%; height: 12px; border-radius: 6px; background: #3A5A99; animation-delay: 1.55s;" class="gm-line"></span>
+          </div>
+        
+          <div style="display: flex; gap: 10px; align-items: center; padding-left: 48px;">
+            <span style="width: 30%; height: 12px; border-radius: 6px; background: #8FB0E8; animation-delay: 1.75s;" class="gm-line"></span>
+            <span style="width: 20%; height: 12px; border-radius: 6px; background: #3A5A99; animation-delay: 1.9s;" class="gm-line"></span>
+          </div>
+        
+          <div style="display: flex; gap: 10px; align-items: center; padding-left: 24px;">
+            <span style="width: 24%; height: 12px; border-radius: 6px; background: #2BC79A; animation-delay: 2.1s;" class="gm-line"></span>
+            <span style="width: 26%; height: 12px; border-radius: 6px; background: #3A5A99; animation-delay: 2.25s;" class="gm-line"></span>
+          </div>
+        
+          <div style="display: flex; gap: 10px; align-items: center; padding-left: 0px;">
+            <span style="width: 12%; height: 12px; border-radius: 6px; background: #8FB0E8; animation-delay: 2.45s;" class="gm-line"></span>
+            <span style="width: 0%; height: 12px; border-radius: 6px; background: #3A5A99; animation-delay: 2.6s;" class="gm-line"></span>
+          </div>
+        
+        <span class="gm-blink" style="width: 10px; height: 18px; background: #FFFFFF; margin-left: 4px;"></span>
+      </div>
+      <div style="display: flex; flex-wrap: wrap; gap: 10px;">
+        <a href="https://github.com/erymuzuan/gimano" style="height: 50px; padding: 0 20px; border-radius: 999px; background: #FFFFFF; color: #0B1B3A; font-weight: 900; font-size: 16px; display: inline-flex; align-items: center; text-decoration: none;">github.com/erymuzuan/gimano →</a>
+        <span style="height: 50px; padding: 0 16px; border-radius: 999px; background: #16233D; color: #A9B6CF; font-weight: 800; font-size: 15px; display: inline-flex; align-items: center;">Lesen MIT</span>
+      </div>
+    </div>
+    <div style="flex: 1 1 420px; min-width: 0; display: flex; flex-direction: column; gap: 14px;">
+      
+        <div style="background: #FFFFFF; border-radius: 22px; padding: 18px; box-shadow: 0 2px 12px rgba(11,27,58,.06); display: flex; gap: 16px; align-items: center;">
+          <span class="gm-float" style="width: 64px; height: 64px; border-radius: 20px; background: #E3ECFA; display: flex; align-items: center; justify-content: center; flex-shrink: 0; animation-delay: 0s;">
+            <svg width="36" height="36" viewBox="0 0 24 24" fill="#8FB0E8" fill-opacity="0.6" stroke="#0A2E6E" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 5h7a3 3 0 0 1 3 3v11a2 2 0 0 0-2-2H4zM20 5h-7a3 3 0 0 0-3 3v11a2 2 0 0 1 2-2h8z"></path></svg>
+          </span>
+          <span style="display: flex; flex-direction: column; gap: 2px;">
+            <span style="font-size: 19px; font-weight: 900;">Baca</span>
+            <span style="font-size: 15px; color: #3A4A66;">Setiap baris kod app &amp; pelayan ada di GitHub.</span>
+          </span>
+        </div>
+      
+        <div style="background: #FFFFFF; border-radius: 22px; padding: 18px; box-shadow: 0 2px 12px rgba(11,27,58,.06); display: flex; gap: 16px; align-items: center;">
+          <span class="gm-float" style="width: 64px; height: 64px; border-radius: 20px; background: #E3ECFA; display: flex; align-items: center; justify-content: center; flex-shrink: 0; animation-delay: .6s;">
+            <svg width="36" height="36" viewBox="0 0 24 24" fill="#8FB0E8" fill-opacity="0.6" stroke="#0A2E6E" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 18a7 7 0 1 0 0-14 7 7 0 0 0 0 14M20 20l-4-4M8 11l2 2 4-4"></path></svg>
+          </span>
+          <span style="display: flex; flex-direction: column; gap: 2px;">
+            <span style="font-size: 19px; font-weight: 900;">Semak</span>
+            <span style="font-size: 15px; color: #3A4A66;">Pakar boleh sahkan janji privasi kami sendiri.</span>
+          </span>
+        </div>
+      
+        <div style="background: #FFFFFF; border-radius: 22px; padding: 18px; box-shadow: 0 2px 12px rgba(11,27,58,.06); display: flex; gap: 16px; align-items: center;">
+          <span class="gm-float" style="width: 64px; height: 64px; border-radius: 20px; background: #E3ECFA; display: flex; align-items: center; justify-content: center; flex-shrink: 0; animation-delay: 1.2s;">
+            <svg width="36" height="36" viewBox="0 0 24 24" fill="#8FB0E8" fill-opacity="0.6" stroke="#0A2E6E" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 3v12M18 9a3 3 0 1 0 0-6 3 3 0 0 0 0 6M6 21a3 3 0 1 0 0-6 3 3 0 0 0 0 6M18 9a9 9 0 0 1-9 9"></path></svg>
+          </span>
+          <span style="display: flex; flex-direction: column; gap: 2px;">
+            <span style="font-size: 19px; font-weight: 900;">Sumbang</span>
+            <span style="font-size: 15px; color: #3A4A66;">Baiki peta, terjemahan atau kod: semua dialu-alukan.</span>
+          </span>
+        </div>
+      
+      <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px;">
+        
+          <div style="background: #0047AB; color: #FFFFFF; border-radius: 20px; padding: 14px; display: flex; flex-direction: column; align-items: center;">
+            <span style="font-size: 30px; font-weight: 900; line-height: 1;">MIT</span>
+            <span style="font-size: 13px; font-weight: 800; color: #DCE6F7; text-align: center;">kod Manotu</span>
+          </div>
+        
+          <div style="background: #0047AB; color: #FFFFFF; border-radius: 20px; padding: 14px; display: flex; flex-direction: column; align-items: center;">
+            <span style="font-size: 30px; font-weight: 900; line-height: 1;">0</span>
+            <span style="font-size: 13px; font-weight: 800; color: #DCE6F7; text-align: center;">penjejak</span>
+          </div>
+        
+          <div style="background: #0047AB; color: #FFFFFF; border-radius: 20px; padding: 14px; display: flex; flex-direction: column; align-items: center;">
+            <span style="font-size: 30px; font-weight: 900; line-height: 1;">MIT</span>
+            <span style="font-size: 13px; font-weight: 800; color: #DCE6F7; text-align: center;">lesen</span>
+          </div>
+        
+      </div>
+    </div>
+    <div style="flex: 1 1 100%; min-width: 0; overflow: hidden; border-radius: 999px; background: #E3ECFA; padding: 10px 0;">
+      <div class="gm-marquee" style="display: flex; gap: 10px; width: max-content;">
+        
+          <span style="padding: 8px 16px; border-radius: 999px; background: #FFFFFF; color: #0A2E6E; font-weight: 900; font-size: 15px; white-space: nowrap;">OpenStreetMap</span>
+        
+          <span style="padding: 8px 16px; border-radius: 999px; background: #FFFFFF; color: #0A2E6E; font-weight: 900; font-size: 15px; white-space: nowrap;">MapLibre</span>
+        
+          <span style="padding: 8px 16px; border-radius: 999px; background: #FFFFFF; color: #0A2E6E; font-weight: 900; font-size: 15px; white-space: nowrap;">Valhalla</span>
+        
+          <span style="padding: 8px 16px; border-radius: 999px; background: #FFFFFF; color: #0A2E6E; font-weight: 900; font-size: 15px; white-space: nowrap;">.NET</span>
+        
+          <span style="padding: 8px 16px; border-radius: 999px; background: #FFFFFF; color: #0A2E6E; font-weight: 900; font-size: 15px; white-space: nowrap;">PostgreSQL</span>
+        
+          <span style="padding: 8px 16px; border-radius: 999px; background: #FFFFFF; color: #0A2E6E; font-weight: 900; font-size: 15px; white-space: nowrap;">PostGIS</span>
+        
+          <span style="padding: 8px 16px; border-radius: 999px; background: #FFFFFF; color: #0A2E6E; font-weight: 900; font-size: 15px; white-space: nowrap;">OpenSearch</span>
+        
+          <span style="padding: 8px 16px; border-radius: 999px; background: #FFFFFF; color: #0A2E6E; font-weight: 900; font-size: 15px; white-space: nowrap;">RabbitMQ</span>
+        
+          <span style="padding: 8px 16px; border-radius: 999px; background: #FFFFFF; color: #0A2E6E; font-weight: 900; font-size: 15px; white-space: nowrap;">Kotlin</span>
+        
+          <span style="padding: 8px 16px; border-radius: 999px; background: #FFFFFF; color: #0A2E6E; font-weight: 900; font-size: 15px; white-space: nowrap;">Swift</span>
+        
+          <span style="padding: 8px 16px; border-radius: 999px; background: #FFFFFF; color: #0A2E6E; font-weight: 900; font-size: 15px; white-space: nowrap;">libsodium</span>
+        
+          <span style="padding: 8px 16px; border-radius: 999px; background: #FFFFFF; color: #0A2E6E; font-weight: 900; font-size: 15px; white-space: nowrap;">Nunito</span>
+        
+          <span aria-hidden="true" style="padding: 8px 16px; border-radius: 999px; background: #FFFFFF; color: #0A2E6E; font-weight: 900; font-size: 15px; white-space: nowrap;">OpenStreetMap</span>
+        
+          <span aria-hidden="true" style="padding: 8px 16px; border-radius: 999px; background: #FFFFFF; color: #0A2E6E; font-weight: 900; font-size: 15px; white-space: nowrap;">MapLibre</span>
+        
+          <span aria-hidden="true" style="padding: 8px 16px; border-radius: 999px; background: #FFFFFF; color: #0A2E6E; font-weight: 900; font-size: 15px; white-space: nowrap;">Valhalla</span>
+        
+          <span aria-hidden="true" style="padding: 8px 16px; border-radius: 999px; background: #FFFFFF; color: #0A2E6E; font-weight: 900; font-size: 15px; white-space: nowrap;">.NET</span>
+        
+          <span aria-hidden="true" style="padding: 8px 16px; border-radius: 999px; background: #FFFFFF; color: #0A2E6E; font-weight: 900; font-size: 15px; white-space: nowrap;">PostgreSQL</span>
+        
+          <span aria-hidden="true" style="padding: 8px 16px; border-radius: 999px; background: #FFFFFF; color: #0A2E6E; font-weight: 900; font-size: 15px; white-space: nowrap;">PostGIS</span>
+        
+          <span aria-hidden="true" style="padding: 8px 16px; border-radius: 999px; background: #FFFFFF; color: #0A2E6E; font-weight: 900; font-size: 15px; white-space: nowrap;">OpenSearch</span>
+        
+          <span aria-hidden="true" style="padding: 8px 16px; border-radius: 999px; background: #FFFFFF; color: #0A2E6E; font-weight: 900; font-size: 15px; white-space: nowrap;">RabbitMQ</span>
+        
+          <span aria-hidden="true" style="padding: 8px 16px; border-radius: 999px; background: #FFFFFF; color: #0A2E6E; font-weight: 900; font-size: 15px; white-space: nowrap;">Kotlin</span>
+        
+          <span aria-hidden="true" style="padding: 8px 16px; border-radius: 999px; background: #FFFFFF; color: #0A2E6E; font-weight: 900; font-size: 15px; white-space: nowrap;">Swift</span>
+        
+          <span aria-hidden="true" style="padding: 8px 16px; border-radius: 999px; background: #FFFFFF; color: #0A2E6E; font-weight: 900; font-size: 15px; white-space: nowrap;">libsodium</span>
+        
+          <span aria-hidden="true" style="padding: 8px 16px; border-radius: 999px; background: #FFFFFF; color: #0A2E6E; font-weight: 900; font-size: 15px; white-space: nowrap;">Nunito</span>
+        
+      </div>
+    </div>
+  </section>
+
+  <section style="max-width: 1180px; margin: 0 auto; padding: 0 var(--gx) 56px; display: flex; flex-wrap: wrap; gap: 24px;">
+    <div style="flex: 1 1 420px; min-width: 0; background: #FFFFFF; border-radius: 28px; padding: 32px; box-shadow: 0 2px 12px rgba(11,27,58,.06); display: flex; flex-direction: column; gap: 16px;">
+      <svg width="64" height="64" viewBox="0 0 64 64" aria-hidden="true">
+        <circle cx="32" cy="32" r="30" fill="#E3ECFA"></circle>
+        <path d="M20 22h24v22H20z" fill="none" stroke="#0047AB" stroke-width="3" stroke-linejoin="round"></path>
+        <path d="M26 30h12M26 36h8" stroke="#0047AB" stroke-width="3" stroke-linecap="round"></path>
+        <circle cx="32" cy="32" r="28" fill="none" stroke="#C1121F" stroke-width="4"></circle>
+        <path d="M13 13l38 38" stroke="#C1121F" stroke-width="4" stroke-linecap="round"></path>
+      </svg>
+      <h2 style="margin: 0; font-size: 2rem; line-height: 1.15; font-weight: 900;">Tiada teknologi Israel.</h2>
+      <p style="margin: 0; font-size: 1.1rem; color: #3A4A66;">Manotu’s own code is MIT-licensed, with open-source mapping and routing. Google location, sign-in and integrity libraries and Apple platform frameworks are documented proprietary exceptions. Traffic comes from our community, not data brokers. See the dependency inventory for component origins and licences.</p>
+      <a href="https://github.com/erymuzuan/gimano/blob/main/docs/supply-chain.md" style="align-self: flex-start; font-weight: 900; font-size: 17px;">Senarai penuh komponen &amp; asal-usul →</a>
+      <div style="display: flex; flex-wrap: wrap; gap: 8px;">
+        
+          <span style="padding: 6px 12px; border-radius: 999px; background: #E3ECFA; color: #0A2E6E; font-weight: 800; font-size: 14px;">OpenStreetMap</span>
+        
+          <span style="padding: 6px 12px; border-radius: 999px; background: #E3ECFA; color: #0A2E6E; font-weight: 800; font-size: 14px;">MapLibre</span>
+        
+          <span style="padding: 6px 12px; border-radius: 999px; background: #E3ECFA; color: #0A2E6E; font-weight: 800; font-size: 14px;">Valhalla</span>
+        
+          <span style="padding: 6px 12px; border-radius: 999px; background: #E3ECFA; color: #0A2E6E; font-weight: 800; font-size: 14px;">.NET</span>
+        
+          <span style="padding: 6px 12px; border-radius: 999px; background: #E3ECFA; color: #0A2E6E; font-weight: 800; font-size: 14px;">PostgreSQL</span>
+        
+          <span style="padding: 6px 12px; border-radius: 999px; background: #E3ECFA; color: #0A2E6E; font-weight: 800; font-size: 14px;">OpenSearch</span>
+        
+          <span style="padding: 6px 12px; border-radius: 999px; background: #E3ECFA; color: #0A2E6E; font-weight: 800; font-size: 14px;">Kotlin</span>
+        
+          <span style="padding: 6px 12px; border-radius: 999px; background: #E3ECFA; color: #0A2E6E; font-weight: 800; font-size: 14px;">Swift</span>
+        
+      </div>
+    </div>
+  </section>
+
+  <section id="skrin" style="max-width: 1180px; margin: 0 auto; padding: 56px var(--gx) 40px; display: flex; flex-direction: column; gap: 28px;">
+    <div style="display: flex; flex-direction: column; gap: 8px; max-width: 760px;">
+      <span style="font-weight: 900; color: #0047AB; letter-spacing: 1px; font-size: 14px;">LIHAT MANOTU · SEE MANOTU</span>
+      <h2 style="margin: 0; font-size: clamp(1.9rem, 3.4vw, 2.8rem); line-height: 1.1; font-weight: 900;">Ikon besar, teks sikit. Mudah dipandang sambil memandu.</h2>
+      <p style="margin: 0; font-size: 1.15rem; color: #3A4A66;">Big icons, little text: built to be glanced at, not read. Real screenshots from the app.</p>
+    </div>
+    <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 28px 20px;">
+      
+        <figure style="margin: 0; display: flex; flex-direction: column; align-items: center; gap: 14px;">
+          <div style="width: 234px; height: 506px; border-radius: 36px; border: 8px solid #0B1B3A; overflow: hidden; background: #EEF2F8; box-shadow: 0 12px 30px rgba(11,27,58,.18);">
+            <img loading="lazy" width="414" height="900" src="img/a-navigation-car.jpg" alt="Manotu navigation screen: dark-blue turn banner with 40 m and Jalan Puncak, route line on the map, speedometer at 55 km/h and the coral report button" style="width: 100%; height: 100%; object-fit: cover; display: block;">
+          </div>
+          <figcaption style="max-width: 270px; display: flex; flex-direction: column; gap: 4px; text-align: center;">
+            <span style="display: inline-flex; align-self: center; padding: 2px 10px; border-radius: 999px; background: #DDF4F2; color: #0E5A54; font-size: 12px; font-weight: 900;">Dalam app</span>
+            <span style="font-size: 19px; font-weight: 900;">Navigasi belok demi belok</span>
+            <span style="font-size: 15px; font-weight: 700; color: #3A4A66; line-height: 1.4;">Arahan besar, suara BM &amp; English, laju semasa, dan butang lapor satu ketikan.</span>
+            <span style="font-size: 14px; color: #5A6984; line-height: 1.4;">Big turn banner, BM/English voice, speed, one-tap report.</span>
+          </figcaption>
+        </figure>
+      
+        <figure style="margin: 0; display: flex; flex-direction: column; align-items: center; gap: 14px;">
+          <div style="width: 234px; height: 506px; border-radius: 36px; border: 8px solid #0B1B3A; overflow: hidden; background: #EEF2F8; box-shadow: 0 12px 30px rgba(11,27,58,.18);">
+            <img loading="lazy" width="414" height="900" src="img/search-petronas.jpg" alt="Manotu search screen: results for petronas with distance on the right, and Fuel, Food, Surau and Parking chips" style="width: 100%; height: 100%; object-fit: cover; display: block;">
+          </div>
+          <figcaption style="max-width: 270px; display: flex; flex-direction: column; gap: 4px; text-align: center;">
+            <span style="display: inline-flex; align-self: center; padding: 2px 10px; border-radius: 999px; background: #DDF4F2; color: #0E5A54; font-size: 12px; font-weight: 900;">Dalam app</span>
+            <span style="font-size: 19px; font-weight: 900;">Cari dengan pantas</span>
+            <span style="font-size: 15px; font-weight: 700; color: #3A4A66; line-height: 1.4;">Petronas, surau, R&amp;R, parkir: hasil terdekat dengan jarak, daripada data OpenStreetMap.</span>
+            <span style="font-size: 14px; color: #5A6984; line-height: 1.4;">Nearest results with distances, from open map data.</span>
+          </figcaption>
+        </figure>
+      
+        <figure style="margin: 0; display: flex; flex-direction: column; align-items: center; gap: 14px;">
+          <div style="width: 234px; height: 506px; border-radius: 36px; border: 8px solid #0B1B3A; overflow: hidden; background: #EEF2F8; box-shadow: 0 12px 30px rgba(11,27,58,.18);">
+            <img loading="lazy" width="414" height="900" src="img/f-toll-badge-RM-6.jpg" alt="Manotu route preview: three route options with the best at 28 minutes, car, moto, bike and walk tabs, toll estimate RM 6.80 and Go now button" style="width: 100%; height: 100%; object-fit: cover; display: block;">
+          </div>
+          <figcaption style="max-width: 270px; display: flex; flex-direction: column; gap: 4px; text-align: center;">
+            <span style="display: inline-flex; align-self: center; padding: 2px 10px; border-radius: 999px; background: #DDF4F2; color: #0E5A54; font-size: 12px; font-weight: 900;">Dalam app</span>
+            <span style="font-size: 19px; font-weight: 900;">Laluan, mod &amp; tol</span>
+            <span style="font-size: 15px; font-weight: 700; color: #3A4A66; line-height: 1.4;">Bandingkan laluan, pilih kereta, motor, basikal atau jalan kaki, dan lihat anggaran tol.</span>
+            <span style="font-size: 14px; color: #5A6984; line-height: 1.4;">Compare routes, pick your mode, see the toll estimate.</span>
+          </figcaption>
+        </figure>
+      
+      <figure style="margin: 0; display: flex; flex-direction: column; align-items: center; gap: 14px;">
+        <div style="width: 234px; height: 506px; border-radius: 36px; border: 8px solid #0B1B3A; overflow: hidden; background: #F5F8FD; box-shadow: 0 12px 30px rgba(11,27,58,.18);">
+          <img loading="lazy" width="414" height="900" src="img/favourites.jpg" alt="Manotu Favourites screen: Home and Work, plus favourites labelled Kampung and Rumah Mertua, each with its own icon" style="width: 100%; height: 100%; object-fit: cover; display: block;">
+        </div>
+        <figcaption style="max-width: 270px; display: flex; flex-direction: column; gap: 4px; text-align: center;">
+          <span style="display: inline-flex; align-self: center; padding: 2px 10px; border-radius: 999px; background: #DDF4F2; color: #0E5A54; font-size: 12px; font-weight: 900;">Dalam app</span>
+          <span style="font-size: 19px; font-weight: 900;">Kampung &amp; Rumah Mertua</span>
+          <span style="font-size: 15px; font-weight: 700; color: #3A4A66; line-height: 1.4;">Labelkan tempat dengan nama dan ikon anda sendiri. Disimpan dalam telefon sahaja.</span>
+          <span style="font-size: 14px; color: #5A6984; line-height: 1.4;">Your own labels and icons, stored only on your phone.</span>
+        </figcaption>
+      </figure>
+      <figure style="margin: 0; display: flex; flex-direction: column; align-items: center; gap: 14px;">
+        <div style="width: 234px; height: 506px; border-radius: 36px; border: 8px solid #0B1B3A; overflow: hidden; background: #F5F8FD; box-shadow: 0 12px 30px rgba(11,27,58,.18);">
+          <img loading="lazy" width="414" height="900" src="img/planned-drives.jpg" alt="Manotu Planned drives screen: a weekday drive to Mid Valley Megamall arriving 08:30, with a leave-by time" style="width: 100%; height: 100%; object-fit: cover; display: block;">
+        </div>
+        <figcaption style="max-width: 270px; display: flex; flex-direction: column; gap: 4px; text-align: center;">
+          <span style="display: inline-flex; align-self: center; padding: 2px 10px; border-radius: 999px; background: #DDF4F2; color: #0E5A54; font-size: 12px; font-weight: 900;">Dalam app</span>
+          <span style="font-size: 19px; font-weight: 900;">Perjalanan dirancang</span>
+          <span style="font-size: 15px; font-weight: 700; color: #3A4A66; line-height: 1.4;">"Bertolak sebelum 7:40 pagi." Peringatan ikut trafik, setiap hari bekerja.</span>
+          <span style="font-size: 14px; color: #5A6984; line-height: 1.4;">Leave-by reminders for your regular trips.</span>
+        </figcaption>
+      </figure>
+      <figure style="margin: 0; display: flex; flex-direction: column; align-items: center; gap: 14px;">
+        <div style="width: 234px; height: 506px; border-radius: 36px; border: 8px solid #0B1B3A; overflow: hidden; background: #F5F8FD; box-shadow: 0 12px 30px rgba(11,27,58,.18);">
+          <img loading="lazy" width="414" height="900" src="img/share-drive.jpg" alt="Manotu navigation with the blue Sharing chip under the turn banner, showing the trip is being shared live" style="width: 100%; height: 100%; object-fit: cover; display: block;">
+        </div>
+        <figcaption style="max-width: 270px; display: flex; flex-direction: column; gap: 4px; text-align: center;">
+          <span style="display: inline-flex; align-self: center; padding: 2px 10px; border-radius: 999px; background: #DDF4F2; color: #0E5A54; font-size: 12px; font-weight: 900;">Dalam app</span>
+          <span style="font-size: 19px; font-weight: 900;">Kongsi perjalanan</span>
+          <span style="font-size: 15px; font-weight: 700; color: #3A4A66; line-height: 1.4;">Hantar pautan ETA melalui WhatsApp. Disulitkan hujung-ke-hujung; tamat bila sampai.</span>
+          <span style="font-size: 14px; color: #5A6984; line-height: 1.4;">Live ETA link, end-to-end encrypted, ends on arrival.</span>
+        </figcaption>
+      </figure>
+      <figure style="margin: 0; display: flex; flex-direction: column; align-items: center; gap: 14px;">
+        <div style="width: 234px; height: 506px; border-radius: 36px; border: 8px solid #0B1B3A; overflow: hidden; background: #F5F8FD; box-shadow: 0 12px 30px rgba(11,27,58,.18);">
+          <img loading="lazy" width="414" height="900" src="img/add-place.jpg" alt="Manotu Add a place screen asking whether the place is Just for me, saved only on this phone, or Share with everyone" style="width: 100%; height: 100%; object-fit: cover; display: block;">
+        </div>
+        <figcaption style="max-width: 270px; display: flex; flex-direction: column; gap: 4px; text-align: center;">
+          <span style="display: inline-flex; align-self: center; padding: 2px 10px; border-radius: 999px; background: #DDF4F2; color: #0E5A54; font-size: 12px; font-weight: 900;">Dalam app</span>
+          <span style="font-size: 19px; font-weight: 900;">Tambah tempat</span>
+          <span style="font-size: 15px; font-weight: 700; color: #3A4A66; line-height: 1.4;">Gerai kegemaran tiada dalam peta? Pin sendiri, untuk anda atau untuk semua.</span>
+          <span style="font-size: 14px; color: #5A6984; line-height: 1.4;">Pin a missing place, just for you or for everyone.</span>
+        </figcaption>
+      </figure>
+      <figure style="margin: 0; display: flex; flex-direction: column; align-items: center; gap: 14px;">
+        <div style="width: 234px; height: 506px; border-radius: 36px; border: 8px solid #0B1B3A; overflow: hidden; background: #F5F8FD; box-shadow: 0 12px 30px rgba(11,27,58,.18);">
+          <img loading="lazy" width="414" height="900" src="img/place-reviews.jpg" alt="Manotu place card for a community-added place: Is this place here? confirmed, opening hours, and a Reviews section with Write a review" style="width: 100%; height: 100%; object-fit: cover; display: block;">
+        </div>
+        <figcaption style="max-width: 270px; display: flex; flex-direction: column; gap: 4px; text-align: center;">
+          <span style="display: inline-flex; align-self: center; padding: 2px 10px; border-radius: 999px; background: #DDF4F2; color: #0E5A54; font-size: 12px; font-weight: 900;">Dalam app</span>
+          <span style="font-size: 19px; font-weight: 900;">Ulasan &amp; gambar</span>
+          <span style="font-size: 15px; font-weight: 700; color: #3A4A66; line-height: 1.4;">Pemandu sahkan tempat baharu. Gambar ditukar ke WebP, lokasi GPS dibuang.</span>
+          <span style="font-size: 14px; color: #5A6984; line-height: 1.4;">Community-verified places; photos stripped of GPS.</span>
+        </figcaption>
+      </figure>
+      <figure style="margin: 0; display: flex; flex-direction: column; align-items: center; gap: 14px;">
+        <div style="width: 234px; height: 506px; border-radius: 36px; border: 8px solid #0B1B3A; overflow: hidden; background: #F5F8FD; box-shadow: 0 12px 30px rgba(11,27,58,.18);">
+          <img loading="lazy" width="414" height="900" src="img/backup.jpg" alt="Manotu Backup and restore screen: Back up now, last backup time, and a list of backups in your own Drive to restore from" style="width: 100%; height: 100%; object-fit: cover; display: block;">
+        </div>
+        <figcaption style="max-width: 270px; display: flex; flex-direction: column; gap: 4px; text-align: center;">
+          <span style="display: inline-flex; align-self: center; padding: 2px 10px; border-radius: 999px; background: #DDF4F2; color: #0E5A54; font-size: 12px; font-weight: 900;">Dalam app</span>
+          <span style="font-size: 19px; font-weight: 900;">Sandaran milik anda</span>
+          <span style="font-size: 15px; font-weight: 700; color: #3A4A66; line-height: 1.4;">Ke Google Drive, iCloud atau fail anda sendiri, dikunci dengan kata laluan anda.</span>
+          <span style="font-size: 14px; color: #5A6984; line-height: 1.4;">Back up to your own cloud, locked with your key.</span>
+        </figcaption>
+      </figure>
+      <figure style="margin: 0; display: flex; flex-direction: column; align-items: center; gap: 14px;">
+        <div style="width: 234px; height: 506px; border-radius: 36px; border: 8px solid #0B1B3A; overflow: hidden; background: #F5F8FD; box-shadow: 0 12px 30px rgba(11,27,58,.18);">
+          <img loading="lazy" width="414" height="900" src="img/theme.jpg" alt="Manotu home screen in the default light theme: map, Where to? search and big icon shortcuts for Home, Work, Fuel, Food, Surau, Parking, EV and Recent" style="width: 100%; height: 100%; object-fit: cover; display: block;">
+        </div>
+        <figcaption style="max-width: 270px; display: flex; flex-direction: column; gap: 4px; text-align: center;">
+          <span style="display: inline-flex; align-self: center; padding: 2px 10px; border-radius: 999px; background: #DDF4F2; color: #0E5A54; font-size: 12px; font-weight: 900;">Dalam app</span>
+          <span style="font-size: 19px; font-weight: 900;">Cerah atau gelap</span>
+          <span style="font-size: 15px; font-weight: 700; color: #3A4A66; line-height: 1.4;">Cerah secara lalai, mudah dibaca di bawah matahari. Tukar ke gelap atau ikut waktu.</span>
+          <span style="font-size: 14px; color: #5A6984; line-height: 1.4;">Light by default; dark or day/night when you want.</span>
+        </figcaption>
+      </figure>
+    </div>
+  </section>
+
+  <section id="disahkan" style="max-width: 1180px; margin: 0 auto; padding: 40px var(--gx) 48px; display: flex; flex-direction: column; gap: 24px;">
+    <div style="display: flex; flex-direction: column; gap: 8px; max-width: 780px;">
+      <span style="font-weight: 900; color: #0047AB; letter-spacing: 1px; font-size: 14px;">DISAHKAN KOMUNITI · COMMUNITY-VERIFIED</span>
+      <h2 style="margin: 0; font-size: clamp(1.9rem, 3.4vw, 2.6rem); line-height: 1.1; font-weight: 900;">Tempat baharu disahkan oleh orang yang benar-benar ada di situ.</h2>
+      <p style="margin: 0; font-size: 1.15rem; color: #3A4A66;">New places are checked by people who are actually there. No spam, no fake listings.</p>
+    </div>
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px;">
+      <div style="background: #FFFFFF; border-radius: 24px; padding: 22px; display: flex; flex-direction: column; gap: 8px; box-shadow: 0 2px 12px rgba(11,27,58,.06);">
+        <span style="width: 44px; height: 44px; border-radius: 999px; background: #0047AB; color: #FFFFFF; font-size: 20px; font-weight: 900; display: flex; align-items: center; justify-content: center;">1</span>
+        <span style="font-size: 19px; font-weight: 900;">Anda tambah tempat</span>
+        <span style="font-size: 15px; color: #3A4A66;">Semakan automatik menyekat pendua, spam dan nama yang tidak sesuai.</span>
+      </div>
+      <div style="background: #FFFFFF; border-radius: 24px; padding: 22px; display: flex; flex-direction: column; gap: 8px; box-shadow: 0 2px 12px rgba(11,27,58,.06);">
+        <span style="width: 44px; height: 44px; border-radius: 999px; background: #0047AB; color: #FFFFFF; font-size: 20px; font-weight: 900; display: flex; align-items: center; justify-content: center;">2</span>
+        <span style="font-size: 19px; font-weight: 900;">3 pemandu berdekatan sahkan</span>
+        <span style="font-size: 15px; color: #3A4A66;">Hanya mereka yang berada dalam 1 km boleh mengundi. Telefon menyemak jarak; lokasi tidak disimpan.</span>
+      </div>
+      <div style="background: #FFFFFF; border-radius: 24px; padding: 22px; display: flex; flex-direction: column; gap: 8px; box-shadow: 0 2px 12px rgba(11,27,58,.06);">
+        <span style="width: 44px; height: 44px; border-radius: 999px; background: #0E8A5F; color: #FFFFFF; font-size: 20px; font-weight: 900; display: flex; align-items: center; justify-content: center;">3</span>
+        <span style="font-size: 19px; font-weight: 900;">Diterbitkan untuk semua</span>
+        <span style="font-size: 15px; color: #3A4A66;">Jika 3 orang kata "Tiada di sini", tempat itu disembunyikan dan disemak moderator.</span>
+      </div>
+      <div style="background: #FFF6DB; border-radius: 24px; padding: 22px; display: flex; flex-direction: column; gap: 8px; border: 2px solid #E0A800;">
+        <span style="width: 44px; height: 44px; border-radius: 999px; background: #E0A800; display: flex; align-items: center; justify-content: center;">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="#FFFFFF" fill-opacity="0.4" stroke="#FFFFFF" stroke-width="2" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1L3.2 9.5l6.1-.9z"></path></svg>
+        </span>
+        <span style="font-size: 19px; font-weight: 900; color: #4A3600;">Penyumbang Emas</span>
+        <span style="font-size: 15px; color: #4A3600;">Penyumbang yang terbukti tepat boleh terbit terus, dengan audit rawak oleh pemandu tempatan.</span>
+      </div>
+    </div>
+  </section>
+
+  <section id="ciri" style="max-width: 1180px; margin: 0 auto; padding: 24px var(--gx) 64px; display: flex; flex-direction: column; gap: 24px;">
+    <h2 style="margin: 0; font-size: clamp(1.9rem, 3.4vw, 2.6rem); font-weight: 900;">Semua yang pemandu Malaysia perlukan</h2>
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px;">
+      
+        <div style="background: #FFFFFF; border-radius: 24px; padding: 22px; box-shadow: 0 2px 12px rgba(11,27,58,.06); display: flex; flex-direction: column; gap: 10px;">
+          <span style="width: 64px; height: 64px; border-radius: 20px; background: #FFE9E2; display: flex; align-items: center; justify-content: center;">
+            <svg width="38" height="38" viewBox="0 0 24 24" fill="#FFB3A1" fill-opacity="0.6" stroke="#9A2B12" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3 2.5 19.5h19zM12 9.5v6M9 12.5h6"></path></svg>
+          </span>
+          <span style="font-size: 19px; font-weight: 900;">Laporan komuniti</span>
+          <span style="font-size: 15px; color: #3A4A66;">Sesak, polis, kemalangan, banjir: satu ketikan.</span>
+        </div>
+      
+        <div style="background: #FFFFFF; border-radius: 24px; padding: 22px; box-shadow: 0 2px 12px rgba(11,27,58,.06); display: flex; flex-direction: column; gap: 10px;">
+          <span style="width: 64px; height: 64px; border-radius: 20px; background: #E3ECFA; display: flex; align-items: center; justify-content: center;">
+            <svg width="38" height="38" viewBox="0 0 24 24" fill="#8FB0E8" fill-opacity="0.6" stroke="#0A2E6E" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 20a3 3 0 1 0 0-6 3 3 0 0 0 0 6M19 20a3 3 0 1 0 0-6 3 3 0 0 0 0 6M5 17h4l4-6h4l2 6M13 11l-2-4H8"></path></svg>
+          </span>
+          <span style="font-size: 19px; font-weight: 900;">Kereta, motor, basikal, jalan kaki</span>
+          <span style="font-size: 15px; color: #3A4A66;">Laluan sesuai untuk setiap cara.</span>
+        </div>
+      
+        <div style="background: #FFFFFF; border-radius: 24px; padding: 22px; box-shadow: 0 2px 12px rgba(11,27,58,.06); display: flex; flex-direction: column; gap: 10px;">
+          <span style="width: 64px; height: 64px; border-radius: 20px; background: #E3ECFA; display: flex; align-items: center; justify-content: center;">
+            <svg width="38" height="38" viewBox="0 0 24 24" fill="#8FB0E8" fill-opacity="0.6" stroke="#0A2E6E" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 21V9l9-6 9 6v12zM8 21v-7h8v7M10 9h4"></path></svg>
+          </span>
+          <span style="font-size: 19px; font-weight: 900;">Anggaran tol</span>
+          <span style="font-size: 15px; color: #3A4A66;">Plaza demi plaza, dengan sumber kadar.</span>
+        </div>
+      
+        <div style="background: #FFFFFF; border-radius: 24px; padding: 22px; box-shadow: 0 2px 12px rgba(11,27,58,.06); display: flex; flex-direction: column; gap: 10px;">
+          <span style="width: 64px; height: 64px; border-radius: 20px; background: #E3ECFA; display: flex; align-items: center; justify-content: center;">
+            <svg width="38" height="38" viewBox="0 0 24 24" fill="#8FB0E8" fill-opacity="0.6" stroke="#0A2E6E" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 5 6 9H3v6h3l5 4zM16 9a4 4 0 0 1 0 6"></path></svg>
+          </span>
+          <span style="font-size: 19px; font-weight: 900;">Suara BM &amp; English</span>
+          <span style="font-size: 15px; color: #3A4A66;">Arahan belok demi belok.</span>
+        </div>
+      
+        <div style="background: #FFFFFF; border-radius: 24px; padding: 22px; box-shadow: 0 2px 12px rgba(11,27,58,.06); display: flex; flex-direction: column; gap: 10px;">
+          <span style="width: 64px; height: 64px; border-radius: 20px; background: #E3ECFA; display: flex; align-items: center; justify-content: center;">
+            <svg width="38" height="38" viewBox="0 0 24 24" fill="#8FB0E8" fill-opacity="0.6" stroke="#0A2E6E" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 11 12 4l9 7M5 10v6h14v-6M5 16v5M19 16v5M12 16v5M9 12h6v4H9z"></path></svg>
+          </span>
+          <span style="font-size: 19px; font-weight: 900;">Kampung &amp; Mertua</span>
+          <span style="font-size: 15px; color: #3A4A66;">Labelkan tempat dengan nama anda sendiri.</span>
+        </div>
+      
+        <div style="background: #FFFFFF; border-radius: 24px; padding: 22px; box-shadow: 0 2px 12px rgba(11,27,58,.06); display: flex; flex-direction: column; gap: 10px;">
+          <span style="width: 64px; height: 64px; border-radius: 20px; background: #E3ECFA; display: flex; align-items: center; justify-content: center;">
+            <svg width="38" height="38" viewBox="0 0 24 24" fill="#8FB0E8" fill-opacity="0.6" stroke="#0A2E6E" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 22s7-6.5 7-12a7 7 0 0 0-14 0c0 5.5 7 12 7 12M12 7v6M9 10h6"></path></svg>
+          </span>
+          <span style="font-size: 19px; font-weight: 900;">Tambah tempat</span>
+          <span style="font-size: 15px; color: #3A4A66;">Tiada dalam peta? Pin sendiri.</span>
+        </div>
+      
+        <div style="background: #FFFFFF; border-radius: 24px; padding: 22px; box-shadow: 0 2px 12px rgba(11,27,58,.06); display: flex; flex-direction: column; gap: 10px;">
+          <span style="width: 64px; height: 64px; border-radius: 20px; background: #DDF4F2; display: flex; align-items: center; justify-content: center;">
+            <svg width="38" height="38" viewBox="0 0 24 24" fill="#8EDCD3" fill-opacity="0.6" stroke="#0E5A54" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3c-.5 2-4 4-4 7h8c0-3-3.5-5-4-7zM5 21v-9h14v9zM10 21v-4a2 2 0 0 1 4 0v4M4 12V8M20 12V8"></path></svg>
+          </span>
+          <span style="font-size: 19px; font-weight: 900;">Surau, R&amp;R, minyak</span>
+          <span style="font-size: 15px; color: #3A4A66;">Cari dengan sekali tekan.</span>
+        </div>
+      
+        <div style="background: #FFFFFF; border-radius: 24px; padding: 22px; box-shadow: 0 2px 12px rgba(11,27,58,.06); display: flex; flex-direction: column; gap: 10px;">
+          <span style="width: 64px; height: 64px; border-radius: 20px; background: #FFF1CC; display: flex; align-items: center; justify-content: center;">
+            <svg width="38" height="38" viewBox="0 0 24 24" fill="#FFD466" fill-opacity="0.6" stroke="#7A5200" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1L3.2 9.5l6.1-.9z"></path></svg>
+          </span>
+          <span style="font-size: 19px; font-weight: 900;">Ulasan &amp; gambar</span>
+          <span style="font-size: 15px; color: #3A4A66;">Gambar WebP, tanpa lokasi GPS.</span>
+        </div>
+      
+    </div>
+  </section>
+
+  <aside style="max-width:1100px;margin:24px auto;padding:24px;background:#E3ECFA;border-radius:24px;line-height:1.6" aria-label="Lesen dan kebergantungan">
+<strong>Kod kami terbuka. Kebergantungan kami dijelaskan.</strong> Kod Manotu berlesen MIT. Aplikasi Android turut menggunakan pustaka proprietari Google untuk lokasi, log masuk Google Drive dan Play Integrity; aplikasi iOS menggunakan rangka kerja Apple. Ini ialah pengecualian yang didokumenkan, bukan SDK iklan atau penjejak. Data peribadi anda tetap tidak disimpan pada pelayan Manotu. <a href="https://github.com/erymuzuan/gimano/blob/main/docs/supply-chain.md">Lihat lesen dan pengecualian / Dependencies and exceptions</a>.
+</aside>
+<section id="muat-turun" class="on-dark" style="background:#0047AB;color:#FFFFFF;">
+    <div style="max-width:1180px;margin:0 auto;padding:56px var(--gx);">
+      <h2 style="margin:0;font-size:clamp(1.9rem,3.4vw,2.6rem);font-weight:900;">Ma’no tu hari ni?</h2>
+      <p style="font-size:1.15rem;color:#DCE6F7;">Pilih telefon anda. Percuma, tanpa iklan. <span lang="en">Choose your phone. Free, open source, no ads.</span></p>
+      <div class="gm-download-grid">
+        <div class="gm-download-card">
+          <svg viewBox="0 0 64 64" aria-hidden="true"><rect x="17" y="6" width="30" height="52" rx="8" fill="#E3ECFA" stroke="#0047AB" stroke-width="3"/><path d="M32 18v22m-9-9 9 9 9-9" fill="none" stroke="#0047AB" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/><circle cx="32" cy="50" r="2" fill="#FF6B4A"/></svg>
+          <h3>Android</h3><p id="android-release-label">APK · 0.1.0 · Android 8+</p>
+          <a id="android-download" class="gm-download-button" href="https://github.com/erymuzuan/gimano/releases/download/v0.1.0/gimano-0.1.0.apk">Muat turun APK ↓</a>
+          <a href="download/#pasang">Cara pasang · Install guide</a>
+        </div>
+        <div class="gm-download-card">
+          <svg viewBox="0 0 64 64" aria-hidden="true"><rect x="17" y="6" width="30" height="52" rx="9" fill="#E3ECFA" stroke="#0047AB" stroke-width="3"/><path d="M26 11h12" stroke="#0047AB" stroke-width="4" stroke-linecap="round"/><path d="M25 43V25h7a7 7 0 0 1 0 14h-7" fill="none" stroke="#0047AB" stroke-width="4" stroke-linecap="round"/><circle cx="41" cy="45" r="4" fill="#FF6B4A"/></svg>
+          <h3>iPhone</h3><p id="ios-release-label">IPA · 0.1.0 · iOS 17+</p>
+          <a id="ios-download" class="gm-download-button" href="https://github.com/erymuzuan/gimano/releases/download/v0.1.0/gimano-0.1.0.ipa">Muat turun IPA ↓</a>
+          <a href="download/#iphone">Cara sideload · Install guide</a>
+        </div>
+        <div class="gm-download-card">
+          <svg viewBox="0 0 64 64" aria-hidden="true"><path d="m32 7 23 13v24L32 57 9 44V20Z" fill="#E3ECFA" stroke="#0047AB" stroke-width="3"/><path d="m20 41 12-22 12 22m-19-7h14" fill="none" stroke="#0047AB" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/><circle cx="48" cy="16" r="6" fill="#FF6B4A"/></svg>
+          <h3>AltStore Classic</h3><p>iPhone · Sumber rasmi Manotu</p>
+          <a class="gm-download-button" href="/gimano/altstore.json">Buka sumber · Source ↗</a>
+          <a href="download/#iphone">Tambah dalam Sources → +</a>
+        </div>
+      </div>
+      <p style="margin:24px 0 8px;color:#DCE6F7;" lang="en">iPhone IPA requires AltStore Classic or Sideloadly. Free Apple accounts refresh every seven days. File backups are available; cloud sign-in is disabled in this sideload build.</p>
+      <p style="margin:0;color:#DCE6F7;" lang="en">Public preview builds. <a href="https://github.com/erymuzuan/gimano/releases" style="color:white;">Release notes &amp; checksums</a> · TestFlight awaiting individual membership activation.</p>
+    </div>
+  </section>
+
+  </main>
+
+  <footer style="max-width: 1180px; margin: 0 auto; padding: 28px var(--gx) 48px; display: flex; flex-wrap: wrap; gap: 16px 28px; font-size: 15px; color: #3A4A66;">
+    <span>© Manotu contributors · MIT</span>
+    <a href="privacy/">Dasar Privasi</a>
+    <a href="terms/">Terma</a>
+    <a href="download/">Muat turun APK / IPA</a>
+    <a href="https://github.com/erymuzuan/gimano">GitHub</a>
+    <span>Data peta © <a href="https://www.openstreetmap.org/copyright">OpenStreetMap contributors</a></span>
+  </footer>
+</div>
+<script type="module" src="downloads.mjs"></script>
+</body>
+</html>
