@@ -5,12 +5,14 @@
 #:property PublishAot=false
 #:property JsonSerializerIsReflectionEnabledByDefault=true
 #:package NSec.Cryptography@26.4.0
+#:package Npgsql@10.0.0
 using System.Net.Http.Json;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using NSec.Cryptography;
+using Npgsql;
 
 var api = (args.Length > 0 ? args[0] : "http://localhost:5091").TrimEnd('/');
 var http = new HttpClient { BaseAddress = new Uri(api) };
@@ -102,9 +104,55 @@ Check((int)(await Send(HttpMethod.Post, $"/api/v1/places/{pid}/verify", far, jwt
 var (n2, near3) = await Send(HttpMethod.Get, "/api/v1/places/pending-nearby?cell=w2838r", null, jwt3, null);
 Check(near3 is JsonArray a3 && !a3.Any(x => x?["id"]?.ToString() == pid), "pending-nearby hides places you already voted on");
 
+// 6. (optional, needs DB access: GIMANO_E2E_PG) resolution + unlinking with voters older than 7 days
+var cleanupJwts = new List<string> { jwt, jwt3, jwt4 };
+if (Environment.GetEnvironmentVariable("GIMANO_E2E_PG") is { Length: > 0 } pg)
+{
+    await using var conn = new NpgsqlConnection(pg);
+    await conn.OpenAsync();
+    var (c2, place2) = await Send(HttpMethod.Post, "/api/v1/places", new { name = "Gerai Resolusi " + Random.Shared.Next(1000, 9999), category = "cafe", lat = 3.12260, lng = 101.62180 }, jwt, k2);
+    var pid2 = place2?["id"]?.ToString();
+    var voters = new List<(string Jwt, Key Key, string Id)>();
+    for (var i = 0; i < 3; i++)
+    {
+        var (kv, pkv) = NewKey();
+        var rr = (await Send(HttpMethod.Post, "/api/v1/auth/register", new { publicKey = pkv, platform = "android" }, null, null)).Item2!;
+        voters.Add((rr["token"]!.GetValue<string>(), kv, rr["userId"]!.GetValue<string>()));
+        cleanupJwts.Add(rr["token"]!.GetValue<string>());
+    }
+    await using (var age = new NpgsqlCommand("UPDATE users SET joined_at = now() - interval '30 days' WHERE id = ANY(@ids)", conn))
+    {
+        age.Parameters.AddWithValue("ids", voters.Select(v => Guid.Parse(v.Id)).ToArray());
+        await age.ExecuteNonQueryAsync();
+    }
+    JsonNode? last = null;
+    foreach (var v in voters) last = (await Send(HttpMethod.Post, $"/api/v1/places/{pid2}/verify", vote, v.Jwt, v.Key)).Item2;
+    Check(last?["status"]?.ToString() == "published" && last["confirmationsWeighted"]?.GetValue<double>() == 3, $"3 aged baharu votes → {last?.ToJsonString()}");
+    await using (var q = new NpgsqlCommand("SELECT count(*) FILTER (WHERE voter_id IS NULL AND voter_hash IS NOT NULL AND created_at IS NULL), count(*) FROM place_votes WHERE place_id = @p", conn))
+    {
+        q.Parameters.AddWithValue("p", pid2!);
+        await using var rd = await q.ExecuteReaderAsync(); await rd.ReadAsync();
+        Check(rd.GetInt64(0) == 3 && rd.GetInt64(1) == 3, $"votes unlinked after resolution: {rd.GetInt64(0)}/{rd.GetInt64(1)} (voter_id null, hmac set, day only)");
+    }
+    await using (var q = new NpgsqlCommand("SELECT sum(verifier_votes), sum(verifier_agreed) FROM users WHERE id = ANY(@ids)", conn))
+    {
+        q.Parameters.AddWithValue("ids", voters.Select(v => Guid.Parse(v.Id)).ToArray());
+        await using var rd = await q.ExecuteReaderAsync(); await rd.ReadAsync();
+        Check(rd.GetInt64(0) == 3 && rd.GetInt64(1) == 3, $"verifier counters: votes={rd.GetInt64(0)} agreed={rd.GetInt64(1)}");
+    }
+    var meOwner = (await Send(HttpMethod.Get, "/api/v1/me", null, jwt, null)).Item2;
+    Check(meOwner?["placesAccepted"]?.GetValue<int>() == 1, $"contributor placesAccepted={meOwner?["placesAccepted"]}");
+    await using (var q = new NpgsqlCommand("SELECT count(*) FROM place_salts WHERE place_id = @p AND resolved_at IS NOT NULL", conn))
+    {
+        q.Parameters.AddWithValue("p", pid2!);
+        Check((long)(await q.ExecuteScalarAsync())! == 1, "per-place salt marked resolved (deleted after 30 days)");
+    }
+    await Send(HttpMethod.Delete, $"/api/v1/places/{pid2}", null, jwt, k2);
+}
+
 // cleanup: the contributor deletes the test place; accounts are deleted
 await Send(HttpMethod.Delete, $"/api/v1/places/{pid}", null, jwt, k2);
-foreach (var j in new[] { jwt, jwt3, jwt4 }) await Send(HttpMethod.Delete, "/api/v1/me", null, j, null);
+foreach (var j in cleanupJwts) await Send(HttpMethod.Delete, "/api/v1/me", null, j, null);
 Console.WriteLine(failures == 0 ? "ALL OK" : $"{failures} FAILED");
 return failures == 0 ? 0 : 1;
 
