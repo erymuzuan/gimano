@@ -107,6 +107,7 @@ private object Ids {
     const val L_DRIVERS = "g-l-drivers"
     const val L_ALERTS = "g-l-alerts"
     const val L_PUCK = "g-l-puck"
+    const val L_PUCK_ACC = "g-l-puck-acc"
     const val L_PINS = "g-l-pins"
 }
 
@@ -330,6 +331,15 @@ private fun installLayers(style: Style, c: GimanoColors, icons: Map<String, Bitm
         PF.iconAnchor(Property.ICON_ANCHOR_BOTTOM), PF.iconAllowOverlap(true), PF.iconIgnorePlacement(true),
         PF.iconSize(Expression.interpolate(Expression.linear(), Expression.zoom(), Expression.stop(10, 0.6f), Expression.stop(15, 1f))),
     ))
+    // Accuracy circle (metres → pixels: r_px = acc / (156543.03 · cos φ / 2^zoom)), under the puck.
+    style.addLayer(CircleLayer(Ids.L_PUCK_ACC, Ids.PUCK).withProperties(
+        PF.circleRadius(Expression.interpolate(Expression.exponential(2f), Expression.zoom(),
+            Expression.stop(0, Expression.get("acc0")),
+            Expression.stop(22, Expression.product(Expression.get("acc0"), Expression.literal(4194304.0))))),
+        PF.circleColor(android.graphics.Color.argb(40, 0, 71, 171)),
+        PF.circleStrokeColor(android.graphics.Color.argb(110, 0, 71, 171)), PF.circleStrokeWidth(1.5f),
+        PF.circlePitchAlignment(Property.CIRCLE_PITCH_ALIGNMENT_MAP),
+    ))
     style.addLayer(SymbolLayer(Ids.L_PUCK, Ids.PUCK).withProperties(
         PF.iconImage("puck"), PF.iconRotate(Expression.get("bearing")), PF.iconRotationAlignment(Property.ICON_ROTATION_ALIGNMENT_MAP),
         PF.iconPitchAlignment(Property.ICON_PITCH_ALIGNMENT_MAP),
@@ -375,7 +385,14 @@ private fun updateSources(style: Style, s: MapRenderState) {
     }
     style.getSourceAs<GeoJsonSource>(Ids.ALERTS)?.setGeoJson(FeatureCollection.fromFeatures(alerts))
 
-    val puck = s.puck?.let { listOf(Feature.fromGeometry(pt(it)).apply { addNumberProperty("bearing", s.puckBearing) }) } ?: emptyList()
+    val puck = s.puck?.let { g ->
+        listOf(Feature.fromGeometry(pt(g)).apply {
+            addNumberProperty("bearing", s.puckBearing)
+            // Radius at zoom 0 in pixels; 0 hides the circle (no accuracy known).
+            val acc = s.puckAccuracyM ?: 0.0
+            addNumberProperty("acc0", acc / (156543.03 * kotlin.math.cos(Math.toRadians(g.lat))))
+        })
+    } ?: emptyList()
     style.getSourceAs<GeoJsonSource>(Ids.PUCK)?.setGeoJson(FeatureCollection.fromFeatures(puck))
 
     val pins = (s.privatePins.map { (id, g) -> Feature.fromGeometry(pt(g)).apply { addStringProperty("icon", "private"); addStringProperty("pid", id) } } +

@@ -19,6 +19,8 @@ data class MapRenderState(
     val drivers: List<Driver> = emptyList(),
     val puck: GeoPoint? = null,
     val puckBearing: Float = 0f,
+    /** Horizontal accuracy (m) of the fix behind the puck: drawn as a translucent circle. */
+    val puckAccuracyM: Double? = null,
     val pin: GeoPoint? = null,
     val stops: List<GeoPoint> = emptyList(),
     /** "Just for me" places (local DB). */

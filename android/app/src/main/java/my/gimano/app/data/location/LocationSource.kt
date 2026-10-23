@@ -41,16 +41,36 @@ fun Location.toFix() = Fix(
 class FusedLocationSource(private val context: Context) {
     private val client = LocationServices.getFusedLocationProviderClient(context)
 
+    fun hasFine() = ContextCompat.checkSelfPermission(context, android.Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
+    fun precision() = my.gimano.app.core.location.LocationPrecision.of(hasFine(),
+        ContextCompat.checkSelfPermission(context, android.Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED)
+
+    private val playServices: Boolean by lazy {
+        runCatching { com.google.android.gms.common.GoogleApiAvailability.getInstance().isGooglePlayServicesAvailable(context) == com.google.android.gms.common.ConnectionResult.SUCCESS }
+            .getOrDefault(false)
+    }
+
     fun hasPermission() = ContextCompat.checkSelfPermission(context, android.Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED ||
         ContextCompat.checkSelfPermission(context, android.Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
 
     @SuppressLint("MissingPermission")
-    suspend fun lastKnown(): Fix? = if (!hasPermission()) null else runCatching { client.lastLocation.await()?.toFix() }.getOrNull()
+    suspend fun lastKnown(): Fix? = if (!hasPermission()) null else if (!playServices) runCatching {
+        context.getSystemService(android.location.LocationManager::class.java).getLastKnownLocation(android.location.LocationManager.GPS_PROVIDER)?.toFix()
+    }.getOrNull() else runCatching { client.lastLocation.await()?.toFix() }.getOrNull()
 
     @SuppressLint("MissingPermission")
     fun updates(intervalMs: Long = 1_000): Flow<Fix> = callbackFlow {
         if (!hasPermission()) {
             close(); return@callbackFlow
+        }
+        if (!playServices) {
+            // No Google Play services (e.g. de-Googled phones): GNSS straight from LocationManager.
+            val lm = context.getSystemService(android.location.LocationManager::class.java)
+            val provider = if (hasFine()) android.location.LocationManager.GPS_PROVIDER else android.location.LocationManager.NETWORK_PROVIDER
+            val l = android.location.LocationListener { loc -> trySend(loc.toFix()) }
+            runCatching { lm.requestLocationUpdates(provider, intervalMs, 0f, l, Looper.getMainLooper()) }
+            awaitClose { lm.removeUpdates(l) }
+            return@callbackFlow
         }
         val req = LocationRequest.Builder(Priority.PRIORITY_HIGH_ACCURACY, intervalMs)
             .setMinUpdateIntervalMillis(intervalMs / 2)

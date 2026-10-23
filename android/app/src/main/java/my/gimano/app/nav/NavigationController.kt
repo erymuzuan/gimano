@@ -57,6 +57,10 @@ data class NavState(
     val puck: GeoPoint? = null,
     val puckBearing: Double = 0.0,
     val puckSnapped: Boolean = false,
+    /** Accuracy (m) of the last fix, drawn as a circle round the puck. */
+    val accuracyM: Double? = null,
+    /** "Isyarat GPS lemah · ±xx m" (accuracy > 50 m for > 10 s), else null. */
+    val weakGpsM: Int? = null,
 )
 
 /**
@@ -101,6 +105,7 @@ class NavigationController(
         planner = VoicePromptPlanner(mode.wire)
         offRoute.reset(); announcedAlerts.clear(); dismissedAlerts.clear()
         _state.value = NavState(active = true, route = route, destination = destination, stops = stops, simulated = simulate, startedAt = Instant.now(), mode = mode)
+        gpsQuality.reset()
         val lang = langProvider()
         val first = tracker!!.maneuvers.firstOrNull()
         if (soundMode() == SoundMode.ON && first != null) {
@@ -123,8 +128,21 @@ class NavigationController(
         } else fixSource.updates()
     }
 
+    private val gpsQuality = my.gimano.app.core.location.GpsQuality()
+
     private suspend fun onFix(fix: Fix) {
         val t = tracker ?: return
+        val acc = fix.accuracyM?.toDouble()
+        val weak = if (fix.simulated) null else gpsQuality.onFix(acc, fix.timeMs)
+        // A poor fix (> 100 m, e.g. "Approximate" location) must never snap the puck or advance the
+        // instructions, but the puck stays visible: keep the last good one, or show the raw fix.
+        if (!my.gimano.app.core.location.FixRules.usable(acc, fix.simulated)) {
+            _state.update {
+                it.copy(fix = fix, accuracyM = acc, weakGpsM = weak ?: acc?.toInt(), speedKmh = ((fix.speedMps ?: 0f) * 3.6f).toInt(),
+                    puck = it.puck ?: fix.point, puckBearing = it.puckBearing, puckSnapped = it.puck != null && it.puckSnapped)
+            }
+            return
+        }
         val p = t.update(fix.point) ?: return
         val speed = ((fix.speedMps ?: 0f) * 3.6f).toInt()
         val lang = langProvider()
@@ -172,6 +190,7 @@ class NavigationController(
         _state.update {
             it.copy(
                 puck = placement.point, puckBearing = placement.bearing, puckSnapped = placement.snapped,
+                accuracyM = acc, weakGpsM = weak,
                 progress = p, fix = fix, speedKmh = speed, arrived = p.arrived,
                 upcomingAlert = ahead?.first, alertDistanceM = ahead?.second,
             )

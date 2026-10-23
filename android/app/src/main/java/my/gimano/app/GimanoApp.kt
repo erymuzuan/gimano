@@ -93,7 +93,12 @@ class AppContainer(val app: Application) {
     val updater = my.gimano.app.data.update.AppUpdater(app).also { it.onAppStart() }
     /** Effective theme (set by MainActivity) for the device block of feedback / crash reports. */
     @Volatile var darkTheme: Boolean = false
-    val deviceInfo = my.gimano.app.data.feedback.DeviceInfoProvider(app, locale = { lang().tag }, dark = { darkTheme }, demo = { repo.isDemo || repo.fallbackActive.value })
+    /** Accuracy of the most recent fix (set by the UI and navigation), for support info only. */
+    @Volatile var lastFixAccuracyM: Int? = null
+    val deviceInfo = my.gimano.app.data.feedback.DeviceInfoProvider(
+        app, locale = { lang().tag }, dark = { darkTheme }, demo = { repo.isDemo || repo.fallbackActive.value },
+        precision = { locations.precision().wire }, lastAccuracyM = { navigation.state.value.fix?.accuracyM?.toInt() ?: lastFixAccuracyM },
+    )
     val crashes = my.gimano.app.data.crash.CrashReporter(app, db.outbox(), repo, deviceInfo)
 
     /** Backup passphrases are never stored (docs/privacy-and-backup.md): auto-backups are unencrypted. */

@@ -105,7 +105,6 @@ private val LICENCES = listOf(
     Triple("JNA", "Apache-2.0 / LGPL-2.1", "JNA project"),
     Triple("Nunito", "SIL OFL 1.1", "Nunito project"),
     Triple("BIP-39 English word list", "MIT", "Bitcoin BIPs"),
-    Triple("Google Play services (location, sign-in for Drive backup, Play Integrity)", "Proprietary (Google APIs terms)", "Google; not open source"),
 )
 
 @Composable
@@ -123,6 +122,17 @@ fun LicencesScreen(onBack: () -> Unit) {
                 Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(c.surface).padding(14.dp)) {
                     Text(name, fontSize = 15.sp, fontWeight = FontWeight.Black, color = c.text)
                     Text("$licence · $who", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = c.textMuted)
+                }
+            }
+            // Approved Google platform exceptions (AGENTS.md, docs/supply-chain.md): named honestly.
+            item {
+                Column(Modifier.fillMaxWidth().padding(top = 12.dp).clip(RoundedCornerShape(16.dp)).background(androidx.compose.ui.graphics.Color(0xFFFFF1CC)).padding(14.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(stringResource(R.string.closed_title), fontSize = 17.sp, fontWeight = FontWeight.Black, color = androidx.compose.ui.graphics.Color(0xFF5C3D00))
+                    Text(stringResource(R.string.closed_intro), fontSize = 14.sp, fontWeight = FontWeight.Bold, color = androidx.compose.ui.graphics.Color(0xFF5C3D00))
+                    listOf(R.string.closed_location, R.string.closed_drive, R.string.closed_integrity).forEach {
+                        Text("• " + stringResource(it), fontSize = 14.sp, color = androidx.compose.ui.graphics.Color(0xFF3D2900))
+                    }
                 }
             }
             item {

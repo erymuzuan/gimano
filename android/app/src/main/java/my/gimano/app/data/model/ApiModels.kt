@@ -280,6 +280,10 @@ data class DeviceInfo(
     val locale: String,
     val theme: String,
     val dataMode: String,
+    /** precise | approximate | none (never coordinates). */
+    val locationPermission: String? = null,
+    /** Accuracy of the last fix in metres (never the fix itself). */
+    val lastFixAccuracyM: Int? = null,
 ) {
     @Serializable data class ScreenInfo(val widthPx: Int, val heightPx: Int, val density: Float, val widthDp: Int, val heightDp: Int)
 }

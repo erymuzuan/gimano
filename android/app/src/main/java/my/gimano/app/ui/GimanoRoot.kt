@@ -40,7 +40,7 @@ import java.time.ZoneId
 import java.time.ZonedDateTime
 
 @Composable
-fun GimanoRoot(vm: MainViewModel, onMic: () -> Unit, onExit: () -> Unit) {
+fun GimanoRoot(vm: MainViewModel, onMic: () -> Unit, onExit: () -> Unit, onRequestPrecise: () -> Unit = {}) {
     val container = (LocalContext.current.applicationContext as my.gimano.app.GimanoApp).container
     val fvm: my.gimano.app.ui.feedback.FeedbackViewModel = androidx.lifecycle.viewmodel.compose.viewModel(factory = my.gimano.app.ui.feedback.FeedbackViewModel.Factory(container))
     val bvm: my.gimano.app.ui.backup.BackupViewModel = androidx.lifecycle.viewmodel.compose.viewModel(factory = my.gimano.app.ui.backup.BackupViewModel.Factory(container))
@@ -149,6 +149,7 @@ fun GimanoRoot(vm: MainViewModel, onMic: () -> Unit, onExit: () -> Unit) {
         drivers = ui.drivers,
         puck = if (navigating) nav.puck ?: nav.fix?.point else ui.myLocation?.point,
         puckBearing = if (navigating) nav.puckBearing.toFloat() else ui.myLocation?.bearing ?: 0f,
+        puckAccuracyM = if (navigating) nav.accuracyM ?: nav.fix?.accuracyM?.toDouble() else ui.myLocation?.accuracyM?.toDouble(),
         pin = when (screen) {
             Screen.PlaceCard -> ui.place?.summary?.let { my.gimano.app.core.geo.GeoPoint(it.lat, it.lng) }
             Screen.RoutePreview -> ui.plan?.destination?.point
@@ -252,6 +253,12 @@ fun GimanoRoot(vm: MainViewModel, onMic: () -> Unit, onExit: () -> Unit) {
         upd.justUpdatedTo?.let { v -> snackbar.showSnackbar(context.getString(R.string.updated_to, v)); container.updater.dismissUpdatedNote() }
     }
     if (crashPending.isNotEmpty() && ui.screen == Screen.Home && !nav.active) my.gimano.app.ui.feedback.CrashSheet(container.crashes, crashPending)
+    ui.askPrecise?.let { my.gimano.app.ui.common.PreciseLocationDialog(onAllow = onRequestPrecise, onKeep = vm::onPreciseAnswered) }
+    if (ui.precision == my.gimano.app.core.location.LocationPrecision.APPROXIMATE && (ui.screen == Screen.Home || ui.screen == Screen.Navigating)) {
+        Box(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.statusBars).padding(horizontal = 12.dp).padding(top = if (ui.screen == Screen.Navigating) 250.dp else 96.dp)) {
+            my.gimano.app.ui.common.ApproximateBanner(Modifier.align(Alignment.TopCenter))
+        }
+    }
     ui.vetPrompt?.let { if (ui.screen == Screen.Home) my.gimano.app.ui.contribute.NearbyVerifySheet(it, vm, cvm) }
     ui.tollSheet?.let { r ->
         my.gimano.app.ui.sheets.TollSheet(r, onDismiss = { vm.openTolls(null) }, onAvoidTolls = {

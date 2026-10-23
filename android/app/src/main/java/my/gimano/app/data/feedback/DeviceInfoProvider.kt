@@ -12,6 +12,8 @@ class DeviceInfoProvider(
     private val locale: () -> String,
     private val dark: () -> Boolean,
     private val demo: () -> Boolean,
+    private val precision: () -> String = { "unknown" },
+    private val lastAccuracyM: () -> Int? = { null },
 ) {
     fun current(): DeviceInfo {
         val dm = context.resources.displayMetrics
@@ -30,6 +32,15 @@ class DeviceInfoProvider(
             locale = locale(),
             theme = if (dark()) "dark" else "light",
             dataMode = if (demo()) "demo" else "live",
+            locationPermission = precision(),
+            lastFixAccuracyM = lastAccuracyM(),
         )
+    }
+
+    /** Plain-text support info (7 taps on the version line): no coordinates, no identifiers. */
+    fun diagnosticsText(): String = current().let { d ->
+        "Gimano ${d.appVersion} (${d.appBuild})\nAndroid ${d.osVersion} (API ${d.apiLevel})\n${d.manufacturer} ${d.deviceModel}\n" +
+            "${d.screen.widthDp}×${d.screen.heightDp} dp · ${d.locale} · ${d.theme} · ${d.dataMode}\n" +
+            "location: ${d.locationPermission} · last fix ±${d.lastFixAccuracyM?.toString() ?: "?"} m"
     }
 }

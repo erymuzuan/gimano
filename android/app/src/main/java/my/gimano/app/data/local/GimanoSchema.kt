@@ -54,6 +54,14 @@ object GimanoSchema {
   seed_b64 TEXT NOT NULL,
   created_at TEXT NOT NULL)"""
 
+    /**
+     * Brings an existing DB up to the shared schema, idempotently (runs on every open). Tables added after
+     * schema 1 are not Room entities, so Room never sees them.
+     */
+    fun upgrade(exec: (String) -> Unit) {
+        exec(IDENTITY_DDL.replaceFirst("CREATE TABLE identity", "CREATE TABLE IF NOT EXISTS identity"))
+    }
+
     /** Applies the schema to an empty database (used by Room's onCreate and by tests on plain SQLite). */
     fun create(exec: (String) -> Unit) {
         DDL.forEach(exec)

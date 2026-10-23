@@ -110,10 +110,15 @@ class IdentityBackupTest {
     @Test fun upgradingA010DatabaseAddsIdentity() {
         val db = newDb("upgrade.db")
         db.exec("DROP TABLE identity"); db.exec("PRAGMA user_version = 1")
-        db.exec(GimanoSchema.IDENTITY_DDL)   // what GimanoDatabase.MIGRATION_1_2 runs
+        GimanoSchema.upgrade { db.exec(it) }   // what GimanoDatabase's onOpen runs
+        GimanoSchema.upgrade { db.exec(it) }   // idempotent: every open
         val info = "SELECT name || ':' || type || ':' || \"notnull\" || ':' || pk FROM pragma_table_info('identity')"
         val fresh = newDb("fresh.db")
         assertEquals(fresh.queryStrings(info), db.queryStrings(info))
+        // A snapshot of the upgraded DB is stamped with the shared schema version.
+        val snap = File(dir, "upgrade-snap.sqlite"); BackupDb.snapshot(db, snap)
+        val s = JdbcSqlPort(DriverManager.getConnection("jdbc:sqlite:${snap.path}")); BackupDb.cleanSnapshot(s)
+        assertEquals(GimanoSchema.VERSION.toLong(), s.queryLong("PRAGMA user_version"))
     }
 
     @Test fun interceptorSignsTheDocVector() {

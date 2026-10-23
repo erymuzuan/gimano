@@ -132,7 +132,7 @@
     <string name="map_style">Map style URL</string>
     <string name="display_name">Display name</string>
     <string name="about">About</string>
-    <string name="about_text">Gimano is open-source (MIT) community navigation for Malaysia. Map data © OpenStreetMap contributors (ODbL).</string>
+    <string name="about_text">Gimano\'s own code is open source (MIT): community navigation for Malaysia. Map data © OpenStreetMap contributors (ODbL).</string>
     <string name="osm_attribution">© OpenStreetMap contributors</string>
     <string name="apply">Apply</string>
     <string name="location_needed">Gimano needs your location to navigate.</string>
@@ -507,7 +507,19 @@
     <string name="about_source">Source code (GitHub)</string>
     <string name="about_licences">Licences</string>
     <string name="about_map_credit">Map © OpenStreetMap contributors</string>
-    <string name="licences_intro">Gimano is open source (MIT). It is built from these components:</string>
+    <string name="licences_intro">Gimano\'s own code is open source (MIT). It is built from these open-source components:</string>
     <string name="licences_full_list">Full list: docs/supply-chain.md</string>
     <string name="diagnostics_copied">Diagnostic info copied</string>
+    <string name="precise_title">Navigation needs precise location</string>
+    <string name="precise_body">Gimano only has your approximate location (about 1–3 km), so your arrow can sit on the wrong road and turns come at the wrong time. Allow precise location to navigate. Your location stays on your phone; while navigating only anonymous speed points are shared.</string>
+    <string name="precise_allow">Allow precise location</string>
+    <string name="precise_keep">Keep approximate</string>
+    <string name="approx_banner">Approximate location only: directions may be wrong</string>
+    <string name="approx_change">Change</string>
+    <string name="weak_gps">Weak GPS signal · ±%1$d m</string>
+    <string name="closed_title">Components that are not open source</string>
+    <string name="closed_intro">Gimano uses three Google services on Android. None of them receives your favourites, places or trips.</string>
+    <string name="closed_location">Google Play services location: turns GPS, Wi-Fi and mobile signals into your position on the phone, for the map and navigation.</string>
+    <string name="closed_drive">Google sign-in and Drive authorisation: only when you choose Google Drive backup. Drive receives only the backup YOU send to your own Drive.</string>
+    <string name="closed_integrity">Play Integrity: when you confirm a nearby place, checks the vote comes from a real phone. Only a pass/fail verdict reaches Gimano.</string>
 </resources>
