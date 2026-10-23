@@ -91,7 +91,7 @@ footer{display:flex;flex-wrap:wrap;gap:16px 28px;padding-top:28px;padding-bottom
 <main id="kandungan">
   <div class="wrap hero">
     <div class="hero-text">
-      <span class="pill">Android &amp; iPhone · versi 0.1.0</span>
+      <span class="pill">Android &amp; iPhone · Public preview</span>
       <h1>Muat turun Gimano.</h1>
       <p class="lede">Percuma, tanpa iklan, sumber terbuka. <span class="en">Free, no ads, open source. Get the Android APK or sideload the iPhone IPA.</span></p>
       <div class="actions">
@@ -102,7 +102,7 @@ footer{display:flex;flex-wrap:wrap;gap:16px 28px;padding-top:28px;padding-bottom
         <a class="btn btn-ghost" href="#iphone">iPhone IPA · AltStore ↓</a>
       </div>
       <div class="meta" aria-label="Butiran fail · File details">
-        <span>gimano-0.1.0.apk</span>
+        <span id="apk-file">gimano-0.1.0.apk</span>
         <span>Versi <span id="apk-version">0.1.0</span></span>
         <span id="apk-size">41.5 MB</span>
         <span>Android 8.0 ke atas · Android 8.0+</span>
@@ -147,7 +147,7 @@ footer{display:flex;flex-wrap:wrap;gap:16px 28px;padding-top:28px;padding-bottom
       <div class="card">
         <span class="num" aria-hidden="true">1</span>
         <h3>Muat turun fail</h3>
-        <p>Tekan <b>Muat turun APK</b> di telefon Android anda. Fail <code>gimano-0.1.0.apk</code> disimpan dalam folder Muat Turun.</p>
+        <p>Tekan <b>Muat turun APK</b> di telefon Android anda. Fail <code>gimano-*.apk</code> disimpan dalam folder Muat Turun.</p>
         <p class="en">Tap the download button on your Android phone.</p>
       </div>
       <div class="card">
@@ -171,20 +171,21 @@ footer{display:flex;flex-wrap:wrap;gap:16px 28px;padding-top:28px;padding-bottom
     <h2 id="sahkan">Pastikan fail tidak diubah</h2>
     <div class="grid">
       <div class="hash on-dark">
-        <span class="label">SHA-256 · gimano-0.1.0.apk · <span id="apk-bytes">41,522,687</span> bait / bytes</span>
+        <span class="label">SHA-256 · <span id="apk-hash-file">gimano-0.1.0.apk</span> · <span id="apk-bytes">41,522,687</span> bait / bytes</span>
         <code id="apk-sha256">51f9ae66d2866390a23406696589d1619e01624e4c6bae14151b5d70a702721b</code>
         <span class="label">Ditandatangani oleh · Signed by</span>
         <code class="signer">CN=Gimano, O=Gimano, L=Kuala Lumpur, C=MY</code>
         <span class="label">SHA-256 sijil · Certificate SHA-256</span>
         <code class="signer">b9:ba:dd:cd:63:b3:d7:4b:8a:37:4c:b9:3d:f3:27:85:79:ba:4f:ae:ae:12:1c:35:82:7d:37:7e:21:0b:be:c9</code>
-        <span class="label">Juga di GitHub · Also on GitHub: <a class="dl-gh" href="https://github.com/erymuzuan/gimano/releases/download/v0.1.0/gimano-0.1.0.apk">gimano-0.1.0.apk (v0.1.0)</a></span>
+        <span class="label">Fail APK · APK file: <a id="apk-mirror" class="dl-gh" href="https://github.com/erymuzuan/gimano/releases/download/v0.1.0/gimano-0.1.0.apk">gimano-0.1.0.apk</a></span>
       </div>
       <div class="card">
         <h3>Semak sendiri · Check it yourself</h3>
+        <p>Replace VERSION with the version you downloaded.</p>
         <p>Windows (Command Prompt / PowerShell):</p>
-        <pre>certutil -hashfile gimano-0.1.0.apk SHA256</pre>
+        <pre>certutil -hashfile gimano-VERSION.apk SHA256</pre>
         <p>macOS / Linux:</p>
-        <pre>shasum -a 256 gimano-0.1.0.apk</pre>
+        <pre>shasum -a 256 gimano-VERSION.apk</pre>
         <p class="en">The result must match the SHA-256 shown here exactly. If it doesn't, don't install it.</p>
       </div>
     </div>
@@ -224,5 +225,6 @@ footer{display:flex;flex-wrap:wrap;gap:16px 28px;padding-top:28px;padding-bottom
   <a href="https://github.com/erymuzuan/gimano">GitHub</a>
   <span>Data peta © <a href="https://www.openstreetmap.org/copyright">OpenStreetMap contributors</a></span>
 </footer>
+<script type="module" src="../downloads.mjs"></script>
 </body>
 </html>

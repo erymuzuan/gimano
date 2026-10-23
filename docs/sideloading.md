@@ -48,3 +48,17 @@ Do not present a successful compiler run as a successful AltStore installation o
 Gimano must be registered under Erymuzuan Mustapa's individual Apple Developer membership, **not STAFY**.
 Verify the team in App Store Connect and signing settings before creating identifiers or uploading.
 Enrollment, agreement acceptance and payment do not by themselves confirm membership activation.
+
+## Coordination with Mac.Gimano
+
+The homepage entry is `/gimano/#muat-turun`. APK, IPA and AltStore each have separate controls.
+Mac.Gimano owns APK publication and `/gimano/download/version.json`; never write that manifest from
+website work. `downloads.mjs` reads it without caching and updates Android links/labels/checksum only
+when the version, checksum and exact first-party APK URL validate. Missing/invalid metadata keeps the
+verified static fallback. Publish and verify the APK **before** the manifest. Update static fallback
+links in a subsequent website release for users without JavaScript.
+
+Android and iOS versions are independent. Do not advertise an Android test build (e.g. updater-test
+0.2.1) as public, or label the iOS IPA 0.2.x because Android has that version. Add an AltStore version
+only after the matching IPA is published. As of this handoff Android 0.2.0 is pending publication;
+0.2.1 is a private updater test; iOS is 0.1.0.

@@ -69,6 +69,12 @@ a:focus-visible{outline:3px solid #0047AB;outline-offset:3px}
 .on-dark a:focus-visible{outline-color:#FFFFFF}
 .skip{position:absolute;left:16px;top:-60px;z-index:10;padding:10px 16px;border-radius:12px;background:#0B1B3A;color:#FFFFFF;font-weight:800;text-decoration:none}
 .skip:focus{top:12px}
+
+.gm-download-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,260px),1fr));gap:18px;margin-top:28px}
+.gm-download-card{background:#FFF;color:#0B1B3A;border-radius:24px;padding:24px;display:flex;flex-direction:column;align-items:flex-start;gap:12px;min-width:0}
+.gm-download-card svg{width:72px;height:72px}.gm-download-card h3{margin:0;font-size:25px;font-weight:900}.gm-download-card p{margin:0;color:#3A4A66;font-size:16px}
+.gm-download-card a{color:#0047AB;font-weight:800}.gm-download-card .gm-download-button{display:flex;align-items:center;justify-content:center;min-height:56px;box-sizing:border-box;width:100%;padding:12px 18px;background:#0047AB;color:#FFF;border-radius:16px;text-decoration:none;margin-top:auto}
+.gm-download-card a:focus-visible{outline:3px solid #FF6B4A;outline-offset:4px}.gm-download-button:hover{background:#0A2E6E}
 </style>
 </head>
 <body>
@@ -99,7 +105,7 @@ a:focus-visible{outline:3px solid #0047AB;outline-offset:3px}
       <h1 style="margin: 0; font-size: clamp(2.4rem, 5vw, 4.2rem); line-height: 1.04; font-weight: 900; letter-spacing: -1.5px;">Gi mano pun, rahsia anda kekal milik anda.</h1>
       <p style="margin: 0; font-size: 1.3rem; line-height: 1.5; color: #3A4A66; max-width: 560px;">Wherever you're going, it stays your business. Rumah, kampung, rumah mertua: semua tempat anda disimpan <b style="color: #0B1B3A;">dalam telefon anda sahaja</b>.</p>
       <div style="display: flex; flex-wrap: wrap; gap: 12px; margin-top: 8px;">
-        <a href="download/" style="height: 56px; padding: 0 28px; border-radius: 999px; background: #0047AB; color: #FFFFFF; font-weight: 800; font-size: 18px; display: inline-flex; align-items: center; text-decoration: none;">Muat turun · Download</a>
+        <a href="#muat-turun" style="height: 56px; padding: 0 28px; border-radius: 999px; background: #0047AB; color: #FFFFFF; font-weight: 800; font-size: 18px; display: inline-flex; align-items: center; text-decoration: none;">Muat turun · Download</a>
         <a href="https://github.com/erymuzuan/gimano" style="height: 56px; padding: 0 24px; border-radius: 999px; background: #FFFFFF; color: #0B1B3A; font-weight: 800; font-size: 18px; display: inline-flex; align-items: center; gap: 10px; text-decoration: none; box-shadow: inset 0 0 0 2px #C9D6EE;">Lihat kod sumber →</a>
       </div>
     </div>
@@ -838,17 +844,32 @@ a:focus-visible{outline:3px solid #0047AB;outline-offset:3px}
     </div>
   </section>
 
-  <section id="muat-turun" class="on-dark" style="background: #0047AB; color: #FFFFFF;">
-    <div style="max-width: 1180px; margin: 0 auto; padding: 56px var(--gx); display: flex; flex-wrap: wrap; align-items: center; gap: 24px;">
-      <div style="flex: 999 1 420px; min-width: 0; display: flex; flex-direction: column; gap: 8px;">
-        <h2 style="margin: 0; font-size: clamp(1.9rem, 3.4vw, 2.6rem); font-weight: 900;">Gi mano hari ni?</h2>
-        <p style="margin: 0; font-size: 1.15rem; color: #DCE6F7;">Android APK &amp; iPhone IPA kini tersedia. Percuma, tanpa iklan. Android and iPhone sideload downloads available. Free, no ads.</p>
+  <section id="muat-turun" class="on-dark" style="background:#0047AB;color:#FFFFFF;">
+    <div style="max-width:1180px;margin:0 auto;padding:56px var(--gx);">
+      <h2 style="margin:0;font-size:clamp(1.9rem,3.4vw,2.6rem);font-weight:900;">Gi mano hari ni?</h2>
+      <p style="font-size:1.15rem;color:#DCE6F7;">Pilih telefon anda. Percuma, tanpa iklan. <span lang="en">Choose your phone. Free, open source, no ads.</span></p>
+      <div class="gm-download-grid">
+        <div class="gm-download-card">
+          <svg viewBox="0 0 64 64" aria-hidden="true"><rect x="17" y="6" width="30" height="52" rx="8" fill="#E3ECFA" stroke="#0047AB" stroke-width="3"/><path d="M32 18v22m-9-9 9 9 9-9" fill="none" stroke="#0047AB" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/><circle cx="32" cy="50" r="2" fill="#FF6B4A"/></svg>
+          <h3>Android</h3><p id="android-release-label">APK · 0.1.0 · Android 8+</p>
+          <a id="android-download" class="gm-download-button" href="https://github.com/erymuzuan/gimano/releases/download/v0.1.0/gimano-0.1.0.apk">Muat turun APK ↓</a>
+          <a href="download/#pasang">Cara pasang · Install guide</a>
+        </div>
+        <div class="gm-download-card">
+          <svg viewBox="0 0 64 64" aria-hidden="true"><rect x="17" y="6" width="30" height="52" rx="9" fill="#E3ECFA" stroke="#0047AB" stroke-width="3"/><path d="M26 11h12" stroke="#0047AB" stroke-width="4" stroke-linecap="round"/><path d="M25 43V25h7a7 7 0 0 1 0 14h-7" fill="none" stroke="#0047AB" stroke-width="4" stroke-linecap="round"/><circle cx="41" cy="45" r="4" fill="#FF6B4A"/></svg>
+          <h3>iPhone</h3><p id="ios-release-label">IPA · 0.1.0 · iOS 17+</p>
+          <a id="ios-download" class="gm-download-button" href="https://github.com/erymuzuan/gimano/releases/download/v0.1.0/gimano-0.1.0.ipa">Muat turun IPA ↓</a>
+          <a href="download/#iphone">Cara sideload · Install guide</a>
+        </div>
+        <div class="gm-download-card">
+          <svg viewBox="0 0 64 64" aria-hidden="true"><path d="m32 7 23 13v24L32 57 9 44V20Z" fill="#E3ECFA" stroke="#0047AB" stroke-width="3"/><path d="m20 41 12-22 12 22m-19-7h14" fill="none" stroke="#0047AB" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/><circle cx="48" cy="16" r="6" fill="#FF6B4A"/></svg>
+          <h3>AltStore Classic</h3><p>iPhone · Sumber rasmi Gimano</p>
+          <a class="gm-download-button" href="altstore.json">Buka sumber · Source ↗</a>
+          <a href="download/#iphone">Tambah dalam Sources → +</a>
+        </div>
       </div>
-      <div style="flex: 1 1 460px; min-width: 0; display: flex; flex-wrap: wrap; gap: 12px;">
-        <a href="download/" style="height: 56px; padding: 0 24px; border-radius: 16px; background: #FFFFFF; color: #0B1B3A; font-weight: 900; font-size: 17px; display: inline-flex; align-items: center; gap: 10px; text-decoration: none;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#0047AB" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"></path></svg>Muat turun APK / IPA</a>
-        <span style="height: 56px; padding: 0 16px; border-radius: 16px; background: #0B1B3A; color: #FFFFFF; font-weight: 900; font-size: 15px; display: inline-flex; align-items: center;">Google Play: segera / soon</span>
-        <span style="height: 56px; padding: 0 16px; border-radius: 16px; background: #0B1B3A; color: #FFFFFF; font-weight: 900; font-size: 15px; display: inline-flex; align-items: center;">App Store: segera / soon</span>
-      </div>
+      <p style="margin:24px 0 8px;color:#DCE6F7;" lang="en">iPhone IPA requires AltStore Classic or Sideloadly. Free Apple accounts refresh every seven days. File backups are available; cloud sign-in is disabled in this sideload build.</p>
+      <p style="margin:0;color:#DCE6F7;" lang="en">Public preview builds. <a href="https://github.com/erymuzuan/gimano/releases" style="color:white;">Release notes &amp; checksums</a> · TestFlight awaiting individual membership activation.</p>
     </div>
   </section>
 
@@ -863,5 +884,6 @@ a:focus-visible{outline:3px solid #0047AB;outline-offset:3px}
     <span>Data peta © <a href="https://www.openstreetmap.org/copyright">OpenStreetMap contributors</a></span>
   </footer>
 </div>
+<script type="module" src="downloads.mjs"></script>
 </body>
 </html>
