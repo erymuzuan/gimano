@@ -119,6 +119,13 @@ class BackupTest {
         val m = BackupArchive.readManifest(bytes.inputStream())
         assertEquals(BackupManifest.ENCRYPTION_PASSPHRASE, m.encryption)
         assertNotNull(m.kdf)
+        // Same layout as iOS (ios/Gimano/Storage/Backup.swift): manifest.json + payload.enc only.
+        val names = java.util.zip.ZipInputStream(bytes.inputStream()).use { z -> generateSequence { z.nextEntry }.map { it.name }.toList() }
+        assertEquals(listOf("manifest.json", "payload.enc"), names)
+        assertEquals("argon2id13", m.kdf!!.alg)
+        assertEquals(65_536, m.kdf!!.chunkSize)
+        val json = String(java.util.zip.ZipInputStream(bytes.inputStream()).use { z -> z.nextEntry; z.readBytes() })
+        assertTrue(json, json.contains("\"chunkSize\":65536") && json.contains("\"counts\""))
         // Encrypted entries don't contain the SQLite header in clear text.
         assertFalse(String(bytes, Charsets.ISO_8859_1).contains("SQLite format 3"))
 
