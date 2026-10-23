@@ -31,7 +31,8 @@ public sealed record RecentDto(Guid Id, string Name, string Address, double Lat,
 
 public sealed record PlaceSummary(
     string Id, string Name, PlaceCategory Category, string Address, double Lat, double Lng, double? DistanceM, string? Brand,
-    PlaceSource Source = PlaceSource.Osm, PlaceStatus? Status = null, double? Rating = null, int ReviewCount = 0, string? ThumbnailUrl = null);
+    PlaceSource Source = PlaceSource.Osm, PlaceStatus? Status = null, double? Rating = null, int ReviewCount = 0, string? ThumbnailUrl = null,
+    double? ConfirmationsWeighted = null, double? Required = null);
 
 public sealed record PlaceDto(
     string Id, string Name, PlaceCategory Category, string Address, double Lat, double Lng, double? DistanceM, string? Brand,

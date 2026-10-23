@@ -68,7 +68,12 @@ GET /geocode/reverse?lat=&lng= → {name, address, lat, lng}
 
 `PlaceSummary = {id, name, category, address, lat, lng, distanceM, brand?,
                 source: "osm"|"community", status?: "pending"|"published",
-                rating?: number, reviewCount: int, thumbnailUrl?}`
+                rating?: number, reviewCount: int, thumbnailUrl?,
+                confirmationsWeighted?: number, required?: number}`
+
+`confirmationsWeighted`/`required` are set only on places still being vetted (`/places/pending-nearby`, and
+pending or audited items in `/me/places/contributed`), e.g. `1` of `3` → "1 daripada 3". Same values as the
+`POST /places/{id}/verify` response.
 
 `Place = PlaceSummary + {phone?, website?, openingHours?, openNow?:bool,
 amenities: string[], tags: {k:v}, osmType?, osmId?,      // osm* null for community places

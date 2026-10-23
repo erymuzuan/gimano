@@ -256,3 +256,24 @@ public class OpenSearchIntegrationRankingTests
         }
     }
 }
+
+public class PendingProgressTests
+{
+    [Fact]
+    public void Pending_summary_carries_weighted_progress_and_requirement_on_the_wire()
+    {
+        var s = new PlaceSummary("c1", "Kedai Baru", PlaceCategory.Other, "", 3.1, 101.6, null, null, PlaceSource.Community,
+            PlaceStatus.Pending, ConfirmationsWeighted: 1, Required: 3);
+        var json = System.Text.Json.JsonSerializer.Serialize(s, GimanoJson.Options);
+        Assert.Contains("\"status\":\"pending\"", json);
+        Assert.Contains("\"confirmationsWeighted\":1", json);
+        Assert.Contains("\"required\":3", json);
+    }
+
+    [Fact]
+    public void Required_is_the_creation_tier_requirement_or_baharus_during_an_audit()
+    {
+        Assert.Equal(2, Gimano.Api.Services.CommunityService.RequiredFor(new CommunityPlace { Name = "X", Location = new GeoPoint(3.1, 101.6).ToPoint(), RequiredConfirmations = 2 }));
+        Assert.Equal(3, Gimano.Api.Services.CommunityService.RequiredFor(new CommunityPlace { Name = "X", Location = new GeoPoint(3.1, 101.6).ToPoint(), RequiredConfirmations = 0, AuditOpen = true }));
+    }
+}

@@ -189,10 +189,13 @@ public sealed class CommunityService(GimanoDbContext db, IEventPublisher bus, Gi
         await db.SaveChangesAsync(ct);
         await bus.PublishAsync(RoutingKeys.PlaceChanged, new PlaceChangedEvent(id), ct);
         if (place.Status != before) await bus.PublishAsync(RoutingKeys.PlaceVerified, new PlaceVerifiedEvent(id, place.Status), ct);
-        return new VerifyResult(place.Status, Math.Round(place.WeightedYes, 2), place.AuditOpen ? Reputation.RequiredConfirmations(Tier.Baharu) : place.RequiredConfirmations);
+        return new VerifyResult(place.Status, Math.Round(place.WeightedYes, 2), RequiredFor(place));
     }
 
     /// <summary>Pending (and audit-open) places in a geohash-6 cell and its 8 neighbours, excluding the caller's own and ones they voted on.</summary>
+    /// <summary>Weighted confirmations a place needs: its creation-tier requirement, or baharu's while a random audit is open.</summary>
+    internal static double RequiredFor(CommunityPlace p) => p.AuditOpen ? Reputation.RequiredConfirmations(Tier.Baharu) : p.RequiredConfirmations;
+
     public async Task<IReadOnlyList<PlaceSummary>> PendingNearbyAsync(Guid userId, string cell, CancellationToken ct)
     {
         if (!Geohash.IsValid(cell) || cell.Length != 6) throw new ValidationException("cell", "cell must be a 6-character geohash.");
@@ -204,7 +207,10 @@ public sealed class CommunityService(GimanoDbContext db, IEventPublisher bus, Gi
                         && !db.PlaceVotes.Any(v => v.PlaceId == p.Id && v.VoterId == userId))
             .OrderByDescending(p => p.CreatedAt).Take(100).ToListAsync(ct);
         return rows.Where(p => cells.Contains(Geohash.Encode(p.Location.Y, p.Location.X, 6)))
-            .Select(p => PlaceService.ToSummary(p, null, null) with { Status = PlaceStatus.Pending }).ToList();
+            .Select(p => PlaceService.ToSummary(p, null, null) with
+            {
+                Status = PlaceStatus.Pending, ConfirmationsWeighted = Math.Round(p.WeightedYes, 2), Required = RequiredFor(p),
+            }).ToList();
     }
 
     /// <summary>Rural = fewer than 20 mapped places within 2 km (5 km verification radius instead of 1 km).</summary>
@@ -244,7 +250,12 @@ public sealed class CommunityService(GimanoDbContext db, IEventPublisher bus, Gi
         var rows = await db.CommunityPlaces.AsNoTracking().Where(p => p.OwnerId == userId).OrderByDescending(p => p.CreatedAt).Take(200).ToListAsync(ct);
         var agg = await Core.Search.PlaceDocuments.AggregatesAsync(db, rows.Select(r => r.Id).ToList(), ct);
         // Owners see their own status, including hidden/closed.
-        return rows.Select(p => PlaceService.ToSummary(p, null, null, agg.GetValueOrDefault(p.Id)) with { Status = p.Status }).ToList();
+        return rows.Select(p => PlaceService.ToSummary(p, null, null, agg.GetValueOrDefault(p.Id)) with
+        {
+            Status = p.Status,
+            ConfirmationsWeighted = p.Status == PlaceStatus.Pending || p.AuditOpen ? Math.Round(p.WeightedYes, 2) : null,
+            Required = p.Status == PlaceStatus.Pending || p.AuditOpen ? RequiredFor(p) : null,
+        }).ToList();
     }
 
     // ---- checks -------------------------------------------------------------------------------
