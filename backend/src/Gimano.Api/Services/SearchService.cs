@@ -168,24 +168,41 @@ public sealed class SearchPipeline(PlaceSearchIndex index, Func<AliasTable> alia
         var list = new List<SearchSuggestion>();
         try
         {
+            var (gLat, gLng) = r.NearLat is not null && r.NearLng is not null ? (r.NearLat, r.NearLng) : (r.Lat, r.Lng);
+            JsonNode query = new JsonObject
+            {
+                ["bool"] = new JsonObject
+                {
+                    ["should"] = new JsonArray(
+                        new JsonObject { ["match"] = new JsonObject { ["name"] = new JsonObject { ["query"] = norm, ["fuzziness"] = 2, ["operator"] = "or" } } },
+                        new JsonObject { ["fuzzy"] = new JsonObject { ["nameKeys"] = new JsonObject { ["value"] = compact, ["fuzziness"] = 2 } } }),
+                    ["minimum_should_match"] = 1,
+                    ["filter"] = new JsonArray(SearchQueryBuilder.Visibility(r.Viewer)),
+                    ["must_not"] = new JsonArray(new JsonObject { ["terms"] = new JsonObject { ["category"] = new JsonArray("address", "postcode", "street") } }),
+                }
+            };
+            if (gLat is { } la0 && gLng is { } lo0)
+                query = new JsonObject
+                {
+                    ["function_score"] = new JsonObject
+                    {
+                        ["query"] = query,
+                        ["functions"] = new JsonArray(new JsonObject
+                        {
+                            ["gauss"] = new JsonObject { ["location"] = new JsonObject { ["origin"] = new JsonObject { ["lat"] = la0, ["lon"] = lo0 }, ["scale"] = "20km", ["decay"] = 0.5 } },
+                        }),
+                        ["boost_mode"] = "multiply",
+                    }
+                };
             var body = new JsonObject
             {
-                ["size"] = 1,
+                ["size"] = 10,
                 ["_source"] = new JsonArray("id", "name", "category", "address", "location", "brand", "country", "source"),
-                ["query"] = new JsonObject
-                {
-                    ["bool"] = new JsonObject
-                    {
-                        ["should"] = new JsonArray(
-                            new JsonObject { ["match"] = new JsonObject { ["name"] = new JsonObject { ["query"] = norm, ["fuzziness"] = 2, ["operator"] = "or" } } },
-                            new JsonObject { ["fuzzy"] = new JsonObject { ["nameKeys"] = new JsonObject { ["value"] = compact, ["fuzziness"] = 2 } } }),
-                        ["minimum_should_match"] = 1,
-                        ["filter"] = new JsonArray(SearchQueryBuilder.Visibility(r.Viewer)),
-                        ["must_not"] = new JsonArray(new JsonObject { ["terms"] = new JsonObject { ["category"] = new JsonArray("address", "postcode", "street") } }),
-                    }
-                },
+                ["query"] = query,
             };
-            var hit = (await index.SearchAsync(body, ct)).FirstOrDefault();
+            // Only a near-miss spelling of the query counts ("Lotos" → "Lotus's"), never just any fuzzy hit far away.
+            var queryWords = norm.Split(" ", StringSplitOptions.RemoveEmptyEntries).Length;
+            var hit = (await index.SearchAsync(body, ct)).FirstOrDefault(h => IsCloseSpelling(compact, h.Name, queryWords));
             if (hit is not null && TextNormalizer.Compact(hit.Name) != compact)
                 list.Add(new SearchSuggestion(hit.Name, hit.Name, null, hit.Id, hit.Lat, hit.Lng,
                     r.Lat is { } ul && r.Lng is { } ug ? Math.Round(GeoMath.HaversineM(ul, ug, hit.Lat, hit.Lng)) : null));
@@ -207,6 +224,15 @@ public sealed class SearchPipeline(PlaceSearchIndex index, Func<AliasTable> alia
                     list.Add(new SearchSuggestion(L10n.Category(cats[0], r.Lang), cw, cats[0], Count: count));
                 }
         return list.Take(4).ToList();
+    }
+
+    /// <summary>The name's first words (as many as the query has) are within ~1 edit per 4 letters of the query.</summary>
+    internal static bool IsCloseSpelling(string compactQuery, string name, int queryWords)
+    {
+        var tokens = TextNormalizer.Tokens(name);
+        var head = string.Concat(tokens.Take(Math.Max(1, queryWords)));
+        var limit = Math.Max(1, compactQuery.Length / 4);
+        return Levenshtein(compactQuery, head) <= limit || Levenshtein(compactQuery, string.Concat(tokens)) <= limit;
     }
 
     internal static int Levenshtein(string a, string b)

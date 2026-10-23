@@ -201,6 +201,9 @@ public class FindingPlacesUnitTests
         Assert.Null(SearchPipeline.SplitArea("petronas", areas, null, null));
         Assert.Equal("SS2, Petaling Jaya", areas.Label(3.1190, 101.6220));
         Assert.Equal(1, SearchPipeline.Levenshtein("tandass", "tandas"));
+        Assert.True(SearchPipeline.IsCloseSpelling("lotosmutiara", "Lotus's Mutiara Damansara", 2));
+        Assert.False(SearchPipeline.IsCloseSpelling("lotosmutiara", "Motor Leton", 2));
+        Assert.Equal("", SearchResults.ChainKey("Toilet", null));
 
         (string, string)? Split(string q) => SearchPipeline.SplitArea(q, areas, 3.1478, 101.6153) is { } s ? (s.Area.Name, s.Remainder) : null;
     }
@@ -306,7 +309,8 @@ public class OpenSearchIntegrationFindingPlacesTests
             await Expect("mcd", (r, _) => r.Count > 0 && r[0].Id == "d1", "McDonald's");
             await Expect("minyak", (r, i) => i.Kind == "category" && r.Count == 3 && r.All(h => h.Category == PlaceCategory.Fuel) && Ascending(r), "fuel, nearest first");
             await Expect("stesen minyak", (r, i) => i.Kind == "category" && r[0].Id == "p1", "fuel, nearest first");
-            await Expect("tandas", (r, i) => i.Kind == "category" && r[0].Id == "t1" && r.All(h => h.Category == PlaceCategory.Toilets), "toilets, nearest first");
+            await Expect("tandas", (r, i) => i.Kind == "category" && r[0].Id == "t1" && r.All(h => h.Category == PlaceCategory.Toilets && h.ChainGroup is null),
+                "toilets, nearest first, not a 'Toilet' chain");
             await Expect("surau", (r, _) => r[0].Id == "q1" && r.Any(h => h.Id == "q2") && Ascending(r), "surau and masjid, nearest first");
             await Expect("atm", (r, _) => r[0].Id == "b1" && r.Count == 2, "ATMs, nearest first");
             await Expect("minyak ss2", (r, i) => i.Kind == "category_area" && r[0].Id == "p2", "fuel nearest to SS2");
@@ -328,6 +332,8 @@ public class OpenSearchIntegrationFindingPlacesTests
             if (!sugg.Any(s => s.Category == PlaceCategory.Toilets && s.Count == 2)) failures.Add($"Assert-rank suggestions 'tandass': {string.Join(" | ", sugg)}");
             var dym = await pipeline.SuggestAsync(new SearchRequest("Lotos Mutiara", PjLat, PjLng), default);
             if (!dym.Any(s => s.PlaceId == "l1")) failures.Add($"Assert-rank did-you-mean 'Lotos Mutiara': {string.Join(" | ", dym)}");
+            var far = await pipeline.SuggestAsync(new SearchRequest("Motorr Letonx Qq", PjLat, PjLng), default);
+            if (far.Any(s => s.PlaceId is not null && s.Label != "Motor Leton")) failures.Add($"Assert-rank did-you-mean must not invent: {string.Join(" | ", far)}");
 
             Assert.True(failures.Count == 0, string.Join("\n", failures));
         }

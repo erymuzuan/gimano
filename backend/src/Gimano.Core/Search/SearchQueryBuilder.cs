@@ -317,11 +317,21 @@ public static class SearchQueryBuilder
                         ["filter"] = new JsonArray("lowercase", "asciifolding"),
                     }
                 },
+                // Apostrophes vanish, as in TextNormalizer ("Lotus's" → "lotuss", "McDonald's" → "mcdonalds").
+                ["char_filter"] = new JsonObject
+                {
+                    ["no_apostrophe"] = new JsonObject
+                    {
+                        ["type"] = "mapping",
+                        ["mappings"] = new JsonArray("'=>", "’=>", "‘=>", "`=>"),
+                    }
+                },
                 ["analyzer"] = new JsonObject
                 {
                     ["folded"] = new JsonObject
                     {
                         ["type"] = "custom",
+                        ["char_filter"] = new JsonArray("no_apostrophe"),
                         ["tokenizer"] = "standard",
                         ["filter"] = new JsonArray("lowercase", "asciifolding"),
                     }
@@ -482,7 +492,13 @@ public static class SearchResults
     }
 
     /// <summary>Chain identity: the brand when tagged ("FamilyMart" for "Family Mart Damansara"), else the spacing-free name.</summary>
-    public static string ChainKey(string name, string? brand) => TextNormalizer.Compact(string.IsNullOrWhiteSpace(brand) ? name : brand);
+    public static string ChainKey(string name, string? brand) =>
+        !string.IsNullOrWhiteSpace(brand) ? TextNormalizer.Compact(brand)
+        : GenericNames.Contains(TextNormalizer.Compact(name)) ? "" : TextNormalizer.Compact(name);
+
+    /// <summary>Fallback names of unnamed features ("Toilet", "ATM"): the same name, but not a chain.</summary>
+    private static readonly HashSet<string> GenericNames =
+        ["toilet", "atm", "parking", "petrolstation", "evcharger", "tollplaza", "restarea", "surau", "masjid", "tandas", "tandasawam"];
 
     /// <summary>
     /// Chains are always nearest-first: members of the same chain (same brand / spacing-insensitive name) keep the slots the ranking gave
