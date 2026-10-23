@@ -59,3 +59,5 @@ Pods/
 
 # iOS local signing (Apple Developer Team ID)
 ios/Config/Local.xcconfig
+.claude/worktrees/
+.claude/settings.local.json
