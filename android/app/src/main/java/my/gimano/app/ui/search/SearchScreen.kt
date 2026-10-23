@@ -203,7 +203,7 @@ private fun ChainGroup(g: my.gimano.app.core.search.ResultRow.Chain, onPick: (Pl
             Spacer(Modifier.width(12.dp))
             Column(Modifier.weight(1f)) {
                 Text(g.name, fontSize = 17.sp, fontWeight = FontWeight.Black, color = c.text)
-                Text(stringResource(R.string.chain_nearby, g.branches.size), fontSize = 13.sp, fontWeight = FontWeight.ExtraBold, color = c.textMuted)
+                Text(stringResource(R.string.chain_nearby, maxOf(g.countNearby ?: 0, g.branches.size)), fontSize = 13.sp, fontWeight = FontWeight.ExtraBold, color = c.textMuted)
             }
             g.nearest.distanceM?.let { Text(Formatters.distance(it), fontSize = 15.sp, fontWeight = FontWeight.Black, color = c.brand) }
             Icon(if (open) Icons.Filled.ExpandLess else Icons.Filled.ExpandMore, null, tint = c.brand)

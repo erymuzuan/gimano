@@ -53,6 +53,7 @@ interface GimanoApi {
         @Query("limit") limit: Int = 10,
         @Query("category") category: String? = null,
         @Query("exact") exact: Boolean? = null,
+        @Query("near") near: String? = null,
     ): SearchResponse
 
     @GET("search/nearby")

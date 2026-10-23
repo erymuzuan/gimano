@@ -16,7 +16,7 @@ interface GimanoRepository : my.gimano.app.data.share.ShareApi {
 
     suspend fun search(q: String, lat: Double?, lng: Double?, limit: Int = 10, category: String? = null): List<PlaceSummary>
     /** Full response: results plus spelling correction and suggestions. [exact] = don't correct ("cari 'x' sahaja"). */
-    suspend fun searchFull(q: String, lat: Double?, lng: Double?, limit: Int = 20, exact: Boolean = false): SearchResponse =
+    suspend fun searchFull(q: String, lat: Double?, lng: Double?, limit: Int = 20, exact: Boolean = false, near: GeoPointLite? = null): SearchResponse =
         SearchResponse(search(q, lat, lng, limit, null))
     suspend fun nearby(lat: Double, lng: Double, category: String, radius: Int = 5000): List<PlaceSummary>
     suspend fun place(id: String, lat: Double? = null, lng: Double? = null): Place
@@ -54,3 +54,6 @@ interface GimanoRepository : my.gimano.app.data.share.ShareApi {
     suspend fun uploadPhoto(placeId: String, jpeg: ByteArray, caption: String?): Photo
     suspend fun photos(placeId: String): PhotosPage
 }
+
+/** Map centre for `near=lat,lng` (ranking origin when the user is looking elsewhere). */
+data class GeoPointLite(val lat: Double, val lng: Double)

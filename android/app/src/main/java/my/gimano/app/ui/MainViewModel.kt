@@ -142,7 +142,7 @@ data class UiState(
     val suggestions: List<SearchSuggestion> = emptyList(),
     /** "cari 'x' sahaja": the user turned the spelling correction off for this query. */
     val exactSearch: Boolean = false,
-    val resultSort: my.gimano.app.core.search.ResultSort = my.gimano.app.core.search.ResultSort.NEAREST,
+    val resultSort: my.gimano.app.core.search.ResultSort = my.gimano.app.core.search.ResultSort.RELEVANT,
     val pick: PickState? = null,
     val pin: PinSel? = null,
     /** "Nak namakan tempat ini?" after arriving at an unnamed pin (once). */
@@ -490,7 +490,9 @@ class MainViewModel(private val c: AppContainer) : ViewModel() {
         val me = here()
         // Local favourites and private places are matched on the device and shown first.
         val localHits = runCatching { local.search(q, me) }.getOrDefault(emptyList())
-        val full = runCatching { repo.searchFull(q, me.lat, me.lng, 20, exact = _ui.value.exactSearch) }.getOrDefault(SearchResponse())
+        // Ranking origin = the map centre when the user is looking somewhere else (> 2 km away).
+        val near = boundsFlow.value?.center?.takeIf { GeoMath.distanceM(it, me) > 2_000 }?.let { my.gimano.app.data.repo.GeoPointLite(it.lat, it.lng) }
+        val full = runCatching { repo.searchFull(q, me.lat, me.lng, 20, exact = _ui.value.exactSearch, near = near) }.getOrDefault(SearchResponse())
         if (_ui.value.query == q) _ui.update {
             it.copy(results = full.results.withDistanceFrom(me), localHits = localHits, searching = false, searchedOnce = true,
                 correctedQuery = full.correctedQuery?.takeIf { c -> !c.equals(q.trim(), ignoreCase = true) }, suggestions = full.suggestions)
@@ -563,10 +565,21 @@ class MainViewModel(private val c: AppContainer) : ViewModel() {
             }
             _ui.update {
                 it.copy(pick = it.pick?.copy(loading = false, nearPoi = poi, address = r?.address?.takeIf { a -> a.isNotBlank() },
-                    label = r?.address?.substringBefore(",")?.takeIf { a -> a.isNotBlank() }?.let { a -> c.app.getString(R.string.pick_near, a) },
-                    area = r?.address?.substringAfter(", ", "")?.takeIf { a -> a.isNotBlank() }))
+                    label = r?.let(::pickTitle),
+                    area = r?.let { rv -> listOfNotNull(rv.area, rv.city).filter { a -> a.isNotBlank() }.distinct().joinToString(", ").ifBlank { null } ?: rv.address.substringAfter(", ", "").ifBlank { null } }))
             }
         }
+    }
+
+    /** "Dekat 18, Jalan SS 2/24" from the structured reverse fields; older servers: first part of the address. */
+    private fun pickTitle(r: ReverseGeocode): String? {
+        val street = r.street?.takeIf { it.isNotBlank() }
+        val core = when {
+            street != null && !r.houseNumber.isNullOrBlank() -> "${r.houseNumber}, $street"
+            street != null -> street
+            else -> r.address.substringBefore(",").takeIf { it.isNotBlank() }
+        } ?: return r.label
+        return c.app.getString(R.string.pick_near, core)
     }
 
     /** "Adakah ini …?": snap the pin to that place. */
@@ -659,7 +672,7 @@ class MainViewModel(private val c: AppContainer) : ViewModel() {
 
     private fun pickResultFor(purpose: SearchPurpose, p: PlaceSummary, fromMap: Boolean = false) {
         when (purpose) {
-            SearchPurpose.NAVIGATE -> if (fromMap || p.id.startsWith("pin:")) showPin(p) else showPlace(p)
+            SearchPurpose.NAVIGATE -> if (fromMap || p.id.startsWith("pin:") || my.gimano.app.core.search.ResultGrouping.isSearchOnly(p.id)) showPin(p) else showPlace(p)
             SearchPurpose.SET_HOME -> setHomeWork("home", p, R.string.home_set)
             SearchPurpose.SET_WORK -> setHomeWork("work", p, R.string.work_set)
             SearchPurpose.ADD_FAVORITE -> {
@@ -687,7 +700,8 @@ class MainViewModel(private val c: AppContainer) : ViewModel() {
         }
     }
 
-    private fun PlaceSummary.toPoint() = my.gimano.app.data.planned.PlacePoint(lat, lng, name, address, id.takeUnless { it.startsWith("pin:") || it.startsWith("private:") })
+    private fun PlaceSummary.toPoint() = my.gimano.app.data.planned.PlacePoint(lat, lng, name, address,
+        id.takeUnless { it.startsWith("pin:") || it.startsWith("private:") || my.gimano.app.core.search.ResultGrouping.isSearchOnly(it) })
     private fun NavDestination.toPoint() = my.gimano.app.data.planned.PlacePoint(point.lat, point.lng, name, address, placeId)
     private fun my.gimano.app.data.planned.PlacePoint.toDestination() = NavDestination(name, address, GeoPoint(lat, lng), placeId)
 
@@ -707,11 +721,12 @@ class MainViewModel(private val c: AppContainer) : ViewModel() {
 
     fun openPlannedDrive(id: String) = viewModelScope.launch { c.planned.byId(id)?.let { goPlanned(it) } }
 
-    private fun PlaceSummary.toDestination() = NavDestination(name, address, GeoPoint(lat, lng), id.takeUnless { it.startsWith("pin:") || it.startsWith("private:") })
+    private fun PlaceSummary.toDestination() = NavDestination(name, address, GeoPoint(lat, lng),
+        id.takeUnless { it.startsWith("pin:") || it.startsWith("private:") || my.gimano.app.core.search.ResultGrouping.isSearchOnly(it) })
 
     private fun setHomeWork(kind: String, p: PlaceSummary, @StringRes msg: Int) {
         viewModelScope.launch {
-            local.setHomeWork(kind, p.name, p.lat, p.lng, p.address, p.id.takeUnless { it.startsWith("pin:") || it.startsWith("private:") })
+            local.setHomeWork(kind, p.name, p.lat, p.lng, p.address, p.id.takeUnless { it.startsWith("pin:") || it.startsWith("private:") || my.gimano.app.core.search.ResultGrouping.isSearchOnly(it) })
             _events.tryEmit(UiEvent.Toast(msg))
         }
         goHome()
@@ -781,7 +796,7 @@ class MainViewModel(private val c: AppContainer) : ViewModel() {
         showPin(PlaceSummary("pin:${g.lat},${g.lng}", c.app.getString(R.string.pin_on_map), "other", "", g.lat, g.lng, GeoMath.distanceM(here(), g)))
         viewModelScope.launch {
             val r = runCatching { repo.reverse(g.lat, g.lng) }.getOrNull() ?: return@launch
-            val label = r.address.substringBefore(",").takeIf { it.isNotBlank() }?.let { c.app.getString(R.string.pick_near, it) }
+            val label = pickTitle(r)
             _ui.update { s -> if (s.pin?.place?.id == "pin:${g.lat},${g.lng}") s.copy(pin = s.pin.copy(place = s.pin.place.copy(name = label ?: s.pin.place.name, address = r.address))) else s }
         }
     }

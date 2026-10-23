@@ -8,7 +8,7 @@ enum class ResultSort { NEAREST, RELEVANT, OPEN_NOW }
 sealed interface ResultRow {
     data class Single(val place: PlaceSummary) : ResultRow
     /** "FamilyMart · 12 berdekatan": a chain collapsed into one row, branches nearest first. */
-    data class Chain(val key: String, val name: String, val branches: List<PlaceSummary>) : ResultRow {
+    data class Chain(val key: String, val name: String, val branches: List<PlaceSummary>, val countNearby: Int? = null) : ResultRow {
         val nearest get() = branches.first()
     }
 }
@@ -18,7 +18,7 @@ object ResultGrouping {
     const val MIN_CHAIN = 3
 
     fun chainKey(p: PlaceSummary): String? =
-        (p.chainGroup ?: p.brand)?.trim()?.lowercase()?.replace(Regex("[^a-z0-9]+"), "")?.takeIf { it.isNotEmpty() }
+        (p.chainGroup?.key ?: p.brand)?.trim()?.lowercase()?.replace(Regex("[^a-z0-9]+"), "")?.takeIf { it.isNotEmpty() }
 
     /**
      * Applies the sort/filter, then collapses chains with [MIN_CHAIN]+ branches into one row placed where the
@@ -38,11 +38,15 @@ object ResultGrouping {
             when {
                 k == null || group == null || group.size < MIN_CHAIN -> ResultRow.Single(p)
                 !emitted.add(k) -> null
-                else -> ResultRow.Chain(k, p.brand ?: p.name, group.sortedBy { it.distanceM ?: Double.MAX_VALUE })
+                else -> ResultRow.Chain(k, p.chainGroup?.name?.takeIf { it.isNotBlank() } ?: p.brand ?: p.name,
+                    group.sortedBy { it.distanceM ?: Double.MAX_VALUE }, countNearby = p.chainGroup?.countNearby)
             }
         }
     }
 
     /** Whether "Buka sekarang" can say anything: at least one result knows its opening state. */
+    /** Search-only results (streets, addresses, postcodes, points) have no /places/{id}: route by lat/lng. */
+    fun isSearchOnly(id: String) = id.startsWith("st-") || id.startsWith("ad-") || id.startsWith("pc-") || id.startsWith("pt-")
+
     fun knowsOpening(results: List<PlaceSummary>) = results.any { it.openNow != null }
 }
