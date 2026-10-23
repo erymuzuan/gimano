@@ -146,6 +146,20 @@ timestamps      = ISO-8601 UTC text (`2026-10-23T01:02:03.123Z`); merge compares
 - **My contributions** (menu): `GET /me/places/contributed` plus local private places.
 - Demo mode implements all of it (WebP photos written locally) so the flows work offline.
 
+## Planned drives, Share my drive, Theme
+
+- **Planned drives** (menu, or route preview → Leave later → "Plan this drive"): on device in `planned_drives`;
+  one-off or repeating weekdays; "Leave by" from `GET /routes/departure-times` (hourly slots, interpolated);
+  local notifications 15 min before; tapping one opens route preview. The schedule lives in the shared `settings`
+  table: `planned_drive:<id>` = `{"arriveBy":"HH:mm","days":["Mo",…]}` (repeating) or `{"arriveAt":"<ISO>"}`
+  (one-off), and `depart_at` = the computed leave-by for one-off drives. *Proposed convention; please mirror on Android.*
+- **Share my drive** (trip sheet → Share drive): a 256-bit key generated on the device; link
+  `https://www.bukitbunga.com/gimano/s/#<shareId>.<base64url key>`; every 15 s an XChaCha20-Poly1305-IETF blob
+  (AD = shareId) is PUT with `Authorization: Share <writeToken>`. Ends on arrival, Stop, "Stop sharing" or expiry.
+  The key exists only in memory and in the link.
+- **Theme**: Light (default, even when iOS is in Dark mode), Dark, Follow phone, Auto day/night (sunrise/sunset).
+  Dark uses the OpenFreeMap `dark` basemap.
+
 ## Icons
 
 `DesignSystem/IconData.swift` is generated from `docs/icons/gimano-icons.json`:

@@ -296,6 +296,34 @@ actor DemoRepository: GimanoRepository {
 
     func flagPhoto(id: String, reason: FlagReason) async throws {}
 
+    // MARK: shares (demo relay: keeps only the latest ciphertext, like the server)
+
+    private var shares: [String: (token: String, expiresAt: Date, blob: ShareBlob?)] = [:]
+
+    func createShare(_ r: ShareCreateRequest) async throws -> ShareCreated {
+        guard (15...720).contains(r.expiresInMinutes) else { throw APIError.http(status: 400, problem: nil) }
+        guard shares.values.filter({ $0.expiresAt > .now }).count < 3 else { throw APIError.http(status: 429, problem: nil) }
+        let id = ShareCrypto.base64url([UInt8]((0..<16).map { _ in UInt8.random(in: 0...255) }))
+        let token = ShareCrypto.base64url([UInt8]((0..<32).map { _ in UInt8.random(in: 0...255) }))
+        let exp = Date().addingTimeInterval(TimeInterval(r.expiresInMinutes * 60))
+        shares[id] = (token, exp, nil)
+        return ShareCreated(shareId: id, writeToken: token, expiresAt: exp)
+    }
+
+    func putShare(id: String, writeToken: String, _ blob: ShareBlob) async throws {
+        guard let s = shares[id], s.token == writeToken else { throw APIError.http(status: 403, problem: nil) }
+        guard Data(base64Encoded: blob.ciphertext).map({ $0.count <= 1024 }) ?? false else { throw APIError.http(status: 413, problem: nil) }
+        shares[id]?.blob = blob
+    }
+
+    func deleteShare(id: String, writeToken: String) async throws {
+        guard shares[id]?.token == writeToken else { throw APIError.http(status: 403, problem: nil) }
+        shares[id] = nil
+    }
+
+    /// What a viewer would GET (test hook).
+    func sharedBlob(_ id: String) -> ShareBlob? { shares[id]?.blob }
+
     func reverseGeocode(_ p: LatLng) async throws -> ReverseGeocode {
         let nearest = DemoData.places.min { Geo.distance(p, $0.location) < Geo.distance(p, $1.location) }
         return ReverseGeocode(name: "Dropped pin", address: "Near \(nearest?.name ?? "Kuala Lumpur")", lat: p.lat, lng: p.lng)

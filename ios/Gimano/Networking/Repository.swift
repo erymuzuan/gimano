@@ -51,6 +51,11 @@ protocol GimanoRepository: Sendable {
     func deletePhoto(id: String) async throws
     func flagPhoto(id: String, reason: FlagReason) async throws
 
+    // Share my drive (server relays ciphertext only)
+    func createShare(_ r: ShareCreateRequest) async throws -> ShareCreated
+    func putShare(id: String, writeToken: String, _ blob: ShareBlob) async throws
+    func deleteShare(id: String, writeToken: String) async throws
+
     func health() async -> Bool
 }
 
@@ -293,6 +298,18 @@ final class LiveRepository: GimanoRepository {
         try await authed { try await self.client.sendNoContent("POST", "photos/\(id)/flag", body: FlagRequest(reason: reason)) }
     }
 
+    func createShare(_ r: ShareCreateRequest) async throws -> ShareCreated {
+        try await authed { try await self.client.send("POST", "shares", body: r) }
+    }
+
+    func putShare(id: String, writeToken: String, _ blob: ShareBlob) async throws {
+        try await client.sendNoContent("PUT", "shares/\(id)", body: blob, authorization: "Share \(writeToken)")
+    }
+
+    func deleteShare(id: String, writeToken: String) async throws {
+        try await client.sendNoContent("DELETE", "shares/\(id)", body: Optional<Empty>.none, authorization: "Share \(writeToken)")
+    }
+
     func health() async -> Bool {
         // healthz lives at the host root, not under /api/v1.
         var c = URLComponents(url: baseURL, resolvingAgainstBaseURL: false)!
@@ -425,6 +442,18 @@ final class FallbackRepository: GimanoRepository {
     }
     func flagPhoto(id: String, reason: FlagReason) async throws {
         try await run(gapFallback: false, { try await $0.flagPhoto(id: id, reason: reason) }, demoOp: { try await $0.flagPhoto(id: id, reason: reason) })
+    }
+
+    func createShare(_ r: ShareCreateRequest) async throws -> ShareCreated {
+        try await run(gapFallback: false, { try await $0.createShare(r) }, demoOp: { try await $0.createShare(r) })
+    }
+    func putShare(id: String, writeToken: String, _ blob: ShareBlob) async throws {
+        try await run(gapFallback: false, { try await $0.putShare(id: id, writeToken: writeToken, blob) },
+                      demoOp: { try await $0.putShare(id: id, writeToken: writeToken, blob) })
+    }
+    func deleteShare(id: String, writeToken: String) async throws {
+        try await run(gapFallback: false, { try await $0.deleteShare(id: id, writeToken: writeToken) },
+                      demoOp: { try await $0.deleteShare(id: id, writeToken: writeToken) })
     }
 
     func health() async -> Bool { await live.health() }

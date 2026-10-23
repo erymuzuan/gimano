@@ -82,6 +82,10 @@ final class AppModel {
     private(set) var nextLeaveBy: [String: Date] = [:]
     /// Planned-drive editor (new or existing).
     var editingDrive: PlannedDrive?
+    /// Active "Share my drive" (end-to-end encrypted live ETA).
+    private(set) var driveShare: DriveShareSession?
+    var showShareSheet = false
+    private(set) var startingShare = false
     /// Add-a-place flow (nil when closed); the coordinate is where the pin starts.
     var addPlaceStart: LatLng?
     /// Long-press menu: "Navigate here" / "Add a place here".
@@ -276,6 +280,35 @@ final class AppModel {
         await rescheduleAllPlannedDrives()
     }
 
+    // MARK: share my drive
+
+    func startSharing() {
+        guard let nav = navigation, !startingShare else { return }
+        if driveShare != nil { showShareSheet = true; return }
+        startingShare = true
+        Task {
+            defer { startingShare = false }
+            do {
+                let s = try await DriveShareSession.start(destinationName: nav.destination.name, remainingS: nav.remainingS, repo: repo)
+                driveShare = s
+                showShareSheet = true
+                if let fix = nav.fix { s.update(fix: fix, remainingS: nav.remainingS, remainingM: nav.remainingM) }
+            } catch let e as APIError where e.isServerSideGap {
+                showToast(String(localized: "Sharing isn't available on the server yet"))
+            } catch {
+                showToast(error.localizedDescription)
+            }
+        }
+    }
+
+    func stopSharing() {
+        guard let s = driveShare else { return }
+        driveShare = nil
+        showShareSheet = false
+        let fix = navigation?.fix
+        Task { await s.end(fix: fix, status: .ended) }
+    }
+
     // MARK: planned drives
 
     /// A new planned drive for the trip in route preview (or an empty one from the menu).
@@ -392,6 +425,14 @@ final class AppModel {
         map.puck = fix.coordinate
         map.puckHeading = heading
         navigation?.handle(fix)
+        if let share = driveShare, let nav = navigation {
+            if nav.arrived {
+                driveShare = nil
+                Task { await share.end(fix: fix, status: .arrived) }
+            } else {
+                share.update(fix: fix, remainingS: nav.remainingS, remainingM: nav.remainingM)
+            }
+        }
         if let nav = navigation, let snapped = nav.progress?.snap, snapped.distanceFromRouteM <= 30 {
             // Keep the puck glued to the road while on route (≤ 30 m); otherwise show the raw fix (off-route logic runs on it).
             map.puck = snapped.point
@@ -628,6 +669,7 @@ final class AppModel {
     }
 
     func stopNavigation() {
+        stopSharing()
         simulator.stop()
         navigation?.stop()
         navigation = nil

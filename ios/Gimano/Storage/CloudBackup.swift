@@ -156,11 +156,21 @@ struct GoogleDriveBackupDestination: BackupDestination {
     @MainActor
     static var signedInEmail: String? { GIDSignIn.sharedInstance.currentUser?.profile?.email }
 
+    /// Restores the previous Google session after an app relaunch (tokens are kept in the Keychain by GoogleSignIn).
+    @MainActor
+    static func restoreSession() async -> String? {
+        guard let clientID else { return nil }
+        if GIDSignIn.sharedInstance.configuration == nil { GIDSignIn.sharedInstance.configuration = GIDConfiguration(clientID: clientID) }
+        if let email = signedInEmail { return email }
+        guard GIDSignIn.sharedInstance.hasPreviousSignIn() else { return nil }
+        return (try? await GIDSignIn.sharedInstance.restorePreviousSignIn())?.profile?.email
+    }
+
     @MainActor
     private static func accessToken() async throws -> String {
         guard isConfigured else { throw CloudBackupError.notConfigured(String(localized: "Google Drive isn't configured in this build.")) }
         if GIDSignIn.sharedInstance.currentUser == nil {
-            _ = try? await GIDSignIn.sharedInstance.restorePreviousSignIn()
+            _ = await restoreSession()
         }
         guard let user = GIDSignIn.sharedInstance.currentUser else { throw CloudBackupError.notSignedIn }
         let refreshed = try await user.refreshTokensIfNeeded()

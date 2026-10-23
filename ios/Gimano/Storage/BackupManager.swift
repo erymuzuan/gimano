@@ -87,6 +87,14 @@ final class BackupManager {
         }
     }
 
+    /// Downloads a cloud backup to a local file (so its manifest can be shown before restoring).
+    func download(_ remote: RemoteBackup) async throws -> URL {
+        guard let dest = destinationImpl(destination) else { throw BackupError.notABackup }
+        isWorking = true
+        defer { isWorking = false }
+        return try await dest.download(remote)
+    }
+
     func restore(remote: RemoteBackup, mode: RestoreMode, passphrase: String?) async throws {
         guard let dest = destinationImpl(destination) else { return }
         isWorking = true

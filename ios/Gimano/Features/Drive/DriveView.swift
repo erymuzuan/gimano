@@ -26,6 +26,27 @@ struct DriveView: View {
                         .transition(.move(edge: .top).combined(with: .opacity))
                         .accessibilityIdentifier("arrivedAtStop")
                     }
+                    if model.driveShare != nil {
+                        HStack {
+                            Button { model.showShareSheet = true } label: {
+                                Label("Sharing", systemImage: "dot.radiowaves.left.and.right")
+                                    .font(Tokens.Font.label)
+                                    .foregroundStyle(Color.brandOn)
+                                    .padding(.horizontal, 12).padding(.vertical, 8)
+                                    .background(Color.brand, in: Capsule())
+                            }
+                            .accessibilityIdentifier("sharingChip")
+                            Button { model.stopSharing() } label: {
+                                Image(systemName: "xmark").font(.system(size: 13, weight: .bold)).foregroundStyle(Color.brandOn)
+                                    .frame(width: 32, height: 32).background(Color.brandInk, in: Circle())
+                            }
+                            .accessibilityLabel(Text("Stop sharing"))
+                            .accessibilityIdentifier("stopSharingChip")
+                            Spacer()
+                        }
+                        .padding(.horizontal, 12)
+                        .padding(.top, 6)
+                    }
                     // Hidden diagnostics for UI tests (max off-road distance while on route, reroutes).
                     Text(verbatim: "offroad=\(Int(nav.maxOffRoadM.rounded()));reroutes=\(nav.rerouteCount);stopsLeft=\(nav.stops.count - nav.stopTracker.nextStopIndex)")
                         .font(.system(size: 1))
@@ -74,6 +95,9 @@ struct DriveView: View {
                     ArrivedCard(destination: nav.destination) { model.stopNavigation() }
                         .transition(.move(edge: .bottom))
                 }
+            }
+            .sheet(isPresented: Binding(get: { model.showShareSheet }, set: { model.showShareSheet = $0 })) {
+                if let s = model.driveShare { ShareDriveSheet(session: s, nav: nav).presentationDetents([.medium]) }
             }
             .sheet(isPresented: $showAlternatives) {
                 DriveAlternativesSheet(nav: nav)
@@ -204,10 +228,14 @@ struct BottomBar: View {
                             Label("Add a stop", systemImage: "plus.circle.fill")
                         }
                         .buttonStyle(SecondaryButtonStyle())
-                        ShareLink(item: shareText) {
-                            Label("Share drive", systemImage: "square.and.arrow.up")
+                        Button {
+                            expanded = false
+                            model.startSharing()
+                        } label: {
+                            Label(model.driveShare == nil ? "Share drive" : "Sharing…", systemImage: "location.fill.viewfinder")
                         }
                         .buttonStyle(SecondaryButtonStyle())
+                        .accessibilityIdentifier("shareDrive")
                     }
                     Button {
                         expanded = false
@@ -385,5 +413,50 @@ struct DriveAlternativesSheet: View {
             routes = (try? await model.repo.routes(req)) ?? []
             loading = false
         }
+    }
+}
+
+/// Share my drive: link (key only in the fragment), BM/EN message, Stop sharing.
+struct ShareDriveSheet: View {
+    @Environment(AppModel.self) private var model
+    @Environment(\.dismiss) private var dismiss
+    let session: DriveShareSession
+    let nav: NavigationSession
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            HStack(spacing: 12) {
+                GimanoIcon(icon: .logo, size: 36)
+                    .frame(width: 60, height: 60)
+                    .background(Color.brandMist, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Share my drive").font(Tokens.Font.title)
+                    Text("Until you arrive · ends \(session.created.expiresAt.formatted(date: .omitted, time: .shortened)) at the latest")
+                        .font(Tokens.Font.caption).foregroundStyle(Color.textMuted)
+                }
+            }
+            Label("End-to-end encrypted: only people with the link can see your position. Gimano's server can't read it.",
+                  systemImage: "lock.fill")
+                .font(Tokens.Font.caption)
+                .foregroundStyle(Color.textMuted)
+            ShareLink(item: ShareCrypto.message(destination: nav.destination.name,
+                                                eta: ETAFormatter.arrivalTime(remainingS: nav.remainingS),
+                                                link: session.link)) {
+                Label("Send link", systemImage: "square.and.arrow.up")
+            }
+            .buttonStyle(PrimaryButtonStyle())
+            .accessibilityIdentifier("sendShareLink")
+            Text(verbatim: session.link.absoluteString)
+                .font(.system(size: 1)).opacity(0.01)
+                .accessibilityIdentifier("shareLink")
+            if let e = session.lastError { Text(e).font(Tokens.Font.caption).foregroundStyle(Color.speeding) }
+            Button(role: .destructive) {
+                model.stopSharing()
+                dismiss()
+            } label: { Text("Stop sharing") }
+                .buttonStyle(SecondaryButtonStyle())
+                .accessibilityIdentifier("stopSharing")
+        }
+        .padding(Tokens.Space.gutter)
     }
 }

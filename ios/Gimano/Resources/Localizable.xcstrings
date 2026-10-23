@@ -1383,6 +1383,16 @@
         }
       }
     },
+    "End-to-end encrypted: only people with the link can see your position. Gimano's server can't read it.": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Disulitkan hujung ke hujung: hanya orang yang ada pautan boleh melihat kedudukan kamu. Pelayan Gimano tidak dapat membacanya."
+          }
+        }
+      }
+    },
     "Enter the roundabout": {
       "localizations": {
         "ms": {
@@ -3376,6 +3386,16 @@
         }
       }
     },
+    "Send link": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hantar pautan"
+          }
+        }
+      }
+    },
     "Send suggestion": {
       "localizations": {
         "ms": {
@@ -3496,6 +3516,16 @@
         }
       }
     },
+    "Share my drive": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kongsi perjalanan saya"
+          }
+        }
+      }
+    },
     "Share with everyone": {
       "localizations": {
         "ms": {
@@ -3516,12 +3546,42 @@
         }
       }
     },
+    "Sharing": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Berkongsi"
+          }
+        }
+      }
+    },
+    "Sharing isn't available on the server yet": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Perkongsian belum tersedia di pelayan"
+          }
+        }
+      }
+    },
     "Sharing places isn't available on the server yet. Save it just for you for now.": {
       "localizations": {
         "ms": {
           "stringUnit": {
             "state": "translated",
             "value": "Perkongsian tempat belum tersedia di pelayan. Simpan untuk kamu sahaja buat masa ini."
+          }
+        }
+      }
+    },
+    "Sharing…": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Berkongsi…"
           }
         }
       }
@@ -3812,6 +3872,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Hentian ditambah: %@"
+          }
+        }
+      }
+    },
+    "Stop sharing": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Henti berkongsi"
           }
         }
       }
@@ -4322,6 +4392,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Format sandaran %lld tidak disokong."
+          }
+        }
+      }
+    },
+    "Until you arrive · ends %@ at the latest": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sehingga kamu tiba · tamat selewat-lewatnya %@"
           }
         }
       }

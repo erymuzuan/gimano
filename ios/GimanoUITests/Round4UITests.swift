@@ -27,7 +27,17 @@ final class Round4UITests: XCTestCase {
             return false
         }
         app.launch()
+        dismissSystemAlerts(timeout: 2)
         XCTAssertTrue(app.buttons["whereTo"].waitForExistence(timeout: 30))
+    }
+
+    /// Answers SpringBoard permission alerts (notifications) directly; they can outlive an app relaunch.
+    func dismissSystemAlerts(timeout: TimeInterval) {
+        let sb = XCUIApplication(bundleIdentifier: "com.apple.springboard")
+        for label in ["Allow", "Allow While Using App", "OK"] {
+            let b = sb.buttons[label]
+            if b.waitForExistence(timeout: timeout) { b.tap(); return }
+        }
     }
 
     func shot(_ name: String) {
@@ -85,8 +95,7 @@ final class Round4UITests: XCTestCase {
         for d in ["Mo", "Tu", "We", "Th", "Fr"] { wait(app.buttons["repeat.\(d)"]).tap() }
         shot("p-planned-drive-editor")
         app.buttons["savePlannedDrive"].tap()
-        sleep(2)
-        app.tap() // lets the interruption monitor handle the notification prompt
+        dismissSystemAlerts(timeout: 8)
         sleep(3)
         for _ in 0..<5 where !app.buttons["menuButton"].exists {
             let back = app.buttons["Back"].firstMatch
@@ -100,5 +109,27 @@ final class Round4UITests: XCTestCase {
         _ = app.staticTexts["leaveBy"].waitForExistence(timeout: 20)
         shot("p-planned-drives-list")
         XCTAssertTrue(app.staticTexts["leaveBy"].exists, "a Leave-by time from /routes/departure-times")
+    }
+
+    func test_q_ShareMyDrive() {
+        routeToMidValley()
+        wait(app.buttons["goNow"]).tap()
+        wait(app.staticTexts["maneuverDistance"], 30)
+        let eta = app.buttons["etaClock"].exists ? app.buttons["etaClock"] : app.staticTexts["etaClock"]
+        wait(eta).tap()
+        wait(app.buttons["shareDrive"]).tap()
+        wait(app.buttons["sendShareLink"], 30)
+        let link = app.staticTexts["shareLink"].label
+        XCTAssertTrue(link.hasPrefix("https://www.bukitbunga.com/gimano/s/#"), link)
+        XCTAssertEqual(link.split(separator: "#").last?.split(separator: ".").count, 2)
+        shot("q-share-sheet")
+        app.swipeDown(velocity: .fast)
+        wait(app.buttons["sharingChip"])
+        sleep(2)
+        shot("q-sharing-chip-in-navigation")
+        app.buttons["stopSharingChip"].tap()
+        sleep(1)
+        XCTAssertFalse(app.buttons["sharingChip"].exists)
+        shot("q-sharing-stopped")
     }
 }

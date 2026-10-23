@@ -120,9 +120,9 @@ actor APIClient {
         return try decode(data)
     }
 
-    func sendNoContent(_ method: String, _ path: String, body: (some Encodable & Sendable)?) async throws {
+    func sendNoContent(_ method: String, _ path: String, body: (some Encodable & Sendable)?, authorization: String? = nil) async throws {
         let payload = try body.map { try encoder.encode($0) }
-        _ = try await perform(method: method, path: path, query: [], body: payload)
+        _ = try await perform(method: method, path: path, query: [], body: payload, authorization: authorization)
     }
 
     func ping(_ path: String) async -> Bool {
@@ -170,7 +170,8 @@ actor APIClient {
         }
     }
 
-    private func perform(method: String, path: String, query: [URLQueryItem], body: Data?) async throws -> Data {
+    /// `authorization` overrides the bearer token (e.g. `Share <writeToken>`).
+    private func perform(method: String, path: String, query: [URLQueryItem], body: Data?, authorization: String? = nil) async throws -> Data {
         var req = URLRequest(url: url(path, query: query))
         req.httpMethod = method
         req.setValue("application/json", forHTTPHeaderField: "Accept")
@@ -178,7 +179,8 @@ actor APIClient {
             req.httpBody = body
             req.setValue("application/json", forHTTPHeaderField: "Content-Type")
         }
-        if let token { req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization") }
+        if let authorization { req.setValue(authorization, forHTTPHeaderField: "Authorization") }
+        else if let token { req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization") }
         req.setValue(Locale.preferredLanguages.first ?? "en", forHTTPHeaderField: "Accept-Language")
 
         let data: Data

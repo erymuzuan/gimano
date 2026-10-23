@@ -1,6 +1,7 @@
 // Copy to Google.xcconfig (git-ignored) to enable "Back up to Google Drive".
 // Create an iOS OAuth client for bundle id my.gimano.app in a Google Cloud project with the Drive API
-// enabled (consent screen scope: drive.appdata). Leave unset and the app shows "Google Drive: not configured".
+// enabled (OAuth consent screen scope: drive.appdata; add yourself as a test user while in Testing).
+// Without this file the app shows "Google Drive: not configured".
 GIMANO_GOOGLE_CLIENT_ID = 1234567890-abcdefg.apps.googleusercontent.com
-// The client id reversed, used as the OAuth redirect URL scheme.
+// The client id reversed: used as the OAuth redirect URL scheme (CFBundleURLTypes in Info.plist).
 GIMANO_GOOGLE_REVERSED_CLIENT_ID = com.googleusercontent.apps.1234567890-abcdefg

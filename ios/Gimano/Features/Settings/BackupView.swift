@@ -126,7 +126,14 @@ struct BackupView: View {
                     }
                     ForEach(backup.remoteBackups) { b in
                         Button {
-                            pendingRestore = PendingRestore(remote: b)
+                            Task {
+                                do {
+                                    let file = try await backup.download(b)
+                                    pendingRestore = PendingRestore(file: file, manifest: backup.manifest(of: file))
+                                } catch {
+                                    message = error.localizedDescription
+                                }
+                            }
                         } label: {
                             HStack {
                                 VStack(alignment: .leading) {
@@ -233,7 +240,7 @@ struct BackupView: View {
             icloudStatus = await ICloudBackupDestination().accountStatus()
             if icloudStatus == .available { await backup.refreshRemote() }
         case .googleDrive:
-            googleEmail = GoogleDriveBackupDestination.signedInEmail
+            googleEmail = await GoogleDriveBackupDestination.restoreSession()
             if googleEmail != nil { await backup.refreshRemote() }
         case .file:
             break
@@ -304,7 +311,7 @@ struct RestoreSheet: View {
                     Text(mode == .merge ? "Keeps your current places and adds or updates places from the backup. Home and Work come from the backup."
                                         : "Deletes the places on this phone first, then restores the backup.")
                 }
-                if pending.manifest?.encryption != BackupManifest.encryptionNone {
+                if let m = pending.manifest, m.encryption != BackupManifest.encryptionNone {
                     Section("Passphrase") {
                         SecureField("Passphrase", text: $passphrase).accessibilityIdentifier("restorePassphrase")
                     }
