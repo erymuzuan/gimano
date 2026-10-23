@@ -42,6 +42,7 @@ struct RegisterRequest: Codable, Sendable {
 }
 struct TokenRequest: Codable, Sendable { var userId: String; var ts: Int64; var sig: String }
 struct TokenResponse: Codable, Sendable { var token: String }
+struct KeyLoginRequest: Codable, Sendable { var publicKey: String; var ts: Int64; var sig: String }
 struct AttachKeyRequest: Codable, Sendable { var publicKey: String; var sigByOldKey: String? }
 
 /// Trust tier of the pseudonym (reputation describes public work, never the person).
@@ -883,6 +884,9 @@ struct DeviceInfo: Codable, Sendable, Hashable {
     var locale: String
     var theme: String
     var dataMode: String
+    /// "precise" | "approximate" and the last horizontal accuracy (m). Never coordinates.
+    var locationPrecision: String?
+    var lastAccuracyM: Int?
 }
 
 struct CoarseLocation: Codable, Sendable, Hashable {

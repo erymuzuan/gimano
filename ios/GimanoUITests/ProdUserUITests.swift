@@ -37,7 +37,7 @@ final class ProdUserUITests: XCTestCase {
     }
 
     func allowSystemAlerts(_ timeout: TimeInterval = 3) {
-        for label in ["Allow While Using App", "Allow", "OK"] {
+        for label in ["Allow While Using App", "Allow", "OK", "Keep Only While Using"] {
             let b = springboard.buttons[label]
             if b.waitForExistence(timeout: timeout) { b.tap() }
         }
@@ -150,6 +150,7 @@ final class ProdUserUITests: XCTestCase {
         // Exits / steps: the upcoming instruction text (e.g. "Exit 1104 ...") is in the banner.
         let banner = app.staticTexts.matching(NSPredicate(format: "label CONTAINS[c] 'exit' OR label CONTAINS[c] 'keluar'")).firstMatch
         note("03-exits", banner.exists ? banner.label : "no exit instruction on the first step (stationary phone)")
+        allowSystemAlerts(3)
         let clock = app.buttons["etaClock"].exists ? app.buttons["etaClock"] : app.staticTexts["etaClock"]
         wait(clock).tap()
         sleep(1)
@@ -195,6 +196,14 @@ final class ProdUserUITests: XCTestCase {
         let shotToggle = app.switches["includeScreenshot"]
         for _ in 0..<4 where !(shotToggle.exists && shotToggle.isHittable) { app.swipeUp() }
         if shotToggle.exists, (shotToggle.value as? String) != "1" { shotToggle.switches.firstMatch.exists ? shotToggle.switches.firstMatch.tap() : shotToggle.tap() }
+        let previewButton = app.buttons["deviceInfoPreviewButton"]
+        for _ in 0..<4 where !(previewButton.exists && previewButton.isHittable) { app.swipeUp() }
+        previewButton.tap()
+        let preview = wait(app.staticTexts["deviceInfoPreview"])
+        XCTAssertTrue(preview.label.contains("\"locationPrecision\""), preview.label)
+        XCTAssertFalse(preview.label.contains("\"lat\""), "no coordinates in the device block")
+        note("05-device-block", preview.label)
+        shot("05-feedback-device-preview")
         shot("05-feedback-form")
         for _ in 0..<4 where !(app.buttons["sendFeedback"].exists && app.buttons["sendFeedback"].isHittable) { app.swipeUp() }
         app.buttons["sendFeedback"].tap()
@@ -279,5 +288,23 @@ final class ProdUserUITests: XCTestCase {
         wait(app.buttons["restoreButton"]).tap()
         timed("restore-drive") { _ = wait(app.staticTexts["backupMessage"], 60) }
         shot("08-restored")
+    }
+
+    func test_09_AboutShowsVersion() {
+        home()
+        wait(app.buttons["menuButton"]).tap()
+        let v = wait(app.staticTexts["menuVersion"])
+        note("09-menu-version", v.label)
+        wait(app.buttons["Settings"]).tap()
+        let about = app.buttons["settingsAbout"]
+        for _ in 0..<8 where !(about.exists && about.isHittable) { app.swipeUp() }
+        about.tap()
+        let ver = wait(app.staticTexts["aboutVersion"])
+        XCTAssertTrue(ver.label.hasPrefix("0."), ver.label)
+        let server = app.descendants(matching: .any).matching(identifier: "aboutServer").firstMatch
+        note("09-about", "version=\(ver.label) server=\(server.label)")
+        shot("09-about")
+        app.swipeUp()
+        shot("09-about-platform-components")
     }
 }

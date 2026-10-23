@@ -31,7 +31,7 @@ enum DeviceIdentity {
 
 extension DeviceInfo {
     @MainActor
-    static func current(theme: String, dataMode: String, screen: UIScreen? = nil) -> DeviceInfo {
+    static func current(theme: String, dataMode: String, precise: Bool? = nil, lastAccuracyM: Double? = nil, screen: UIScreen? = nil) -> DeviceInfo {
         let info = Bundle.main.infoDictionary
         let scr = screen ?? UIApplication.shared.connectedScenes.compactMap { ($0 as? UIWindowScene)?.screen }.first
         let bounds = scr?.bounds.size ?? CGSize(width: 393, height: 852)
@@ -45,7 +45,9 @@ extension DeviceInfo {
                           screen: .init(widthPx: Int(bounds.width * scale), heightPx: Int(bounds.height * scale), density: Double(scale),
                                         widthDp: Int(bounds.width), heightDp: Int(bounds.height)),
                           locale: Bundle.main.preferredLocalizations.first ?? "en",
-                          theme: theme, dataMode: dataMode)
+                          theme: theme, dataMode: dataMode,
+                          locationPrecision: precise.map { $0 ? "precise" : "approximate" },
+                          lastAccuracyM: lastAccuracyM.map { Int($0.rounded()) })
     }
 }
 

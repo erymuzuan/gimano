@@ -148,8 +148,16 @@ struct FeedbackForm: View {
                 }
                 .padding(Tokens.Space.gutter)
             }
-            .navigationTitle("Add feedback")
             .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .principal) {
+                    VStack(spacing: 0) {
+                        Text("Add feedback").font(Tokens.Font.bodyBold)
+                        Text(verbatim: "Gimano \(AppInfo.versionString)").font(Tokens.Font.small).foregroundStyle(Color.textMuted)
+                            .accessibilityIdentifier("feedbackVersion")
+                    }
+                }
+            }
             .toolbar { ToolbarItem(placement: .topBarLeading) { Button("Cancel") { dismiss() } } }
         }
     }

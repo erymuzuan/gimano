@@ -483,6 +483,16 @@
         }
       }
     },
+    "Approximate location only: directions may be wrong": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lokasi anggaran sahaja: arahan mungkin salah"
+          }
+        }
+      }
+    },
     "Are you a passenger?": {
       "localizations": {
         "ms": {
@@ -3136,6 +3146,16 @@
         }
       }
     },
+    "No pseudonym uses this code (or its key was replaced). Check the words.": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tiada nama samaran menggunakan kod ini (atau kuncinya telah diganti). Semak perkataannya."
+          }
+        }
+      }
+    },
     "No results": {
       "localizations": {
         "ms": {
@@ -5376,6 +5396,16 @@
         }
       }
     },
+    "Too many tries. Wait a minute and try again.": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Terlalu banyak cubaan. Tunggu seminit dan cuba lagi."
+          }
+        }
+      }
+    },
     "Touch 'n Go": {
       "localizations": {
         "ms": {
@@ -5716,6 +5746,16 @@
         }
       }
     },
+    "Weak GPS signal ±%lld m": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Isyarat GPS lemah ±%lld m"
+          }
+        }
+      }
+    },
     "Weather": {
       "localizations": {
         "ms": {
@@ -5752,6 +5792,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Hari bekerja"
+          }
+        }
+      }
+    },
+    "Welcome back, %@": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Selamat kembali, %@"
           }
         }
       }

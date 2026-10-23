@@ -491,7 +491,10 @@ final class AppModel {
         if let c = fix.course { heading = c }
         map.puck = fix.coordinate
         map.puckHeading = heading
-        navigation?.handle(fix)
+        map.puckAccuracyM = fix.accuracyM
+        gpsQuality.update(accuracyM: fix.accuracyM, at: fix.timestamp)
+        // Poor fixes (> 100 m, e.g. approximate location) never advance instructions or trigger reroutes.
+        if GpsQuality.usableForGuidance(fix) { navigation?.handle(fix) }
         if let share = driveShare, let nav = navigation {
             if nav.arrived {
                 driveShare = nil
@@ -516,6 +519,14 @@ final class AppModel {
         map.onUserGesture = { [weak self] in
             guard let self else { return }
             if self.map.isFollowing { self.map.camera = .free }
+            // While navigating, follow the puck again 10 s after the last pan.
+            self.followResume?.cancel()
+            guard self.screen == .navigating else { return }
+            self.followResume = Task { [weak self] in
+                try? await Task.sleep(for: .seconds(10))
+                guard let self, !Task.isCancelled, self.screen == .navigating, !self.map.isFollowing else { return }
+                self.recenter()
+            }
         }
         map.onRouteTapped = { [weak self] id in
             guard let self, self.screen == .routePreview else { return }
@@ -697,6 +708,15 @@ final class AppModel {
     }
 
     func startNavigation() {
+        guard let planner, planner.selected != nil else { return }
+        Task {
+            // Approximate location: ask once for precise location for this drive.
+            if !shouldSimulate { await location.requestTemporaryPrecision() }
+            beginNavigation()
+        }
+    }
+
+    private func beginNavigation() {
         guard let planner, let route = planner.selected else { return }
         let session = NavigationSession(destination: planner.destination, route: route, stops: planner.stops, vehicle: planner.vehicle,
                                         avoid: planner.avoid, repo: repo, voice: voice)
@@ -713,10 +733,19 @@ final class AppModel {
         UIApplication.shared.isIdleTimerDisabled = true
     }
 
+    /// True while a simulated drive moves the puck (then real-GPS warnings don't apply).
+    var isSimulatingDrive: Bool { simulator.isRunning }
+
     /// Demo drives: no backend, no real GPS fix (e.g. Simulator), or forced from Debug settings.
     var shouldSimulate: Bool {
         // Demo routes are captured fixtures that may not start where the device is, so always simulate them.
+        #if DEBUG
+        // Simulator / UI tests: no real GPS fix yet → simulate along the route.
         config.simulateDrive || isDemo || !hasRealFix || fixedLocation != nil || planner?.selected?.demoNote != nil
+        #else
+        // A real user waits for real GPS; only demo data (server unreachable) drives a simulated trip.
+        isDemo || planner?.selected?.demoNote != nil
+        #endif
     }
 
     private func startSimulator(on route: Route) {
@@ -867,7 +896,8 @@ final class AppModel {
     /// The device block shown in the feedback / crash previews.
     func currentDevice() -> DeviceInfo {
         DeviceInfo.current(theme: effectiveScheme == .dark ? "dark" : "light",
-                           dataMode: backendStatus == .online || (config.dataMode != .demo && backendStatus == .unknown) ? "live" : "demo")
+                           dataMode: backendStatus == .online || (config.dataMode != .demo && backendStatus == .unknown) ? "live" : "demo",
+                           precise: location.isPrecise, lastAccuracyM: location.lastFix?.accuracyM)
     }
 
     func deleteFeedbackContact(_ id: String) async {
@@ -907,12 +937,26 @@ final class AppModel {
         }
         guard let keys = IdentityKeys(seed: seed) else { return String(localized: "That code isn't valid.") }
         if let current = try? store.identity(), current.keys == keys { return String(localized: "This is already your pseudonym.") }
-        return String(localized: "Restoring a pseudonym from its code needs a server update that isn't available yet. Restore a backup instead.")
+        do {
+            let res = try await repo.signIn(recovered: keys)
+            await refreshMe()
+            showToast(String(localized: "Welcome back, \(res.displayName)"))
+            return nil
+        } catch APIError.http(status: 401, _) {
+            return String(localized: "No pseudonym uses this code (or its key was replaced). Check the words.")
+        } catch APIError.http(status: 429, _) {
+            return String(localized: "Too many tries. Wait a minute and try again.")
+        } catch {
+            return error.localizedDescription
+        }
     }
 
     // MARK: vetting (nearby verify prompt)
 
     var isForeground = true
+    /// GPS quality while navigating ("Weak GPS signal ±xx m" chip).
+    private(set) var gpsQuality = GpsQuality()
+    @ObservationIgnored private var followResume: Task<Void, Never>?
     /// The nearby pending place we're asking about (sheet).
     var vettingPrompt: Place?
     @ObservationIgnored private var vettingGate = VettingPromptGate(

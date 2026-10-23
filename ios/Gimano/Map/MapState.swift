@@ -36,6 +36,8 @@ final class MapState {
     var styleURL: URL
     var puck: LatLng?
     var puckHeading: Double = 0
+    /// Horizontal accuracy (m) drawn as a circle around the puck.
+    var puckAccuracyM: Double?
     var navigationPuck = false
     var routes: [RouteLine] = []
     var destination: LatLng?

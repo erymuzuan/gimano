@@ -51,6 +51,9 @@ actor DemoRepository: GimanoRepository {
     // MARK: auth/profile
 
     func ensureIdentity() async {}
+    func signIn(recovered keys: IdentityKeys) async throws -> DeviceAuthResponse {
+        DeviceAuthResponse(token: "demo", userId: "demo-recovered", displayName: "Rusa 2368")
+    }
 
     func signIn() async throws -> DeviceAuthResponse {
         DeviceAuthResponse(token: "demo-token", userId: user.id, displayName: user.displayName)

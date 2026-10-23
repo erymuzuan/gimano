@@ -79,6 +79,8 @@ struct GimanoMapView: UIViewRepresentable {
             let destination = state.destination
             let puck = state.puck
             let heading = state.puckHeading
+            let accuracy = state.puckAccuracyM
+            _ = state.zoom
             let navPuck = state.navigationPuck
             let cameraRevision = state.cameraRevision
             let camera = state.camera
@@ -98,6 +100,7 @@ struct GimanoMapView: UIViewRepresentable {
             if privatePins != lastPrivate { updatePrivate(privatePins); lastPrivate = privatePins }
             if destination != lastDestination { updateDestination(destination, style: style); lastDestination = destination }
             updatePuck(puck, heading: heading, nav: navPuck, style: style)
+            updateAccuracy(puck, accuracyM: accuracy)
 
             if cameraRevision != appliedCameraRevision {
                 appliedCameraRevision = cameraRevision
@@ -248,6 +251,19 @@ struct GimanoMapView: UIViewRepresentable {
             destLayer.iconAnchor = NSExpression(forConstantValue: "bottom")
             style.addLayer(destLayer)
 
+            // Accuracy circle under the puck (radius in points, recomputed on zoom).
+            let accuracySource = MLNShapeSource(identifier: "puck-accuracy", shape: nil)
+            style.addSource(accuracySource)
+            let accLayer = MLNCircleStyleLayer(identifier: "puck-accuracy", source: accuracySource)
+            accLayer.circleRadius = NSExpression(forKeyPath: "radius")
+            accLayer.circleColor = NSExpression(forConstantValue: UIColor(hex: 0x0047AB))
+            accLayer.circleOpacity = NSExpression(forConstantValue: 0.12)
+            accLayer.circleStrokeColor = NSExpression(forConstantValue: UIColor(hex: 0x0047AB))
+            accLayer.circleStrokeOpacity = NSExpression(forConstantValue: 0.35)
+            accLayer.circleStrokeWidth = NSExpression(forConstantValue: 1)
+            accLayer.circlePitchAlignment = NSExpression(forConstantValue: "map")
+            style.addLayer(accLayer)
+
             let puckLayer = MLNSymbolStyleLayer(identifier: "puck", source: puck)
             puckLayer.iconImageName = NSExpression(forKeyPath: "icon")
             puckLayer.iconRotation = NSExpression(forKeyPath: "heading")
@@ -325,6 +341,14 @@ struct GimanoMapView: UIViewRepresentable {
             let f = MLNPointFeature()
             f.coordinate = p.coordinate
             source("dest")?.shape = f
+        }
+
+        private func updateAccuracy(_ p: LatLng?, accuracyM: Double?) {
+            guard let p, let accuracyM, accuracyM > 15, let map else { source("puck-accuracy")?.shape = nil; return }
+            let f = MLNPointFeature()
+            f.coordinate = p.coordinate
+            f.attributes = ["radius": min(400, accuracyM / max(0.01, map.metersPerPoint(atLatitude: p.lat)))]
+            source("puck-accuracy")?.shape = f
         }
 
         private func updatePuck(_ p: LatLng?, heading: Double, nav: Bool, style: MLNStyle) {

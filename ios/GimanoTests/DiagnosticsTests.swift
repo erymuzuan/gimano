@@ -109,3 +109,43 @@ struct DiagnosticsTests {
         #expect(await demo.crashReports.count == 1)
     }
 }
+
+@Suite("Location quality")
+struct LocationQualityTests {
+    @Test("Weak GPS only after > 50 m for 10 s; recovers immediately")
+    func weak() {
+        var q = GpsQuality()
+        let t0 = Date(timeIntervalSince1970: 1_792_713_600)
+        q.update(accuracyM: 80, at: t0)
+        #expect(!q.isWeak)
+        q.update(accuracyM: 120, at: t0 + 9)
+        #expect(!q.isWeak)
+        q.update(accuracyM: 90, at: t0 + 10)
+        #expect(q.isWeak && q.lastAccuracyM == 90)
+        q.update(accuracyM: 12, at: t0 + 11)
+        #expect(!q.isWeak)
+        // One approximate fix, then nothing for a while: weak by the clock.
+        var a = GpsQuality()
+        a.update(accuracyM: 1500, at: t0)
+        #expect(!a.isWeak(at: t0 + 5) && a.isWeak(at: t0 + 10))
+    }
+
+    @Test("Fixes worse than 100 m don't drive guidance")
+    func guidance() {
+        func fix(_ acc: Double) -> LocationFix {
+            LocationFix(coordinate: LatLng(lat: 3.15, lng: 101.7), speedKmh: 40, course: 90, accuracyM: acc, timestamp: .now)
+        }
+        #expect(GpsQuality.usableForGuidance(fix(30)))
+        #expect(GpsQuality.usableForGuidance(fix(100)))
+        #expect(!GpsQuality.usableForGuidance(fix(1500)))
+    }
+
+    @Test("Device block carries precise/approximate and last accuracy, never coordinates")
+    @MainActor
+    func deviceBlock() throws {
+        let d = DeviceInfo.current(theme: "light", dataMode: "live", precise: false, lastAccuracyM: 1234.4)
+        let obj = try JSONSerialization.jsonObject(with: JSON.makeEncoder().encode(d)) as! [String: Any]
+        #expect(obj["locationPrecision"] as? String == "approximate" && obj["lastAccuracyM"] as? Int == 1234)
+        #expect(obj["lat"] == nil && obj["lng"] == nil)
+    }
+}

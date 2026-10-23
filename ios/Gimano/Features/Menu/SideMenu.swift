@@ -575,9 +575,8 @@ struct AboutView: View {
 
     private var statusText: String {
         switch model.backendStatus {
-        case .online: String(localized: "Live")
         case .demoForced, .demoFallback: String(localized: "Demo")
-        default: String(localized: "Connecting…")
+        default: String(localized: "Live")
         }
     }
 }

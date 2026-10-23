@@ -44,6 +44,9 @@ enum Canonical {
     /// `POST /auth/token` (userId lower-case, "D" format).
     static func auth(userId: String, ts: Int64) -> String { "GIMANO-AUTH\n\(userId.lowercased())\n\(ts)" }
 
+    /// `POST /auth/token {publicKey, ts, sig}`: sign-in by key (recovery-code restore).
+    static func keyLogin(publicKeyBase64: String, ts: Int64) -> String { "GIMANO1-LOGIN\n\(publicKeyBase64)\n\(ts)" }
+
     /// `POST /me/keys` rotation, signed with the current key.
     static func keyRotation(userId: String, newPublicKeyBase64: String) -> String {
         "GIMANO-KEY\n\(userId.lowercased())\n\(newPublicKeyBase64)"

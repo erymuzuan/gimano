@@ -26,6 +26,39 @@ struct DriveView: View {
                         .transition(.move(edge: .top).combined(with: .opacity))
                         .accessibilityIdentifier("arrivedAtStop")
                     }
+                    if !model.location.isPrecise && !model.isSimulatingDrive {
+                        HStack(spacing: 10) {
+                            Image(systemName: "location.slash.fill")
+                            Text("Approximate location only: directions may be wrong").font(Tokens.Font.label)
+                            Spacer(minLength: 4)
+                            Button("Settings") {
+                                if let url = URL(string: UIApplication.openSettingsURLString) { UIApplication.shared.open(url) }
+                            }
+                            .font(Tokens.Font.label.bold())
+                        }
+                        .foregroundStyle(Color.white)
+                        .padding(12)
+                        .background(Color.report, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+                        .padding(.horizontal, 10)
+                        .padding(.top, 6)
+                        .accessibilityIdentifier("approximateLocationBanner")
+                    }
+                    TimelineView(.periodic(from: .now, by: 1)) { ctx in
+                    if model.gpsQuality.isWeak(at: ctx.date), let acc = model.gpsQuality.lastAccuracyM {
+                        HStack {
+                            Label("Weak GPS signal ±\(Int(acc.rounded())) m", systemImage: "antenna.radiowaves.left.and.right.slash")
+                                .font(Tokens.Font.label)
+                                .foregroundStyle(Color.textPrimary)
+                                .padding(.horizontal, 12).frame(height: 36)
+                                .background(Color.surface, in: Capsule())
+                                .fabShadow()
+                                .accessibilityIdentifier("weakGpsChip")
+                            Spacer()
+                        }
+                        .padding(.horizontal, 12)
+                        .padding(.top, 6)
+                    }
+                    }
                     if model.driveShare != nil {
                         HStack {
                             // One coral chip: "● Sharing | Stop" (board "Kongsi perjalanan").

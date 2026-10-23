@@ -6,6 +6,8 @@ protocol GimanoRepository: Sendable {
     func signIn() async throws -> DeviceAuthResponse
     /// Legacy device accounts: attach a signing key (`POST /me/keys`). No-op once the pseudonym has a key.
     func ensureIdentity() async
+    /// Recovery-code restore: sign in by public key, then adopt that pseudonym on this phone.
+    func signIn(recovered keys: IdentityKeys) async throws -> DeviceAuthResponse
     func me() async throws -> User
     func updateMe(_ patch: UserPatch) async throws -> User
 
@@ -128,6 +130,16 @@ final class LiveRepository: GimanoRepository {
         } catch let e as APIError where e.isServerSideGap {
             return try await legacyDeviceSignIn()
         }
+    }
+
+    func signIn(recovered keys: IdentityKeys) async throws -> DeviceAuthResponse {
+        let ts = Int64(Date().timeIntervalSince1970)
+        let body = KeyLoginRequest(publicKey: keys.publicKeyBase64, ts: ts,
+                                   sig: keys.sign(Canonical.keyLogin(publicKeyBase64: keys.publicKeyBase64, ts: ts)))
+        let res: DeviceAuthResponse = try await client.send("POST", "auth/token", body: body)
+        try store.saveIdentity(StoredIdentity(userId: res.userId, displayName: res.displayName, keys: keys, createdAt: LocalStore.timestamp()))
+        await adopt(token: res.token, keys: keys)
+        return res
     }
 
     private func register(keys: IdentityKeys, createdAt: String) async throws -> DeviceAuthResponse {
@@ -458,6 +470,7 @@ final class FallbackRepository: GimanoRepository {
 
     func signIn() async throws -> DeviceAuthResponse { try await run({ try await $0.signIn() }, demoOp: { try await $0.signIn() }) }
     func ensureIdentity() async { await live.ensureIdentity() }
+    func signIn(recovered keys: IdentityKeys) async throws -> DeviceAuthResponse { try await live.signIn(recovered: keys) }
     func me() async throws -> User { try await run({ try await $0.me() }, demoOp: { try await $0.me() }) }
     func updateMe(_ patch: UserPatch) async throws -> User { try await run(gapFallback: false, { try await $0.updateMe(patch) }, demoOp: { try await $0.updateMe(patch) }) }
     /// Migration calls go only to the real backend (never demo).

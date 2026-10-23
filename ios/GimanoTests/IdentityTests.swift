@@ -66,6 +66,13 @@ struct IdentityVectorTests {
         #expect(Canonical.sha256Hex(Data(att.utf8)) == "ff664bac6820f2ce7bb5823ae9a2b33b103e47bca5bb6aa4ec11af46a9aa78be")
     }
 
+    @Test("Sign-in by public key (recovery-code restore)")
+    func keyLogin() {
+        let c = Canonical.keyLogin(publicKeyBase64: keys.publicKeyBase64, ts: 1792713600)
+        #expect(c == "GIMANO1-LOGIN\nA6EHv/POEL4dcN0Y50vAmWfk1jCbpQ1fHdyGZBJVMbg=\n1792713600")
+        #expect(keys.sign(c) == "61uR1jjsZqzZb7I0Oq3t0ZgVkyxeyutovBXfKWH9GvedLaFb2TzIXtKuotj9CgnRf6njJJDUBOwf6yy3ZkfFDQ==")
+    }
+
     @Test("Signed endpoints match §2 exactly")
     func signedEndpoints() {
         let yes: [(String, String)] = [("POST", "places"), ("PATCH", "places/c1"), ("POST", "places/c1/verify"),
