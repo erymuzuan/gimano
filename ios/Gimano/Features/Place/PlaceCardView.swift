@@ -10,6 +10,7 @@ struct PlaceCardView: View {
     @State private var privatePlace: PrivatePlace?
     @State private var showSuggest = false
     @State private var verifyDone = false
+    @State private var verifyResult: VerifyResult?
     @State private var viewer: PhotoViewerItem?
     @State private var confirmDelete = false
 
@@ -166,7 +167,11 @@ struct PlaceCardView: View {
             HStack(spacing: 8) {
                 if isPrivate { badge("Just for me", icon: .heart, id: "badgePrivate") }
                 if isCommunity { badge("Community", icon: .map, id: "badgeCommunity") }
-                if isCommunity && status == .pending { badge("Unverified", icon: .hazard, id: "badgeUnverified") }
+                if isCommunity && status == .pending {
+                    badge("Unverified", icon: .hazard, id: "badgeUnverified")
+                    VettingBadge(confirmed: verifyResult.map { Int($0.confirmationsWeighted) } ?? place?.verifiedCount ?? 0,
+                                 required: verifyResult.map { Int($0.required) } ?? 3)
+                }
                 if let n = place?.verifiedCount, n > 0 {
                     Text("Confirmed by \(n)").font(Tokens.Font.small).foregroundStyle(Color.textMuted)
                 }
@@ -183,17 +188,25 @@ struct PlaceCardView: View {
                 if verifyDone {
                     Label("Thanks for checking!", systemImage: "checkmark.seal.fill").foregroundStyle(Color.brand)
                         .accessibilityIdentifier("verifyThanks")
+                } else if Proximity.claim(me: model.position, place: summary.location, rural: place?.tags?["rural"] == "yes") == nil {
+                    Label("Get within 1 km of the place to confirm it.", systemImage: "location.circle")
+                        .font(Tokens.Font.caption).foregroundStyle(Color.textMuted)
+                        .accessibilityIdentifier("verifyTooFar")
                 } else {
                     HStack(spacing: 8) {
-                        Button { verify(exists: true, correct: true) } label: { Label("Yes", systemImage: "hand.thumbsup.fill") }
+                        Button { verify(.yes, location: true) } label: { Label("Yes", systemImage: "hand.thumbsup.fill") }
                             .buttonStyle(PrimaryButtonStyle())
                             .accessibilityIdentifier("verifyYes")
-                        Button { verify(exists: false, correct: nil) } label: { Label("No", systemImage: "hand.thumbsdown.fill") }
+                        Button { verify(.no, location: nil) } label: { Label("No", systemImage: "hand.thumbsdown.fill") }
                             .buttonStyle(SecondaryButtonStyle())
                             .accessibilityIdentifier("verifyNo")
                     }
-                    Button("It's here, but the pin is in the wrong spot") { verify(exists: true, correct: false) }
-                        .font(Tokens.Font.caption)
+                    HStack {
+                        Button("It's here, but the pin is in the wrong spot") { verify(.yes, location: false) }
+                        Spacer()
+                        Button("Not sure") { verify(.unsure, location: nil) }
+                    }
+                    .font(Tokens.Font.caption)
                 }
             }
             .padding(12)
@@ -201,10 +214,11 @@ struct PlaceCardView: View {
         }
     }
 
-    private func verify(exists: Bool, correct: Bool?) {
+    private func verify(_ answer: VoteAnswer, location: Bool?) {
         Task {
             do {
-                place = try await model.repo.verifyPlace(id: summary.id, VerifyPlaceRequest(exists: exists, correctLocation: correct))
+                let target = place ?? Place(summary: summary)
+                verifyResult = try await model.vote(on: target, answer: answer, nameCorrect: answer == .yes ? true : nil, locationCorrect: location)
                 verifyDone = true
             } catch {
                 model.showToast(error.localizedDescription)

@@ -376,10 +376,6 @@ struct PlaceEditSuggestion: Codable, Sendable, Hashable {
 
 struct SuggestionAccepted: Codable, Sendable { var suggestionId: String }
 
-struct VerifyPlaceRequest: Codable, Sendable {
-    var exists: Bool
-    var correctLocation: Bool?
-}
 
 enum PhotoStatus: String, Codable, Sendable {
     case processing, published, rejected

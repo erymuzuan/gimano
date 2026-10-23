@@ -192,6 +192,10 @@ final class AppModel {
             try? store.clearIdentitySettings()
         }
         if d.bool(forKey: "GimanoSkipOnboarding") { d.set(true, forKey: "onboarding.done") }
+        if d.bool(forKey: "GimanoFreshDevice") {
+            UserDefaults.standard.removeObject(forKey: "vetting.lastPromptAt")
+            UserDefaults.standard.removeObject(forKey: "vetting.voted")
+        }
         // `-GimanoFakeCrash YES`: a crash record as MetricKit would deliver it (UI tests of the crash prompt).
         if d.bool(forKey: "GimanoFakeCrash") {
             UserDefaults.standard.removeObject(forKey: "crash.preference")
@@ -285,6 +289,15 @@ final class AppModel {
 
     func refreshUserData() async {
         CrashReporter.shared.onPending = { [weak self] in Task { await self?.checkCrashReports() } }
+        if vettingTask == nil { startVettingTicker() }
+        #if DEBUG
+        // `-GimanoVetNow YES` (demo): a pending place by someone else 250 m away, and the prompt right away.
+        if UserDefaults.standard.bool(forKey: "GimanoVetNow"), let demo = repo as? DemoRepository {
+            let p = LatLng(lat: position.lat + 0.0018, lng: position.lng + 0.0012)
+            _ = await demo.seedPendingPlace(name: "Gerai Nasi Kerabu Mek Na", at: p)
+            await considerVettingPrompt(force: true)
+        }
+        #endif
         let repo = self.repo
         if config.dataMode != .demo, TokenStore.load(for: config.apiBaseURL) == nil {
             _ = try? await repo.signIn()
@@ -865,6 +878,95 @@ final class AppModel {
         } catch {
             showToast(error.localizedDescription)
         }
+    }
+
+    // MARK: identity / account
+
+    var identityName: String? { (try? store.identity())?.displayName }
+
+    /// 0…1 towards the next tier (by the first numeric requirement), for the tier ring.
+    var tierProgress: Double {
+        guard let u = user else { return 0 }
+        if u.tier == .emas { return 1 }
+        let target = u.tier == .perak ? 50.0 : 10.0
+        return Double(u.placesAccepted ?? 0) / target
+    }
+
+    func refreshMe() async {
+        if let u = try? await repo.me() { user = u }
+    }
+
+    /// Recovery code → seed. The server can only sign in a pseudonym by userId today, so a code is accepted
+    /// only when it matches this phone's identity or the server can register it as new. Returns an error text.
+    func restoreIdentity(fromCode code: String) async -> String? {
+        let seed: [UInt8]
+        do { seed = try RecoveryCode.decode(code) } catch RecoveryCode.Failure.unknownWord(let w) {
+            return String(localized: "“\(w)” isn't a recovery-code word.")
+        } catch {
+            return String(localized: "That code isn't valid. Check the words and their order.")
+        }
+        guard let keys = IdentityKeys(seed: seed) else { return String(localized: "That code isn't valid.") }
+        if let current = try? store.identity(), current.keys == keys { return String(localized: "This is already your pseudonym.") }
+        return String(localized: "Restoring a pseudonym from its code needs a server update that isn't available yet. Restore a backup instead.")
+    }
+
+    // MARK: vetting (nearby verify prompt)
+
+    var isForeground = true
+    /// The nearby pending place we're asking about (sheet).
+    var vettingPrompt: Place?
+    @ObservationIgnored private var vettingGate = VettingPromptGate(
+        lastPromptAt: UserDefaults.standard.object(forKey: "vetting.lastPromptAt") as? Date)
+    @ObservationIgnored private var vettingTask: Task<Void, Never>?
+    @ObservationIgnored private var lookingForVetting = false
+
+    func startVettingTicker() {
+        vettingTask?.cancel()
+        vettingTask = Task { [weak self] in
+            while !Task.isCancelled {
+                try? await Task.sleep(for: .seconds(20))
+                await self?.considerVettingPrompt()
+            }
+        }
+    }
+
+    /// Asks about at most one nearby pending place when parked (< 5 km/h for 60 s), not navigating,
+    /// app in the foreground, at most once per 30 min. Distance is computed here; nothing about it is stored.
+    func considerVettingPrompt(now: Date = .now, force: Bool = false) async {
+        guard config.dataMode == .demo || backendStatus != .demoFallback, vettingPrompt == nil, !lookingForVetting else { return }
+        let ok = force || vettingGate.shouldPrompt(speedKmh: speedKmh, at: now, navigating: navigation != nil, foreground: isForeground)
+        guard ok else { return }
+        lookingForVetting = true
+        defer { lookingForVetting = false }
+        let me = position
+        guard let list = try? await repo.pendingNearby(cell: Geohash.encode(me)) else { return }
+        let voted = Set(UserDefaults.standard.stringArray(forKey: "vetting.voted") ?? [])
+        let candidates = list.filter { !voted.contains($0.id) && !ownPlaceIds.contains($0.id) && Proximity.claim(me: me, place: $0.location) != nil }
+            .sorted { Geo.distance(me, $0.location) < Geo.distance(me, $1.location) }
+        guard let nearest = candidates.first else { return }
+        let detail = (try? await repo.place(id: nearest.id, near: me)) ?? Place(summary: nearest)
+        vettingGate.didPrompt(at: now)
+        UserDefaults.standard.set(now, forKey: "vetting.lastPromptAt")
+        vettingPrompt = detail
+    }
+
+    /// Signed vote with the phone-computed proximity bucket and (where supported) an App Attest assertion.
+    func vote(on place: Place, answer: VoteAnswer, nameCorrect: Bool?, locationCorrect: Bool?) async throws -> VerifyResult {
+        let me = position
+        guard let proximity = Proximity.claim(me: me, place: LatLng(lat: place.lat, lng: place.lng),
+                                              rural: place.tags?["rural"] == "yes") else {
+            throw VettingError.tooFar
+        }
+        let ts = Int64(Date().timeIntervalSince1970)
+        let repo = self.repo
+        let token = await AppAttestor.shared.voteToken(placeId: place.id, ts: ts, repo: repo)
+        let req = VerifyPlaceRequest(answer: answer, nameCorrect: nameCorrect, locationCorrect: locationCorrect, proximity: proximity,
+                                     attestation: token.map { AttestationClaim(token: $0) })
+        let result = try await SigningClock.$fixedTs.withValue(ts) { try await repo.verifyPlace(id: place.id, req) }
+        var voted = UserDefaults.standard.stringArray(forKey: "vetting.voted") ?? []
+        voted.append(place.id)
+        UserDefaults.standard.set(Array(voted.suffix(500)), forKey: "vetting.voted")
+        return result
     }
 
     // MARK: crash reports

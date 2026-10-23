@@ -70,7 +70,7 @@ struct SideMenu: View {
                     Text(verbatim: "Gimano \(AppInfo.versionString)")
                         .accessibilityIdentifier("menuVersion")
                         .onTapGesture { versionTapped() }
-                    Text("Open source (MIT) · Map data © OpenStreetMap contributors")
+                    Text("Gimano code is open source (MIT) · Map data © OpenStreetMap contributors")
                 }
                 .font(Tokens.Font.nunito(11, .semibold))
                 .foregroundStyle(Color.textMuted)
@@ -237,6 +237,8 @@ struct SettingsView: View {
                 LabeledContent("Speed", value: "km/h")
             }
             Section {
+                NavigationLink { AccountView() } label: { Label("Account", systemImage: "person.crop.circle") }
+                    .accessibilityIdentifier("settingsAccount")
                 NavigationLink { AboutView() } label: { Label("About Gimano", systemImage: "info.circle") }
                     .accessibilityIdentifier("settingsAbout")
                 LabeledContent("Version", value: AppInfo.versionString)
@@ -261,7 +263,7 @@ struct HelpView: View {
     var body: some View {
         List {
             Section("About") {
-                Text("Gimano is an open-source, community-driven navigation app for Malaysia, built on OpenStreetMap data.")
+                Text("Gimano is a community-driven navigation app for Malaysia, built on OpenStreetMap data. Gimano's own code is open source (MIT).")
             }
             Section("Attribution") {
                 Button("© OpenStreetMap contributors (ODbL)") { openURL(URL(string: "https://www.openstreetmap.org/copyright")!) }
@@ -497,6 +499,17 @@ enum AppInfo {
         """
     }
 
+    /// Platform dependencies to disclose (docs/supply-chain.md).
+    static var platformComponents: [(String, LocalizedStringKey)] { [
+        ("Core Location", "Your position, on the phone. Sent only as anonymous pings while navigating."),
+        ("CloudKit (iCloud)", "Only if you choose iCloud backup: your backup goes to your own iCloud."),
+        ("MetricKit", "Crash and hang diagnostics delivered to the app; sent only if you agree."),
+        ("App Attest (DeviceCheck)", "Proves a vote comes from a genuine iPhone. No device ID is stored."),
+        ("AVFoundation speech", "Spoken directions, generated on the phone."),
+        ("UserNotifications, BackgroundTasks", "Planned-drive reminders and daily backups, scheduled on the phone."),
+        ("Google Sign-In (open source)", "Only if you choose Google Drive backup: signs in to your own Drive."),
+    ] }
+
     static let licences: [(String, String)] = [
         ("MapLibre Native", "BSD-2-Clause"), ("GRDB.swift", "MIT"), ("swift-sodium / libsodium", "ISC"),
         ("ZIPFoundation", "MIT"), ("GoogleSignIn-iOS", "Apache-2.0"), ("libwebp", "BSD-3-Clause"),
@@ -533,9 +546,22 @@ struct AboutView: View {
             Section {
                 Link(destination: AppInfo.privacyURL) { Label("Privacy", systemImage: "lock.shield") }
                 Link(destination: AppInfo.termsURL) { Label("Terms", systemImage: "doc.text") }
-                Link(destination: AppInfo.sourceURL) { Label("Source code (GitHub, MIT)", systemImage: "chevron.left.forwardslash.chevron.right") }
+                Link(destination: AppInfo.sourceURL) { Label("Gimano code is open source (MIT)", systemImage: "chevron.left.forwardslash.chevron.right") }
                 NavigationLink { LicencesView() } label: { Label("Licences", systemImage: "text.book.closed") }
             }
+            Section {
+                ForEach(AppInfo.platformComponents, id: \.0) { name, use in
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(verbatim: name).font(Tokens.Font.bodyBold)
+                        Text(use).font(Tokens.Font.caption).foregroundStyle(Color.textMuted)
+                    }
+                }
+            } header: {
+                Text("Platform components")
+            } footer: {
+                Text("Apple frameworks that are part of iOS, and Google Sign-In only if you choose Google Drive backup. None of them receives your favourites, places or trips, except your own iCloud backup.")
+            }
+            .accessibilityIdentifier("platformComponents")
             Section {
                 Link(destination: AppInfo.osmCopyrightURL) {
                     Text("Map data © OpenStreetMap contributors")

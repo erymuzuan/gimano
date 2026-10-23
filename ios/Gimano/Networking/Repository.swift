@@ -39,7 +39,11 @@ protocol GimanoRepository: Sendable {
     func updateCommunityPlace(id: String, _ place: NewPlace) async throws -> Place
     func deleteCommunityPlace(id: String) async throws
     func suggestEdit(placeId: String, _ s: PlaceEditSuggestion) async throws -> SuggestionAccepted
-    func verifyPlace(id: String, _ v: VerifyPlaceRequest) async throws -> Place
+    func verifyPlace(id: String, _ v: VerifyPlaceRequest) async throws -> VerifyResult
+    /// Pending community places in this geohash-6 cell and its neighbours (never the caller's own).
+    func pendingNearby(cell: String) async throws -> [PlaceSummary]
+    func attestChallenge() async throws -> String
+    func attest(keyId: String, attestation: String) async throws
     func myContributions() async throws -> [PlaceSummary]
 
     // Reviews & photos
@@ -313,8 +317,23 @@ final class LiveRepository: GimanoRepository {
         try await authed { try await self.client.send("POST", "places/\(placeId)/suggest-edit", body: s) }
     }
 
-    func verifyPlace(id: String, _ v: VerifyPlaceRequest) async throws -> Place {
+    func verifyPlace(id: String, _ v: VerifyPlaceRequest) async throws -> VerifyResult {
         try await authed { try await self.client.send("POST", "places/\(id)/verify", body: v) }
+    }
+
+    func pendingNearby(cell: String) async throws -> [PlaceSummary] {
+        try await authed { try await self.client.get("places/pending-nearby", query: [URLQueryItem(name: "cell", value: cell)]) }
+    }
+
+    func attestChallenge() async throws -> String {
+        struct C: Decodable, Sendable { var challenge: String }
+        let c: C = try await authed { try await self.client.get("me/attest/challenge") }
+        return c.challenge
+    }
+
+    func attest(keyId: String, attestation: String) async throws {
+        struct A: Encodable, Sendable { var keyId: String; var attestation: String }
+        try await authed { try await self.client.sendNoContent("POST", "me/attest", body: A(keyId: keyId, attestation: attestation)) }
     }
 
     func myContributions() async throws -> [PlaceSummary] {
@@ -491,8 +510,14 @@ final class FallbackRepository: GimanoRepository {
     func suggestEdit(placeId: String, _ s: PlaceEditSuggestion) async throws -> SuggestionAccepted {
         try await run(gapFallback: false, { try await $0.suggestEdit(placeId: placeId, s) }, demoOp: { try await $0.suggestEdit(placeId: placeId, s) })
     }
-    func verifyPlace(id: String, _ v: VerifyPlaceRequest) async throws -> Place {
+    func verifyPlace(id: String, _ v: VerifyPlaceRequest) async throws -> VerifyResult {
         try await run(gapFallback: false, { try await $0.verifyPlace(id: id, v) }, demoOp: { try await $0.verifyPlace(id: id, v) })
+    }
+    func pendingNearby(cell: String) async throws -> [PlaceSummary] {
+        try await run(gapFallback: false, { try await $0.pendingNearby(cell: cell) }, demoOp: { try await $0.pendingNearby(cell: cell) })
+    }
+    func attestChallenge() async throws -> String { try await live.attestChallenge() }
+    func attest(keyId: String, attestation: String) async throws { try await live.attest(keyId: keyId, attestation: attestation)
     }
     func myContributions() async throws -> [PlaceSummary] {
         try await run({ try await $0.myContributions() }, demoOp: { try await $0.myContributions() })

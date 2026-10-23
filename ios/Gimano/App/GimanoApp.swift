@@ -48,6 +48,8 @@ struct GimanoApp: App {
         if model.backup.autoBackup { BackupManager.schedule() }
     }
 
+    @Environment(\.scenePhase) private var scenePhase
+
     var body: some Scene {
         WindowGroup {
             RootView()
@@ -59,6 +61,7 @@ struct GimanoApp: App {
                     await model.bootstrap()
                     if let id = AppDelegate.pendingDriveId { AppDelegate.pendingDriveId = nil; model.openPlannedDrive(id: id) }
                 }
+                .onChange(of: scenePhase) { _, phase in model.isForeground = phase == .active }
                 .onOpenURL { url in
                     if GIDSignIn.sharedInstance.handle(url) { return }
                     // A .gimano file opened from Files / WhatsApp / Mail.
@@ -148,6 +151,9 @@ struct RootView: View {
             SavePlaceSheet(place: p).presentationDetents([.large])
         }
         .sheet(isPresented: $model.showCrashPrompt) { CrashReportSheet() }
+        .sheet(item: $model.vettingPrompt) { p in
+            VettingPromptSheet(place: p).presentationDetents([.medium, .large])
+        }
         .sheet(item: $model.feedbackDraft) { d in
             FeedbackForm(draft: d)
         }

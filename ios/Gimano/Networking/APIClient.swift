@@ -109,7 +109,7 @@ actor APIClient {
     /// Adds the signature headers when `path` is a signed endpoint (docs/identity-and-reputation.md §2).
     private func sign(_ req: inout URLRequest, method: String, path: String, body: Data?, now: Date = .now) {
         guard let signer, let url = req.url, SignedEndpoints.requiresSignature(method: method, path: path) else { return }
-        let ts = Int64(now.timeIntervalSince1970)
+        let ts = SigningClock.fixedTs ?? Int64(now.timeIntervalSince1970)
         let canonical = Canonical.request(method: method, pathAndQuery: Canonical.pathAndQuery(of: url), ts: ts, body: body ?? Data())
         req.setValue(String(ts), forHTTPHeaderField: "X-Gimano-Ts")
         req.setValue(signer.sign(canonical), forHTTPHeaderField: "X-Gimano-Sig")

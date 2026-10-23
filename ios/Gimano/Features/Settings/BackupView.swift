@@ -90,6 +90,12 @@ struct BackupView: View {
                 Text(usePassphrase
                      ? "End-to-end encrypted. Gimano never stores your passphrase: if you lose it, this backup can't be recovered."
                      : "Backups are stored in your own cloud or file. Add a passphrase to encrypt them end to end.")
+                if !usePassphrase && (try? model.store.identity()) != nil {
+                    Label("Without a passphrase, this backup also holds your pseudonym's key in plain form in your own storage. Anyone with the file could sign as you.",
+                          systemImage: "exclamationmark.triangle.fill")
+                        .foregroundStyle(Color(uiColor: Tokens.Palette.traffic2))
+                        .accessibilityIdentifier("identityBackupWarning")
+                }
             }
 
             Section {

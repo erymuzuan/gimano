@@ -179,7 +179,8 @@ struct CommunityDemoTests {
             let existing = try JSON.makeDecoder().decode(Place.self, from: body)
             #expect(existing.id == p.id)
         }
-        await #expect(throws: APIError.self) { try await repo.verifyPlace(id: p.id, VerifyPlaceRequest(exists: true)) } // own place
+        let claim = ProximityClaim(cell: Geohash.encode(lat: p.lat, lng: p.lng), withinM: 1000)
+        await #expect(throws: APIError.self) { try await repo.verifyPlace(id: p.id, VerifyPlaceRequest(answer: .yes, proximity: claim)) } // own place
         try await repo.simulateOtherDriversVerify(placeId: p.id, count: 3)
         let v = try await repo.place(id: p.id, near: nil)
         #expect(v.status == .published && v.verifiedCount == 3)

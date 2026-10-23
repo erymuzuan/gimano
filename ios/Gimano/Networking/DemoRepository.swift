@@ -197,21 +197,50 @@ actor DemoRepository: GimanoRepository {
         return SuggestionAccepted(suggestionId: "demo-sugg-\(UUID().uuidString.prefix(6))")
     }
 
-    func verifyPlace(id: String, _ v: VerifyPlaceRequest) async throws -> Place {
+    private var demoVotes: Set<String> = []
+
+    func verifyPlace(id: String, _ v: VerifyPlaceRequest) async throws -> VerifyResult {
         if myPlaceIds.contains(id) {
             throw APIError.http(status: 403, problem: ProblemDetails(title: "Forbidden", status: 403, detail: "You can't verify your own place."))
         }
-        return try confirm(id: id, v)
+        guard !demoVotes.contains(id) else {
+            throw APIError.http(status: 409, problem: ProblemDetails(title: "Already voted", status: 409, detail: "You already answered for this place."))
+        }
+        guard let i = community.firstIndex(where: { $0.id == id }) else { throw APIError.http(status: 404, problem: nil) }
+        let cell = Geohash.encode(lat: community[i].lat, lng: community[i].lng)
+        guard v.proximity.cell.prefix(4) == cell.prefix(4) else {
+            throw APIError.http(status: 403, problem: ProblemDetails(title: "Too far", status: 403, detail: "You need to be near the place to confirm it."))
+        }
+        demoVotes.insert(id)
+        let p = try confirm(id: id, answer: v.answer, locationCorrect: v.locationCorrect)
+        return VerifyResult(status: p.status ?? .pending, confirmationsWeighted: Double(p.verifiedCount ?? 0), required: 3)
     }
+
+    func pendingNearby(cell: String) async throws -> [PlaceSummary] {
+        community.filter { $0.status == .pending && !myPlaceIds.contains($0.id) && !demoVotes.contains($0.id)
+            && Geohash.encode(lat: $0.lat, lng: $0.lng).prefix(5) == cell.prefix(5) }.map(\.summary)
+    }
+
+    func attestChallenge() async throws -> String { Data((0..<32).map { _ in UInt8.random(in: 0...255) }).base64EncodedString() }
+    func attest(keyId: String, attestation: String) async throws {}
 
     /// Demo only: other drivers confirming a place (the owner can't).
     func simulateOtherDriversVerify(placeId: String, count: Int) throws {
-        for _ in 0..<count { _ = try confirm(id: placeId, VerifyPlaceRequest(exists: true, correctLocation: true)) }
+        for _ in 0..<count { _ = try confirm(id: placeId, answer: .yes, locationCorrect: true) }
     }
 
-    private func confirm(id: String, _ v: VerifyPlaceRequest) throws -> Place {
+    /// Demo only: a pending place added by someone else near `at` (for the nearby verify prompt).
+    func seedPendingPlace(name: String, at: LatLng) -> String {
+        let id = "demo-pending-\(UUID().uuidString.prefix(6))"
+        community.append(Place(id: id, name: name, category: .restaurant, address: "Jalan Sultan Ismail", lat: at.lat, lng: at.lng,
+                               openingHours: "Mo-Sa 07:00-14:00", source: .community, status: .pending,
+                               addedBy: PersonRef(displayName: "Rusa 2368"), verifiedCount: 1))
+        return id
+    }
+
+    private func confirm(id: String, answer: VoteAnswer, locationCorrect: Bool?) throws -> Place {
         guard let i = community.firstIndex(where: { $0.id == id }) else { throw APIError.http(status: 404, problem: nil) }
-        if v.exists && v.correctLocation != false {
+        if answer == .yes && locationCorrect != false {
             community[i].verifiedCount = (community[i].verifiedCount ?? 0) + 1
             if (community[i].verifiedCount ?? 0) >= 3 { community[i].status = .published }
         }

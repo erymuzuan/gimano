@@ -1,6 +1,6 @@
 # Gimano for iOS
 
-Native iOS client for Gimano, the open-source (MIT) community navigation app for Malaysia.
+Native iOS client for Gimano, the community navigation app for Malaysia. Gimano's own code is MIT-licensed; Apple platform frameworks it uses are listed in Settings → About → Platform components.
 Swift 6, SwiftUI (iOS 17+), Observation, async/await, MapLibre Native.
 
 - Behaviour spec: [`docs/research/ux-study.md`](../docs/research/ux-study.md)

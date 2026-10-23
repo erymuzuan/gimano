@@ -414,6 +414,21 @@ struct MyContributionsView: View {
     var body: some View {
         NavigationStack {
             List {
+                Section {
+                    HStack(spacing: 14) {
+                        TierRing(tier: model.user?.tier ?? .baharu, progress: model.tierProgress)
+                        VStack(alignment: .leading, spacing: 4) {
+                            TierBadge(tier: model.user?.tier ?? .baharu)
+                            if let next = model.user?.nextTier {
+                                Text("Next: \(Text(next.name.title))").font(Tokens.Font.bodyBold)
+                                if let first = next.missing.first {
+                                    Text(NextTierText.describe(first)).font(Tokens.Font.caption).foregroundStyle(Color.textMuted)
+                                }
+                            }
+                        }
+                    }
+                    .accessibilityIdentifier("contributionsTier")
+                }
                 Section("Shared with everyone") {
                     if loading { ProgressView() }
                     if let error { Text(error).foregroundStyle(Color.textMuted).font(Tokens.Font.caption) }
