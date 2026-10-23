@@ -35,7 +35,10 @@ import androidx.compose.ui.unit.sp
 import my.gimano.app.R
 import my.gimano.app.core.format.Formatters
 import my.gimano.app.core.nav.RouteGeometry
+import my.gimano.app.core.trip.GoAction
 import my.gimano.app.core.trip.OriginSource
+import my.gimano.app.core.trip.StartOption
+import androidx.compose.foundation.verticalScroll
 import my.gimano.app.core.trip.RouteLegs
 import my.gimano.app.core.trip.TollBadge
 import my.gimano.app.core.trip.TravelMode
@@ -65,6 +68,8 @@ private const val COUNTDOWN_MS = 10_000
 fun RoutePreviewOverlay(plan: RoutePlan, settings: AppSettings, vm: MainViewModel, handle: MapHandle, onRequestLocation: () -> Unit = {}) {
     val c = Gimano.colors
     val lang = currentLang()
+    var startSheet by remember { mutableStateOf(false) }
+    if (startSheet) StartSheet(vm) { startSheet = false }
     Box(Modifier.fillMaxSize()) {
         RouteBubbles(plan, handle, vm)
 
@@ -73,7 +78,10 @@ fun RoutePreviewOverlay(plan: RoutePlan, settings: AppSettings, vm: MainViewMode
                 Column(Modifier.fillMaxWidth().windowInsetsPadding(WindowInsets.statusBars).padding(start = 4.dp, end = 4.dp, top = 4.dp, bottom = 10.dp)) {
                     Row(verticalAlignment = Alignment.Top) {
                         IconButton(onClick = vm::back) { Icon(Icons.AutoMirrored.Filled.ArrowBack, stringResource(R.string.back), tint = c.text) }
-                        StopsPanel(plan, settings, vm, Modifier.weight(1f).padding(top = 10.dp))
+                        StopsPanel(plan, settings, vm, Modifier.weight(1f).padding(top = 10.dp)) { vm.cancelCountdown(); startSheet = true }
+                        IconButton(onClick = { vm.cancelCountdown(); vm.swapStartDestination() }, enabled = plan.origin != null, modifier = Modifier.padding(top = 18.dp)) {
+                            Icon(Icons.Filled.SwapVert, stringResource(R.string.swap_start_dest), tint = if (plan.origin != null) c.text else c.outline)
+                        }
                         Overflow(vm)
                     }
                 }
@@ -109,15 +117,82 @@ fun RoutePreviewOverlay(plan: RoutePlan, settings: AppSettings, vm: MainViewMode
                         Text(stringResource(R.string.route_error), Modifier.padding(vertical = 12.dp), color = c.text, fontSize = 17.sp)
                         OutlinedButton(onClick = { vm.setAvoid(plan.avoid) }) { Text(stringResource(R.string.retry)) }
                     }
-                    else -> RouteInfo(r, plan, vm)
+                    else -> {
+                        if (plan.originSource == OriginSource.CHOSEN) StartElsewhereNote(plan.originName ?: "")
+                        RouteInfo(r, plan, vm)
+                    }
                 }
                 Spacer(Modifier.height(16.dp))
-                Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
+                if (plan.goAction == GoAction.DRIVE_TO_START) {
+                    // Design LaluanMulaLain: turn-by-turn can't begin away from the phone, so drive to the start first.
+                    val start = plan.originName ?: ""
+                    Button(onClick = vm::driveToStart, modifier = Modifier.fillMaxWidth().height(56.dp), shape = RoundedCornerShape(Radius.md),
+                        colors = ButtonDefaults.buttonColors(containerColor = c.brand)) {
+                        Text(stringResource(R.string.drive_to_start, start), fontWeight = FontWeight.ExtraBold, fontSize = 17.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    }
+                    Spacer(Modifier.height(8.dp))
+                    OutlinedButton(onClick = vm::planThisDrive, modifier = Modifier.fillMaxWidth().height(52.dp), shape = RoundedCornerShape(Radius.md)) {
+                        GIcon("recent", null, size = 22.dp); Spacer(Modifier.width(8.dp))
+                        Text(stringResource(R.string.save_trip), fontWeight = FontWeight.ExtraBold, fontSize = 16.sp)
+                    }
+                } else Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
                     BigIconButton("add_stop", stringResource(R.string.add_stop), enabled = plan.stops.size < RouteLegs.MAX_STOPS, onClick = vm::addStopInPreview)
                     BigIconButton("recent", stringResource(R.string.plan_this_drive), enabled = !plan.loading && !plan.error, onClick = vm::planThisDrive)
                     GoNowButton(plan, Modifier.weight(1f), onGo = vm::startNavigation)
                 }
             }
+        }
+    }
+}
+
+/** Amber note (design LaluanMulaLain) when the route doesn't start where the phone is. */
+@Composable
+private fun StartElsewhereNote(name: String) {
+    Row(Modifier.fillMaxWidth().padding(bottom = 10.dp).clip(RoundedCornerShape(14.dp)).background(Color(0xFFFFF1CC)).padding(12.dp),
+        verticalAlignment = Alignment.CenterVertically) {
+        Icon(Icons.Filled.Info, null, tint = Color(0xFF7A5200), modifier = Modifier.size(22.dp))
+        Spacer(Modifier.width(10.dp))
+        Text(stringResource(R.string.start_elsewhere_note, name), color = Color(0xFF7A5200), fontSize = 14.sp, fontWeight = FontWeight.ExtraBold)
+    }
+}
+
+/** "Mula dari" (design LaluanPilihMula): current location, Home, Work, favourites, recents, search, map. */
+@Composable
+private fun StartSheet(vm: MainViewModel, onClose: () -> Unit) {
+    val c = Gimano.colors
+    val options = remember { vm.startOptions() }
+    ModalBottomSheet(onDismissRequest = onClose, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true), containerColor = c.surface) {
+        Column(Modifier.fillMaxWidth().verticalScroll(androidx.compose.foundation.rememberScrollState()).padding(start = 16.dp, end = 16.dp, bottom = 24.dp)) {
+            Text(stringResource(R.string.start_from), fontSize = 20.sp, fontWeight = FontWeight.Black, color = c.text, modifier = Modifier.padding(bottom = 8.dp))
+            options.forEach { o ->
+                val (icon, title) = when (o.kind) {
+                    StartOption.Kind.CURRENT -> Icons.Filled.MyLocation to stringResource(R.string.start_current)
+                    StartOption.Kind.HOME -> Icons.Filled.Home to stringResource(R.string.home)
+                    StartOption.Kind.WORK -> Icons.Filled.Work to stringResource(R.string.work)
+                    StartOption.Kind.FAVORITE -> Icons.Filled.Star to o.name
+                    StartOption.Kind.RECENT -> Icons.Filled.History to o.name
+                }
+                val sub = when (o.kind) { StartOption.Kind.HOME, StartOption.Kind.WORK -> o.address.ifBlank { o.name }; StartOption.Kind.CURRENT -> ""; else -> o.address }
+                StartRow(icon, title, sub) { onClose(); vm.chooseStart(o) }
+            }
+            HorizontalDivider(Modifier.padding(vertical = 6.dp), color = c.outline.copy(alpha = 0.4f))
+            StartRow(Icons.Filled.Search, stringResource(R.string.start_search), "") { onClose(); vm.chooseOriginBySearch() }
+            StartRow(Icons.Filled.Place, stringResource(R.string.start_on_map), "") { onClose(); vm.chooseOriginOnMap() }
+        }
+    }
+}
+
+@Composable
+private fun StartRow(icon: ImageVector, title: String, sub: String, onClick: () -> Unit) {
+    val c = Gimano.colors
+    Row(Modifier.fillMaxWidth().heightIn(min = 60.dp).clickable(onClick = onClick).padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+        Box(Modifier.size(44.dp).clip(RoundedCornerShape(14.dp)).background(c.brandMist), contentAlignment = Alignment.Center) {
+            Icon(icon, null, tint = c.brandInk, modifier = Modifier.size(24.dp))
+        }
+        Spacer(Modifier.width(14.dp))
+        Column(Modifier.weight(1f)) {
+            Text(title, fontSize = 17.sp, fontWeight = FontWeight.ExtraBold, color = c.text, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            if (sub.isNotBlank()) Text(sub, fontSize = 13.sp, color = c.textMuted, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
     }
 }
@@ -178,7 +253,7 @@ private fun Overflow(vm: MainViewModel) {
 
 /** Your location → stops (drag to reorder, × to remove, ETA each) → destination, plus "Add a stop". */
 @Composable
-private fun StopsPanel(plan: RoutePlan, settings: AppSettings, vm: MainViewModel, modifier: Modifier) {
+private fun StopsPanel(plan: RoutePlan, settings: AppSettings, vm: MainViewModel, modifier: Modifier, onStart: () -> Unit) {
     val c = Gimano.colors
     val lang = currentLang()
     val etas = plan.selected?.let { r -> if (r.legs.size == plan.stops.size + 1) RouteLegs.stopEtas(r, plan.departAt ?: Instant.now()) else null }
@@ -197,7 +272,7 @@ private fun StopsPanel(plan: RoutePlan, settings: AppSettings, vm: MainViewModel
             OriginSource.UNKNOWN -> stringResource(R.string.origin_unknown) to c.speeding
         }
         val changeStart = stringResource(R.string.change_start)
-        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.height(30.dp).clickable(onClickLabel = changeStart, onClick = vm::chooseOriginBySearch)) {
+        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.height(30.dp).clickable(onClickLabel = changeStart, onClick = onStart)) {
             Box(Modifier.size(10.dp).clip(CircleShape).background(if (plan.originSource == OriginSource.UNKNOWN) c.speeding else c.brand))
             Spacer(Modifier.width(12.dp))
             Text(label, fontSize = 15.sp, color = colour, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
@@ -308,7 +383,7 @@ private fun RouteInfo(r: Route, plan: RoutePlan, vm: MainViewModel) {
 private fun GoNowButton(plan: RoutePlan, modifier: Modifier, onGo: () -> Unit) {
     val c = Gimano.colors
     val progress = remember { Animatable(0f) }
-    val enabled = !plan.loading && !plan.error && plan.selected != null
+    val enabled = plan.goAction == GoAction.NAVIGATE
     LaunchedEffect(plan.countdownRunning, plan.selectedId, plan.loading) {
         if (plan.countdownRunning && enabled) {
             progress.snapTo(0f)

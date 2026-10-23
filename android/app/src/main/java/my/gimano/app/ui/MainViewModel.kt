@@ -33,6 +33,9 @@ import my.gimano.app.core.trip.StopList
 import my.gimano.app.core.trip.TravelMode
 import my.gimano.app.core.trip.OriginSource
 import my.gimano.app.core.trip.RouteOrigin
+import my.gimano.app.core.trip.GoAction
+import my.gimano.app.core.trip.StartOption
+import my.gimano.app.core.trip.StartOptions
 import my.gimano.app.data.live.LiveEvent
 import my.gimano.app.data.local.Favorites
 import my.gimano.app.data.local.LegacyMigration
@@ -84,8 +87,10 @@ data class RoutePlan(
     /** Null while the user's location is unknown (never the map centre): no routes are computed. */
     val origin: GeoPoint?,
     val originSource: my.gimano.app.core.trip.OriginSource = my.gimano.app.core.trip.OriginSource.GPS,
-    /** Name of a start the user chose (search or map). */
-    val originName: String? = null,
+    /** The start the user chose (list, search or map); null for GPS. */
+    val originPlace: NavDestination? = null,
+    /** After ⇅ from "Lokasi semasa": the destination is where the user was (swap back restores GPS). */
+    val destinationIsHere: Boolean = false,
     /** Origin within 50 m of the first target: "Anda sudah di sini", nothing to route. */
     val alreadyHere: Boolean = false,
     val stops: List<NavDestination> = emptyList(),
@@ -102,6 +107,8 @@ data class RoutePlan(
     val computedAt: Instant = Instant.now(),
 ) {
     val selected: Route? get() = routes.firstOrNull { it.id == selectedId } ?: routes.firstOrNull()
+    val originName: String? get() = originPlace?.name
+    val goAction: GoAction get() = StartOptions.goAction(originSource, alreadyHere, selected != null && !loading && !error)
 }
 
 /** The favourite sheet: a new favourite from a place, or editing an existing one. */
@@ -712,7 +719,7 @@ class MainViewModel(private val c: AppContainer) : ViewModel() {
             }
             SearchPurpose.SET_ORIGIN -> {
                 _ui.update { it.copy(screen = Screen.RoutePreview) }
-                setPlanOrigin(GeoPoint(p.lat, p.lng), OriginSource.CHOSEN, p.name)
+                setPlanOrigin(GeoPoint(p.lat, p.lng), OriginSource.CHOSEN, p.toDestination())
             }
             SearchPurpose.ADD_STOP_PREVIEW -> {
                 val plan = _ui.value.plan
@@ -733,7 +740,8 @@ class MainViewModel(private val c: AppContainer) : ViewModel() {
     fun planThisDrive() {
         val plan = _ui.value.plan ?: return
         cancelCountdown()
-        _events.tryEmit(UiEvent.PlanDrive(plan.destination.toPoint(), null, plan.stops.map { it.toPoint() }, plan.mode.wire))
+        val origin = plan.originPlace?.takeIf { plan.originSource == OriginSource.CHOSEN }?.toPoint()
+        _events.tryEmit(UiEvent.PlanDrive(plan.destination.toPoint(), origin, plan.stops.map { it.toPoint() }, plan.mode.wire))
         _ui.update { it.copy(screen = Screen.Planned) }
     }
 
@@ -923,6 +931,7 @@ class MainViewModel(private val c: AppContainer) : ViewModel() {
         val g = gpsFix()
         if (g is RouteOrigin.Gps.Fresh) { setPlanOrigin(g.point, OriginSource.GPS, null); return }
         if (repo.isDemo) { setPlanOrigin(here(), OriginSource.GPS, null); return }
+        _ui.update { s -> s.copy(plan = s.plan?.copy(originPlace = null)) }
         if (!c.locations.hasPermission()) { markOriginUnknown(); return }
         _ui.update { s -> s.copy(plan = s.plan?.copy(origin = null, originSource = OriginSource.LOCATING, loading = false, routes = emptyList())) }
         originJob = viewModelScope.launch {
@@ -939,11 +948,12 @@ class MainViewModel(private val c: AppContainer) : ViewModel() {
         s.copy(plan = s.plan?.copy(origin = null, originSource = OriginSource.UNKNOWN, loading = false, error = false, routes = emptyList(), countdownRunning = false))
     }
 
-    private fun setPlanOrigin(p: GeoPoint, source: OriginSource, name: String?) {
+    private fun setPlanOrigin(p: GeoPoint, source: OriginSource, place: NavDestination?) {
         originJob?.cancel()
         val plan = _ui.value.plan ?: return
         val first = plan.stops.firstOrNull()?.point ?: plan.destination.point
-        val updated = plan.copy(origin = p, originSource = source, originName = name, alreadyHere = RouteOrigin.sameSpot(p, first))
+        val updated = plan.copy(origin = p, originSource = source, originPlace = if (source == OriginSource.GPS) null else place,
+            alreadyHere = RouteOrigin.sameSpot(p, first))
         if (updated.alreadyHere) {
             _ui.update { it.copy(plan = updated.copy(loading = false, error = false, routes = emptyList(), countdownRunning = false)) }
             return
@@ -962,6 +972,36 @@ class MainViewModel(private val c: AppContainer) : ViewModel() {
 
     /** Search a start place. */
     fun chooseOriginBySearch() = openSearch(SearchPurpose.SET_ORIGIN)
+
+    /** The "Mula dari" sheet: Lokasi semasa, Home, Work, favourites, recents. */
+    fun startOptions(): List<StartOption> {
+        val plan = _ui.value.plan ?: return emptyList()
+        return StartOptions.build(_ui.value.saved, _ui.value.recents, plan.destination.point)
+    }
+
+    fun chooseStart(o: StartOption) {
+        val p = o.point
+        if (o.kind == StartOption.Kind.CURRENT || p == null) { resolveOrigin(); return }
+        setPlanOrigin(p, OriginSource.CHOSEN, NavDestination(o.name, o.address, p, o.placeId))
+    }
+
+    /** ⇅: swap start and destination (stops reversed). Needs a known start. */
+    fun swapStartDestination() {
+        val plan = _ui.value.plan ?: return
+        val o = plan.origin ?: return
+        val newDest = plan.originPlace ?: NavDestination(c.app.getString(R.string.start_current), "", o, null)
+        val newOrigin = plan.destination
+        _ui.update { it.copy(plan = plan.copy(destination = newDest, stops = plan.stops.reversed(),
+            destinationIsHere = plan.originSource == OriginSource.GPS, routes = emptyList())) }
+        if (plan.destinationIsHere) resolveOrigin()   // swapping back: the start is the live position again
+        else setPlanOrigin(newOrigin.point, OriginSource.CHOSEN, newOrigin)
+    }
+
+    /** "Pandu ke {start} dahulu": turn-by-turn only ever begins from the live position, so go to the chosen start. */
+    fun driveToStart() {
+        val start = _ui.value.plan?.originPlace ?: return
+        routeTo(start)
+    }
 
     fun routeToPlace() {
         val p = _ui.value.place?.summary ?: return
@@ -1006,7 +1046,7 @@ class MainViewModel(private val c: AppContainer) : ViewModel() {
             _ui.update {
                 it.copy(
                     plan = it.plan?.copy(routes = routes, decoded = decoded, selectedId = best.id, loading = false, request = req,
-                        countdownRunning = plan.departAt == null && plan.stops.isEmpty(), computedAt = Instant.now()),
+                        countdownRunning = plan.departAt == null && plan.stops.isEmpty() && plan.originSource == OriginSource.GPS, computedAt = Instant.now()),
                     camera = CameraCommand.Fit(decoded.values.flatten() + origin + plan.destination.point, topDp = 170, bottomDp = 430),
                 )
             }
@@ -1115,6 +1155,8 @@ class MainViewModel(private val c: AppContainer) : ViewModel() {
             return
         }
         val plan = _ui.value.plan ?: return
+        // Never turn-by-turn from a point that isn't the live GPS position (chosen start → "Pandu ke … dahulu").
+        if (plan.goAction != GoAction.NAVIGATE) return
         val route = plan.selected ?: return
         // Release: never fake a drive just because GPS has no fix yet (debug keeps that for desk testing).
         val simulate = repo.isDemo || settings.current.simulateDrive || (my.gimano.app.BuildConfig.DEBUG && _ui.value.myLocation == null)

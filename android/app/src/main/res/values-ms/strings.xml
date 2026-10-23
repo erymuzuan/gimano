@@ -612,4 +612,12 @@
     <string name="already_here">Anda sudah di sini</string>
     <string name="already_here_body">Titik mula anda kurang 50 m dari destinasi. Pilih titik mula lain jika anda merancang lebih awal.</string>
     <string name="change_start">Tukar titik mula</string>
+    <string name="start_current">Lokasi semasa</string>
+    <string name="start_from">Mula dari</string>
+    <string name="start_search">Cari tempat mula…</string>
+    <string name="start_on_map">Pilih pada peta</string>
+    <string name="swap_start_dest">Tukar mula dan destinasi</string>
+    <string name="start_elsewhere_note">Laluan ini bermula dari %1$s, bukan dari tempat anda sekarang.</string>
+    <string name="drive_to_start">Pandu ke %1$s dahulu</string>
+    <string name="save_trip">Simpan perjalanan</string>
 </resources>

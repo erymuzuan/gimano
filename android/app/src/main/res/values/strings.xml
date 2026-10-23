@@ -613,4 +613,12 @@
     <string name="already_here">You\'re already here</string>
     <string name="already_here_body">Your start is less than 50 m from the destination. Choose another start if you\'re planning ahead.</string>
     <string name="change_start">Change start</string>
+    <string name="start_current">Current location</string>
+    <string name="start_from">Start from</string>
+    <string name="start_search">Search a start place…</string>
+    <string name="start_on_map">Choose on the map</string>
+    <string name="swap_start_dest">Swap start and destination</string>
+    <string name="start_elsewhere_note">This route starts from %1$s, not from where you are now.</string>
+    <string name="drive_to_start">Drive to %1$s first</string>
+    <string name="save_trip">Save trip</string>
 </resources>
