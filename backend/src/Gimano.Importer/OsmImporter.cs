@@ -421,7 +421,7 @@ public sealed class OsmImporter(GimanoDbContext db, NpgsqlDataSource dataSource,
         await index.EnsureIndexAsync(recreate, ct);
         // Reviews/photos aggregates and community places must survive a re-import (the index is rebuilt).
         var aggregates = await PlaceDocuments.AggregatesAsync(db, null, ct);
-        const int batch = 5000;
+        const int batch = 2000;
         var total = 0;
         string? lastId = null;
         while (true)

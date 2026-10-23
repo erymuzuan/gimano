@@ -27,7 +27,9 @@ builder.Services.AddProblemDetails(o => o.CustomizeProblemDetails = c =>
 builder.Services.AddExceptionHandler<ApiExceptionHandler>();
 builder.Services.AddOpenApi();
 builder.Services.AddMemoryCache();
-builder.Services.AddCors(o => o.AddDefaultPolicy(p => p.AllowAnyOrigin().AllowAnyHeader().AllowAnyMethod()));
+builder.Services.AddGimanoEdge(config, builder.Environment);
+// Request bodies are small JSON except photo uploads (endpoint-specific limit) — 4 MB global cap.
+builder.WebHost.ConfigureKestrel(k => k.Limits.MaxRequestBodySize = config.GetValue<long?>("Kestrel:Limits:MaxRequestBodySize") ?? 4 * 1024 * 1024);
 
 // Infrastructure
 builder.Services.AddGimanoData(config).AddGimanoSearch(config).AddGimanoMessaging(config);
@@ -117,14 +119,21 @@ if (config.GetValue("Database:MigrateOnStartup", true))
     }
 }
 
+app.UseGimanoEdge();
 app.UseExceptionHandler();
 app.UseStatusCodePages();
 app.UseCors();
+app.UseRateLimiter();
 app.UseAuthentication();
 app.UseAuthorization();
 
-app.MapOpenApi();
-app.MapScalarApiReference();
+// API docs: on in Development, opt-in elsewhere (Features:ApiDocs). No Swagger/Scalar UI in Production by default.
+if (config.GetValue("Features:ApiDocs", app.Environment.IsDevelopment()))
+{
+    app.MapOpenApi();
+    app.MapScalarApiReference();
+    app.MapGet("/", () => Results.Redirect("/scalar/v1")).ExcludeFromDescription();
+}
 
 app.MapHealthChecks("/healthz", new HealthCheckOptions { Predicate = _ => false, ResponseWriter = HealthWriter.WriteAsync });
 app.MapHealthChecks("/readyz", new HealthCheckOptions { Predicate = c => c.Tags.Contains("ready"), ResponseWriter = HealthWriter.WriteAsync });
@@ -134,7 +143,6 @@ api.MapAuthAndMe().MapPlaces().MapRoutes().MapLive().MapFeedback().MapPrivacy().
 app.MapMedia();
 
 app.MapHub<LiveHub>("/hubs/live");
-app.MapGet("/", () => Results.Redirect("/scalar/v1")).ExcludeFromDescription();
 
 app.Run();
 

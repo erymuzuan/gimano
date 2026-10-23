@@ -1,0 +1,18 @@
+name: ci
+on:
+  push:
+    branches: [main]
+    paths: ["backend/**", "data/moderation/**", "data/tolls/**", ".github/workflows/ci.yml"]
+  pull_request:
+    paths: ["backend/**", "data/moderation/**", "data/tolls/**"]
+permissions:
+  contents: read
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: backend/global.json
+      - run: dotnet test backend/Gimano.slnx -c Release

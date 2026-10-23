@@ -28,11 +28,14 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IOpenSearchLowLevelClient>(_ =>
         {
             var settings = new ConnectionConfiguration(new Uri(url))
-                .RequestTimeout(TimeSpan.FromSeconds(10))
+                .RequestTimeout(TimeSpan.FromSeconds(config.GetValue("OpenSearch:TimeoutSeconds", 15)))
                 .PingTimeout(TimeSpan.FromSeconds(2))
                 .ThrowExceptions(false);
             var user = config["OpenSearch:User"];
             if (!string.IsNullOrEmpty(user)) settings = settings.BasicAuthentication(user, config["OpenSearch:Password"]);
+            // Production runs OpenSearch with its security plugin (self-signed TLS) on an internal Docker network only.
+            if (config.GetValue("OpenSearch:SkipCertificateValidation", false))
+                settings = settings.ServerCertificateValidationCallback(CertificateValidations.AllowAll);
             return new OpenSearchLowLevelClient(settings);
         });
         services.AddSingleton<PlaceSearchIndex>();

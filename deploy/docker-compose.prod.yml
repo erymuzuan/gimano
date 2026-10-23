@@ -1,0 +1,199 @@
+# Gimano production stack (172.30.30.150), image-based. See deploy/PRODUCTION.md.
+#   docker compose -f deploy/docker-compose.prod.yml --env-file deploy/.env.prod pull
+#   docker compose -f deploy/docker-compose.prod.yml --env-file deploy/.env.prod up -d
+#   docker compose -f deploy/docker-compose.prod.yml --env-file deploy/.env.prod --profile tools run --rm importer
+#
+# Only the API is published (on the LAN interface, for IIS ARR on 172.30.30.13). PostGIS, RabbitMQ, OpenSearch and
+# Valhalla have no host ports: they're reachable only on the internal "gimano" Docker network.
+# Sized for a shared host (6 vCPU, ~13 GiB free RAM, < 10 GB of volumes): every service has a memory limit.
+name: gimano
+
+x-app-env: &app-env
+  ASPNETCORE_ENVIRONMENT: Production
+  DOTNET_ENVIRONMENT: Production
+  ConnectionStrings__Postgres: "Host=postgis;Port=5432;Database=gimano;Username=gimano;Password=${POSTGRES_PASSWORD:?};Command Timeout=300;GSS Encryption Mode=Disable"
+  OpenSearch__Url: "https://opensearch:9200"
+  OpenSearch__User: "admin"
+  OpenSearch__Password: "${OPENSEARCH_ADMIN_PASSWORD:?}"
+  OpenSearch__SkipCertificateValidation: "true"   # self-signed demo certs, internal network only
+  RabbitMq__Host: "rabbitmq"
+  RabbitMq__Port: "5672"
+  RabbitMq__User: "gimano"
+  RabbitMq__Password: "${RABBITMQ_PASSWORD:?}"
+  Media__Root: /data/media
+
+x-logging: &logging
+  driver: json-file
+  options: { max-size: "20m", max-file: "5" }
+
+services:
+  postgis:
+    image: postgis/postgis:17-3.5
+    restart: unless-stopped
+    logging: *logging
+    environment:
+      POSTGRES_DB: gimano
+      POSTGRES_USER: gimano
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in deploy/.env.prod}
+    # Default durability (fsync on, synchronous_commit on). Modest memory for a shared host.
+    command: ["postgres", "-c", "shared_buffers=512MB", "-c", "effective_cache_size=1536MB", "-c", "work_mem=16MB",
+              "-c", "maintenance_work_mem=256MB", "-c", "max_wal_size=2GB", "-c", "max_connections=100"]
+    volumes: ["pgdata:/var/lib/postgresql/data"]
+    networks: [gimano]
+    shm_size: 256m
+    stop_grace_period: 60s
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U gimano -d gimano"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+    deploy:
+      resources:
+        limits: { cpus: "2.0", memory: 2g }
+
+  opensearch:
+    image: opensearchproject/opensearch:2.19.1
+    restart: unless-stopped
+    logging: *logging
+    # Security plugin ON (TLS + basic auth with the admin password below), and no host port at all.
+    environment:
+      discovery.type: single-node
+      bootstrap.memory_lock: "true"
+      OPENSEARCH_JAVA_OPTS: "-Xms1g -Xmx1g"
+      OPENSEARCH_INITIAL_ADMIN_PASSWORD: ${OPENSEARCH_ADMIN_PASSWORD:?Set OPENSEARCH_ADMIN_PASSWORD in deploy/.env.prod}
+    ulimits:
+      memlock: { soft: -1, hard: -1 }
+      nofile: { soft: 65536, hard: 65536 }
+    volumes: ["osdata:/usr/share/opensearch/data"]
+    networks: [gimano]
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsk -u \"admin:$$OPENSEARCH_INITIAL_ADMIN_PASSWORD\" https://localhost:9200/_cluster/health || exit 1"]
+      interval: 15s
+      timeout: 10s
+      retries: 40
+    deploy:
+      resources:
+        limits: { cpus: "1.5", memory: 2g }
+
+  rabbitmq:
+    image: rabbitmq:4-management
+    restart: unless-stopped
+    logging: *logging
+    hostname: gimano-rabbit
+    environment:
+      RABBITMQ_DEFAULT_USER: gimano
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:?Set RABBITMQ_PASSWORD in deploy/.env.prod}
+      RABBITMQ_SERVER_ADDITIONAL_ERL_ARGS: "-rabbit vm_memory_high_watermark 0.6"
+    volumes: ["rabbitdata:/var/lib/rabbitmq"]
+    networks: [gimano]
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 15s
+      timeout: 10s
+      retries: 30
+    deploy:
+      resources:
+        limits: { cpus: "1.0", memory: 768m }
+
+  # First start downloads the Geofabrik extract and builds tiles (~20–40 min with 2 threads). The PBF is not needed
+  # afterwards (use_tiles_ignore_pbf) and can be deleted to save ~250 MB (PRODUCTION.md).
+  valhalla:
+    image: ghcr.io/valhalla/valhalla-scripted:latest
+    restart: unless-stopped
+    logging: *logging
+    environment:
+      tile_urls: https://download.geofabrik.de/asia/malaysia-singapore-brunei-latest.osm.pbf
+      use_tiles_ignore_pbf: "True"
+      force_rebuild: "False"
+      build_admins: "True"
+      build_time_zones: "True"
+      build_elevation: "False"
+      build_transit: "False"
+      server_threads: "2"
+      serve_tiles: "True"
+    volumes: ["valhalla:/custom_files"]
+    networks: [gimano]
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fs http://localhost:8002/status || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 120
+      start_period: 60m
+    deploy:
+      resources:
+        limits: { cpus: "2.0", memory: 3g }
+
+  api:
+    image: ${REGISTRY:?}/gimano-api:${TAG:?}
+    restart: unless-stopped
+    logging: *logging
+    environment:
+      <<: *app-env
+      Urls: "http://+:8080"
+      Valhalla__Url: "http://valhalla:8002"
+      Jwt__SigningKey: ${JWT_SIGNING_KEY:?Set JWT_SIGNING_KEY in deploy/.env.prod}
+      PublicBaseUrl: ${PUBLIC_BASE_URL:-https://gimano-api.bukitbunga.com}
+      Proxy__TrustedProxies: ${TRUSTED_PROXIES:?Set TRUSTED_PROXIES (IIS ARR address) in deploy/.env.prod}
+      Cors__ShareViewerOrigins: ${SHARE_VIEWER_ORIGINS:-https://www.bukitbunga.com}
+      RateLimit__PermitsPerMinute: ${RATE_LIMIT_PER_MINUTE:-600}
+      Kestrel__Limits__MaxRequestBodySize: "4194304"
+      # (no container healthcheck: the runtime image has no curl; monitor https://…/readyz instead)
+      Features__ApiDocs: "false"
+      Features__LegacySavedPlaces: ${LEGACY_SAVED_PLACES:-true}
+      Logging__LogLevel__Microsoft.AspNetCore: Warning
+    ports: ["${API_BIND:?Set API_BIND (the host's LAN IP) in deploy/.env.prod}:${API_PORT:-5080}:8080"]
+    volumes: ["media:/data/media"]
+    networks: [gimano]
+    depends_on:
+      postgis: { condition: service_healthy }
+      rabbitmq: { condition: service_healthy }
+      opensearch: { condition: service_started }
+      valhalla: { condition: service_started }
+    deploy:
+      resources:
+        limits: { cpus: "2.0", memory: 768m }
+
+  worker:
+    image: ${REGISTRY:?}/gimano-worker:${TAG:?}
+    restart: unless-stopped
+    logging: *logging
+    environment:
+      <<: *app-env
+      Feedback__GitHubRepo: ${FEEDBACK_GITHUB_REPO:-}
+      Feedback__GitHubToken: ${FEEDBACK_GITHUB_TOKEN:-}
+    volumes: ["media:/data/media"]
+    networks: [gimano]
+    depends_on:
+      api: { condition: service_started }
+      rabbitmq: { condition: service_healthy }
+    deploy:
+      resources:
+        limits: { cpus: "2.0", memory: 1536m }   # in-memory road index ≈ 450 MB
+
+  importer:
+    profiles: ["tools"]
+    image: ${REGISTRY:?}/gimano-importer:${TAG:?}
+    logging: *logging
+    environment:
+      <<: *app-env
+      GIMANO_PBF: /data/osm/malaysia-singapore-brunei-latest.osm.pbf
+      GIMANO_TOLLS: /data/tolls/my-toll-rates.csv
+      OpenSearch__TimeoutSeconds: "300"
+    volumes: ["../data/osm:/data/osm", "../data/tolls:/data/tolls"]
+    networks: [gimano]
+    depends_on:
+      postgis: { condition: service_healthy }
+      opensearch: { condition: service_healthy }
+    deploy:
+      resources:
+        limits: { cpus: "2.0", memory: 4g }
+
+networks:
+  gimano: {}
+
+volumes:
+  pgdata:
+  osdata:
+  rabbitdata:
+  valhalla:
+  media:
