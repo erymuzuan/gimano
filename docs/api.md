@@ -54,10 +54,87 @@ GET /places/{id}?lat=&lng=   → Place      (lat/lng optional: fills distanceM)
 GET /geocode/reverse?lat=&lng= → {name, address, lat, lng}
 ```
 
-`PlaceSummary = {id, name, category, address, lat, lng, distanceM, brand?}`
+`PlaceSummary = {id, name, category, address, lat, lng, distanceM, brand?,
+                source: "osm"|"community", status?: "private"|"pending"|"published",
+                rating?: number, reviewCount: int, thumbnailUrl?}`
 
 `Place = PlaceSummary + {phone?, website?, openingHours?, openNow?:bool,
-amenities: string[], tags: {k:v}, osmType, osmId}`
+amenities: string[], tags: {k:v}, osmType?, osmId?,      // osm* null for community places
+description?, addedBy?: {displayName}, verifiedCount: int, photos: Photo[] (first 10)}`
+
+Search returns OSM places, published community places, and the caller's own private and pending
+places. When `results` is empty, the app offers **"Can't find it? Add a place"**.
+
+## Community places (add a missing place)
+
+Clean-room flow, modelled on how big map apps let people add missing places:
+
+1. The user drops or drags a **pin** on the map (pre-filled with the reverse-geocoded address)
+   and gives it a **name**. Optional: category, description, phone, website, opening
+   hours, amenities, photos.
+2. **Visibility** question: "Make this place discoverable by other Gimano users?"
+   - **No** → `private`: only the owner sees it in search, on the map and as a favourite target.
+   - **Yes** → `pending`: automated checks run (below); if they pass, the place is shown to
+     others with an "Unverified" badge, and nearby users can confirm it ("Is this place
+     here?"). After **3 distinct confirmations**, or a moderator approval, it becomes `published`.
+     **3 "Doesn't exist / Wrong location" votes** hide it for moderator review.
+3. Anyone can then **suggest an edit** (hours, phone, category, location); owner edits apply directly,
+   other users' edits need 2 confirmations.
+
+```
+POST   /places                        → 201 Place
+  { name, category, lat, lng, address?, description?, phone?, website?,
+    openingHours?: "Mo-Fr 08:00-18:00; Sa 08:00-13:00",     // OSM opening_hours syntax
+    amenities?: string[], visibility: "private"|"public" }
+PATCH  /places/{id}                   → Place        (owner only, community places only)
+DELETE /places/{id}                   → 204          (owner only; published places become "closed", not deleted)
+POST   /places/{id}/suggest-edit      → 202 {suggestionId}   (any user; any place incl. OSM → stored as a map-data suggestion)
+POST   /places/{id}/verify            {exists: true|false, correctLocation?: bool} → 200 Place
+GET    /me/places/contributed         → PlaceSummary[]
+```
+
+**Automated checks before `pending` → visible:**
+- duplicates: the same or a similar name (trigram ≥ 0.6) within 100 m of an OSM or community place is
+  rejected (409, with the existing place returned so the app can say "Is it this one?");
+- rate limit: 10 new places per user per day, 3 public ones per hour;
+- text filter (profanity/spam/URLs in names), Malay and English;
+- coordinates inside MY/SG/BN and not in water (OSM water polygons).
+
+## Reviews & photos
+
+```
+GET    /places/{id}/reviews?sort=recent|helpful&cursor=   → {reviews: Review[], next?}
+POST   /places/{id}/reviews           {rating: 1–5, text?: ≤ 2000, photoIds?: string[]} → 201 Review
+PATCH  /reviews/{id}  /  DELETE /reviews/{id}      (author only; one review per user per place)
+POST   /reviews/{id}/helpful          → 204   (toggle)
+POST   /reviews/{id}/flag             {reason: spam|offensive|off_topic|conflict_of_interest|other} → 202
+
+POST   /photos   multipart/form-data: file (JPEG/PNG/HEIC/WebP, ≤ 15 MB), placeId, caption?
+  → 201 Photo   (status "processing" → "published" | "rejected")
+GET    /places/{id}/photos?cursor=    → {photos: Photo[], next?}
+DELETE /photos/{id}                   (uploader only)
+POST   /photos/{id}/flag              {reason}
+GET    /media/{key}.webp              (public, immutable, Cache-Control: max-age=31536000)
+```
+
+`Review = {id, placeId, rating, text?, photos: Photo[], author: {displayName, level, reviewCount},
+helpfulCount, createdAt, editedAt?, status: "published"|"hidden"}`
+`Photo = {id, url, thumbUrl, width, height, caption?, uploadedBy: {displayName}, createdAt}`
+
+**Photo processing (server):** apply EXIF orientation → **strip all metadata (incl. GPS)** →
+resize to max 1600 px on the long edge → encode **WebP** (quality 80) + a 400 px thumbnail (WebP
+q 70); reject < 200 px or undecodable. Stored by content hash in object storage
+(`IMediaStore`: local volume by default, S3-compatible optional). The app also downsizes before
+upload (≤ 2048 px JPEG/WebP) to save mobile data.
+
+**Review moderation (clean-room, policy-based):** reviews are published immediately when
+they pass automated checks (profanity/spam filter, links stripped, ≤ 1 review/user/place,
+rate limit 20/day, and no reviews on a place the reviewer added in the first 24 h).
+3 flags from distinct users hide the review pending moderation. Ratings are shown as the
+mean with the count; places with < 3 reviews show "New".
+
+Contributors earn points (place added +5, published +20, review +3, photo +2, helpful vote
+received +1); these feed `User.points`/`level`.
 
 ### Place categories
 
