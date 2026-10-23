@@ -116,7 +116,8 @@ def verify_apk(apk, flavor):
     pkg, _, manifest_url, _ = FLAVORS[flavor]
     badging = sh(tool("aapt2"), "dump", "badging", apk)
     m = re.search(r"package: name='([^']+)' versionCode='(\d+)' versionName='([^']+)'", badging)
-    certs = sh(tool("apksigner"), "verify", "--print-certs", apk)
+    certs = sh(tool("apksigner"), "verify", "--print-certs", apk,
+               env=dict(ENV, PATH=os.path.join(ENV["JAVA_HOME"], "bin") + os.pathsep + ENV.get("PATH", "")))
     sha = re.search(r"certificate SHA-256 digest: ([0-9a-f]+)", certs).group(1)
     dex = subprocess.run(["unzip", "-p", apk, "classes*.dex"], capture_output=True).stdout
     problems = []
