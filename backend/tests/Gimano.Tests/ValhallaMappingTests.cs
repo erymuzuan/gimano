@@ -160,6 +160,8 @@ public class ValhallaMappingTests
     [InlineData("FT 2", true)]
     [InlineData("B15", true)]
     [InlineData("AH2", true)]
+    [InlineData("2", true)]
+    [InlineData("Jalan 1/86", false)]
     [InlineData("Jalan Ampang", false)]
     [InlineData("PIE", false)]
     [InlineData("Lebuhraya Utara-Selatan", false)]
@@ -169,7 +171,66 @@ public class ValhallaMappingTests
     public void Summary_uses_the_longest_roads_in_travel_order()
     {
         var r = ValhallaMapper.MapResponse(SampleResponse(withAlternate: false))[0];
-        Assert.Equal("Via Jalan SS 2/24, E11 Lebuhraya Damansara–Puchong", r.Summary);
+        Assert.Equal("Via E11 Lebuhraya Damansara–Puchong", r.Summary);
+    }
+
+    private static ManeuverDto M(string? street, string? roadRef, double len, int begin) =>
+        new(ManeuverType.Straight, "", street, null, roadRef, len, len / 20, begin, begin + 1, null, null);
+
+    [Fact]
+    public void Summary_has_no_stray_federal_route_number()
+    {
+        // Shape of the real SS2 → Mid Valley route: E23 dominant, then a federal route "2" leg.
+        var legs = new[] { new RouteLeg(
+        [
+            M("Jalan SS 2/53", null, 300, 0),
+            M("Lebuhraya Damansara–Puchong", "E11", 1033, 1),
+            M("Damansara Link", "E23", 2829, 2),
+            M("E23", "E23", 1058, 3),
+            M("Kerinchi Link", "E23", 1795, 4),
+            M("2", "2", 2187, 5),
+            M("Jalan 1/86", null, 314, 6),
+        ]) };
+        var summary = ValhallaMapper.Summarize(legs);
+        Assert.Equal("Via E23 Damansara Link", summary);
+        Assert.DoesNotMatch(@",\s*\d+$", summary);
+    }
+
+    [Fact]
+    public void Summary_includes_a_second_road_only_when_it_is_substantial_and_shows_federal_refs_as_FT()
+    {
+        var legs = new[] { new RouteLeg([M("Lebuhraya Persekutuan", "2", 5000, 0), M("Lebuhraya Damansara–Puchong", "E11", 4000, 1)]) };
+        Assert.Equal("Via FT2 Lebuhraya Persekutuan, E11 Lebuhraya Damansara–Puchong", ValhallaMapper.Summarize(legs));
+        Assert.Equal("FT2", ValhallaMapper.DisplayRef("2"));
+        Assert.Equal("FT2", ValhallaMapper.DisplayRef("FT 2"));
+        Assert.Equal("E11", ValhallaMapper.DisplayRef("E11"));
+    }
+
+    [Fact]
+    public void Has_tolls_when_route_passes_a_toll_booth()
+    {
+        var candidates = ValhallaMapper.MapResponse(SampleResponse(withAlternate: false));
+        var noTollFlag = candidates[0] with { HasTolls = false };
+        var plazaOnRoute = new GeoPoint(3.12801, 101.62299);   // ~1 m from vertex 2
+        var plazaNearby = new GeoPoint(3.1300, 101.6260);      // a few hundred metres away
+
+        Assert.True(RouteDecorator.Decorate([noTollFlag], [], [], () => "a", [plazaOnRoute])[0].HasTolls);
+        Assert.False(RouteDecorator.Decorate([noTollFlag], [], [], () => "a", [plazaNearby])[0].HasTolls);
+        Assert.False(RouteDecorator.Decorate([noTollFlag], [], [], () => "a")[0].HasTolls);
+    }
+
+    [Fact]
+    public void Avoid_tolls_sets_use_tolls_zero_and_penalises_toll_booths()
+    {
+        var avoid = ValhallaMapper.BuildRouteRequest(new RouteRequest(new LatLng(3.118, 101.619), new LatLng(3.1176, 101.6773), [], Vehicle.Car,
+            new AvoidOptions(Tolls: true), null, 2))["costing_options"]!["auto"]!;
+        Assert.Equal(0.0, avoid["use_tolls"]!.GetValue<double>());
+        Assert.Equal(ValhallaMapper.TollBoothPenaltyS, avoid["toll_booth_penalty"]!.GetValue<int>());
+
+        var normal = ValhallaMapper.BuildRouteRequest(new RouteRequest(new LatLng(3.118, 101.619), new LatLng(3.1176, 101.6773), [], Vehicle.Car,
+            null, null, 2))["costing_options"]!["auto"]!;
+        Assert.Equal(0.5, normal["use_tolls"]!.GetValue<double>());
+        Assert.Null(normal["toll_booth_penalty"]);
     }
 
     [Fact]

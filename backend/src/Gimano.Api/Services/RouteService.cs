@@ -30,7 +30,13 @@ public sealed class RouteService(
         var jams = (await geo.JamsInBBoxAsync(bbox, ct))
             .Select(j => new JamLine(j.Level, j.SpeedKmh, GeoMath.FromLineString(j.Geom))).ToList();
 
-        var routes = RouteDecorator.Decorate(candidates, activeReports, jams, () => Guid.CreateVersion7().ToString("N"));
+        var bboxPoly = bbox.ToPolygon();
+        var tollBooths = (await db.Places.AsNoTracking()
+                .Where(p => p.Category == PlaceCategory.TollBooth && p.Location.Intersects(bboxPoly))
+                .Select(p => p.Location).Take(2000).ToListAsync(ct))
+            .Select(GeoPoint.From).ToList();
+
+        var routes = RouteDecorator.Decorate(candidates, activeReports, jams, () => Guid.CreateVersion7().ToString("N"), tollBooths);
         foreach (var r in routes) cache.Set(CacheKey(r.Id), req, CacheFor);
 
         if (userId is { } uid && originHeading is null)

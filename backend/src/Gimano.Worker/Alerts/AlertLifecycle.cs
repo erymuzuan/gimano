@@ -56,7 +56,7 @@ public sealed class AlertExpirySweeper(IServiceScopeFactory scopes, IEventPublis
                 var db = scope.ServiceProvider.GetRequiredService<GimanoDbContext>();
                 var now = clock.GetUtcNow();
                 var due = await db.Reports.Where(r => r.Status == ReportStatus.Active && r.ExpiresAt <= now)
-                    .Select(r => r.Id).Take(1000).ToListAsync(stoppingToken);
+                    .OrderBy(r => r.ExpiresAt).Select(r => r.Id).Take(1000).ToListAsync(stoppingToken);
                 if (due.Count == 0) continue;
                 await db.Reports.Where(r => due.Contains(r.Id))
                     .ExecuteUpdateAsync(s => s.SetProperty(r => r.Status, ReportStatus.Expired), stoppingToken);

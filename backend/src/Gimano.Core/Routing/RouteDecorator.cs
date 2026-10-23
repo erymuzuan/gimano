@@ -9,12 +9,14 @@ public static class RouteDecorator
 {
     public const double AlertCorridorM = 40;
     public const double AlertHeadingToleranceDeg = 60;
+    public const double TollBoothMatchM = 25;
 
     public static IReadOnlyList<RouteDto> Decorate(
         IReadOnlyList<RouteCandidate> candidates,
         IReadOnlyList<ReportDto> activeReports,
         IReadOnlyList<JamLine> jams,
-        Func<string> newId)
+        Func<string> newId,
+        IReadOnlyList<GeoPoint>? tollBooths = null)
     {
         var scored = candidates.Select(c =>
         {
@@ -39,7 +41,7 @@ public static class RouteDecorator
                 TrafficDurationS: trafficDuration,
                 Summary: c.Summary,
                 TrafficDescription: TrafficOverlay.Describe(c.DurationS, trafficDuration, jams.Count > 0),
-                HasTolls: c.HasTolls,
+                HasTolls: c.HasTolls || PassesTollBooth(c.Points, tollBooths ?? []),
                 TollEstimateMyr: null,
                 Polyline: c.Polyline,
                 Bbox: bbox.ToArray(),
@@ -48,6 +50,17 @@ public static class RouteDecorator
                 Alerts: AlertsOnRoute(c.Points, activeReports)));
         }
         return result;
+    }
+
+    /// <summary>
+    /// Valhalla only reports tolls for ways tagged toll=yes, which Malaysian OSM rarely uses; toll plazas are
+    /// mapped as barrier=toll_booth nodes (imported as toll_booth places). A route has tolls if it passes within 25 m of one.
+    /// </summary>
+    public static bool PassesTollBooth(IReadOnlyList<GeoPoint> route, IReadOnlyList<GeoPoint> tollBooths)
+    {
+        if (route.Count < 2 || tollBooths.Count == 0) return false;
+        var bbox = BBox.Of(route).Expand(TollBoothMatchM);
+        return tollBooths.Any(t => bbox.Contains(t.Lat, t.Lng) && GeoMath.ProjectOnLine(route, t).DistanceM <= TollBoothMatchM);
     }
 
     /// <summary>Reports within 40 m of the route whose heading (if known) matches the direction of travel, ordered along the route.</summary>

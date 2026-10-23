@@ -13,6 +13,8 @@ public sealed record RouteCandidate(
 
 public static partial class ValhallaMapper
 {
+    public const int TollBoothPenaltyS = 1800;
+
     public static readonly TimeZoneInfo MalaysiaTime = TimeZoneInfo.CreateCustomTimeZone("MYT", TimeSpan.FromHours(8), "MYT", "MYT");
 
     // ---- Request ----------------------------------------------------------
@@ -32,6 +34,9 @@ public static partial class ValhallaMapper
             ["use_highways"] = avoid.Highways ? 0.0 : (vehicle == Vehicle.Motorcycle ? 0.8 : 1.0),
             ["use_ferry"] = avoid.Ferries ? 0.0 : 0.5,
         };
+        // Malaysian OSM tolls are mostly mapped as barrier=toll_booth nodes, not toll=yes ways, so Valhalla's
+        // use_tolls alone barely changes anything: also penalise passing a toll booth.
+        if (avoid.Tolls) opts["toll_booth_penalty"] = TollBoothPenaltyS;
 
         var body = new JsonObject
         {
@@ -174,28 +179,43 @@ public static partial class ValhallaMapper
         _ => ManeuverType.Straight,
     };
 
-    /// <summary>Malaysian / Singaporean road refs: E11, FT2, FT 2, J5, B15, AH2, PIE is not a ref.</summary>
+    /// <summary>Malaysian road refs: E11, FT2, FT 2, J5, B15, AH2 and bare federal route numbers ("2"). "PIE" is a name, not a ref.</summary>
     public static bool IsRoadRef(string s) => RoadRefRegex().IsMatch(s.Trim());
 
-    [GeneratedRegex(@"^(AH|FT|E|[A-Z])\s?\d{1,4}[A-Z]?$")]
+    [GeneratedRegex(@"^(?:(?:AH|FT|E|[A-Z])\s?)?\d{1,4}[A-Z]?$")]
     private static partial Regex RoadRefRegex();
 
-    /// <summary>"Via E11 LDP, Jalan SS 2/24" — the two roads carrying the most distance.</summary>
+    /// <summary>
+    /// "Via E23 Damansara Link" — the road carrying the most distance (maneuvers on the same ref are one road,
+    /// labelled with its ref and most common name). A second road is added only when it carries ≥ 50% as much.
+    /// Bare numeric refs (Malaysian federal routes, e.g. "2") are shown as "FT2".
+    /// </summary>
     public static string Summarize(IReadOnlyList<RouteLeg> legs)
     {
         var roads = legs.SelectMany(l => l.Maneuvers)
+            .Where(m => m.Type is not (ManeuverType.Depart or ManeuverType.Arrive) || m.DistanceM > 0)
             .Where(m => m.StreetName is not null || m.RoadRef is not null)
-            .GroupBy(m => Label(m))
-            .Select(g => (Name: g.Key, Length: g.Sum(m => m.DistanceM), First: g.Min(m => m.BeginShapeIndex)))
+            .GroupBy(m => m.RoadRef is { } r ? "ref:" + DisplayRef(r) : "name:" + m.StreetName)
+            .Select(g =>
+            {
+                var name = g.Where(m => m.StreetName is not null && !IsRoadRef(m.StreetName))
+                    .GroupBy(m => m.StreetName).OrderByDescending(n => n.Sum(m => m.DistanceM)).Select(n => n.Key).FirstOrDefault();
+                var label = g.First().RoadRef is { } r ? (name is null ? DisplayRef(r) : $"{DisplayRef(r)} {name}") : name!;
+                return (Label: label, Length: g.Sum(m => m.DistanceM), First: g.Min(m => m.BeginShapeIndex));
+            })
             .OrderByDescending(r => r.Length)
-            .Take(2)
-            .OrderBy(r => r.First)
-            .Select(r => r.Name)
             .ToList();
-        return roads.Count == 0 ? "" : "Via " + string.Join(", ", roads);
+        if (roads.Count == 0) return "";
+        var picked = roads.Take(1).Concat(roads.Skip(1).Take(1).Where(r => r.Length >= roads[0].Length * 0.5))
+            .OrderBy(r => r.First).Select(r => r.Label);
+        return "Via " + string.Join(", ", picked);
+    }
 
-        static string Label(ManeuverDto m) =>
-            m.RoadRef is not null && m.StreetName is not null && m.StreetName != m.RoadRef ? $"{m.RoadRef} {m.StreetName}" : (m.StreetName ?? m.RoadRef)!;
+    /// <summary>"2" → "FT2" (federal route); other refs unchanged, internal spaces removed ("FT 2" → "FT2").</summary>
+    public static string DisplayRef(string r)
+    {
+        var t = r.Replace(" ", "");
+        return t.Length > 0 && char.IsDigit(t[0]) ? "FT" + t : t;
     }
 
     /// <summary>Valhalla error JSON: <c>{"error_code":442,"error":"No path could be found for input","status_code":400}</c>.</summary>

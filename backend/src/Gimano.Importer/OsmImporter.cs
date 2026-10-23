@@ -297,13 +297,16 @@ public sealed class OsmImporter(GimanoDbContext db, NpgsqlDataSource dataSource,
     private async Task EnrichAddressesAsync(CancellationToken ct)
     {
         const string sql = """
-            UPDATE places p SET address = r.name
-            FROM LATERAL (
-              SELECT COALESCE(s.name, s.ref) AS name FROM road_segments s
-              WHERE (s.name IS NOT NULL OR s.ref IS NOT NULL) AND ST_DWithin(s.geom, p.location, 150)
-              ORDER BY s.geom <-> p.location LIMIT 1
-            ) r
-            WHERE p.address = '' AND r.name IS NOT NULL;
+            UPDATE places p SET address = sub.name
+            FROM (
+              SELECT p2.id,
+                     (SELECT COALESCE(s.name, s.ref) FROM road_segments s
+                      WHERE (s.name IS NOT NULL OR s.ref IS NOT NULL) AND ST_DWithin(s.geom, p2.location, 150)
+                      ORDER BY s.geom <-> p2.location LIMIT 1) AS name
+              FROM places p2
+              WHERE p2.address = ''
+            ) sub
+            WHERE p.id = sub.id AND sub.name IS NOT NULL;
             """;
         await using var conn = await dataSource.OpenConnectionAsync(ct);
         await using var cmd = new NpgsqlCommand(sql, conn) { CommandTimeout = 1800 };
