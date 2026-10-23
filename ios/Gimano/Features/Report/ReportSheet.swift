@@ -6,6 +6,7 @@ struct ReportSheet: View {
     @Environment(AppModel.self) private var model
     @Environment(\.dismiss) private var dismiss
     @State private var type: ReportType?
+    @State private var roadProblem = false
     @State private var comment = ""
 
     private let columns = Array(repeating: GridItem(.flexible(), spacing: Tokens.Space.gridGap), count: 3)
@@ -13,8 +14,8 @@ struct ReportSheet: View {
     var body: some View {
         VStack(spacing: 0) {
             HStack {
-                if type != nil {
-                    Button { withAnimation(.snappy) { type = nil } } label: {
+                if type != nil || roadProblem {
+                    Button { withAnimation(.snappy) { type = nil; roadProblem = false } } label: {
                         Image(systemName: "chevron.left")
                             .font(.system(size: 20, weight: .bold))
                             .foregroundStyle(Color.brandInk)
@@ -36,7 +37,9 @@ struct ReportSheet: View {
             .padding(.bottom, 8)
 
             ScrollView {
-                if let type {
+                if roadProblem {
+                    RoadProblemPanel()
+                } else if let type {
                     subtypeGrid(type)
                 } else {
                     LazyVGrid(columns: columns, spacing: Tokens.Space.gridGap + 4) {
@@ -48,6 +51,18 @@ struct ReportSheet: View {
                             .accessibilityLabel(Text(t.title))
                             .accessibilityIdentifier("reportType.\(t.rawValue)")
                         }
+                        // "Masalah jalan": closed, no road, one way, can't turn, odd route, new road.
+                        Button { withAnimation(.snappy) { roadProblem = true } } label: {
+                            VStack(spacing: 8) {
+                                Image(systemName: "road.lanes.curved.right").font(.system(size: 40, weight: .bold)).foregroundStyle(Color.report)
+                                    .frame(maxWidth: .infinity, minHeight: Tokens.Size.reportIcon)
+                                Text("Road problem").font(Tokens.Font.label).foregroundStyle(Color.textPrimary)
+                            }
+                            .frame(maxWidth: .infinity, minHeight: Tokens.Size.reportTile)
+                            .background(Color.reportTint.opacity(0.5), in: RoundedRectangle(cornerRadius: Tokens.Radius.shortcutTile, style: .continuous))
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityIdentifier("reportType.roadProblem")
                     }
                     .padding(.horizontal, 20)
                     .padding(.bottom, 24)

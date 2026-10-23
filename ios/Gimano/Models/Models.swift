@@ -34,10 +34,46 @@ struct DeviceAuthResponse: Codable, Sendable {
     var displayName: String
 }
 
+/// docs/identity-and-reputation.md §1
+struct RegisterRequest: Codable, Sendable {
+    var publicKey: String
+    var platform: String = "ios"
+    var locale: String
+}
+struct TokenRequest: Codable, Sendable { var userId: String; var ts: Int64; var sig: String }
+struct TokenResponse: Codable, Sendable { var token: String }
+struct KeyLoginRequest: Codable, Sendable { var publicKey: String; var ts: Int64; var sig: String }
+struct AttachKeyRequest: Codable, Sendable { var publicKey: String; var sigByOldKey: String? }
+
+/// Trust tier of the pseudonym (reputation describes public work, never the person).
+enum Tier: String, Codable, Sendable, CaseIterable {
+    case baharu, perak, emas
+    init(from decoder: any Decoder) throws {
+        self = Tier(rawValue: (try decoder.singleValueContainer().decode(String.self)).lowercased()) ?? .baharu
+    }
+}
+
+struct NextTier: Codable, Sendable, Equatable {
+    var name: Tier
+    /// e.g. "placesAccepted:7", "accuracy:90", "accountDays:42", "signingKey", "noUpheldDispute90d".
+    var missing: [String]
+}
+
+/// Travel mode (contract `vehicle`): car → auto, motorcycle, bicycle, walk → pedestrian.
 enum Vehicle: String, Codable, Sendable, CaseIterable, Identifiable {
     case car
     case motorcycle
+    case bicycle
+    case walk
     var id: String { rawValue }
+
+    /// Car and motorcycle use roads with tolls/expressways, live traffic and "avoid" options.
+    var isMotorized: Bool { self == .car || self == .motorcycle }
+
+    init(from decoder: any Decoder) throws {
+        let raw = try decoder.singleValueContainer().decode(String.self)
+        self = Vehicle(rawValue: raw) ?? .car
+    }
 }
 
 struct User: Codable, Sendable, Equatable {
@@ -48,6 +84,12 @@ struct User: Codable, Sendable, Equatable {
     var points: Int?
     var level: Int?
     var joinedAt: Date?
+    var tier: Tier?
+    var accuracy: Double?
+    var placesAccepted: Int?
+    var verifierVotes: Int?
+    var nextTier: NextTier?
+    var suspendedUntil: Date?
 }
 
 struct UserPatch: Codable, Sendable {
@@ -67,20 +109,116 @@ struct SavedPlace: Codable, Sendable, Identifiable, Hashable {
     var id: String
     var kind: SavedPlaceKind
     var name: String
+    /// One of `FavoriteIcon` raw values; home/work always `home`/`work`.
+    var icon: String?
     var lat: Double
     var lng: Double
     var address: String
     var placeId: String?
+    var sortOrder: Int?
+
+    init(id: String, kind: SavedPlaceKind, name: String, icon: String? = nil, lat: Double, lng: Double, address: String,
+         placeId: String? = nil, sortOrder: Int? = nil) {
+        self.id = id; self.kind = kind; self.name = name; self.icon = icon
+        self.lat = lat; self.lng = lng; self.address = address; self.placeId = placeId; self.sortOrder = sortOrder
+    }
 
     var location: LatLng { LatLng(lat: lat, lng: lng) }
+
+    var favoriteIcon: FavoriteIcon {
+        switch kind {
+        case .home: .home
+        case .work: .work
+        case .favorite: icon.flatMap(FavoriteIcon.init(rawValue:)) ?? .star
+        }
+    }
 }
 
 struct SavedPlaceInput: Codable, Sendable {
     var name: String
+    var icon: String?
     var lat: Double
     var lng: Double
     var address: String
     var placeId: String?
+}
+
+/// `PATCH /me/places/{id}` body.
+struct SavedPlacePatch: Codable, Sendable, Equatable {
+    var name: String?
+    var icon: String?
+    var lat: Double?
+    var lng: Double?
+    var address: String?
+    var sortOrder: Int?
+}
+
+/// Favourite icons allowed by the contract.
+enum FavoriteIcon: String, CaseIterable, Sendable, Identifiable {
+    case home, work, kampung, mertua, star, heart, school, surau, food, gym, shop, hospital
+    var id: String { rawValue }
+
+    var gIcon: GIcon {
+        switch self {
+        case .home: .home
+        case .work: .work
+        case .kampung: .kampung
+        case .mertua: .mertua
+        case .star: .star
+        case .heart: .heart
+        case .school: .school
+        case .surau: .surau
+        case .food: .food
+        case .gym: .gym
+        case .shop: .shop
+        case .hospital: .hospital
+        }
+    }
+
+    /// Icons a user may pick for a favourite (home/work are reserved).
+    static let pickable: [FavoriteIcon] = [.kampung, .mertua, .star, .heart, .school, .surau, .food, .gym, .shop, .hospital]
+}
+
+/// Quick label chips on the "Save place" sheet. Labels are Malay proper names and stay as typed.
+struct QuickLabel: Identifiable, Sendable, Hashable {
+    let label: String
+    let icon: FavoriteIcon
+    var id: String { label }
+
+    static let all: [QuickLabel] = [
+        QuickLabel(label: "Kampung", icon: .kampung),
+        QuickLabel(label: "Rumah Mertua", icon: .mertua),
+        QuickLabel(label: "Sekolah", icon: .school),
+        QuickLabel(label: "Surau", icon: .surau),
+        QuickLabel(label: "Gym", icon: .gym),
+        QuickLabel(label: "Kedai", icon: .shop),
+    ]
+
+    /// Suggests an icon for a free-text label ("Sekolah Aina" → school).
+    static func suggestedIcon(for label: String) -> FavoriteIcon? {
+        let l = label.lowercased()
+        let rules: [(String, FavoriteIcon)] = [
+            ("mertua", .mertua), ("kampung", .kampung), ("sekolah", .school), ("school", .school), ("tadika", .school),
+            ("surau", .surau), ("masjid", .surau), ("mosque", .surau), ("gym", .gym), ("kedai", .shop), ("shop", .shop),
+            ("hospital", .hospital), ("klinik", .hospital), ("clinic", .hospital), ("makan", .food), ("restoran", .food),
+            ("food", .food), ("cafe", .food),
+        ]
+        return rules.first { l.contains($0.0) }?.1
+    }
+}
+
+/// Orders saved places as the contract specifies: home, work, then favourites by sortOrder.
+enum SavedPlaceOrdering {
+    static func sorted(_ places: [SavedPlace], localOrder: [String: Int] = [:]) -> [SavedPlace] {
+        func rank(_ p: SavedPlace) -> (Int, Int, String) {
+            switch p.kind {
+            case .home: (0, 0, "")
+            case .work: (1, 0, "")
+            case .favorite: (2, localOrder[p.id] ?? p.sortOrder ?? Int.max, p.name)
+            }
+        }
+        return places.sorted { rank($0) < rank($1) }
+    }
 }
 
 struct Recent: Codable, Sendable, Identifiable, Hashable {
@@ -110,11 +248,53 @@ enum PlaceCategory: String, Codable, Sendable, CaseIterable {
     case carWash = "car_wash"
     case tourism
     case transitStation = "transit_station"
-    case airport, government, other
+    case airport, government, toilets
+    /// Search-only kinds (ids st-/ad-/pc-/pt-): not openable as places, routed by lat/lng.
+    case street, address, postcode, point
+    case other
 
     init(from decoder: any Decoder) throws {
         let raw = try decoder.singleValueContainer().decode(String.self)
         self = PlaceCategory(rawValue: raw) ?? .other
+    }
+
+    var isSearchOnly: Bool { [.street, .address, .postcode, .point].contains(self) }
+}
+
+/// `chainGroup: {key, name, countNearby}` (outlets of the same chain within 10 km).
+struct ChainGroup: Codable, Sendable, Hashable {
+    var key: String
+    var name: String
+    var countNearby: Int?
+
+    init(key: String, name: String, countNearby: Int? = nil) { self.key = key; self.name = name; self.countNearby = countNearby }
+
+    /// Also accepts a plain string (early servers).
+    init(from decoder: any Decoder) throws {
+        if let s = try? decoder.singleValueContainer().decode(String.self) { self.init(key: s.lowercased(), name: s); return }
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        self.init(key: try c.decode(String.self, forKey: .key), name: try c.decode(String.self, forKey: .name),
+                  countNearby: try c.decodeIfPresent(Int.self, forKey: .countNearby))
+    }
+}
+
+enum PlaceSource: String, Codable, Sendable {
+    case osm, community
+    /// "Just for me": on this device only (never from or to the server).
+    case `private`
+
+    init(from decoder: any Decoder) throws {
+        let raw = try decoder.singleValueContainer().decode(String.self)
+        self = PlaceSource(rawValue: raw) ?? .osm
+    }
+}
+
+enum PlaceStatus: String, Codable, Sendable {
+    case pending, published, closed, hidden
+
+    init(from decoder: any Decoder) throws {
+        let raw = try decoder.singleValueContainer().decode(String.self)
+        self = PlaceStatus(rawValue: raw) ?? .published
     }
 }
 
@@ -127,12 +307,73 @@ struct PlaceSummary: Codable, Sendable, Identifiable, Hashable {
     var lng: Double
     var distanceM: Double?
     var brand: String?
+    var source: PlaceSource?
+    var status: PlaceStatus?
+    var rating: Double?
+    var reviewCount: Int?
+    var thumbnailUrl: String?
+    /// Same chain (e.g. all FamilyMart branches) for grouping results; falls back to `brand`.
+    var chainGroup: ChainGroup?
+    var openNow: Bool?
+    var confirmationsWeighted: Double?
+    var required: Double?
+
+    init(id: String, name: String, category: PlaceCategory, address: String, lat: Double, lng: Double, distanceM: Double? = nil,
+         brand: String? = nil, source: PlaceSource? = nil, status: PlaceStatus? = nil, rating: Double? = nil,
+         reviewCount: Int? = nil, thumbnailUrl: String? = nil, chainGroup: ChainGroup? = nil, openNow: Bool? = nil) {
+        self.id = id; self.name = name; self.category = category; self.address = address; self.lat = lat; self.lng = lng
+        self.distanceM = distanceM; self.brand = brand; self.source = source; self.status = status; self.rating = rating
+        self.reviewCount = reviewCount; self.thumbnailUrl = thumbnailUrl; self.chainGroup = chainGroup; self.openNow = openNow
+    }
 
     var location: LatLng { LatLng(lat: lat, lng: lng) }
+    var isCommunity: Bool { source == .community }
+    /// Streets, addresses, postcodes and points from search: no place page, route by lat/lng.
+    var isSearchOnly: Bool {
+        category.isSearchOnly || ["st-", "ad-", "pc-", "pt-"].contains { id.hasPrefix($0) }
+    }
+    var isPrivate: Bool { source == .private || id.hasPrefix(PrivatePlace.idPrefix) }
 }
 
 struct SearchResponse: Codable, Sendable {
     var results: [PlaceSummary]
+    /// Set when the server corrected the spelling ("famly mart" → "FamilyMart").
+    var correctedQuery: String?
+    /// "Did you mean" for few/no results: a category nearby, a similar name, etc.
+    var suggestions: [SearchSuggestion]?
+    var noMatch: Bool?
+    var interpretation: SearchInterpretation?
+}
+
+/// How the server read the query (informational).
+struct SearchInterpretation: Codable, Sendable, Hashable {
+    var kind: String
+    var normalized: String?
+    var categories: [String]?
+    var area: String?
+}
+
+struct SearchSuggestion: Codable, Sendable, Hashable, Identifiable {
+    var label: String
+    var query: String?
+    var category: PlaceCategory?
+    var count: Int?
+    var placeId: String?
+    var lat: Double?
+    var lng: Double?
+    var distanceM: Double?
+    var id: String { "\(label)|\(query ?? "")|\(category?.rawValue ?? "")|\(placeId ?? "")" }
+
+    enum CodingKeys: String, CodingKey { case label, query, category, count, placeId, lat, lng, distanceM }
+}
+
+/// What a search returned, with the server's spelling fix and suggestions when present.
+struct SearchOutcome: Sendable {
+    var results: [PlaceSummary]
+    var correctedQuery: String?
+    var suggestions: [SearchSuggestion]
+    var noMatch = false
+    var interpretation: SearchInterpretation?
 }
 
 struct Place: Codable, Sendable, Identifiable, Hashable {
@@ -152,17 +393,183 @@ struct Place: Codable, Sendable, Identifiable, Hashable {
     var tags: [String: String]?
     var osmType: String?
     var osmId: Int64?
+    var source: PlaceSource?
+    var status: PlaceStatus?
+    var rating: Double?
+    var reviewCount: Int?
+    var thumbnailUrl: String?
+    var description: String?
+    var addedBy: PersonRef?
+    var verifiedCount: Int?
+    var photos: [Photo]?
+    var confirmationsWeighted: Double?
+    var required: Double?
 
     var summary: PlaceSummary {
-        PlaceSummary(id: id, name: name, category: category, address: address, lat: lat, lng: lng, distanceM: distanceM, brand: brand)
+        PlaceSummary(id: id, name: name, category: category, address: address, lat: lat, lng: lng, distanceM: distanceM, brand: brand,
+                     source: source, status: status, rating: rating, reviewCount: reviewCount, thumbnailUrl: thumbnailUrl)
+    }
+}
+
+struct PersonRef: Codable, Sendable, Hashable {
+    var displayName: String
+    var level: Int?
+    var reviewCount: Int?
+}
+
+// MARK: - Community places, reviews, photos
+
+/// `POST /places` (and the owner's `PATCH /places/{id}`).
+struct NewPlace: Codable, Sendable, Hashable {
+    var name: String
+    var category: PlaceCategory
+    var lat: Double
+    var lng: Double
+    var address: String?
+    var description: String?
+    var phone: String?
+    var website: String?
+    var openingHours: String?
+    var amenities: [String]?
+}
+
+/// `POST /places/{id}/suggest-edit`.
+struct PlaceEditSuggestion: Codable, Sendable, Hashable {
+    var name: String?
+    var category: PlaceCategory?
+    var lat: Double?
+    var lng: Double?
+    var phone: String?
+    var website: String?
+    var openingHours: String?
+    var comment: String?
+}
+
+struct SuggestionAccepted: Codable, Sendable { var suggestionId: String }
+
+
+enum PhotoStatus: String, Codable, Sendable {
+    case processing, published, rejected
+
+    init(from decoder: any Decoder) throws {
+        let raw = try decoder.singleValueContainer().decode(String.self)
+        self = PhotoStatus(rawValue: raw) ?? .published
+    }
+}
+
+struct Photo: Codable, Sendable, Hashable, Identifiable {
+    var id: String
+    /// Null while the server is still processing the upload (status "processing").
+    var url: String?
+    var thumbUrl: String?
+    var width: Int?
+    var height: Int?
+    var caption: String?
+    var uploadedBy: PersonRef?
+    var createdAt: Date?
+    var status: PhotoStatus?
+}
+
+struct PhotosPage: Codable, Sendable {
+    var photos: [Photo]
+    var next: String?
+}
+
+enum ReviewSort: String, Sendable, CaseIterable {
+    case recent, helpful
+}
+
+struct Review: Codable, Sendable, Hashable, Identifiable {
+    var id: String
+    var placeId: String
+    var rating: Int
+    var text: String?
+    var photos: [Photo]?
+    var author: PersonRef
+    var helpfulCount: Int
+    var createdAt: Date
+    var editedAt: Date?
+    var status: String?
+}
+
+struct ReviewsPage: Codable, Sendable {
+    var reviews: [Review]
+    var next: String?
+}
+
+struct NewReview: Codable, Sendable, Hashable {
+    var rating: Int
+    var text: String?
+    var photoIds: [String]?
+}
+
+enum FlagReason: String, Codable, Sendable, CaseIterable, Identifiable {
+    case spam, offensive
+    case offTopic = "off_topic"
+    case conflictOfInterest = "conflict_of_interest"
+    case other
+    var id: String { rawValue }
+}
+
+struct FlagRequest: Codable, Sendable { var reason: FlagReason }
+
+/// A "Just for me" place: stored only in the on-device DB (`private_places`), never sent to the server.
+struct PrivatePlace: Identifiable, Hashable, Sendable {
+    static let idPrefix = "private:"
+    var id: String
+    var name: String
+    var category: PlaceCategory
+    var lat: Double
+    var lng: Double
+    var address: String?
+    var description: String?
+    var phone: String?
+    var website: String?
+    var openingHours: String?
+    var amenities: [String]
+    var photoFiles: [String] = []
+    var createdAt: Date?
+    var updatedAt: Date?
+
+    var location: LatLng { LatLng(lat: lat, lng: lng) }
+
+    var summary: PlaceSummary {
+        PlaceSummary(id: Self.idPrefix + id, name: name, category: category, address: address ?? "", lat: lat, lng: lng, source: .private)
+    }
+}
+
+/// Rating summary shown on the place card ("New" under 3 reviews).
+struct RatingSummary: Equatable, Sendable {
+    var average: Double
+    var count: Int
+    /// Count per star, index 0 = 1 star … index 4 = 5 stars.
+    var distribution: [Int]
+
+    var isNew: Bool { count < 3 }
+
+    static func make(reviews: [Review], serverAverage: Double? = nil, serverCount: Int? = nil) -> RatingSummary {
+        var dist = [0, 0, 0, 0, 0]
+        for r in reviews where (1...5).contains(r.rating) { dist[r.rating - 1] += 1 }
+        let localCount = dist.reduce(0, +)
+        let localAvg = localCount > 0 ? Double(dist.enumerated().reduce(0) { $0 + ($1.offset + 1) * $1.element }) / Double(localCount) : 0
+        return RatingSummary(average: serverAverage ?? localAvg, count: max(serverCount ?? 0, localCount), distribution: dist)
     }
 }
 
 struct ReverseGeocode: Codable, Sendable {
-    var name: String
-    var address: String
+    var name: String?
+    var address: String?
+    /// Ready-made line in the request language: "Dekat 18, Jalan SS 2/24, SS2, Petaling Jaya" / "Near …".
+    var label: String?
+    var houseNumber: String?
+    var street: String?
+    var area: String?
+    var city: String?
+    var postcode: String?
     var lat: Double
     var lng: Double
+    /// Known places within 50 m ("Is this …?"), nearest first.
+    var nearby: [PlaceSummary]?
 }
 
 /// What the user picked as a destination, regardless of origin (search, saved, recent, map).
@@ -172,6 +579,8 @@ struct Destination: Hashable, Sendable {
     var location: LatLng
     var placeId: String?
     var category: PlaceCategory = .other
+    /// Chosen on the map (no name yet): after arriving we offer "Name this place?".
+    var isPin = false
 }
 
 // MARK: - Routing
@@ -186,6 +595,8 @@ struct RouteEndpoint: Codable, Sendable, Hashable {
     var lat: Double
     var lng: Double
     var placeId: String?
+    /// Waypoint display name (sent for waypoints).
+    var name: String?
 }
 
 struct RouteRequest: Codable, Sendable, Hashable {
@@ -196,8 +607,10 @@ struct RouteRequest: Codable, Sendable, Hashable {
     var avoid = AvoidOptions()
     var departAt: Date?
     var alternatives = 2
+    /// "Drive through anyway": issues to ignore for this trip only.
+    var ignoreIssues: [String] = []
 
-    enum CodingKeys: String, CodingKey { case origin, destination, waypoints, vehicle, avoid, departAt, alternatives }
+    enum CodingKeys: String, CodingKey { case origin, destination, waypoints, vehicle, avoid, departAt, alternatives, ignoreIssues }
 
     func encode(to encoder: any Encoder) throws {
         var c = encoder.container(keyedBy: CodingKeys.self)
@@ -209,6 +622,7 @@ struct RouteRequest: Codable, Sendable, Hashable {
         // Contract shows explicit null.
         if let departAt { try c.encode(departAt, forKey: .departAt) } else { try c.encodeNil(forKey: .departAt) }
         try c.encode(alternatives, forKey: .alternatives)
+        if !ignoreIssues.isEmpty { try c.encode(ignoreIssues, forKey: .ignoreIssues) }
     }
 }
 
@@ -257,8 +671,34 @@ struct Maneuver: Codable, Sendable, Hashable {
     var verbalPost: String?
 }
 
+struct LegEnd: Codable, Sendable, Hashable {
+    var lat: Double
+    var lng: Double
+    var name: String?
+}
+
 struct RouteLeg: Codable, Sendable, Hashable {
+    var durationS: Double?
+    var distanceM: Double?
+    var to: LegEnd?
     var maneuvers: [Maneuver]
+
+    init(durationS: Double? = nil, distanceM: Double? = nil, to: LegEnd? = nil, maneuvers: [Maneuver]) {
+        self.durationS = durationS; self.distanceM = distanceM; self.to = to; self.maneuvers = maneuvers
+    }
+}
+
+/// A toll plaza on the route with its curated fare (contract `tolls[]`).
+struct TollPlaza: Codable, Sendable, Hashable, Identifiable {
+    var plazaId: String
+    var name: String
+    var highway: String?
+    var lat: Double
+    var lng: Double
+    var fareMyr: Double?
+    var system: String?
+    var source: String?
+    var id: String { plazaId }
 }
 
 struct TrafficSegment: Codable, Sendable, Hashable {
@@ -275,13 +715,18 @@ struct Route: Codable, Sendable, Identifiable, Hashable {
     var trafficDurationS: Double?
     var summary: String
     var trafficDescription: String?
+    var vehicle: Vehicle?
     var hasTolls: Bool
     var tollEstimateMyr: Double?
+    var tollFareComplete: Bool?
+    var tolls: [TollPlaza]?
     var polyline: String
     var bbox: [Double]
     var legs: [RouteLeg]
     var trafficSegments: [TrafficSegment]?
     var alerts: [AlertOnRoute]?
+    /// Road issues on or avoided by this route (complaints v1).
+    var issues: [RouteIssue]?
     /// Client-side only (demo mode): explains that a captured route was substituted. Not part of the API contract.
     var demoNote: String?
 
@@ -295,6 +740,8 @@ struct RerouteRequest: Codable, Sendable {
     var lat: Double
     var lng: Double
     var heading: Double
+    /// Index (into the original waypoints) of the next stop not yet reached; the server keeps the remaining stops.
+    var nextStopIndex: Int?
 }
 
 struct DepartureSlot: Codable, Sendable, Hashable, Identifiable {
@@ -460,5 +907,179 @@ struct BBox: Hashable, Sendable {
             b.minLat = min(b.minLat, p.lat); b.maxLat = max(b.maxLat, p.lat)
         }
         return b
+    }
+}
+
+// MARK: - Feedback
+
+enum FeedbackCategory: String, Codable, Sendable, CaseIterable, Identifiable {
+    case bug
+    case idea
+    case mapData = "map_data"
+    case route
+    case search
+    case other
+    var id: String { rawValue }
+
+    init(from decoder: any Decoder) throws {
+        let raw = try decoder.singleValueContainer().decode(String.self)
+        self = FeedbackCategory(rawValue: raw) ?? .other
+    }
+}
+
+enum FeedbackScreen: String, Codable, Sendable {
+    case home, search, place
+    case routePreview = "route_preview"
+    case navigation, report, settings, other
+}
+
+enum FeedbackStatus: String, Codable, Sendable {
+    case received, triaged, planned, done
+    case wontFix = "wont_fix"
+
+    init(from decoder: any Decoder) throws {
+        let raw = try decoder.singleValueContainer().decode(String.self)
+        self = FeedbackStatus(rawValue: raw) ?? .received
+    }
+}
+
+struct FeedbackContext: Codable, Sendable, Hashable {
+    var appVersion: String?
+    var platform: String? = "ios"
+    var osVersion: String?
+    var deviceModel: String?
+    var locale: String?
+    var lat: Double?
+    var lng: Double?
+    var routeId: String?
+    var placeId: String?
+}
+
+/// docs/api.md "Feedback": sent only when the user ticks "Include device info" (shown in a preview first).
+struct DeviceInfo: Codable, Sendable, Hashable {
+    struct Screen: Codable, Sendable, Hashable {
+        var widthPx: Int, heightPx: Int, density: Double, widthDp: Int, heightDp: Int
+    }
+    var appVersion: String
+    var appBuild: Int
+    var platform: String = "ios"
+    var osVersion: String
+    var deviceModel: String
+    var manufacturer: String = "Apple"
+    var screen: Screen
+    var locale: String
+    var theme: String
+    var dataMode: String
+    /// "precise" | "approximate" and the last horizontal accuracy (m). Never coordinates.
+    var locationPrecision: String?
+    var lastAccuracyM: Int?
+}
+
+struct CoarseLocation: Codable, Sendable, Hashable {
+    var lat: Double
+    var lng: Double
+    /// Rounded to 2 dp (~1 km) on the phone.
+    init(_ p: LatLng) {
+        lat = (p.lat * 100).rounded() / 100
+        lng = (p.lng * 100).rounded() / 100
+    }
+}
+
+/// Optional, volunteered per report; never prefilled, never stored on the profile.
+struct ContactDetails: Codable, Sendable, Hashable {
+    var email: String?
+    var whatsapp: String?
+    var consent: Bool
+}
+
+struct FeedbackRequest: Codable, Sendable, Hashable {
+    var category: FeedbackCategory
+    var message: String
+    var rating: Int?
+    var screen: FeedbackScreen
+    var device: DeviceInfo?
+    var location: CoarseLocation?
+    var contact: ContactDetails?
+    var routeId: String?
+    var placeId: String?
+    /// Base64 JPEG/PNG, ≤ 1.5 MB decoded.
+    var screenshot: String?
+}
+
+struct FeedbackCreated: Codable, Sendable, Hashable {
+    var id: String
+    var createdAt: Date?
+}
+
+struct FeedbackSummary: Codable, Sendable, Hashable, Identifiable {
+    var id: String
+    var category: FeedbackCategory
+    var message: String
+    var status: FeedbackStatus
+    var createdAt: Date
+    var hasContact: Bool?
+}
+
+// MARK: - Inbox (news about the user's public contributions only)
+
+enum InboxKind: String, Codable, Sendable {
+    case placePublished = "place_published"
+    case placeRejected = "place_rejected"
+    case reportThanked = "report_thanked"
+    case reviewHelpful = "review_helpful"
+    case editAccepted = "edit_accepted"
+    case feedbackStatus = "feedback_status"
+    /// Complaints: the reporter's issue was confirmed / refuted / resolved (OSM now matches).
+    case issueConfirmed = "issue_confirmed"
+    case issueRefuted = "issue_refuted"
+    case issueResolved = "issue_resolved"
+    case announcement
+    case unknown
+
+    init(from decoder: any Decoder) throws {
+        let raw = try decoder.singleValueContainer().decode(String.self)
+        self = InboxKind(rawValue: raw) ?? .unknown
+    }
+}
+
+struct InboxItem: Codable, Sendable, Hashable, Identifiable {
+    var id: String
+    var kind: InboxKind
+    var title: String
+    var body: String?
+    var refType: String?
+    var refId: String?
+    var createdAt: Date
+    var read: Bool?
+    var count: Int?
+}
+
+struct InboxPage: Codable, Sendable {
+    var items: [InboxItem]
+    var next: String?
+    var unread: Int?
+}
+
+struct InboxReadRequest: Codable, Sendable { var upTo: Date }
+
+/// Unread = newer than both the server's read flag and the local read mark (local state keeps the badge right
+/// offline and before the server endpoint exists).
+enum InboxReadState {
+    static func unreadCount(_ items: [InboxItem], localReadUpTo: Date?) -> Int {
+        items.filter { item in
+            if item.read == true { return false }
+            if let mark = localReadUpTo, item.createdAt <= mark { return false }
+            return true
+        }.count
+    }
+}
+
+/// Photo URLs from the server may be root-relative (`/media/{key}.webp`); resolve them against the API host.
+@MainActor
+enum MediaURL {
+    static func resolve(_ raw: String?, apiBase: URL = AppConfig().apiBaseURL) -> URL? {
+        guard let raw, !raw.isEmpty else { return nil }
+        if let u = URL(string: raw), u.scheme != nil { return u }
+        return URL(string: raw, relativeTo: apiBase)?.absoluteURL
     }
 }

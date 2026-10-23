@@ -35,6 +35,20 @@
                ReferencedContainer = "container:Gimano.xcodeproj">
             </BuildableReference>
          </BuildActionEntry>
+         <BuildActionEntry
+            buildForTesting = "YES"
+            buildForRunning = "NO"
+            buildForProfiling = "NO"
+            buildForArchiving = "NO"
+            buildForAnalyzing = "NO">
+            <BuildableReference
+               BuildableIdentifier = "primary"
+               BlueprintIdentifier = "90D417ADC4C2CD4A61419061"
+               BuildableName = "GimanoUITests.xctest"
+               BlueprintName = "GimanoUITests"
+               ReferencedContainer = "container:Gimano.xcodeproj">
+            </BuildableReference>
+         </BuildActionEntry>
       </BuildActionEntries>
    </BuildAction>
    <TestAction
@@ -61,6 +75,17 @@
                BlueprintIdentifier = "D984370A6FF58891719E4DD9"
                BuildableName = "GimanoTests.xctest"
                BlueprintName = "GimanoTests"
+               ReferencedContainer = "container:Gimano.xcodeproj">
+            </BuildableReference>
+         </TestableReference>
+         <TestableReference
+            skipped = "NO"
+            parallelizable = "NO">
+            <BuildableReference
+               BuildableIdentifier = "primary"
+               BlueprintIdentifier = "90D417ADC4C2CD4A61419061"
+               BuildableName = "GimanoUITests.xctest"
+               BlueprintName = "GimanoUITests"
                ReferencedContainer = "container:Gimano.xcodeproj">
             </BuildableReference>
          </TestableReference>

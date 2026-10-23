@@ -1,0 +1,8 @@
+<span class="pill @Css">@Fmt.Label(Text)</span>
+
+@code {
+    [Parameter, EditorRequired] public string Text { get; set; } = "";
+    [Parameter] public string? Kind { get; set; }
+
+    private string Css => Kind ?? Text;
+}

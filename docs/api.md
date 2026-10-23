@@ -13,7 +13,11 @@ Errors: RFC 7807 `application/problem+json`.
 ## Auth & profile
 
 ```
-POST /auth/device            {deviceId, platform:"android"|"ios", locale}
+POST /auth/register          {publicKey: base64 Ed25519, platform:"android"|"ios", locale}
+  → 200 {token, userId, displayName}          (new; see identity-and-reputation.md)
+POST /auth/token             {userId, ts, sig}   sig = Ed25519 over "GIMANO-AUTH\n"+userId+"\n"+ts → {token}
+POST /me/keys                {publicKey, sigByOldKey?}  attach/rotate the signing key (legacy accounts: JWT only)
+POST /auth/device            {deviceId, platform:"android"|"ios", locale}   (legacy, kept for old app versions)
   → 200 {token, userId, displayName}
 
 GET  /me                     → User
@@ -42,6 +46,10 @@ DELETE /me                → 204   (deletes the account; the user's reports are
 Legacy shapes (migration only): `SavedPlace = {id, kind, name, icon, lat, lng, address, placeId?, sortOrder}`,
 `Recent = {id, name, address, lat, lng, placeId?, lastUsedAt}`. Favourite labels/icons:
 `home, work, kampung, mertua, star, heart, school, surau, food, gym, shop, hospital`.
+
+**Contributor identity, signed requests, trust tiers and vetting rules:** see
+[identity-and-reputation.md](identity-and-reputation.md). `User` gains
+`tier: "baharu"|"perak"|"emas", accuracy: number|null, placesAccepted, verifierVotes, nextTier: {name, missing: string[]}`.
 
 ## Search & places
 
@@ -92,7 +100,10 @@ POST   /places                        → 201 Place
 PATCH  /places/{id}                   → Place        (owner only, community places only)
 DELETE /places/{id}                   → 204          (owner only; published places become "closed", not deleted)
 POST   /places/{id}/suggest-edit      → 202 {suggestionId}   (any user; any place incl. OSM → stored as a map-data suggestion)
-POST   /places/{id}/verify            {exists: true|false, correctLocation?: bool} → 200 Place
+POST   /places/{id}/verify  (signed)  {answer: yes|no|unsure, nameCorrect?, locationCorrect?,
+                                      proximity:{cell, withinM}, attestation?:{platform, token}}
+                                      → 200 {status, confirmationsWeighted, required}
+GET    /places/pending-nearby?cell=<geohash6>   → PlaceSummary[] (pending, excludes own)
 GET    /me/places/contributed         → PlaceSummary[]
 ```
 
@@ -273,6 +284,49 @@ subtypes:
   animal:  on_road | on_shoulder
 ```
 
+## Share my drive (end-to-end encrypted live ETA)
+
+The driver shares a link (WhatsApp etc.). The recipient opens it in any browser and sees the driver's position
+and ETA until arrival. **Gimano's server only relays ciphertext it cannot read**, so this keeps the
+privacy rule in AGENTS.md.
+
+1. The app generates a random 256-bit key `K` **on the device** and calls `POST /shares`.
+2. Share link: `https://www.bukitbunga.com/gimano/s/#<shareId>.<base64url(K)>`. The part after `#` is
+   **never sent to any server** by browsers, so the key stays between the driver and the recipients.
+3. Every 15 s while navigating, the app encrypts
+   `{lat, lng, heading, speedKmh, etaIso, remainingM, destinationName, status: "driving"|"arrived"|"ended", ts}`
+   with **XChaCha20-Poly1305** (libsodium `crypto_aead_xchacha20poly1305_ietf`, random 24-byte nonce,
+   associated data = shareId) and PUTs it.
+4. The viewer page (`site/gimano/s/index.html`, static, served from bukitbunga.com) reads the fragment, polls `GET`
+   every 10 s, decrypts in the browser (libsodium.js, self-hosted next to the page) and shows the position on a
+   MapLibre GL JS map with the ETA. It never sends the key anywhere.
+5. The share ends on arrival, on Stop, when the driver taps "Stop sharing", or at `expiresAt` (max 12 h).
+
+```
+POST   /shares              {expiresInMinutes: 15..720}            → 201 {shareId, writeToken, expiresAt}
+PUT    /shares/{shareId}    Authorization: Share <writeToken>
+                            {nonce: base64, ciphertext: base64}     (≤ 1 KB)  → 204
+GET    /shares/{shareId}    (public, no auth; CORS for the viewer origin) → 200 {nonce, ciphertext, updatedAt, expiresAt}
+                                                                     → 404 unknown · 410 ended/expired
+DELETE /shares/{shareId}    Authorization: Share <writeToken>       → 204
+```
+
+Server storage: **in memory only** (latest blob per share, with TTL; never Postgres, never logged), and a
+rate limit of 3 active shares per user. `shareId` is 128-bit random and `writeToken` is 256-bit random.
+After the share ends, `GET` returns 410 and the blob is dropped immediately.
+Before the first `PUT`, `GET` returns 200 with `nonce`/`ciphertext` = null. Limits: `nonce` must be 24 bytes and
+`ciphertext` ≤ 1024 bytes (413 above); `POST` above 3 active shares → 429; a wrong `writeToken` → 401. CORS on
+`GET` allows only the viewer origin (`https://www.bukitbunga.com` in production, any origin in dev). The store is
+per API process, so the API must run as a single instance (or move to a shared in-memory store if it scales out).
+
+## Planned drives (on device)
+
+Planned drives are personal data, so they are stored only in the local `planned_drives` table and backed up
+with the rest. The app computes "Leave by" times by calling
+`GET /routes/departure-times` (origin/destination are sent for the calculation only and not stored) and
+schedules local notifications ("Bertolak sebelum 7:40 pagi untuk sampai 8:30 di Kerja"). A drive can be
+one-off or repeat on chosen weekdays. Opening the notification goes straight to route preview.
+
 ## Feedback
 
 Every screen's menu has **Add feedback**. Anonymous users can send feedback too, with their device token.
@@ -282,22 +336,105 @@ POST /feedback
 { "category": "bug" | "idea" | "map_data" | "route" | "search" | "other",
   "message": "Jalan ini sudah ditutup sejak minggu lepas",   // 1–2000 chars, required
   "rating": 4,                       // optional 1–5
-  "screen": "navigation",            // where it was opened: home|search|place|route_preview|navigation|report|settings|other
-  "context": {                       // filled automatically by the app, user can untick "include diagnostics"
-    "appVersion": "0.1.0 (1)", "platform": "android"|"ios", "osVersion": "16", "deviceModel": "SM-S921B",
-    "locale": "ms", "lat": 3.118, "lng": 101.619, "routeId": "...", "placeId": "..."
+  "screen": "navigation",            // home|search|place|route_preview|navigation|report|settings|other
+  "device": {                        // ONLY when the user ticked "Sertakan maklumat peranti" (default ticked, shown in a preview)
+    "appVersion": "0.2.0", "appBuild": 2, "platform": "android"|"ios",
+    "osVersion": "16" | "iOS 26.1", "apiLevel": 36,            // apiLevel Android only
+    "deviceModel": "SM-S921B", "manufacturer": "samsung",
+    "screen": {"widthPx": 1080, "heightPx": 2340, "density": 2.625, "widthDp": 411, "heightDp": 891},
+    "locale": "ms", "theme": "light"|"dark", "dataMode": "live"|"demo"
   },
+  "location": {"lat": 3.12, "lng": 101.62},   // optional, separate tick "Sertakan lokasi kasar", rounded to 2 dp ON THE PHONE
+  "contact": {                       // optional; only if the user wants to be contacted about THIS report
+    "email": "ali@example.com",      // either or both; validated
+    "whatsapp": "+60123456789",      // E.164
+    "consent": true                  // required true when any contact field is present
+  },
+  "routeId": "...", "placeId": "...",
   "screenshot": "<base64 PNG/JPEG, optional, ≤ 1.5 MB decoded>" }
 → 201 {id, createdAt}
-→ 400 problem+json (validation), 413 (screenshot too big), 429 (more than 10 per hour per user)
+→ 400 problem+json (validation; contact without consent=true), 413 (screenshot too big), 429 (> 10 per hour per user)
 
-GET  /me/feedback            → FeedbackSummary[]   ({id, category, message, status, createdAt})
+GET  /me/feedback            → FeedbackSummary[]   ({id, category, message, status, createdAt, hasContact})
+DELETE /feedback/{id}/contact → 204   (the user withdraws their contact details at any time)
 ```
 
-`status ∈ received, triaged, planned, done, wont_fix`. The backend stores feedback in Postgres
-(screenshot as bytea, max 1.5 MB), publishes `feedback.created` on RabbitMQ, and can
-optionally open a GitHub issue (`Feedback:GitHubRepo` + token configured; off by default; the
-issue body never includes the device id or a precise location, which is rounded to 2 dp).
+`status ∈ received, triaged, planned, done, wont_fix`. Feedback is stored in Postgres (screenshot as bytea,
+max 1.5 MB) and `feedback.created` is published on RabbitMQ. The optional GitHub-issue sink **never** includes
+contact details, device model or location. `context` (0.1.x apps: `{appVersion, platform, osVersion, deviceModel,
+locale, lat, lng, routeId, placeId}`) is still accepted; when `device`/`location` are sent they take precedence.
+Maintainers triage feedback in the back office ([`back-office.md`](back-office.md)).
+
+## Crash reports
+
+No third-party crash SDK. The app writes a crash record **locally** (Android: `UncaughtExceptionHandler` +
+`ApplicationExitInfo` for ANR/native exits; iOS: MetricKit `MXCrashDiagnostic`, delivered on the next launch).
+On the next launch it asks *"Gimano terhenti tadi. Hantar laporan?"* with **Lihat butiran** (the exact JSON)
+and a remembered choice: **Tanya setiap kali** (default) · **Sentiasa hantar** · **Jangan hantar**.
+
+```
+POST /crash-reports
+{ "occurredAt": "2026-10-23T03:41:00Z",
+  "kind": "crash" | "anr" | "native" | "hang",
+  "exception": "java.lang.IllegalStateException", "message": "<first 500 chars, scrubbed>",
+  "stack": "<≤ 32 KB, scrubbed>",
+  "threads": "<optional, ≤ 32 KB>",
+  "screen": "navigation", "uptimeS": 312,
+  "device": { …same shape as feedback.device; always included for crashes, shown in the preview… },
+  "contact": { "email"?, "whatsapp"?, "consent": true }      // optional, as for feedback
+}
+→ 201 {id, signature}      // signature = sha256 of exception + top 5 app frames, for grouping
+→ 429 (> 20 per day per install)
+```
+
+**Scrubbing on the phone before sending:** coordinates (anything that looks like a lat/lng pair), emails, phone
+numbers, tokens/JWTs, URLs with query strings and file paths under the user's data dir are replaced with `[redacted]`.
+Crash records never include favourites, routes, search text or screenshots. Server retention: 90 days.
+
+The server stores crash events **without** the user id (the account is used only for the in-memory daily limit) and
+groups them by `signature`. A group that was marked fixed in build *n* reopens as `regressed` when an event arrives
+from build ≥ *n* ([`back-office.md`](back-office.md)). Limits: `exception` ≤ 200 chars, `stack`/`threads` ≤ 32 KB
+(413 above), `device.platform ∈ android, ios`.
+
+## Contact details (feedback & crash reports): the narrow exception
+
+Contact details are the ONE kind of personal data the server accepts, and only when the user volunteers them on a
+specific report:
+- never prefilled and never stored on the user's pseudonym or profile: they belong to that one report;
+- encrypted at rest (AES-GCM with a key from server config, not in the database);
+- visible only to maintainers triaging that report; never in the GitHub sink, logs or analytics;
+- **deleted automatically 30 days after the report is closed (done/wont_fix), and in any case after 90 days**,
+  or immediately via `DELETE /feedback/{id}/contact` / `DELETE /me`.
+
+## Inbox
+
+Notifications about the user's own **public** contributions only. Nothing private is involved, so this fits the
+privacy rule. Items are generated by the worker from contribution events, kept for **90 days**, and deleted by
+`DELETE /me`.
+
+```
+GET  /me/inbox?cursor=       → {items: InboxItem[], next?, unread}
+POST /me/inbox/read          {upTo: ISO time}   → 204   (everything created at or before upTo is read; never moves back)
+```
+
+`InboxItem = {id, kind, title, body, refType?, refId?, createdAt, read, count}`
+`kind ∈ place_published, place_rejected, place_expired, report_thanked, review_helpful, edit_accepted, feedback_status, announcement`
+
+- `report_thanked` and `review_helpful` are **aggregated per day** (Malaysia time) into one item, e.g. "24 drivers thanked
+  you" (`count: 24`). Each new thank moves it to the top as unread.
+- `place_published` / `place_rejected`: `refType: "place"`, `refId` = the community place id.
+- `feedback_status`: `refType: "feedback"`. Created when a maintainer approves a reply (possibly drafted by an agent)
+  in the back office; `body` is the reply text.
+- `announcement`: broadcast to everyone (a server-side table that operators fill), with `refType: "url"` and `refId` = a link when present.
+- `title`/`body` are in BM or English by the user's `locale`. The app may also render its own text from `kind` + `count`.
+- Newest first, keyset-paged with `cursor` (30 per page). `unread` counts everything newer than the read mark.
+
+## Back office & AI agents (not for the apps)
+
+`/admin/v1/*` and the MCP endpoint `POST /mcp` (server `gimano-backoffice`) are for maintainers' AI agents. They take
+`Authorization: Bearer agt_…` tokens minted in the back office (scopes `read`, `triage:write`, `runs:write`,
+`replies:draft`; 8 h max) and answer 404 to requests that came through the public edge. They never return contact
+details, user ids or device tokens. Details and the tool list: [`back-office.md`](back-office.md).
 
 ## Location pings
 

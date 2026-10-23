@@ -27,6 +27,15 @@ public sealed class GimanoDbContext(DbContextOptions<GimanoDbContext> options) :
     public DbSet<Photo> Photos => Set<Photo>();
     public DbSet<PhotoFlag> PhotoFlags => Set<PhotoFlag>();
     public DbSet<WaterArea> WaterAreas => Set<WaterArea>();
+    public DbSet<CrashGroup> CrashGroups => Set<CrashGroup>();
+    public DbSet<CrashEvent> CrashEvents => Set<CrashEvent>();
+    public DbSet<ReportContact> ReportContacts => Set<ReportContact>();
+    public DbSet<AgentToken> AgentTokens => Set<AgentToken>();
+    public DbSet<AuditEntry> AuditLog => Set<AuditEntry>();
+    public DbSet<AgentRun> AgentRuns => Set<AgentRun>();
+    public DbSet<ReplyDraft> ReplyDrafts => Set<ReplyDraft>();
+    public DbSet<InboxItem> InboxItems => Set<InboxItem>();
+    public DbSet<AppBuild> AppBuilds => Set<AppBuild>();
 
     protected override void OnModelCreating(ModelBuilder b)
     {
@@ -128,9 +137,126 @@ public sealed class GimanoDbContext(DbContextOptions<GimanoDbContext> options) :
             e.Property(x => x.Message).HasMaxLength(2000);
             e.Property(x => x.ScreenshotContentType).HasMaxLength(20);
             e.Property(x => x.ExternalUrl).HasMaxLength(300);
+            e.Property(x => x.Severity).HasConversion<string>().HasMaxLength(4);
+            e.Property(x => x.CrashSignature).HasMaxLength(64);
+            e.Property(x => x.TriageNote).HasMaxLength(2000);
             e.OwnsOne(x => x.Context, o => o.ToJson());
+            e.Property(x => x.Device).HasColumnType("jsonb");
             e.HasIndex(x => new { x.UserId, x.CreatedAt });
+            e.HasIndex(x => new { x.Status, x.CreatedAt });
             e.HasOne<User>().WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.SetNull);
+        });
+
+        b.Entity<CrashGroup>(e =>
+        {
+            e.HasKey(x => x.Signature);
+            e.Property(x => x.Signature).HasMaxLength(64);
+            e.Property(x => x.Platform).HasMaxLength(10);
+            e.Property(x => x.Kind).HasConversion<string>().HasMaxLength(8);
+            e.Property(x => x.Status).HasConversion<string>().HasMaxLength(10);
+            e.Property(x => x.Severity).HasConversion<string>().HasMaxLength(4);
+            e.Property(x => x.Exception).HasMaxLength(200);
+            e.Property(x => x.Message).HasMaxLength(500);
+            e.Property(x => x.TopFrame).HasMaxLength(300);
+            e.Property(x => x.FirstVersion).HasMaxLength(30);
+            e.Property(x => x.LatestVersion).HasMaxLength(30);
+            e.Property(x => x.FixedInVersion).HasMaxLength(30);
+            e.Property(x => x.ExternalUrl).HasMaxLength(300);
+            e.Property(x => x.TriageNote).HasMaxLength(2000);
+            e.Property(x => x.Analysis).HasMaxLength(20_000);
+            e.Property(x => x.AnalysisBy).HasMaxLength(60);
+            e.HasIndex(x => new { x.Status, x.LastSeenAt });
+        });
+
+        b.Entity<CrashEvent>(e =>
+        {
+            e.Property(x => x.Signature).HasMaxLength(64);
+            e.Property(x => x.Kind).HasConversion<string>().HasMaxLength(8);
+            e.Property(x => x.Exception).HasMaxLength(200);
+            e.Property(x => x.Message).HasMaxLength(500);
+            e.Property(x => x.Stack).HasMaxLength(32_768);
+            e.Property(x => x.Threads).HasMaxLength(32_768);
+            e.Property(x => x.Screen).HasMaxLength(20);
+            e.Property(x => x.Device).HasColumnType("jsonb");
+            e.HasIndex(x => new { x.Signature, x.ReceivedAt });
+            e.HasIndex(x => x.ReceivedAt);
+            e.HasOne<CrashGroup>().WithMany().HasForeignKey(x => x.Signature).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        b.Entity<ReportContact>(e =>
+        {
+            e.HasIndex(x => x.FeedbackId).IsUnique();
+            e.HasIndex(x => x.CrashEventId).IsUnique();
+            e.HasIndex(x => x.ExpiresAt);
+            e.HasOne<Feedback>().WithMany().HasForeignKey(x => x.FeedbackId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne<CrashEvent>().WithMany().HasForeignKey(x => x.CrashEventId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        b.Entity<AgentToken>(e =>
+        {
+            e.Property(x => x.Name).HasMaxLength(60);
+            e.Property(x => x.Prefix).HasMaxLength(16);
+            e.Property(x => x.TokenHash).HasMaxLength(64);
+            e.Property(x => x.CreatedBy).HasMaxLength(100);
+            e.HasIndex(x => x.TokenHash).IsUnique();
+        });
+
+        b.Entity<AuditEntry>(e =>
+        {
+            e.ToTable("audit_log");
+            e.Property(x => x.Actor).HasMaxLength(100);
+            e.Property(x => x.ActorKind).HasMaxLength(8);
+            e.Property(x => x.Action).HasMaxLength(60);
+            e.Property(x => x.TargetType).HasMaxLength(20);
+            e.Property(x => x.TargetId).HasMaxLength(80);
+            e.Property(x => x.Detail).HasMaxLength(500);
+            e.HasIndex(x => x.At);
+            e.HasIndex(x => new { x.TargetType, x.TargetId });
+        });
+
+        b.Entity<AgentRun>(e =>
+        {
+            e.Property(x => x.Title).HasMaxLength(200);
+            e.Property(x => x.TargetType).HasMaxLength(10);
+            e.Property(x => x.TargetId).HasMaxLength(80);
+            e.Property(x => x.Status).HasConversion<string>().HasMaxLength(20);
+            e.Property(x => x.Agent).HasMaxLength(60);
+            e.Property(x => x.Branch).HasMaxLength(120);
+            e.Property(x => x.PrUrl).HasMaxLength(300);
+            e.Property(x => x.Summary).HasMaxLength(20_000);
+            e.Property(x => x.Steps).HasColumnType("jsonb");
+            e.HasIndex(x => new { x.TargetType, x.TargetId });
+        });
+
+        b.Entity<ReplyDraft>(e =>
+        {
+            e.Property(x => x.Message).HasMaxLength(1000);
+            e.Property(x => x.NewStatus).HasConversion<string>().HasMaxLength(12);
+            e.Property(x => x.Status).HasConversion<string>().HasMaxLength(10);
+            e.Property(x => x.DraftedBy).HasMaxLength(100);
+            e.Property(x => x.DecidedBy).HasMaxLength(100);
+            e.HasIndex(x => new { x.Status, x.CreatedAt });
+            e.HasOne<Feedback>().WithMany().HasForeignKey(x => x.FeedbackId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        b.Entity<InboxItem>(e =>
+        {
+            e.Property(x => x.Kind).HasMaxLength(30);
+            e.Property(x => x.Title).HasMaxLength(200);
+            e.Property(x => x.Body).HasMaxLength(1000);
+            e.Property(x => x.RefType).HasMaxLength(20);
+            e.Property(x => x.RefId).HasMaxLength(80);
+            e.HasIndex(x => new { x.UserId, x.CreatedAt });
+            e.HasOne<User>().WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        b.Entity<AppBuild>(e =>
+        {
+            e.Property(x => x.Platform).HasMaxLength(10);
+            e.Property(x => x.Version).HasMaxLength(30);
+            e.Property(x => x.Commit).HasMaxLength(40);
+            e.Property(x => x.SymbolsUrl).HasMaxLength(300);
+            e.HasIndex(x => new { x.Platform, x.Build }).IsUnique();
         });
 
         b.Entity<CommunityPlace>(e =>
@@ -233,7 +359,7 @@ public sealed class GimanoDbContext(DbContextOptions<GimanoDbContext> options) :
 public static class GimanoDb
 {
     public const string ConnectionStringName = "Postgres";
-    public const string DefaultConnectionString = "Host=localhost;Port=5432;Database=gimano;Username=gimano;Password=gimano";
+    public const string DefaultConnectionString = "Host=localhost;Port=5432;Database=gimano;Username=gimano";
 
     public static NpgsqlDataSource BuildDataSource(string connectionString)
     {

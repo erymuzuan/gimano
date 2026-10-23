@@ -17,6 +17,8 @@ public sealed class User
     public double Reputation { get; set; } = 1.0;
     public DateTimeOffset JoinedAt { get; set; } = DateTimeOffset.UtcNow;
     public DateTimeOffset LastSeenAt { get; set; } = DateTimeOffset.UtcNow;
+    /// <summary>Inbox read mark: everything created at or before it is read. Never moves back.</summary>
+    public DateTimeOffset? InboxReadUpTo { get; set; }
 
     public int Level => Points switch { < 100 => 1, < 500 => 2, < 2_000 => 3, < 10_000 => 4, < 50_000 => 5, _ => 6 };
 
@@ -173,15 +175,26 @@ public sealed class Feedback
     public required string Message { get; set; }
     public int? Rating { get; set; }
     public FeedbackScreen? Screen { get; set; }
-    /// <summary>Diagnostics as sent by the app (stored as jsonb).</summary>
+    /// <summary>Diagnostics as sent by the app (stored as jsonb); location already rounded to 2 dp.</summary>
     public FeedbackContext? Context { get; set; }
+    /// <summary>The full <c>device</c> block, only when the user consented to send it.</summary>
+    public DeviceInfo? Device { get; set; }
     public byte[]? Screenshot { get; set; }
     public string? ScreenshotContentType { get; set; }
+    /// <summary>A maintainer shared this one screenshot with agent runs (docs/back-office.md).</summary>
+    public bool ScreenshotSharedWithAgents { get; set; }
     public FeedbackStatus Status { get; set; } = FeedbackStatus.Received;
+    public Severity? Severity { get; set; }
+    public Guid? DuplicateOfId { get; set; }
+    public string? CrashSignature { get; set; }
+    public string? TriageNote { get; set; }
     public string? ExternalUrl { get; set; }
     public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;
+    public DateTimeOffset UpdatedAt { get; set; } = DateTimeOffset.UtcNow;
+    /// <summary>Set when the status becomes done/wont_fix; starts the 30-day contact-deletion clock.</summary>
+    public DateTimeOffset? ClosedAt { get; set; }
 
-    public FeedbackSummary ToSummary() => new(Id, Category, Message, Status, CreatedAt);
+    public FeedbackSummary ToSummary(bool hasContact = false) => new(Id, Category, Message, Status, CreatedAt, hasContact);
 }
 
 /// <summary>A row of data/tolls/my-toll-rates.csv, matched to OSM toll plaza place ids by the importer.</summary>

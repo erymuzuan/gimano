@@ -18,7 +18,7 @@ enum Keychain {
         return String(data: data, encoding: .utf8)
     }
 
-    static func set(_ value: String?, for key: String) {
+    static func set(_ value: String?, for key: String, accessible: CFString = kSecAttrAccessibleAfterFirstUnlock) {
         let base: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: service,
@@ -28,7 +28,7 @@ enum Keychain {
         guard let value, let data = value.data(using: .utf8) else { return }
         var add = base
         add[kSecValueData as String] = data
-        add[kSecAttrAccessible as String] = kSecAttrAccessibleAfterFirstUnlock
+        add[kSecAttrAccessible as String] = accessible
         SecItemAdd(add as CFDictionary, nil)
     }
 }

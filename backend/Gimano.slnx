@@ -1,6 +1,7 @@
 <Solution>
   <Folder Name="/src/">
     <Project Path="src/Gimano.Api/Gimano.Api.csproj" />
+    <Project Path="src/Gimano.BackOffice/Gimano.BackOffice.csproj" />
     <Project Path="src/Gimano.Core/Gimano.Core.csproj" />
     <Project Path="src/Gimano.Importer/Gimano.Importer.csproj" />
     <Project Path="src/Gimano.Worker/Gimano.Worker.csproj" />

@@ -1,0 +1,133 @@
+@page "/agent-access"
+@rendermode InteractiveServer
+@inherits BackOfficePage
+@inject IConfiguration Config
+
+<PageTitle>Agent access · Gimano back office</PageTitle>
+
+<header class="page-head">
+    <div>
+        <h1>Agent access</h1>
+        <p>AI agents reach feedback and crashes only through the gimano-backoffice MCP server (or /admin/v1) with a short-lived token.</p>
+    </div>
+</header>
+
+<Messages Error="@Error" Notice="@Notice" />
+
+<div class="split">
+    <div class="primary">
+        @if (created is not null)
+        {
+            <section class="card agent stack" style="gap: 12px;">
+                <h2 style="margin: 0;">Token for “@created.Token.Name”: copy it now, it is not shown again</h2>
+                <div class="secret">@created.Secret</div>
+                <p class="muted small" style="margin: 0;">Add the MCP server to Claude Code on the build Mac:</p>
+                <pre class="wrap">claude mcp add --transport http gimano-backoffice @(ApiBase)/mcp --header "Authorization: Bearer @created.Secret"</pre>
+                <p class="muted small" style="margin: 0;">Or call the REST twin: <code>curl -H "Authorization: Bearer …" @(ApiBase)/admin/v1/queue</code>. Expires @Fmt.When(created.Token.ExpiresAt).</p>
+                <button class="btn" @onclick="() => created = null">Done, hide it</button>
+            </section>
+        }
+
+        <section class="card flush" aria-labelledby="tok">
+            <h2 id="tok">Tokens</h2>
+            <div style="overflow-x: auto;">
+                <table class="grid" style="min-width: 640px;">
+                    <thead><tr><th scope="col">Name</th><th scope="col">Scopes</th><th scope="col">Expires</th><th scope="col">Last used</th><th scope="col"></th></tr></thead>
+                    <tbody>
+                        @foreach (var t in tokens)
+                        {
+                            var active = t.Active(DateTimeOffset.UtcNow);
+                            <tr>
+                                <td><strong>@t.Name</strong><div class="sub">@t.Prefix… · by @t.CreatedBy</div></td>
+                                <td class="small">@string.Join(" · ", t.Scopes)</td>
+                                <td class="small nowrap">@(t.RevokedAt is not null ? "revoked" : active ? Fmt.Short(t.ExpiresAt) : "expired")</td>
+                                <td class="small nowrap muted">@(t.LastUsedAt is { } u ? Fmt.Ago(u) : "never")</td>
+                                <td>@if (active) { <button class="btn small danger" @onclick="() => Revoke(t.Id)">Revoke</button> }</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+            @if (tokens.Count == 0) { <p class="empty">No tokens yet.</p> }
+        </section>
+
+        <section class="card flush" aria-labelledby="mx">
+            <h2 id="mx">Who sees which field</h2>
+            <div style="overflow-x: auto;">
+                <table class="grid" style="min-width: 640px;">
+                    <thead><tr><th scope="col">Field</th><th scope="col">Public GitHub issue</th><th scope="col">Agent token</th><th scope="col">Maintainer</th></tr></thead>
+                    <tbody>
+                        <tr><td>Message, category, screen, rating, app version</td><td>yes</td><td>yes (fenced as untrusted)</td><td>yes</td></tr>
+                        <tr><td>Device model, screen size, OS</td><td>no</td><td>yes</td><td>yes</td></tr>
+                        <tr><td>Area (2 dp ≈ 1 km)</td><td>no</td><td>yes</td><td>yes</td></tr>
+                        <tr><td>Crash stack (scrubbed on the phone)</td><td>no</td><td>yes</td><td>yes</td></tr>
+                        <tr><td>Screenshot</td><td>no</td><td>only if shared, one by one</td><td>yes</td></tr>
+                        <tr><td>Email / WhatsApp</td><td>never</td><td>never (flags only)</td><td>reveal with reason, audited</td></tr>
+                        <tr><td>User id, device token, IP address</td><td>never</td><td>never</td><td>never</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    </div>
+
+    <aside class="aside">
+        <section class="card stack" style="gap: 12px;" aria-labelledby="new">
+            <h2 id="new" style="margin: 0;">New token</h2>
+            <label class="field">Name
+                <input @bind="name" maxlength="60" placeholder="claude-code@mac" />
+            </label>
+            <fieldset style="border: 0; padding: 0; margin: 0;">
+                <legend class="field" style="margin-bottom: 4px;">Scopes</legend>
+                @foreach (var s in AgentScopes.All)
+                {
+                    <label class="check"><input type="checkbox" checked="@scopes.Contains(s)" @onchange="e => Toggle(s, e)" /> @s</label>
+                }
+            </fieldset>
+            <label class="field">Lifetime (hours, max @AgentTokenPolicy.MaxLifetime.TotalHours)
+                <input type="number" min="1" max="@AgentTokenPolicy.MaxLifetime.TotalHours" @bind="hours" />
+            </label>
+            <button class="btn primary" @onclick="Create">Create token</button>
+            <p class="muted small" style="margin: 0;">There is no scope for revealing contacts, merging, releasing or messaging reporters: those need a person.</p>
+        </section>
+
+        <section class="card warn">
+            <h2>Reporter text is untrusted</h2>
+            <p style="margin: 0;">Feedback and crash messages are written by strangers. MCP wraps them in &lt;untrusted-…&gt; tags and no tool can reach outside Gimano, so a message saying “ignore your instructions” can at worst produce a bad draft that you then reject.</p>
+        </section>
+
+        <section class="card">
+            <h2>Network</h2>
+            <p style="margin: 0;">/admin and /mcp refuse requests that came through the public Cloudflare edge. Agents connect over Tailscale (@ApiBase).</p>
+        </section>
+    </aside>
+</div>
+
+@code {
+    private IReadOnlyList<AgentTokenView> tokens = [];
+    private CreatedAgentToken? created;
+    private string? name = "claude-code@mac";
+    private readonly HashSet<string> scopes = [AgentScopes.Read, AgentScopes.TriageWrite, AgentScopes.RunsWrite, AgentScopes.RepliesDraft];
+    private int hours = 8;
+
+    private string ApiBase => (Config["BackOffice:ApiBaseUrl"] ?? "http://100.101.150.9:5080").TrimEnd('/');
+
+    protected override async Task OnInitializedAsync() => tokens = await Triage.TokensAsync();
+
+    private void Toggle(string scope, ChangeEventArgs e)
+    {
+        if (e.Value is true) scopes.Add(scope); else scopes.Remove(scope);
+    }
+
+    private async Task Create()
+    {
+        var me = await MeAsync();
+        if (await TryAsync(async () => created = await Triage.CreateTokenAsync(name ?? "", scopes, TimeSpan.FromHours(hours), me)))
+            tokens = await Triage.TokensAsync();
+    }
+
+    private async Task Revoke(Guid id)
+    {
+        var me = await MeAsync();
+        if (await TryAsync(() => Triage.RevokeTokenAsync(id, me), "Revoked.")) tokens = await Triage.TokensAsync();
+    }
+}

@@ -14,14 +14,28 @@ final class NavigationSession {
     private(set) var arrived = false
     private(set) var approachingAlert: AlertOnRoute?
     private(set) var rerouteCount = 0
+    /// Largest snapped distance from the route seen while on it (diagnostics / UI tests).
+    private(set) var maxOffRoadM: Double = 0
+    /// The first time the driver left the route at a decision point (on the phone only; asked about after the trip).
+    private(set) var deviation: DeviationEvent?
     let startedAt = Date()
-    var waypoints: [RouteEndpoint] = []
+    /// Stops not yet reached, in order (the destination is separate).
+    private(set) var stops: [TripStop]
+    /// Shown briefly after reaching a stop: "Arrived at {stop}".
+    private(set) var arrivedAtStop: String?
     var vehicle: Vehicle
     var avoid: AvoidOptions
 
     @ObservationIgnored private var tracker: RouteTracker
     @ObservationIgnored private var offRoute = OffRouteDetector()
-    @ObservationIgnored private var announcer = VoiceAnnouncer()
+    @ObservationIgnored private var announcer: VoiceAnnouncer
+    @ObservationIgnored private(set) var stopTracker: StopTracker
+    /// Maneuver index → stop name, for intermediate "arrive" maneuvers.
+    @ObservationIgnored private var stopArrivals: [Int: String] = [:]
+    @ObservationIgnored private var arrivedTask: Task<Void, Never>?
+    /// How many waypoints of the original `POST /routes` request were already passed before the current route
+    /// (reroutes keep indexing the original request's waypoints).
+    @ObservationIgnored private var originalStopOffset = 0
     @ObservationIgnored private var batcher = LocationPingBatcher()
     @ObservationIgnored private var handledAlerts: Set<String> = []
     @ObservationIgnored private let repo: any GimanoRepository
@@ -29,14 +43,41 @@ final class NavigationSession {
     /// Called when the active route geometry changes (reroute, add stop, alternative picked).
     @ObservationIgnored var onRouteChanged: ((Route) -> Void)?
 
-    init(destination: Destination, route: Route, vehicle: Vehicle, avoid: AvoidOptions, repo: any GimanoRepository, voice: VoiceGuide) {
+    init(destination: Destination, route: Route, stops: [TripStop] = [], vehicle: Vehicle, avoid: AvoidOptions,
+         repo: any GimanoRepository, voice: VoiceGuide) {
         self.destination = destination
         self.route = route
+        self.stops = stops
         self.vehicle = vehicle
         self.avoid = avoid
         self.repo = repo
         self.voice = voice
         self.tracker = RouteTracker(route: route)
+        self.announcer = VoiceAnnouncer(mode: vehicle)
+        self.stopTracker = StopTracker(schedule: StopSchedule.make(route: route, stops: stops.map(\.location)), stopCount: stops.count)
+        self.stopArrivals = Self.arrivalLabels(maneuvers: tracker.maneuvers, stops: stops)
+    }
+
+    /// Intermediate "arrive" maneuvers, in order, map to the stops.
+    static func arrivalLabels(maneuvers: [Maneuver], stops: [TripStop]) -> [Int: String] {
+        let arrives = maneuvers.indices.filter { maneuvers[$0].type == .arrive }.dropLast()
+        var out: [Int: String] = [:]
+        for (k, i) in arrives.enumerated() where k < stops.count { out[i] = stops[k].name }
+        return out
+    }
+
+    func stopName(forManeuverAt index: Int?) -> String? { index.flatMap { stopArrivals[$0] } }
+
+    /// Seconds from now to each remaining stop, then the destination.
+    var etaOffsets: [Double] {
+        let along = progress?.snap.distanceAlongM ?? 0
+        let sched = stopTracker.schedule
+        let start = stopTracker.nextStopIndex
+        let total = geometry.totalM
+        return (start..<sched.alongM.count).map { i in
+            let remainingM = max(0, sched.alongM[i] - along)
+            return total > 0 ? remainingS * remainingM / max(1, total - along) : 0
+        }
     }
 
     var geometry: RouteGeometry { tracker.geometry }
@@ -51,7 +92,7 @@ final class NavigationSession {
 
     func begin() {
         if let first = tracker.maneuvers.first {
-            voice.speak(ManeuverFormatter.instruction(for: first))
+            voice.speak(ManeuverFormatter.instruction(for: first, mode: vehicle))
         }
     }
 
@@ -60,6 +101,18 @@ final class NavigationSession {
         guard !arrived else { return }
         guard let p = tracker.update(location: fix.coordinate) else { return }
         progress = p
+        if p.snap.distanceFromRouteM <= 30 { maxOffRoadM = max(maxOffRoadM, p.snap.distanceFromRouteM) }
+
+        if let reached = stopTracker.update(alongM: p.snap.distanceAlongM), reached < stops.count {
+            let name = stops[reached].name
+            arrivedAtStop = name
+            voice.speak(String(localized: "Arrived at \(name)"))
+            arrivedTask?.cancel()
+            arrivedTask = Task { [weak self] in
+                try? await Task.sleep(for: .seconds(5))
+                if !Task.isCancelled { self?.arrivedAtStop = nil }
+            }
+        }
 
         if let batch = batcher.add(LocationPoint(lat: fix.coordinate.lat, lng: fix.coordinate.lng, speedKmh: fix.speedKmh,
                                                   heading: fix.course ?? 0, accuracyM: fix.accuracyM, ts: fix.timestamp)) {
@@ -69,6 +122,7 @@ final class NavigationSession {
         if p.arrived {
             arrived = true
             voice.speak(String(localized: "You have arrived at \(destination.name)"))
+            arrivedTask?.cancel()
             send(batcher.drain())
             return
         }
@@ -80,7 +134,8 @@ final class NavigationSession {
         }
 
         if let i = p.upcomingIndex,
-           let text = announcer.prompt(maneuverIndex: i, maneuver: tracker.maneuvers[i], distanceM: p.distanceToUpcomingM, speedKmh: fix.speedKmh) {
+           let text = announcer.prompt(maneuverIndex: i, maneuver: tracker.maneuvers[i], distanceM: p.distanceToUpcomingM,
+                                       speedKmh: fix.speedKmh, stopName: stopArrivals[i]) {
             voice.speak(text)
         }
 
@@ -114,10 +169,16 @@ final class NavigationSession {
         Task { _ = try? await repo.vote(reportId: a.id, stillThere: stillThere) }
     }
 
-    /// Replace the active route (alternative picked / stop added).
-    func setRoute(_ r: Route) {
+    /// Replace the active route (alternative picked / stop added / reroute). `stops` are the stops still ahead.
+    /// - Parameter newRequest: the route came from a fresh `POST /routes` (stop added / alternative), so stop
+    ///   indexes restart at 0 for later reroutes.
+    func setRoute(_ r: Route, stops newStops: [TripStop]? = nil, newRequest: Bool = true) {
         route = r
+        if let newStops { stops = newStops }
+        if newRequest { originalStopOffset = 0 }
         tracker = RouteTracker(route: r)
+        stopTracker = StopTracker(schedule: StopSchedule.make(route: r, stops: stops.map(\.location)), stopCount: stops.count)
+        stopArrivals = Self.arrivalLabels(maneuvers: tracker.maneuvers, stops: stops)
         announcer.reset()
         offRoute.reset()
         progress = nil
@@ -127,22 +188,35 @@ final class NavigationSession {
 
     func reroute(from fix: LocationFix) {
         isRerouting = true
+        if deviation == nil {
+            let road = progress?.upcomingIndex.flatMap { tracker.maneuvers.indices.contains($0) ? ManeuverFormatter.roadName(tracker.maneuvers[$0]) : nil }
+            deviation = DeviationEvent(lat: fix.coordinate.lat, lng: fix.coordinate.lng, heading: fix.course, roadName: road,
+                                       at: fix.timestamp, vehicle: vehicle)
+        }
         voice.speak(String(localized: "Recalculating route"))
         let origin = fix.coordinate
         let heading = fix.course ?? 0
         let routeId = route.id
+        let next = stopTracker.nextStopIndex
+        let remaining = Array(stops.dropFirst(min(next, stops.count)))
         Task {
             defer { isRerouting = false }
-            var routes = (try? await repo.reroute(routeId: routeId, RerouteRequest(lat: origin.lat, lng: origin.lng, heading: heading))) ?? []
+            // The server keeps the stops not yet reached (nextStopIndex into this route's stops).
+            let absoluteNext = originalStopOffset + next
+            var routes = (try? await repo.reroute(routeId: routeId, RerouteRequest(lat: origin.lat, lng: origin.lng, heading: heading,
+                                                                                    nextStopIndex: stops.isEmpty && absoluteNext == 0 ? nil : absoluteNext))) ?? []
+            var viaReroute = !routes.isEmpty
             if routes.isEmpty {
                 let req = RouteRequest(origin: RouteEndpoint(lat: origin.lat, lng: origin.lng),
                                        destination: RouteEndpoint(lat: destination.location.lat, lng: destination.location.lng, placeId: destination.placeId),
-                                       waypoints: waypoints, vehicle: vehicle, avoid: avoid, alternatives: 0)
+                                       waypoints: remaining.map(\.endpoint), vehicle: vehicle, avoid: avoid, alternatives: 0)
                 routes = (try? await repo.routes(req)) ?? []
+                viaReroute = false
             }
             guard let best = routes.first(where: \.isBest) ?? routes.first else { return }
             rerouteCount += 1
-            setRoute(best)
+            setRoute(best, stops: remaining, newRequest: !viaReroute)
+            if viaReroute { originalStopOffset = absoluteNext }
         }
     }
 

@@ -1,0 +1,88 @@
+@page "/replies"
+@rendermode InteractiveServer
+@inherits BackOfficePage
+
+<PageTitle>Replies outbox · Gimano back office</PageTitle>
+
+<header class="page-head">
+    <div>
+        <h1>Replies outbox</h1>
+        <p>Replies drafted by agents or by the system (crash fixed). Nothing reaches a reporter until you approve it.</p>
+    </div>
+</header>
+
+<Messages Error="@Error" Notice="@Notice" />
+
+@if (drafts.Count == 0)
+{
+    <p class="empty card">No drafts waiting.</p>
+}
+<div class="stack">
+    @foreach (var r in drafts)
+    {
+        <section class="card stack" style="gap: 10px;">
+            <div class="hrow">
+                <Pill Text="draft" />
+                <span class="muted small">by @r.DraftedBy · @Fmt.Ago(r.CreatedAt)@(r.NewStatus is { } ns ? $" · sets {Fmt.Wire(ns)}" : "")</span>
+                @if (!r.ReporterReachable) { <Pill Text="reporter deleted account" Kind="neutral" /> }
+            </div>
+            <p class="muted" style="margin: 0;">On <a href="feedback/@r.FeedbackId">“@(r.FeedbackMessage.Length > 120 ? r.FeedbackMessage[..119] + "…" : r.FeedbackMessage)”</a></p>
+            <label class="field">Message
+                <textarea rows="3" maxlength="1000" value="@Edited(r)" @onchange="e => edits[r.Id] = e.Value?.ToString()"></textarea>
+            </label>
+            <div class="hrow">
+                <button class="btn primary" @onclick="() => Approve(r.Id)">Approve and send</button>
+                <button class="btn" @onclick="() => Discard(r.Id)">Discard</button>
+            </div>
+        </section>
+    }
+</div>
+
+@if (recent.Count > 0)
+{
+    <h2 style="font-size: 16px; font-weight: 800; margin: 28px 0 12px;">Recently decided</h2>
+    <div class="table-box">
+        <table class="grid">
+            <thead><tr><th scope="col">Reply</th><th scope="col">Status</th><th scope="col">Decided</th></tr></thead>
+            <tbody>
+                @foreach (var r in recent)
+                {
+                    <tr>
+                        <td><a class="title" href="feedback/@r.FeedbackId">@(r.Message.Length > 120 ? r.Message[..119] + "…" : r.Message)</a><div class="sub">drafted by @r.DraftedBy</div></td>
+                        <td><Pill Text="@Fmt.Wire(r.Status)" /></td>
+                        <td class="small muted">@r.DecidedBy · @(r.DecidedAt is { } d ? Fmt.Ago(d) : "")</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+}
+
+@code {
+    private IReadOnlyList<ReplyView> drafts = [];
+    private IReadOnlyList<ReplyView> recent = [];
+    private readonly Dictionary<Guid, string?> edits = [];
+
+    protected override async Task OnInitializedAsync() => await LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        drafts = await Triage.RepliesAsync(ReplyStatus.Draft);
+        recent = (await Triage.RepliesAsync(take: 60)).Where(r => r.Status != ReplyStatus.Draft).Take(30).ToList();
+    }
+
+    private string Edited(ReplyView r) => edits.TryGetValue(r.Id, out var e) && e is not null ? e : r.Message;
+
+    private async Task Approve(Guid id)
+    {
+        var me = await MeAsync();
+        edits.TryGetValue(id, out var edited);
+        if (await TryAsync(() => Triage.ApproveReplyAsync(id, edited, me), "Sent to the reporter’s Inbox.")) await LoadAsync();
+    }
+
+    private async Task Discard(Guid id)
+    {
+        var me = await MeAsync();
+        if (await TryAsync(() => Triage.DiscardReplyAsync(id, me), "Discarded.")) await LoadAsync();
+    }
+}

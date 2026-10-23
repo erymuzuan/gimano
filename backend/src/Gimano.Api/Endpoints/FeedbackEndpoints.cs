@@ -1,4 +1,5 @@
 using Gimano.Api.Auth;
+using Gimano.Core.BackOffice;
 using Gimano.Core.Contracts;
 using Gimano.Core.Data;
 using Gimano.Core.Domain;
@@ -8,7 +9,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Gimano.Api.Endpoints;
 
-public static class FeedbackEndpoints
+public static partial class FeedbackEndpoints
 {
     public const int MaxMessageLength = 2000;
     public const int MaxScreenshotBytes = 1_500_000;
@@ -20,11 +21,13 @@ public static class FeedbackEndpoints
         api.MapPost("/feedback", Create).WithTags("Feedback").RequireAuthorization()
             .WithSummary("Send feedback (optionally with a screenshot ≤ 1.5 MB). 413 if too big, 429 above 10/hour.");
         api.MapGet("/me/feedback", Mine).WithTags("Feedback").RequireAuthorization();
+        api.MapDelete("/feedback/{id:guid}/contact", WithdrawContact).WithTags("Feedback").RequireAuthorization()
+            .WithSummary("Withdraw the contact details volunteered on one of your own feedback items. 204 even if none were left.");
         return api;
     }
 
     private static async Task<Results<Created<FeedbackCreatedResponse>, ValidationProblem, ProblemHttpResult>> Create(
-        CreateFeedbackRequest req, HttpContext http, GimanoDbContext db, IEventPublisher bus, TimeProvider clock, CancellationToken ct)
+        CreateFeedbackRequest req, HttpContext http, GimanoDbContext db, IEventPublisher bus, TimeProvider clock, ReportIntake intake, CancellationToken ct)
     {
         if (Validate(req) is { } problem) return problem;
 
@@ -59,9 +62,11 @@ public static class FeedbackEndpoints
         var fb = new Feedback
         {
             UserId = uid, Category = req.Category, Message = req.Message.Trim(), Rating = req.Rating, Screen = req.Screen,
-            Context = Scrub(req.Context), Screenshot = screenshot, ScreenshotContentType = contentType, CreatedAt = now,
+            Context = Scrub(MergeContext(req)), Device = req.Device is null ? null : ReportIntake.TrimDevice(req.Device),
+            Screenshot = screenshot, ScreenshotContentType = contentType, CreatedAt = now, UpdatedAt = now,
         };
         db.Feedback.Add(fb);
+        intake.AttachContact(fb, req.Contact);
         await db.SaveChangesAsync(ct);
         await bus.PublishAsync(RoutingKeys.FeedbackCreated, new FeedbackCreatedEvent(fb.Id, fb.Category, fb.CreatedAt), ct);
         return TypedResults.Created($"/api/v1/me/feedback/{fb.Id}", new FeedbackCreatedResponse(fb.Id, fb.CreatedAt));
@@ -71,8 +76,30 @@ public static class FeedbackEndpoints
     {
         var uid = http.User.RequiredUserId();
         var rows = await db.Feedback.AsNoTracking().Where(f => f.UserId == uid).OrderByDescending(f => f.CreatedAt).Take(100)
-            .Select(f => new FeedbackSummary(f.Id, f.Category, f.Message, f.Status, f.CreatedAt)).ToListAsync(ct);
+            .Select(f => new FeedbackSummary(f.Id, f.Category, f.Message, f.Status, f.CreatedAt, db.ReportContacts.Any(c => c.FeedbackId == f.Id)))
+            .ToListAsync(ct);
         return TypedResults.Ok(rows);
+    }
+
+    private static async Task<NoContent> WithdrawContact(Guid id, HttpContext http, GimanoDbContext db, CancellationToken ct)
+    {
+        var uid = http.User.RequiredUserId();
+        await db.ReportContacts.Where(c => c.FeedbackId == id && db.Feedback.Any(f => f.Id == id && f.UserId == uid)).ExecuteDeleteAsync(ct);
+        return TypedResults.NoContent();
+    }
+
+    /// <summary>
+    /// 0.1.x apps send <c>context</c>; 0.2+ send <c>device</c> + <c>location</c> + top-level route/place ids (docs/api.md).
+    /// Both land in the same jsonb context so lists and the GitHub sink read one shape.
+    /// </summary>
+    internal static FeedbackContext? MergeContext(CreateFeedbackRequest req)
+    {
+        var c = req.Context;
+        if (req.Device is null && req.Location is null && req.RouteId is null && req.PlaceId is null) return c;
+        var d = req.Device;
+        return new FeedbackContext(
+            d?.AppVersion ?? c?.AppVersion, d?.Platform ?? c?.Platform, d?.OsVersion ?? c?.OsVersion, d?.DeviceModel ?? c?.DeviceModel,
+            d?.Locale ?? c?.Locale, req.Location?.Lat ?? c?.Lat, req.Location?.Lng ?? c?.Lng, req.RouteId ?? c?.RouteId, req.PlaceId ?? c?.PlaceId);
     }
 
     /// <summary>
@@ -90,6 +117,8 @@ public static class FeedbackEndpoints
         if (string.IsNullOrWhiteSpace(req.Message) || req.Message.Trim().Length > MaxMessageLength)
             return Validation.Problem("message", $"message is required (1–{MaxMessageLength} chars).");
         if (req.Rating is < 1 or > 5) return Validation.Problem("rating", "rating must be 1–5.");
+        if (ValidateContact(req.Contact) is { } contactProblem) return contactProblem;
+        if (req.Location is { } loc && !Validation.ValidLatLng(loc.Lat, loc.Lng)) return Validation.Problem("location.lat", "Invalid coordinates.");
         if (req.Context is { } c)
         {
             if (c.Lat is { } lat && c.Lng is { } lng && !Validation.ValidLatLng(lat, lng)) return Validation.Problem("context.lat", "Invalid coordinates.");
@@ -98,6 +127,20 @@ public static class FeedbackEndpoints
         }
         return null;
     }
+
+    internal static ValidationProblem? ValidateContact(ContactDetails? contact)
+    {
+        if (contact is null) return null;
+        if (!contact.Consent) return Validation.Problem("contact.consent", "contact needs consent=true.");
+        if (contact.Email is { } email && (email.Length > 254 || !System.Net.Mail.MailAddress.TryCreate(email.Trim(), out _)))
+            return Validation.Problem("contact.email", "Invalid email address.");
+        if (contact.Whatsapp is { } wa && !E164().IsMatch(wa.Trim()))
+            return Validation.Problem("contact.whatsapp", "whatsapp must be an E.164 number, e.g. +60123456789.");
+        return null;
+    }
+
+    [System.Text.RegularExpressions.GeneratedRegex(@"^\+[1-9]\d{7,14}$")]
+    internal static partial System.Text.RegularExpressions.Regex E164();
 
     internal enum ScreenshotError { None, Invalid, TooLarge }
 

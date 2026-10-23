@@ -1,6 +1,6 @@
 # Gimano for iOS
 
-Native iOS client for Gimano, the open-source (MIT) community navigation app for Malaysia.
+Native iOS client for Gimano, the community navigation app for Malaysia. Gimano's own code is MIT-licensed; Apple platform frameworks it uses are listed in Settings → About → Platform components.
 Swift 6, SwiftUI (iOS 17+), Observation, async/await, MapLibre Native.
 
 - Behaviour spec: [`docs/research/ux-study.md`](../docs/research/ux-study.md)
@@ -93,6 +93,73 @@ max(40 m, 1.2 × accuracy), with a 10 s cooldown, before calling `POST /routes/{
 Alerts on the route within 600 m raise the "Still there? / Not there" card. Pings are batched to `POST /locations`.
 The puck snaps to the route when within 30 m; otherwise it shows the raw fix.
 
+## Personal data: on device only (docs/privacy-and-backup.md)
+
+Home/Work, labelled favourites (Kampung, Rumah Mertua…), recents, "Just for me" places, planned drives
+and settings live in `Storage/LocalStore.swift` (GRDB, SQLite), using **exactly** the shared schema from
+the doc (`PRAGMA user_version` versioning, no GRDB migration table, so snapshots contain only shared
+tables). They are never sent to the server. On first launch the app imports any legacy server copy
+(`GET /me/data/export`, then `DELETE /me/data`; 404/410 is ignored).
+
+### Backup & restore (Settings, or Menu → Backup & restore)
+
+- **iCloud**: CloudKit private DB, container `iCloud.my.gimano.app`, one `GimanoBackup` record per backup (file as a
+  `CKAsset`) plus a fixed `GimanoBackupIndex` record. Keeps the last 5. Requires an Apple ID in Xcode
+  → Settings → Accounts so automatic signing can register the container. Until then, build with
+  `GIMANO_ICLOUD=NO` (on the command line or in `Config/Local.xcconfig`); the app then shows "iCloud isn't enabled in this build".
+- **Google Drive** `appDataFolder` (scope `drive.appdata`) via GoogleSignIn-iOS + Drive REST. Copy
+  `Config/Google.xcconfig.example` to `Config/Google.xcconfig` (git-ignored) with the iOS OAuth client id;
+  without it the screen says "not configured".
+- **File**: export a `.gimano` file (ShareLink) / restore with the file importer, or open one from Files/WhatsApp
+  (UTType `my.gimano.backup`).
+- Optional daily auto-backup (`BGProcessingTask` `my.gimano.app.backup`, charging + network, only if data changed).
+  Auto-backups are unencrypted, because the passphrase is never stored.
+- Restore modes: **Replace** or **Merge** (upsert by id, newer `updated_at` wins; Home/Work from the backup;
+  recents keep the newer `last_used_at` and the larger `use_count`; local settings are kept).
+
+### `.gimano` v1 byte layout (for cross-platform interop; please mirror on Android)
+
+```
+zip (plain):      manifest.json, data.sqlite, photos/<id>.webp
+zip (encrypted):  manifest.json, payload.enc
+payload.enc     = libsodium crypto_secretstream_xchacha20poly1305 over an inner zip { data.sqlite, photos/* }
+                  [24-byte header][chunk]…  chunk = 65 536 plaintext bytes + 17 (ABYTES); last chunk tag FINAL,
+                  all others MESSAGE (no additional data)
+key             = crypto_pwhash(32 bytes, passphrase UTF-8, salt, opslimit, memlimit, ALG_ARGON2ID13)
+manifest.kdf    = {"alg":"argon2id13","opslimit":…,"memlimit":…,"salt":"<base64 16 bytes>","chunkSize":65536}
+                  (iOS writes crypto_pwhash_OPSLIMIT_MODERATE / MEMLIMIT_MODERATE; readers must use the manifest values)
+data.sqlite     = `VACUUM INTO` snapshot, `outbox` table dropped, user_version = schema version
+timestamps      = ISO-8601 UTC text (`2026-10-23T01:02:03.123Z`); merge compares with julianday()
+```
+
+## Community places, reviews & photos
+
+- **Add a place**: from search ("Can't find it? Add a place"), the side menu, or a long-press on the map.
+  A centre pin over a movable map (reverse-geocoded address), then name, a category icon grid, photos (PhotosPicker
+  or camera; downscaled on the device to ≤ 2048 px JPEG, HEIC converted, metadata incl. GPS stripped), an
+  opening-hours editor (day chips + 24 h ranges + Closed → OSM `opening_hours`, see `Navigation/OpeningHours.swift`),
+  then "Just for me" (local `private_places`, photos as WebP via libwebp, never sent) or "Share with everyone"
+  (`POST /places` + `POST /photos` with upload progress; a 409 duplicate offers "Is it this one?").
+- **Place card**: Community / Unverified / Just for me badges, "Is this place here?" (`/verify`), "Suggest an edit"
+  (any place, incl. OSM), photo strip + full-screen viewer, rating summary with distribution ("New" under 3 reviews),
+  reviews (helpful, flag), write/edit one review per place with up to 5 photos.
+- **My contributions** (menu): `GET /me/places/contributed` plus local private places.
+- Demo mode implements all of it (WebP photos written locally) so the flows work offline.
+
+## Planned drives, Share my drive, Theme
+
+- **Planned drives** (menu, or route preview → Leave later → "Plan this drive"): on device in `planned_drives`;
+  one-off or repeating weekdays; "Leave by" from `GET /routes/departure-times` (hourly slots, interpolated);
+  local notifications 15 min before; tapping one opens route preview. The schedule lives in the shared `settings`
+  table: `planned_drive:<id>` = `{"arriveBy":"HH:mm","days":["Mo",…]}` (repeating) or `{"arriveAt":"<ISO>"}`
+  (one-off), and `depart_at` = the computed leave-by for one-off drives. *Proposed convention; please mirror on Android.*
+- **Share my drive** (trip sheet → Share drive): a 256-bit key generated on the device; link
+  `https://www.bukitbunga.com/gimano/s/#<shareId>.<base64url key>`; every 15 s an XChaCha20-Poly1305-IETF blob
+  (AD = shareId) is PUT with `Authorization: Share <writeToken>`. Ends on arrival, Stop, "Stop sharing" or expiry.
+  The key exists only in memory and in the link.
+- **Theme**: Light (default, even when iOS is in Dark mode), Dark, Follow phone, Auto day/night (sunrise/sunset).
+  Dark uses the OpenFreeMap `dark` basemap.
+
 ## Icons
 
 `DesignSystem/IconData.swift` is generated from `docs/icons/gimano-icons.json`:
@@ -117,7 +184,21 @@ app language: `ms-MY` voice, falling back to `id-ID` and then English if no Mala
 ## Debug launch arguments (screenshots / demos)
 
 `-GimanoDataMode demo|auto|live`, `-GimanoSimulateDrive YES`,
-`-GimanoDemoScene search|place|route|route-far|nav|report|menu|overview` (DEBUG builds only), `-GimanoDemoQuery <text>`.
+`-GimanoDemoScene search|place|route|route-far|nav|report|menu|overview` (DEBUG builds only), `-GimanoDemoQuery <text>`,
+`-GimanoFreshDevice YES` (new anonymous device, wipes local data), `-GimanoSkipOnboarding YES`,
+`-GimanoFakeLocation lat,lng`, `-GimanoNoAutoStart YES` (no Go-now countdown).
+
+## UI tests (real device)
+
+`GimanoUITests` drives the main scenarios against the live backend and attaches screenshots:
+
+```sh
+xcodebuild test -project Gimano.xcodeproj -scheme Gimano -destination id=<device-udid> \
+  -allowProvisioningUpdates GIMANO_ICLOUD=NO -only-testing:GimanoUITests -resultBundlePath out.xcresult
+xcrun xcresulttool export attachments --path out.xcresult --output-path shots/
+```
+
+The phone must be unlocked, and it needs Tailscale on to reach WS556.
 
 ## Licences / attribution
 

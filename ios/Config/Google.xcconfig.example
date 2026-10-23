@@ -1,0 +1,11 @@
+// Google Drive backup OAuth clients (iOS type, Google Cloud project shared with Android).
+// Copy to Config/Google.xcconfig (git-ignored) and fill in. Client IDs aren't secrets, but keep them out of the
+// repo so forks use their own. The active one follows APP_VARIANT in Config/Signing.xcconfig.
+
+// Manotu (bundle id my.manotu.app)
+MANOTU_GOOGLE_CLIENT_ID = 1234567890-abcdefg.apps.googleusercontent.com
+MANOTU_GOOGLE_REVERSED_CLIENT_ID = com.googleusercontent.apps.1234567890-abcdefg
+
+// Legacy Gimano (bundle id my.gimano.app)
+GIMANO_GOOGLE_CLIENT_ID = 1234567890-legacy.apps.googleusercontent.com
+GIMANO_GOOGLE_REVERSED_CLIENT_ID = com.googleusercontent.apps.1234567890-legacy

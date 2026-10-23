@@ -6,27 +6,21 @@ actor DemoRepository: GimanoRepository {
     static let defaultLocation = LatLng(lat: 3.152613, lng: 101.703718) // on Jalan Sultan Ismail, KL (road-snapped; origin of DemoRoutes.json)
 
     private var user = User(id: "demo-user", displayName: "Pemandu Gimano", mood: "😎", vehicle: .car, points: 1280, level: 3, joinedAt: .now.addingTimeInterval(-86400 * 40))
-    private var saved: [SavedPlace]
-    private var recentList: [Recent]
     private var reports: [Report]
-    private var routeDestinations: [String: (dest: RouteEndpoint, vehicle: Vehicle, avoid: AvoidOptions)] = [:]
+    private var routeDestinations: [String: (dest: RouteEndpoint, waypoints: [RouteEndpoint], vehicle: Vehicle, avoid: AvoidOptions)] = [:]
+    private var feedback: [FeedbackSummary] = []
+    private var community: [Place] = []
+    private var myPlaceIds: Set<String> = []
+    private var reviewsByPlace: [String: [Review]] = [:]
+    private var photosByPlace: [String: [(photo: Photo, readyAt: Date)]] = [:]
+    private var helpful: Set<String> = []
+    /// Demo user's display name for authored content.
+    private var me: PersonRef { PersonRef(displayName: user.displayName, level: user.level, reviewCount: reviewsByPlace.values.flatMap { $0 }.filter { $0.author.displayName == user.displayName }.count) }
     private var routeCounter = 0
     private let latency: Duration
 
     init(latency: Duration = .milliseconds(250)) {
         self.latency = latency
-        saved = [
-            SavedPlace(id: "home", kind: .home, name: "Home", lat: 3.1466, lng: 101.6297, address: "Taman Tun Dr Ismail, 60000 Kuala Lumpur"),
-            SavedPlace(id: "work", kind: .work, name: "Work", lat: 3.1110, lng: 101.6655, address: "Bangsar South, 59200 Kuala Lumpur"),
-            SavedPlace(id: "fav-1", kind: .favorite, name: "Mak's house", lat: 3.0738, lng: 101.5183, address: "Seksyen 7, 40000 Shah Alam"),
-            SavedPlace(id: "fav-2", kind: .favorite, name: "Gym", lat: 3.1579, lng: 101.7123, address: "Suria KLCC, Kuala Lumpur"),
-        ]
-        recentList = [
-            Recent(id: "r1", name: "Mid Valley Megamall", address: "Lingkaran Syed Putra, Mid Valley City, 59200 Kuala Lumpur", lat: 3.1178, lng: 101.6773, placeId: "demo:midvalley", lastUsedAt: .now.addingTimeInterval(-3600)),
-            Recent(id: "r2", name: "Batu Caves", address: "Gombak, 68100 Batu Caves, Selangor", lat: 3.2379, lng: 101.6840, placeId: "demo:batucaves", lastUsedAt: .now.addingTimeInterval(-86400)),
-            Recent(id: "r3", name: "KL Sentral", address: "Jalan Stesen Sentral, 50470 Kuala Lumpur", lat: 3.1340, lng: 101.6862, placeId: "demo:klsentral", lastUsedAt: .now.addingTimeInterval(-86400 * 3)),
-            Recent(id: "r4", name: "Sunway Pyramid", address: "Jalan PJS 11/15, Bandar Sunway, 47500 Petaling Jaya", lat: 3.0731, lng: 101.6070, placeId: "demo:sunway", lastUsedAt: .now.addingTimeInterval(-86400 * 6)),
-        ]
         let now = Date()
         func r(_ id: String, _ type: ReportType, _ sub: String?, _ lat: Double, _ lng: Double, _ street: String, _ minsAgo: Double, conf: Int) -> Report {
             Report(id: id, type: type, subtype: sub, lat: lat, lng: lng, heading: nil, street: street,
@@ -56,6 +50,11 @@ actor DemoRepository: GimanoRepository {
 
     // MARK: auth/profile
 
+    func ensureIdentity() async {}
+    func signIn(recovered keys: IdentityKeys) async throws -> DeviceAuthResponse {
+        DeviceAuthResponse(token: "demo", userId: "demo-recovered", displayName: "Rusa 2368")
+    }
+
     func signIn() async throws -> DeviceAuthResponse {
         DeviceAuthResponse(token: "demo-token", userId: user.id, displayName: user.displayName)
     }
@@ -69,31 +68,30 @@ actor DemoRepository: GimanoRepository {
         return user
     }
 
-    // MARK: places
+    // MARK: legacy (nothing to migrate in demo mode)
 
-    func savedPlaces() async throws -> [SavedPlace] { saved }
+    func legacyExport() async throws -> LegacyDataMigration.Export { LegacyDataMigration.Export(savedPlaces: [], recents: []) }
+    func deleteLegacyData() async throws {}
 
-    func setPlace(kind: SavedPlaceKind, _ input: SavedPlaceInput) async throws -> SavedPlace {
-        let p = SavedPlace(id: kind.rawValue, kind: kind, name: input.name, lat: input.lat, lng: input.lng, address: input.address, placeId: input.placeId)
-        saved.removeAll { $0.kind == kind }
-        saved.insert(p, at: kind == .home ? 0 : min(1, saved.count))
-        return p
+    /// Demo: corrects a couple of common misspellings and suggests a category when nothing matches.
+    func searchOutcome(query: String, near: LatLng, category: PlaceCategory?, limit: Int, exact: Bool, sort: ResultSort) async throws -> SearchOutcome {
+        let fixes = ["famly mart": "FamilyMart", "familymart": "FamilyMart", "mcd": "McDonald's", "petronass": "Petronas"]
+        let key = query.lowercased().trimmingCharacters(in: .whitespaces)
+        let corrected = exact ? nil : fixes[key]
+        let results = try await search(query: corrected ?? query, near: near, category: category, limit: limit)
+        var suggestions: [SearchSuggestion] = []
+        if results.isEmpty, let cat = SearchLogic.categoryHint(in: query) {
+            let n = try await nearby(near: near, category: cat, radiusM: 5000).count
+            if n > 0 { suggestions.append(SearchSuggestion(label: "", category: cat, count: n)) }
+        }
+        return SearchOutcome(results: results, correctedQuery: corrected, suggestions: suggestions)
     }
-
-    func addFavorite(_ input: SavedPlaceInput) async throws -> SavedPlace {
-        let p = SavedPlace(id: "fav-\(UUID().uuidString.prefix(6))", kind: .favorite, name: input.name, lat: input.lat, lng: input.lng, address: input.address, placeId: input.placeId)
-        saved.append(p)
-        return p
-    }
-
-    func deletePlace(id: String) async throws { saved.removeAll { $0.id == id } }
-
-    func recents() async throws -> [Recent] { recentList }
 
     func search(query: String, near: LatLng, category: PlaceCategory?, limit: Int) async throws -> [PlaceSummary] {
         await pause()
         let q = query.lowercased().trimmingCharacters(in: .whitespaces)
-        let scored: [(PlaceSummary, Double)] = DemoData.places.compactMap { p in
+        let pool = DemoData.places + community.filter { $0.status != .hidden }.map(\.summary)
+        let scored: [(PlaceSummary, Double)] = pool.compactMap { p in
             if let category, p.category != category { return nil }
             let name = p.name.lowercased()
             var score: Double
@@ -115,13 +113,21 @@ actor DemoRepository: GimanoRepository {
 
     func nearby(near: LatLng, category: PlaceCategory, radiusM: Int) async throws -> [PlaceSummary] {
         await pause()
-        return DemoData.places.filter { $0.category == category }
+        // Surau and mosque are one "prayer" group for the quick chips.
+        let group: Set<PlaceCategory> = category == .surau || category == .mosque ? [.surau, .mosque] : [category]
+        return DemoData.places.filter { group.contains($0.category) }
             .map { var s = $0; s.distanceM = Geo.distance(near, $0.location); return s }
             .filter { ($0.distanceM ?? 0) <= Double(radiusM) * 4 }
             .sorted { ($0.distanceM ?? 0) < ($1.distanceM ?? 0) }
     }
 
-    func place(id: String) async throws -> Place {
+    func place(id: String, near: LatLng?) async throws -> Place {
+        if var c = community.first(where: { $0.id == id }) {
+            c.distanceM = near.map { Geo.distance($0, LatLng(lat: c.lat, lng: c.lng)) }
+            c.photos = publishedPhotos(id)
+            (c.rating, c.reviewCount) = ratingOf(id)
+            return c
+        }
         guard let s = DemoData.places.first(where: { $0.id == id }) else { throw APIError.http(status: 404, problem: nil) }
         let amenities: [String] = switch s.category {
         case .fuel: ["toilets", "convenience_store", "air_pump", "cards", "touch_n_go"]
@@ -129,15 +135,324 @@ actor DemoRepository: GimanoRepository {
         case .mall: ["parking", "toilets", "surau", "ev_charging"]
         default: ["toilets", "wheelchair"]
         }
-        return Place(id: s.id, name: s.name, category: s.category, address: s.address, lat: s.lat, lng: s.lng, distanceM: nil,
+        return Place(id: s.id, name: s.name, category: s.category, address: s.address, lat: s.lat, lng: s.lng, distanceM: near.map { Geo.distance($0, s.location) },
                      brand: s.brand, phone: "+60 3-2123 4567", website: "https://www.openstreetmap.org",
                      openingHours: s.category == .fuel || s.category == .restArea ? "24/7" : "Mo-Su 10:00-22:00",
-                     openNow: true, amenities: amenities, tags: [:], osmType: "node", osmId: Int64(abs(s.id.hashValue) % 1_000_000_000))
+                     openNow: true, amenities: amenities, tags: [:], osmType: "node", osmId: Int64(abs(s.id.hashValue) % 1_000_000_000),
+                     source: .osm, status: .published, rating: ratingOf(id).0, reviewCount: ratingOf(id).1,
+                     photos: publishedPhotos(id))
     }
+
+    // MARK: community places (demo)
+
+    private func ratingOf(_ placeId: String) -> (Double?, Int) {
+        let r = reviewsByPlace[placeId] ?? []
+        guard !r.isEmpty else { return (nil, 0) }
+        return (Double(r.map(\.rating).reduce(0, +)) / Double(r.count), r.count)
+    }
+
+    private func publishedPhotos(_ placeId: String) -> [Photo] {
+        (photosByPlace[placeId] ?? []).map { item in
+            var p = item.photo
+            p.status = Date() >= item.readyAt ? .published : .processing
+            return p
+        }
+    }
+
+    func createPlace(_ new: NewPlace) async throws -> Place {
+        await pause()
+        let name = new.name.trimmingCharacters(in: .whitespaces)
+        guard !name.isEmpty, name.count <= 80, !name.lowercased().contains("http") else {
+            throw APIError.http(status: 400, problem: ProblemDetails(title: "Invalid name"))
+        }
+        let here = LatLng(lat: new.lat, lng: new.lng)
+        // Duplicate: similar name within 100 m → 409 with the existing place.
+        let existing = (community.map(\.summary) + DemoData.places).first {
+            Geo.distance($0.location, here) <= 100 && Self.similar($0.name, name)
+        }
+        if let existing {
+            let full: Place = (try? await place(id: existing.id, near: nil)) ?? Place(id: existing.id, name: existing.name, category: existing.category,
+                                                                                   address: existing.address, lat: existing.lat, lng: existing.lng)
+            throw APIError.conflict(try JSON.makeEncoder().encode(full))
+        }
+        let p = Place(id: "demo-community-\(UUID().uuidString.prefix(8).lowercased())", name: name, category: new.category,
+                      address: new.address ?? "", lat: new.lat, lng: new.lng, phone: new.phone, website: new.website,
+                      openingHours: new.openingHours, amenities: new.amenities ?? [], tags: [:], source: .community, status: .pending,
+                      reviewCount: 0, description: new.description, addedBy: PersonRef(displayName: user.displayName), verifiedCount: 0, photos: [])
+        community.append(p)
+        myPlaceIds.insert(p.id)
+        user.points = (user.points ?? 0) + 5
+        return p
+    }
+
+    static func similar(_ a: String, _ b: String) -> Bool {
+        let x = a.lowercased().filter { $0.isLetter || $0.isNumber }, y = b.lowercased().filter { $0.isLetter || $0.isNumber }
+        return x == y || (min(x.count, y.count) >= 5 && (x.contains(y) || y.contains(x)))
+    }
+
+    func updateCommunityPlace(id: String, _ new: NewPlace) async throws -> Place {
+        guard myPlaceIds.contains(id), let i = community.firstIndex(where: { $0.id == id }) else { throw APIError.http(status: 403, problem: nil) }
+        community[i].name = new.name
+        community[i].category = new.category
+        community[i].lat = new.lat
+        community[i].lng = new.lng
+        community[i].phone = new.phone
+        community[i].website = new.website
+        community[i].openingHours = new.openingHours
+        community[i].description = new.description
+        community[i].amenities = new.amenities
+        return community[i]
+    }
+
+    func deleteCommunityPlace(id: String) async throws {
+        guard myPlaceIds.contains(id), let i = community.firstIndex(where: { $0.id == id }) else { throw APIError.http(status: 403, problem: nil) }
+        if community[i].status == .published { community[i].status = .closed } else { community.remove(at: i) }
+    }
+
+    func suggestEdit(placeId: String, _ s: PlaceEditSuggestion) async throws -> SuggestionAccepted {
+        await pause()
+        return SuggestionAccepted(suggestionId: "demo-sugg-\(UUID().uuidString.prefix(6))")
+    }
+
+    private var demoVotes: Set<String> = []
+
+    func verifyPlace(id: String, _ v: VerifyPlaceRequest) async throws -> VerifyResult {
+        if myPlaceIds.contains(id) {
+            throw APIError.http(status: 403, problem: ProblemDetails(title: "Forbidden", status: 403, detail: "You can't verify your own place."))
+        }
+        guard !demoVotes.contains(id) else {
+            throw APIError.http(status: 409, problem: ProblemDetails(title: "Already voted", status: 409, detail: "You already answered for this place."))
+        }
+        guard let i = community.firstIndex(where: { $0.id == id }) else { throw APIError.http(status: 404, problem: nil) }
+        let cell = Geohash.encode(lat: community[i].lat, lng: community[i].lng)
+        guard v.proximity.cell.prefix(4) == cell.prefix(4) else {
+            throw APIError.http(status: 403, problem: ProblemDetails(title: "Too far", status: 403, detail: "You need to be near the place to confirm it."))
+        }
+        demoVotes.insert(id)
+        let p = try confirm(id: id, answer: v.answer, locationCorrect: v.locationCorrect)
+        return VerifyResult(status: p.status ?? .pending, confirmationsWeighted: Double(p.verifiedCount ?? 0), required: 3)
+    }
+
+    func pendingNearby(cell: String) async throws -> [PlaceSummary] {
+        community.filter { $0.status == .pending && !myPlaceIds.contains($0.id) && !demoVotes.contains($0.id)
+            && Geohash.encode(lat: $0.lat, lng: $0.lng).prefix(5) == cell.prefix(5) }.map(\.summary)
+    }
+
+    // MARK: complaints (demo)
+
+    private(set) var issues: [Issue] = []
+
+    func createIssue(_ n: NewIssue) async throws -> Issue {
+        // Dedupe within 50 m of the same kind (the server merges into the existing issue).
+        if let i = issues.firstIndex(where: { $0.kind == n.kind && $0.placeId == n.placeId
+            && Geo.distance($0.location, LatLng(lat: n.lat, lng: n.lng)) < 50 && $0.state.isOpen }) {
+            issues[i].confirmations = (issues[i].confirmations ?? 1) + 1
+            if (issues[i].confirmations ?? 0) >= 2 { issues[i].state = .confirmed }
+            return issues[i]
+        }
+        let issue = Issue(id: "demo-issue-\(issues.count + 1)", kind: n.kind, subtype: n.subtype, state: .suspected, lat: n.lat, lng: n.lng,
+                          placeId: n.placeId, roadName: n.payload?["roadName"], summary: nil, confirmations: 1, required: 2,
+                          createdAt: .now, expiresAt: nil, lastEvidenceAt: .now, until: nil)
+        issues.append(issue)
+        return issue
+    }
+
+    func issuesNearby(bbox: BBox, kinds: [IssueKind]?) async throws -> [Issue] {
+        issues.filter { $0.state.isOpen && bbox.contains($0.location) && (kinds == nil || kinds!.contains($0.kind)) }
+    }
+
+    func voteIssue(id: String, _ vote: IssueVote) async throws -> Issue {
+        guard let i = issues.firstIndex(where: { $0.id == id }) else { throw APIError.http(status: 404, problem: nil) }
+        switch vote.answer {
+        case .still:
+            issues[i].confirmations = (issues[i].confirmations ?? 1) + 1
+            if (issues[i].confirmations ?? 0) >= 2 { issues[i].state = .confirmed }
+        case .cleared: issues[i].state = .refuted
+        case .unsure: break
+        }
+        return issues[i]
+    }
+
+    /// Demo: seed an issue (UI tests / screenshots).
+    func seedIssue(_ issue: Issue) { issues.append(issue) }
+
+    func attestChallenge() async throws -> String { Data((0..<32).map { _ in UInt8.random(in: 0...255) }).base64EncodedString() }
+    func attest(keyId: String, attestation: String) async throws {}
+
+    /// Demo only: other drivers confirming a place (the owner can't).
+    func simulateOtherDriversVerify(placeId: String, count: Int) throws {
+        for _ in 0..<count { _ = try confirm(id: placeId, answer: .yes, locationCorrect: true) }
+    }
+
+    /// Demo only: a pending place added by someone else near `at` (for the nearby verify prompt).
+    func seedPendingPlace(name: String, at: LatLng) -> String {
+        let id = "demo-pending-\(UUID().uuidString.prefix(6))"
+        community.append(Place(id: id, name: name, category: .restaurant, address: "Jalan Sultan Ismail", lat: at.lat, lng: at.lng,
+                               openingHours: "Mo-Sa 07:00-14:00", source: .community, status: .pending,
+                               addedBy: PersonRef(displayName: "Rusa 2368"), verifiedCount: 1))
+        return id
+    }
+
+    private func confirm(id: String, answer: VoteAnswer, locationCorrect: Bool?) throws -> Place {
+        guard let i = community.firstIndex(where: { $0.id == id }) else { throw APIError.http(status: 404, problem: nil) }
+        if answer == .yes && locationCorrect != false {
+            community[i].verifiedCount = (community[i].verifiedCount ?? 0) + 1
+            if (community[i].verifiedCount ?? 0) >= 3 { community[i].status = .published }
+        }
+        return community[i]
+    }
+
+    func myContributions() async throws -> [PlaceSummary] {
+        community.filter { myPlaceIds.contains($0.id) }.map(\.summary)
+    }
+
+    // MARK: reviews & photos (demo)
+
+    func reviews(placeId: String, sort: ReviewSort, cursor: String?) async throws -> ReviewsPage {
+        var r = (reviewsByPlace[placeId] ?? []).map { rv -> Review in
+            var x = rv
+            x.photos = rv.photos?.map { p in publishedPhotos(placeId).first { $0.id == p.id } ?? p }
+            return x
+        }
+        r.sort { sort == .helpful ? $0.helpfulCount > $1.helpfulCount : $0.createdAt > $1.createdAt }
+        return ReviewsPage(reviews: r, next: nil)
+    }
+
+    func createReview(placeId: String, _ new: NewReview) async throws -> Review {
+        await pause()
+        guard (1...5).contains(new.rating) else { throw APIError.http(status: 400, problem: nil) }
+        if (reviewsByPlace[placeId] ?? []).contains(where: { $0.author.displayName == user.displayName }) {
+            throw APIError.http(status: 409, problem: ProblemDetails(title: "One review per place"))
+        }
+        let photos = publishedPhotos(placeId).filter { (new.photoIds ?? []).contains($0.id) }
+        let r = Review(id: "demo-review-\(UUID().uuidString.prefix(8))", placeId: placeId, rating: new.rating, text: new.text, photos: photos,
+                       author: me, helpfulCount: 0, createdAt: .now, editedAt: nil, status: "published")
+        reviewsByPlace[placeId, default: []].insert(r, at: 0)
+        user.points = (user.points ?? 0) + 3
+        return r
+    }
+
+    func updateReview(id: String, _ new: NewReview) async throws -> Review {
+        for (pid, list) in reviewsByPlace {
+            if let i = list.firstIndex(where: { $0.id == id }) {
+                var r = list[i]
+                r.rating = new.rating
+                r.text = new.text
+                if let ids = new.photoIds { r.photos = publishedPhotos(pid).filter { ids.contains($0.id) } }
+                r.editedAt = .now
+                reviewsByPlace[pid]![i] = r
+                return r
+            }
+        }
+        throw APIError.http(status: 404, problem: nil)
+    }
+
+    func deleteReview(id: String) async throws {
+        for pid in reviewsByPlace.keys { reviewsByPlace[pid]!.removeAll { $0.id == id } }
+    }
+
+    func toggleHelpful(reviewId: String) async throws {
+        let on = !helpful.contains(reviewId)
+        if on { helpful.insert(reviewId) } else { helpful.remove(reviewId) }
+        for pid in reviewsByPlace.keys {
+            if let i = reviewsByPlace[pid]!.firstIndex(where: { $0.id == reviewId }) { reviewsByPlace[pid]![i].helpfulCount += on ? 1 : -1 }
+        }
+    }
+
+    func flagReview(id: String, reason: FlagReason) async throws {}
+
+    /// Stores the photo as WebP (like the server) and serves it from a local file URL ending in .webp.
+    func uploadPhoto(_ jpeg: Data, placeId: String, caption: String?, progress: @escaping @Sendable (Double) -> Void) async throws -> Photo {
+        for step in 1...5 {
+            try? await Task.sleep(for: .milliseconds(80))
+            progress(Double(step) / 5)
+        }
+        guard let webp = ImageProcessing.webp(jpeg, maxPixels: 1600, quality: 80),
+              let thumb = ImageProcessing.webp(jpeg, maxPixels: 400, quality: 70) else { throw APIError.http(status: 400, problem: nil) }
+        let dir = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0].appendingPathComponent("demo-media", isDirectory: true)
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        let id = UUID().uuidString.lowercased()
+        let full = dir.appendingPathComponent("\(id).webp"), small = dir.appendingPathComponent("\(id)-thumb.webp")
+        try webp.write(to: full)
+        try thumb.write(to: small)
+        let size = ImageProcessing.pixelSize(webp) ?? .zero
+        let photo = Photo(id: id, url: full.absoluteString, thumbUrl: small.absoluteString, width: Int(size.width), height: Int(size.height),
+                          caption: caption, uploadedBy: PersonRef(displayName: user.displayName), createdAt: .now, status: .processing)
+        photosByPlace[placeId, default: []].insert((photo, Date().addingTimeInterval(1.5)), at: 0)
+        if let i = community.firstIndex(where: { $0.id == placeId }), community[i].thumbnailUrl == nil { community[i].thumbnailUrl = photo.thumbUrl }
+        user.points = (user.points ?? 0) + 2
+        return photo
+    }
+
+    func photos(placeId: String, cursor: String?) async throws -> PhotosPage {
+        PhotosPage(photos: publishedPhotos(placeId), next: nil)
+    }
+
+    func deletePhoto(id: String) async throws {
+        for pid in photosByPlace.keys { photosByPlace[pid]!.removeAll { $0.photo.id == id } }
+    }
+
+    func flagPhoto(id: String, reason: FlagReason) async throws {}
+
+    // MARK: inbox (demo: derived from the demo user's own contributions)
+
+    private var inboxReadUpTo: Date = .distantPast
+
+    func inbox(cursor: String?) async throws -> InboxPage {
+        var items: [InboxItem] = [InboxItem(id: "demo-ann-1", kind: .announcement, title: "Selamat datang ke Gimano!",
+                                            body: "Laporkan trafik dan tambah tempat untuk membantu pemandu lain.",
+                                            refType: "url", refId: "https://www.bukitbunga.com/gimano", createdAt: Date(timeIntervalSince1970: 1_792_000_000),
+                                            read: nil, count: nil)]
+        for p in community where myPlaceIds.contains(p.id) && p.status == .published {
+            items.append(InboxItem(id: "demo-pub-\(p.id)", kind: .placePublished, title: "\(p.name) is now on the map",
+                                   body: "\(p.verifiedCount ?? 3) drivers confirmed it.", refType: "place", refId: p.id,
+                                   createdAt: .now.addingTimeInterval(-60), read: nil, count: nil))
+        }
+        let helpfulMine = reviewsByPlace.values.flatMap { $0 }.filter { $0.author.displayName == user.displayName }.map(\.helpfulCount).reduce(0, +)
+        if helpfulMine > 0 {
+            items.append(InboxItem(id: "demo-helpful", kind: .reviewHelpful, title: "\(helpfulMine) drivers found your review helpful",
+                                   body: nil, refType: nil, refId: nil, createdAt: .now.addingTimeInterval(-30), read: nil, count: helpfulMine))
+        }
+        items.sort { $0.createdAt > $1.createdAt }
+        for i in items.indices { items[i].read = items[i].createdAt <= inboxReadUpTo }
+        return InboxPage(items: items, next: nil, unread: items.filter { $0.read != true }.count)
+    }
+
+    func markInboxRead(upTo: Date) async throws { inboxReadUpTo = max(inboxReadUpTo, upTo) }
+
+    // MARK: shares (demo relay: keeps only the latest ciphertext, like the server)
+
+    private var shares: [String: (token: String, expiresAt: Date, blob: ShareBlob?)] = [:]
+
+    func createShare(_ r: ShareCreateRequest) async throws -> ShareCreated {
+        guard (15...720).contains(r.expiresInMinutes) else { throw APIError.http(status: 400, problem: nil) }
+        guard shares.values.filter({ $0.expiresAt > .now }).count < 3 else { throw APIError.http(status: 429, problem: nil) }
+        let id = ShareCrypto.base64url([UInt8]((0..<16).map { _ in UInt8.random(in: 0...255) }))
+        let token = ShareCrypto.base64url([UInt8]((0..<32).map { _ in UInt8.random(in: 0...255) }))
+        let exp = Date().addingTimeInterval(TimeInterval(r.expiresInMinutes * 60))
+        shares[id] = (token, exp, nil)
+        return ShareCreated(shareId: id, writeToken: token, expiresAt: exp)
+    }
+
+    func putShare(id: String, writeToken: String, _ blob: ShareBlob) async throws {
+        guard let s = shares[id], s.token == writeToken else { throw APIError.http(status: 403, problem: nil) }
+        guard Data(base64Encoded: blob.ciphertext).map({ $0.count <= 1024 }) ?? false else { throw APIError.http(status: 413, problem: nil) }
+        shares[id]?.blob = blob
+    }
+
+    func deleteShare(id: String, writeToken: String) async throws {
+        guard shares[id]?.token == writeToken else { throw APIError.http(status: 403, problem: nil) }
+        shares[id] = nil
+    }
+
+    /// What a viewer would GET (test hook).
+    func sharedBlob(_ id: String) -> ShareBlob? { shares[id]?.blob }
 
     func reverseGeocode(_ p: LatLng) async throws -> ReverseGeocode {
         let nearest = DemoData.places.min { Geo.distance(p, $0.location) < Geo.distance(p, $1.location) }
-        return ReverseGeocode(name: "Dropped pin", address: "Near \(nearest?.name ?? "Kuala Lumpur")", lat: p.lat, lng: p.lng)
+        let close = nearest.flatMap { Geo.distance(p, $0.location) <= 50 ? $0 : nil }
+        return ReverseGeocode(name: nil, address: "Near \(nearest?.name ?? "Kuala Lumpur")", lat: p.lat, lng: p.lng,
+                              nearby: close.map { [$0] })
     }
 
     // MARK: routing
@@ -148,10 +463,22 @@ actor DemoRepository: GimanoRepository {
         let d = LatLng(lat: request.destination.lat, lng: request.destination.lng)
         var routes: [Route]
         let canned = CannedRoutes.shared
-        if request.waypoints.isEmpty, let exact = canned.match(origin: o, destination: d) {
+        if let exact = canned.match(origin: o, destination: d) {
             // Real road geometry (OSM/OSRM fixture) so demo drives stay on roads.
             routes = DemoRouteBuilder.decorate(exact, vehicle: request.vehicle, avoid: request.avoid, departAt: request.departAt,
                                                seed: routeCounter, alerts: reports)
+            if !request.waypoints.isEmpty {
+                // Stops are honoured only when they lie on the captured road; otherwise say so instead of inventing a detour.
+                let stops = request.waypoints.map { (LatLng(lat: $0.lat, lng: $0.lng), $0.name) }
+                let onRoad = routes.compactMap { DemoRouteBuilder.splitIntoLegs($0, stops: stops) }
+                if onRoad.isEmpty {
+                    for i in routes.indices {
+                        routes[i].demoNote = String(localized: "Demo route: these stops aren't on a captured demo road, so they are skipped.")
+                    }
+                } else {
+                    routes = onRoad
+                }
+            }
         } else if let nearest = canned.nearest(to: d) {
             // No captured route for this trip: never fabricate geometry — offer the nearest captured route, labelled.
             let place = DemoData.places.min { Geo.distance($0.location, LatLng(lat: nearest.lat, lng: nearest.lng)) < Geo.distance($1.location, LatLng(lat: nearest.lat, lng: nearest.lng)) }
@@ -166,24 +493,21 @@ actor DemoRepository: GimanoRepository {
         }
         routeCounter += 1
         routes = Array(routes.prefix(max(1, request.alternatives + 1)))
-        for r in routes { routeDestinations[r.id] = (request.destination, request.vehicle, request.avoid) }
-        if let pid = request.destination.placeId, let p = DemoData.places.first(where: { $0.id == pid }) {
-            recentList.removeAll { $0.placeId == pid }
-            recentList.insert(Recent(id: "r-\(pid)", name: p.name, address: p.address, lat: p.lat, lng: p.lng, placeId: pid, lastUsedAt: .now), at: 0)
-            recentList = Array(recentList.prefix(20))
-        }
+        for r in routes { routeDestinations[r.id] = (request.destination, request.waypoints, request.vehicle, request.avoid) }
         return routes
     }
 
     func reroute(routeId: String, _ request: RerouteRequest) async throws -> [Route] {
         guard let ctx = routeDestinations[routeId] else { throw APIError.http(status: 404, problem: nil) }
-        let req = RouteRequest(origin: RouteEndpoint(lat: request.lat, lng: request.lng), destination: ctx.dest, vehicle: ctx.vehicle, avoid: ctx.avoid, alternatives: 0)
+        let remaining = Array(ctx.waypoints.dropFirst(min(request.nextStopIndex ?? 0, ctx.waypoints.count)))
+        let req = RouteRequest(origin: RouteEndpoint(lat: request.lat, lng: request.lng), destination: ctx.dest, waypoints: remaining,
+                               vehicle: ctx.vehicle, avoid: ctx.avoid, alternatives: 0)
         return try await routes(req)
     }
 
-    func departureTimes(origin: LatLng, destination: LatLng, date: Date) async throws -> [DepartureSlot] {
+    func departureTimes(origin: LatLng, destination: LatLng, date: Date, vehicle: Vehicle) async throws -> [DepartureSlot] {
         await pause()
-        let base = Geo.distance(origin, destination) * 1.3 / (40 / 3.6)
+        let base = Geo.distance(origin, destination) * 1.3 / ((vehicle == .motorcycle ? 46 : 40) / 3.6)
         let start = Calendar.current.date(bySetting: .minute, value: 0, of: date) ?? date
         return (0..<16).map { i in
             let t = start.addingTimeInterval(Double(i) * 1800)
@@ -244,6 +568,27 @@ actor DemoRepository: GimanoRepository {
 
     func sendLocations(_ batch: LocationBatch) async throws {}
 
+    func sendFeedback(_ f: FeedbackRequest) async throws -> FeedbackCreated {
+        await pause()
+        guard FeedbackRules.validate(message: f.message) else { throw APIError.http(status: 400, problem: ProblemDetails(title: "Invalid message")) }
+        let item = FeedbackSummary(id: "demo-fb-\(UUID().uuidString.prefix(8))", category: f.category, message: f.message, status: .received,
+                                   createdAt: .now, hasContact: f.contact != nil)
+        feedback.insert(item, at: 0)
+        return FeedbackCreated(id: item.id, createdAt: item.createdAt)
+    }
+
+    func myFeedback() async throws -> [FeedbackSummary] { feedback }
+
+    func deleteFeedbackContact(id: String) async throws {
+        if let i = feedback.firstIndex(where: { $0.id == id }) { feedback[i].hasContact = false }
+    }
+
+    private(set) var crashReports: [CrashReport] = []
+    func sendCrashReport(_ report: CrashReport) async throws -> CrashCreated {
+        crashReports.append(report)
+        return CrashCreated(id: "demo-crash-\(crashReports.count)", signature: nil)
+    }
+
     func health() async -> Bool { true }
 }
 
@@ -268,20 +613,29 @@ enum DemoRouteBuilder {
         let descriptions: [LocalizedStringResource] = ["Typical traffic", "Heavier than usual", "Light traffic"]
         var routes: [Route] = []
         for (i, base) in canned.enumerated() {
-            if avoid.tolls && base.hasTolls { continue }
+            if vehicle.isMotorized && avoid.tolls && base.hasTolls { continue }
             var r = base
             r.id = "\(base.id)-\(seed)"
-            var factor = [1.12, 1.25, 1.35][i % 3] * (vehicle == .motorcycle ? 0.85 : 1)
+            r.vehicle = vehicle
+            // Walking/cycling reuse the captured roads (never invented paths) with mode speeds and no tolls/traffic.
+            if !vehicle.isMotorized {
+                let speedKmh = vehicle == .walk ? 4.8 : 15.0
+                r.durationS = r.distanceM / (speedKmh / 3.6)
+                r.hasTolls = false
+                r.trafficSegments = []
+            }
+            var factor = vehicle.isMotorized ? [1.12, 1.25, 1.35][i % 3] * (vehicle == .motorcycle ? 0.85 : 1) : 1
             if let departAt {
                 let hour = Double(Calendar.current.component(.hour, from: departAt))
                 factor *= 1 + 0.4 * (exp(-pow(hour - 8, 2) / 3) + exp(-pow(hour - 18, 2) / 3)) - 0.1
             }
             r.trafficDurationS = r.durationS * factor
-            r.trafficDescription = String(localized: descriptions[i % 3])
+            r.trafficDescription = vehicle.isMotorized ? String(localized: descriptions[i % 3]) : nil
+            (r.tolls, r.tollEstimateMyr, r.tollFareComplete) = demoTolls(for: r, vehicle: vehicle)
             var legs = r.legs
             for li in legs.indices {
                 for mi in legs[li].maneuvers.indices {
-                    legs[li].maneuvers[mi].instruction = ManeuverFormatter.instruction(for: legs[li].maneuvers[mi])
+                    legs[li].maneuvers[mi].instruction = ManeuverFormatter.instruction(for: legs[li].maneuvers[mi], mode: vehicle)
                 }
             }
             r.legs = legs
@@ -293,6 +647,71 @@ enum DemoRouteBuilder {
         routes.sort { $0.effectiveDurationS < $1.effectiveDurationS }
         for i in routes.indices { routes[i].label = i == 0 ? "best" : "alternative" }
         return routes
+    }
+
+    /// Demo-only toll plazas: one per expressway the route enters, placed on the route vertex where the expressway
+    /// maneuver begins (on-road). Fares come from a tiny demo table and are labelled as demo data, not real tariffs.
+    static let demoFares: [String: Double] = ["E10": 1.60, "E23": 2.50, "E11": 2.10]
+
+    static func demoTolls(for r: Route, vehicle: Vehicle) -> ([TollPlaza], Double?, Bool) {
+        guard vehicle.isMotorized, r.hasTolls else { return ([], nil, false) }
+        let pts = Polyline.decode(r.polyline)
+        var seen = Set<String>()
+        var plazas: [TollPlaza] = []
+        for m in r.maneuvers {
+            guard let ref = m.roadRef, ref.hasPrefix("E"), ref.dropFirst().allSatisfy(\.isNumber), !seen.contains(ref),
+                  pts.indices.contains(m.beginShapeIndex) else { continue }
+            seen.insert(ref)
+            let p = pts[m.beginShapeIndex]
+            let fare: Double? = vehicle == .motorcycle ? (demoFares[ref] == nil ? nil : 0) : demoFares[ref]
+            plazas.append(TollPlaza(plazaId: "demo-\(ref)", name: "Plaza Tol \(ref) (demo)", highway: [ref, m.streetName].compactMap { $0 }.joined(separator: " "),
+                                    lat: p.lat, lng: p.lng, fareMyr: fare, system: "open", source: "Demo data, not a real tariff"))
+        }
+        if plazas.isEmpty { return ([], nil, false) }
+        let known = plazas.compactMap(\.fareMyr)
+        return (plazas, known.isEmpty ? nil : known.reduce(0, +), known.count == plazas.count)
+    }
+
+    /// Splits a captured route into legs at the given stops when every stop lies within 300 m of the road.
+    /// Returns nil when a stop is off the captured road (demo never invents a detour).
+    static func splitIntoLegs(_ route: Route, stops: [(LatLng, String?)], within: Double = 300) -> Route? {
+        let pts = Polyline.decode(route.polyline)
+        guard pts.count > 2 else { return nil }
+        let cum = Geo.cumulativeDistances(pts)
+        var idx: [Int] = []
+        var from = 0
+        for (s, _) in stops {
+            var best = (d: Double.infinity, i: from)
+            for i in from..<pts.count {
+                let d = Geo.distance(s, pts[i])
+                if d < best.d { best = (d, i) }
+            }
+            guard best.d <= within, best.i > from, best.i < pts.count - 1 else { return nil }
+            idx.append(best.i)
+            from = best.i
+        }
+        let all = route.maneuvers
+        var legs: [RouteLeg] = []
+        var start = 0
+        let scale = route.distanceM > 0 ? 1.0 : 0
+        for (k, end) in (idx + [pts.count - 1]).enumerated() {
+            var ms = all.filter { $0.beginShapeIndex >= start && $0.beginShapeIndex < end && !($0.type == .arrive) }
+            if k > 0 {
+                ms.removeAll { $0.type == .depart }
+                ms.insert(Maneuver(type: .depart, instruction: "", streetName: ms.first?.streetName, distanceM: 0, durationS: 0,
+                                   beginShapeIndex: start, endShapeIndex: ms.first?.beginShapeIndex ?? end), at: 0)
+            }
+            ms.append(Maneuver(type: .arrive, instruction: "", distanceM: 0, durationS: 0, beginShapeIndex: end, endShapeIndex: end))
+            for j in 0..<(ms.count - 1) { ms[j].endShapeIndex = ms[j + 1].beginShapeIndex }
+            let legM = cum[end] - cum[start]
+            let name = k < stops.count ? stops[k].1 : nil
+            legs.append(RouteLeg(durationS: route.durationS * legM / max(1, cum.last ?? 1) * scale, distanceM: legM,
+                                 to: LegEnd(lat: pts[end].lat, lng: pts[end].lng, name: name), maneuvers: ms))
+            start = end
+        }
+        var r = route
+        r.legs = legs
+        return r
     }
 
     static func alertsOnRoute(_ pts: [LatLng], alerts: [Report], within: Double = 120) -> [AlertOnRoute] {

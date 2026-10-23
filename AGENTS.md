@@ -7,7 +7,7 @@ change it deliberately and say so). Backend: `backend/README.md`. Data/licensing
 
 | Path | What |
 |---|---|
-| `backend/` | .NET 10 solution `Gimano.slnx` (Api, Worker, Importer, Core, Tests) |
+| `backend/` | .NET 10 solution `Gimano.slnx` (Api, BackOffice, Worker, Importer, Core, Tests) |
 | `android/` | Kotlin / Compose + MapLibre app |
 | `ios/` | Swift / SwiftUI + MapLibre app |
 | `deploy/` | `docker-compose.yml` (project `gimano`), Dockerfiles, `.env.example` |
@@ -26,6 +26,7 @@ change it deliberately and say so). Backend: `backend/README.md`. Data/licensing
 | RabbitMQ | 5673 (AMQP), 15673 (management UI) |
 | OpenSearch | 9210 |
 | Valhalla | 8002 |
+| BackOffice (maintainers, Blazor) | 5090 → `http://100.101.150.9:5090`; agents use `http://100.101.150.9:5080/mcp` (`docs/back-office.md`) |
 
 - **Leave other projects' containers alone** (never stop / modify / prune them):
   `postgres18_dev` :5432, `sentinel-smartpay-eis-postgres` :5443, `opensearch1` :9201,
@@ -116,6 +117,11 @@ must be rejected in review.
   places, reviews and photos, and feedback. It may also hold **anonymous, short-lived** location pings while
   navigating: transient queue, in memory, aggregated into road speeds, raw points never persisted
   (see `docs/traffic.md`).
+- **One narrow exception:** an email/WhatsApp number the user *volunteers* on a specific feedback or crash
+  report, so we can reply. It's never prefilled, never linked to the pseudonym, encrypted at rest, kept out of
+  logs and GitHub, and auto-deleted (30 days after the report closes, 90 days max). See `docs/api.md`, "Contact details".
+- Device info on feedback/crash reports (app version, OS, model, screen size) is sent only with the user's
+  consent and shown to them first. Crash reports are scrubbed on the phone and never use third-party SDKs.
 - No new endpoint, table, log line, analytics event or third-party SDK may carry private data or
   precise per-user location history. Request bodies are not logged. Coordinates in logs are rounded
   to 2 dp at most.
@@ -130,3 +136,9 @@ must be rejected in review.
 - No secrets in the repo: `deploy/.env` and `.env*` are git-ignored; JWT key is set per host.
 - OSM data © OpenStreetMap contributors (ODbL) — keep attribution visible in every map view.
 - Clean-room: no third-party navigation app assets/code/copy (see `docs/research/ux-study.md`).
+
+## Public mobile distribution
+
+- APK/IPA and AltStore instructions: `docs/sideloading.md`.
+- Gimano TestFlight and App Store ownership must use Erymuzuan Mustapa's **individual** Apple Developer team, never STAFY COMPANY LIMITED. Verify the selected team before any identifier, signing or upload operation.
+- AltStore builds have no team-bound iCloud/Google configuration; publish the limitation and retain file backup/restore. Never distribute personal provisioning profiles.

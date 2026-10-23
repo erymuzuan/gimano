@@ -158,3 +158,28 @@ extension View {
         shadow(color: Color(red: 1, green: 107 / 255, blue: 74 / 255).opacity(0.45), radius: 8, x: 0, y: 6)
     }
 }
+
+extension Color {
+    /// A light/dark pair for one-off tints (board colours that aren't palette tokens).
+    init(light: UInt32, dark: UInt32) {
+        self.init(uiColor: UIColor { $0.userInterfaceStyle == .dark ? UIColor(hex: dark) : UIColor(hex: light) })
+    }
+
+    // Status tints from the "More screens" boards.
+    static let tealMist = Color(light: 0xDDF4F2, dark: 0x0F2E2C)
+    static let tealInk = Color(light: 0x0E5A54, dark: 0x8FE0D8)
+    static let amberMist = Color(light: 0xFFF1CC, dark: 0x3A2E12)
+    static let amberInk = Color(light: 0x7A5200, dark: 0xF5D27A)
+    static let coralMist = Color(light: 0xFFE4DC, dark: 0x3A1A12)
+}
+
+extension View {
+    /// Big selectable tile (Cobalt boards): pale fill always; the selected one gets a cobalt border, not a solid fill.
+    func selectableTile(_ selected: Bool, radius: CGFloat, tint: Color = .brandMist, width: CGFloat = 2) -> some View {
+        let shape = RoundedRectangle(cornerRadius: radius, style: .continuous)
+        return self
+            .background(tint, in: shape)
+            .overlay(shape.strokeBorder(Color.brand, lineWidth: selected ? width : 0))
+            .accessibilityAddTraits(selected ? .isSelected : [])
+    }
+}

@@ -1,0 +1,96 @@
+@page "/"
+@inherits BackOfficePage
+
+<PageTitle>Inbox · Gimano back office</PageTitle>
+
+<header class="page-head">
+    <div>
+        <h1>Inbox</h1>
+        <p>Feedback and crash groups in one queue: regressions first, then severity and last activity.</p>
+    </div>
+    <form class="hrow" method="get" action="feedback">
+        <label class="field" style="min-width: 280px;">
+            <span class="visually-hidden" style="position:absolute;left:-9999px;">Search feedback</span>
+            <input type="search" name="text" placeholder="Search feedback text…" />
+        </label>
+        <button class="btn" type="submit">Search</button>
+    </form>
+</header>
+
+@if (stats is not null)
+{
+    <section class="kpis" aria-label="Summary">
+        <div class="kpi"><span class="label">Open items</span><span class="value">@(stats.OpenFeedback + stats.OpenCrashGroups)</span><span class="sub">@stats.OpenFeedback feedback · @stats.OpenCrashGroups crash groups</span></div>
+        <div class="kpi"><span class="label">New in 24 h</span><span class="value">@stats.New24h</span><span class="sub">not yet triaged</span></div>
+        <div class="kpi"><span class="label">Regressions</span><span class="value">@stats.Regressions</span><span class="sub">back after a fix shipped</span></div>
+        <div class="kpi"><span class="label">Agent runs to review</span><span class="value">@stats.RunsAwaitingReview</span><span class="sub"><a href="runs">open runs</a></span></div>
+        <div class="kpi"><span class="label">Replies to approve</span><span class="value">@stats.RepliesToApprove</span><span class="sub"><a href="replies">outbox</a></span></div>
+    </section>
+}
+
+<nav class="chips" aria-label="Filter">
+    <a class="chip @(Type is null ? "on" : "")" href="">All</a>
+    <a class="chip @(Type == "crash" ? "on" : "")" href="?type=crash">Crashes</a>
+    <a class="chip @(Type == "feedback" ? "on" : "")" href="?type=feedback">Feedback</a>
+</nav>
+
+<section class="table-box" aria-label="Queue">
+    @if (rows is null)
+    {
+        <p class="empty">Loading…</p>
+    }
+    else if (rows.Count == 0)
+    {
+        <p class="empty">Nothing open. Nice.</p>
+    }
+    else
+    {
+        <table class="grid">
+            <thead>
+                <tr><th scope="col">Item</th><th scope="col">Volume</th><th scope="col">Builds</th><th scope="col">Status</th><th scope="col">Severity</th><th scope="col">Last seen</th></tr>
+            </thead>
+            <tbody>
+                @foreach (var r in rows)
+                {
+                    <tr>
+                        <td>
+                            <div class="hrow" style="align-items: flex-start; flex-wrap: nowrap; gap: 12px;">
+                                <Pill Text="@r.Kind" />
+                                <div style="min-width: 0;">
+                                    <a class="title" href="@Link(r)">@r.Title</a>
+                                    <div class="sub">
+                                        @r.Subtitle
+                                        @if (r.HasScreenshot) { <span> · screenshot</span> }
+                                        @if (r.HasContact) { <span> · </span><Pill Text="contact sealed" Kind="lock" /> }
+                                    </div>
+                                </div>
+                            </div>
+                        </td>
+                        <td class="nowrap"><strong>@r.Count</strong> <span class="muted small">@(r.Type == "crash" ? "events" : "")</span></td>
+                        <td class="nowrap small">@(r.Builds ?? "—")</td>
+                        <td><Pill Text="@r.Status" /></td>
+                        <td>@if (r.Severity is { } s) { <Pill Text="@Fmt.Wire(s)" /> } else { <span class="muted">—</span> }</td>
+                        <td class="nowrap muted small">@Fmt.Ago(r.LastSeenAt)</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+</section>
+
+<p class="muted small" style="margin-top: 12px;">Rows show only what reporters consented to send. Contact details stay sealed until a maintainer reveals them, and are deleted 30 days after the report closes (90 days at most).</p>
+
+@code {
+    [SupplyParameterFromQuery] private string? Type { get; set; }
+
+    private BackOfficeStats? stats;
+    private IReadOnlyList<QueueRow>? rows;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        stats = await Triage.StatsAsync();
+        rows = await Triage.QueueAsync(Type is "crash" or "feedback" ? Type : null, 150);
+    }
+
+    private static string Link(QueueRow r) => r.Type == "crash" ? $"crashes/{r.Id}" : $"feedback/{r.Id}";
+}

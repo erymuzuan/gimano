@@ -1,0 +1,108 @@
+{
+  "sourceLanguage": "en",
+  "strings": {
+    "CFBundleDisplayName": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Manotu"
+          }
+        },
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Manotu"
+          }
+        }
+      }
+    },
+    "NSCameraUsageDescription": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Manotu uses the camera so you can add photos of places and reviews."
+          }
+        },
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Manotu menggunakan kamera supaya anda boleh menambah gambar tempat dan ulasan."
+          }
+        }
+      }
+    },
+    "NSLocationAlwaysAndWhenInUseUsageDescription": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Manotu keeps using your location while you navigate with the screen off, so voice guidance and traffic reports keep working."
+          }
+        },
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Manotu terus menggunakan lokasi anda semasa navigasi dengan skrin dimatikan, supaya panduan suara dan laporan trafik terus berfungsi."
+          }
+        }
+      }
+    },
+    "NSLocationWhenInUseUsageDescription": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Manotu uses your location to show where you are, find places near you and guide you turn by turn."
+          }
+        },
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Manotu menggunakan lokasi anda untuk menunjukkan kedudukan anda, mencari tempat berdekatan dan memandu anda selekoh demi selekoh."
+          }
+        }
+      }
+    },
+    "NSPhotoLibraryAddUsageDescription": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Manotu can save photos you choose to your library."
+          }
+        },
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Manotu boleh menyimpan gambar yang anda pilih ke pustaka anda."
+          }
+        }
+      }
+    },
+    "Navigation": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Manotu needs your precise location for turn-by-turn directions on this drive."
+          }
+        },
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Manotu perlukan lokasi tepat anda untuk arahan selekoh demi selekoh semasa perjalanan ini."
+          }
+        }
+      }
+    }
+  },
+  "version": "1.0"
+}

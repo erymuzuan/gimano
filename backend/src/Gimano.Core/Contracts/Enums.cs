@@ -35,6 +35,18 @@ public enum FeedbackScreen { Home, Search, Place, RoutePreview, Navigation, Repo
 
 public enum FeedbackStatus { Received, Triaged, Planned, Done, WontFix }
 
+public enum CrashKind { Crash, Anr, Native, Hang }
+
+/// <summary>A crash group's lifecycle. <c>regressed</c> = new events on a build at or after the one it was fixed in.</summary>
+public enum CrashStatus { New, Triaged, Fixing, Fixed, Regressed, Ignored }
+
+/// <summary>Triage severity: S1 = crash or data loss for many, S4 = cosmetic.</summary>
+public enum Severity { S1, S2, S3, S4 }
+
+public enum ReplyStatus { Draft, Sent, Discarded }
+
+public enum AgentRunStatus { Running, WaitingForReview, Done, Cancelled, Failed }
+
 public enum PlaceSource { Osm, Community }
 
 /// <summary>Community place lifecycle. Only <c>pending</c>/<c>published</c> appear in PlaceSummary.status.</summary>

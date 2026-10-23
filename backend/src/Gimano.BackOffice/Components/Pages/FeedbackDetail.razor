@@ -1,0 +1,269 @@
+@page "/feedback/{Id:guid}"
+@rendermode InteractiveServer
+@inherits BackOfficePage
+
+<PageTitle>Feedback · Gimano back office</PageTitle>
+
+@if (f is null)
+{
+    <p class="empty">@(loaded ? "No feedback with that id." : "Loading…")</p>
+}
+else
+{
+    <header class="page-head">
+        <div>
+            <div class="crumbs"><a href="feedback">← Feedback</a></div>
+            <h1>Feedback <span class="mono muted" style="font-size: 16px;">@f.Id.ToString()[..8]</span></h1>
+            <p>Received @Fmt.When(f.CreatedAt) · updated @Fmt.Ago(f.UpdatedAt)</p>
+        </div>
+    </header>
+
+    <ol class="status-steps" aria-label="Status">
+        @foreach (var s in new[] { FeedbackStatus.Received, FeedbackStatus.Triaged, FeedbackStatus.Planned, FeedbackStatus.Done, FeedbackStatus.WontFix })
+        {
+            <li class="@StepCss(s)">@Fmt.Label(Fmt.Wire(s))</li>
+        }
+    </ol>
+
+    <Messages Error="@Error" Notice="@Notice" />
+
+    <div class="split">
+        <div class="primary">
+            <section class="card stack" style="gap: 14px;">
+                <div class="hrow">
+                    <Pill Text="@Fmt.Wire(f.Category)" />
+                    @if (f.Screen is { } scr) { <Pill Text="@($"screen: {Fmt.Wire(scr)}")" Kind="route" /> }
+                    @if (f.Rating is { } rating) { <Pill Text="@($"rating {rating}/5")" Kind="neutral" /> }
+                    @if (f.Severity is { } sev) { <Pill Text="@Fmt.Wire(sev)" /> }
+                </div>
+                <blockquote style="margin: 0; font-size: 20px; font-weight: 800; line-height: 1.4; white-space: pre-wrap; overflow-wrap: anywhere;">“@f.Message”</blockquote>
+
+                <div class="hrow" style="align-items: flex-start; gap: 20px;">
+                    @if (f.HasScreenshot)
+                    {
+                        <figure style="margin: 0; display: flex; flex-direction: column; gap: 8px; flex: 0 0 220px;">
+                            <a href="screenshots/@f.Id" target="_blank" rel="noopener"><img class="shot" src="screenshots/@f.Id" alt="Screenshot attached to this feedback" /></a>
+                            <figcaption class="muted small">Maintainers only. Never sent to GitHub.</figcaption>
+                            <label class="check">
+                                <input type="checkbox" checked="@f.ScreenshotSharedWithAgents" @onchange="ToggleShare" /> Share with agent runs
+                            </label>
+                        </figure>
+                    }
+                    <dl class="facts" style="flex: 1 1 280px;">
+                        <dt>Device</dt><dd>@Fmt.Device(f.Device)</dd>
+                        @if (f.Device is { } d)
+                        {
+                            <dt>Screen</dt><dd>@(d.Screen is { } s ? $"{s.WidthPx}×{s.HeightPx} px · {s.WidthDp}×{s.HeightDp} dp" : "—")</dd>
+                            <dt>Locale · theme</dt><dd>@d.Locale · @d.Theme · @d.DataMode data</dd>
+                            <dt>Location permission</dt><dd>@(d.LocationPermission ?? "—")@(d.LastFixAccuracyM is { } acc ? $" · last fix ±{acc} m" : "")</dd>
+                        }
+                        else if (f.Context is { } c)
+                        {
+                            <dt>App</dt><dd>@c.Platform @c.AppVersion · @c.OsVersion</dd>
+                        }
+                        <dt>Area (≈1 km)</dt><dd>@(f.Context is { Lat: { } lat, Lng: { } lng } ? Gimano.Core.Support.FeedbackIssueFormatter.RoundedLocation(lat, lng) : "not shared")</dd>
+                        <dt>Route · place</dt><dd class="mono">@(f.Context?.RouteId ?? "—") · @(f.Context?.PlaceId ?? "—")</dd>
+                        <dt>Duplicate of</dt><dd>@if (f.DuplicateOfId is { } dup) { <a href="feedback/@dup">@dup.ToString()[..8]</a> } else { <span>—</span> }</dd>
+                        <dt>Crash group</dt><dd>@if (f.CrashSignature is { } sig) { <a href="crashes/@sig">@Fmt.Sig(sig)</a> } else { <span>—</span> }</dd>
+                        <dt>GitHub</dt><dd>@if (f.ExternalUrl is { } url) { <a href="@url" target="_blank" rel="noopener">@url</a> } else { <span>—</span> }</dd>
+                    </dl>
+                </div>
+            </section>
+
+            <section class="card stack" style="gap: 12px;" aria-labelledby="reply">
+                <h2 id="reply" style="margin: 0;">Reply in the reporter’s Inbox</h2>
+                @foreach (var r in replies)
+                {
+                    <div class="card" style="padding: 12px 14px; background: var(--bg);">
+                        <div class="hrow"><Pill Text="@Fmt.Wire(r.Status)" /><span class="muted small">by @r.DraftedBy · @Fmt.Ago(r.CreatedAt)@(r.NewStatus is { } ns ? $" · sets {Fmt.Wire(ns)}" : "")</span></div>
+                        <p style="margin: 8px 0 0; white-space: pre-wrap;">@r.Message</p>
+                        @if (r.Status == ReplyStatus.Draft)
+                        {
+                            <div class="hrow" style="margin-top: 10px;">
+                                <button class="btn primary small" @onclick="() => Approve(r.Id)">Approve and send</button>
+                                <button class="btn small" @onclick="() => Discard(r.Id)">Discard</button>
+                            </div>
+                        }
+                    </div>
+                }
+                <label class="field">New reply (in the reporter’s language; they see it in the app, nothing is emailed)
+                    <textarea rows="3" maxlength="1000" @bind="replyText"></textarea>
+                </label>
+                <div class="hrow" style="align-items: flex-end;">
+                    <label class="field">Then set status
+                        <select @bind="replyStatus">
+                            <option value="">(unchanged)</option>
+                            @foreach (var s in Enum.GetValues<FeedbackStatus>()) { <option value="@s">@Fmt.Label(Fmt.Wire(s))</option> }
+                        </select>
+                    </label>
+                    <button class="btn primary" @onclick="SendReply">Send</button>
+                </div>
+                <p class="muted small">Agent drafts wait here for approval. A reporter who deleted their account can no longer be reached; the status still changes.</p>
+            </section>
+        </div>
+
+        <aside class="aside">
+            <section class="card stack" style="gap: 12px;" aria-labelledby="tr">
+                <h2 id="tr" style="margin: 0;">Triage</h2>
+                <div class="form-grid">
+                    <label class="field">Status
+                        <select @bind="status">
+                            @foreach (var s in Enum.GetValues<FeedbackStatus>()) { <option value="@s">@Fmt.Label(Fmt.Wire(s))</option> }
+                        </select>
+                    </label>
+                    <label class="field">Severity
+                        <select @bind="severity">
+                            <option value="">—</option>
+                            @foreach (var s in Enum.GetValues<Severity>()) { <option value="@s">@s</option> }
+                        </select>
+                    </label>
+                </div>
+                <label class="field">Category
+                    <select @bind="category">
+                        @foreach (var c in Enum.GetValues<FeedbackCategory>()) { <option value="@c">@Fmt.Label(Fmt.Wire(c))</option> }
+                    </select>
+                </label>
+                <label class="field">Duplicate of (feedback id)
+                    <input @bind="duplicateOf" placeholder="uuid" />
+                </label>
+                <label class="field">Crash signature
+                    <input @bind="crashSignature" placeholder="sha256 of the crash group" />
+                </label>
+                <label class="field">GitHub issue or PR
+                    <input @bind="link" placeholder="https://github.com/…" />
+                </label>
+                <label class="field">Note
+                    <textarea rows="3" @bind="note"></textarea>
+                </label>
+                <button class="btn primary" @onclick="SaveTriage">Save</button>
+            </section>
+
+            <section class="card stack" style="gap: 12px;" aria-labelledby="ct">
+                <h2 id="ct" style="margin: 0;">Contact details</h2>
+                @if (f.Contact is { } contact)
+                {
+                    <dl class="facts">
+                        <dt>WhatsApp</dt><dd>@(revealed?.Whatsapp ?? (contact.HasWhatsapp ? "sealed" : "not given"))</dd>
+                        <dt>Email</dt><dd>@(revealed?.Email ?? (contact.HasEmail ? "sealed" : "not given"))</dd>
+                        <dt>Auto-delete</dt><dd>@Fmt.When(contact.ExpiresAt)</dd>
+                    </dl>
+                    @if (revealed is null)
+                    {
+                        <label class="field">Reason for revealing (logged)
+                            <input @bind="revealReason" placeholder="e.g. need a screen recording to reproduce" />
+                        </label>
+                        <button class="btn danger" @onclick="Reveal">Reveal</button>
+                    }
+                    <p class="muted small">Agents can’t reveal contacts. Each reveal goes to the audit log. Don’t paste them into GitHub or a prompt.</p>
+                }
+                else
+                {
+                    <p class="muted">None volunteered, withdrawn by the reporter, or already deleted.</p>
+                }
+            </section>
+
+            <section class="card" aria-labelledby="runs">
+                <h2 id="runs">Agent runs</h2>
+                @if (runs.Count == 0) { <p class="muted" style="margin: 0;">None yet.</p> }
+                @foreach (var r in runs)
+                {
+                    <p style="margin: 0 0 8px;"><a href="runs/@r.Id">#@r.Id @r.Title</a> <Pill Text="@Fmt.Wire(r.Status)" /></p>
+                }
+            </section>
+        </aside>
+    </div>
+}
+
+@code {
+    [Parameter] public Guid Id { get; set; }
+
+    private bool loaded;
+    private FeedbackView? f;
+    private IReadOnlyList<ReplyView> replies = [];
+    private IReadOnlyList<AgentRunView> runs = [];
+
+    private FeedbackStatus status;
+    private Severity? severity;
+    private FeedbackCategory category;
+    private string? duplicateOf, crashSignature, link, note;
+
+    private string? replyText;
+    private FeedbackStatus? replyStatus;
+
+    private string? revealReason;
+    private UnsealedContact? revealed;
+
+    protected override async Task OnParametersSetAsync() => await LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        f = await Triage.GetFeedbackAsync(Id);
+        loaded = true;
+        if (f is null) return;
+        replies = await Triage.RepliesAsync(feedbackId: Id);
+        runs = await Triage.RunsAsync("feedback", Id.ToString());
+        status = f.Status;
+        severity = f.Severity;
+        category = f.Category;
+        duplicateOf = f.DuplicateOfId?.ToString();
+        crashSignature = f.CrashSignature;
+        link = f.ExternalUrl;
+        note = f.TriageNote;
+    }
+
+    private string StepCss(FeedbackStatus s) => f is null ? "" : s == f.Status ? "now" : (int)s < (int)f.Status && f.Status != FeedbackStatus.WontFix ? "done" : "";
+
+    private async Task SaveTriage()
+    {
+        var me = await MeAsync();
+        Guid? dup = null;
+        if (!string.IsNullOrWhiteSpace(duplicateOf))
+        {
+            if (!Guid.TryParse(duplicateOf, out var g)) { Error = "Duplicate of must be a feedback id."; return; }
+            dup = g;
+        }
+        var t = new FeedbackTriage(status, severity, category, dup, string.IsNullOrWhiteSpace(crashSignature) ? null : crashSignature.Trim(), note ?? "", link ?? "");
+        if (await TryAsync(() => Triage.TriageFeedbackAsync(Id, t, me), "Saved.")) await LoadAsync();
+    }
+
+    private async Task ToggleShare(ChangeEventArgs e)
+    {
+        var me = await MeAsync();
+        var on = e.Value is true;
+        if (await TryAsync(() => Triage.ShareScreenshotWithAgentsAsync(Id, on, me), on ? "Screenshot shared with agent runs." : "Screenshot no longer shared."))
+            await LoadAsync();
+    }
+
+    private async Task SendReply()
+    {
+        var me = await MeAsync();
+        if (await TryAsync(async () =>
+            {
+                var draft = await Triage.DraftReplyAsync(Id, replyText ?? "", replyStatus, me);
+                await Triage.ApproveReplyAsync(draft.Id, null, me);
+            }, "Sent to the reporter’s Inbox."))
+        {
+            replyText = null;
+            replyStatus = null;
+            await LoadAsync();
+        }
+    }
+
+    private async Task Approve(Guid replyId)
+    {
+        var me = await MeAsync();
+        if (await TryAsync(() => Triage.ApproveReplyAsync(replyId, null, me), "Sent to the reporter’s Inbox.")) await LoadAsync();
+    }
+
+    private async Task Discard(Guid replyId)
+    {
+        var me = await MeAsync();
+        if (await TryAsync(() => Triage.DiscardReplyAsync(replyId, me), "Discarded.")) await LoadAsync();
+    }
+
+    private async Task Reveal()
+    {
+        var me = await MeAsync();
+        await TryAsync(async () => revealed = await Triage.RevealContactAsync("feedback", Id, revealReason ?? "", me));
+    }
+}

@@ -1,0 +1,54 @@
+@implements IDisposable
+@inject NavigationManager NavigationManager
+
+<nav class="side" aria-label="Back office">
+    <a class="brand" href="">
+        <svg width="30" height="30" viewBox="0 0 24 24" aria-hidden="true"><rect x="1" y="1" width="22" height="22" rx="7" fill="#5B8DEF"></rect><path d="M8 15.5l4-8 4 8-4-2z" fill="#FFFFFF"></path></svg>
+        <span><strong>Gimano</strong><small>Back office</small></span>
+    </a>
+    <AuthorizeView>
+        <Authorized>
+            <NavLink class="side-link" href="" Match="NavLinkMatch.All">Inbox</NavLink>
+            <NavLink class="side-link" href="crashes">Crash groups</NavLink>
+            <NavLink class="side-link" href="feedback">Feedback</NavLink>
+            <NavLink class="side-link" href="runs">Agent runs</NavLink>
+            <NavLink class="side-link" href="replies">Replies outbox</NavLink>
+            <NavLink class="side-link" href="builds">Releases</NavLink>
+            <NavLink class="side-link" href="agent-access">Agent access</NavLink>
+            <NavLink class="side-link" href="audit">Audit log</NavLink>
+            <div class="side-foot">
+                <NavLink class="side-link small" href="Account/Manage">@context.User.Identity?.Name</NavLink>
+                <form action="Account/Logout" method="post">
+                    <AntiforgeryToken />
+                    <input type="hidden" name="ReturnUrl" value="@currentUrl" />
+                    <button type="submit" class="side-link small">Sign out</button>
+                </form>
+            </div>
+        </Authorized>
+        <NotAuthorized>
+            <NavLink class="side-link" href="Account/Login">Sign in</NavLink>
+            <NavLink class="side-link" href="Account/Register">Register (maintainers)</NavLink>
+        </NotAuthorized>
+    </AuthorizeView>
+</nav>
+
+@code {
+    private string? currentUrl;
+
+    protected override void OnInitialized()
+    {
+        currentUrl = NavigationManager.ToBaseRelativePath(NavigationManager.Uri);
+        NavigationManager.LocationChanged += OnLocationChanged;
+    }
+
+    private void OnLocationChanged(object? sender, LocationChangedEventArgs e)
+    {
+        currentUrl = NavigationManager.ToBaseRelativePath(e.Location);
+        StateHasChanged();
+    }
+
+    public void Dispose()
+    {
+        NavigationManager.LocationChanged -= OnLocationChanged;
+    }
+}

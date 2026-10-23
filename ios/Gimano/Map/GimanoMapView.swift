@@ -51,6 +51,7 @@ struct GimanoMapView: UIViewRepresentable {
         private var lastJams: [JamLine] = []
         private var lastAlerts: [Report] = []
         private var lastDrivers: [Driver] = []
+        private var lastPrivate: [LatLng] = []
         private var lastDestination: LatLng?
         private var lastPuckMove = Date.distantPast
 
@@ -74,9 +75,12 @@ struct GimanoMapView: UIViewRepresentable {
             let jams = state.jams
             let alerts = state.alerts
             let drivers = state.drivers
+            let privatePins = state.privatePins
             let destination = state.destination
             let puck = state.puck
             let heading = state.puckHeading
+            let accuracy = state.puckAccuracyM
+            _ = state.zoom
             let navPuck = state.navigationPuck
             let cameraRevision = state.cameraRevision
             let camera = state.camera
@@ -93,8 +97,10 @@ struct GimanoMapView: UIViewRepresentable {
             if jams != lastJams { updateJams(jams, style: style); lastJams = jams }
             if alerts != lastAlerts { updateAlerts(alerts, style: style); lastAlerts = alerts }
             if drivers != lastDrivers { updateDrivers(drivers, style: style); lastDrivers = drivers }
+            if privatePins != lastPrivate { updatePrivate(privatePins); lastPrivate = privatePins }
             if destination != lastDestination { updateDestination(destination, style: style); lastDestination = destination }
             updatePuck(puck, heading: heading, nav: navPuck, style: style)
+            updateAccuracy(puck, accuracyM: accuracy)
 
             if cameraRevision != appliedCameraRevision {
                 appliedCameraRevision = cameraRevision
@@ -178,10 +184,12 @@ struct GimanoMapView: UIViewRepresentable {
 
         fileprivate func styleLoaded(_ style: MLNStyle) {
             self.style = style
+            // Resolve dynamic colours against the map's own traits (follows the app's forced theme).
+            let traits = map?.traitCollection ?? .current
             Self.registerImages(in: style)
             // Cobalt land colour.
             if let bg = style.layers.first(where: { $0 is MLNBackgroundStyleLayer }) as? MLNBackgroundStyleLayer {
-                bg.backgroundColor = NSExpression(forConstantValue: Tokens.Palette.mapBackground.resolvedColor(with: .current))
+                bg.backgroundColor = NSExpression(forConstantValue: Tokens.Palette.mapBackground.resolvedColor(with: traits))
             }
 
             func lineLayer(_ id: String, source: MLNSource, color: UIColor, width: Double, opacity: Double = 1, predicate: NSPredicate? = nil) -> MLNLineStyleLayer {
@@ -203,16 +211,17 @@ struct GimanoMapView: UIViewRepresentable {
             let alerts = MLNShapeSource(identifier: "alerts", shape: nil)
             let drivers = MLNShapeSource(identifier: "drivers", shape: nil)
             let puck = MLNShapeSource(identifier: "puck", shape: nil)
-            [jams, alt, sel, traffic, dest, alerts, drivers, puck].forEach { style.addSource($0) }
+            let priv = MLNShapeSource(identifier: "private", shape: nil)
+            [jams, alt, sel, traffic, dest, alerts, drivers, puck, priv].forEach { style.addSource($0) }
 
             for level in 1...4 {
                 style.addLayer(lineLayer("jam-\(level)", source: jams, color: Tokens.Palette.traffic(level: level), width: 5, opacity: 0.8,
                                          predicate: NSPredicate(format: "level == %d", level)))
             }
             style.addLayer(lineLayer("route-alt-casing", source: alt, color: .white, width: 11))
-            style.addLayer(lineLayer("route-alt", source: alt, color: Tokens.Palette.routeAlt.resolvedColor(with: .current), width: 7))
-            style.addLayer(lineLayer("route-sel-casing", source: sel, color: Tokens.Palette.brandInk.resolvedColor(with: .current), width: 13))
-            style.addLayer(lineLayer("route-sel", source: sel, color: Tokens.Palette.routeActive.resolvedColor(with: .current), width: 9))
+            style.addLayer(lineLayer("route-alt", source: alt, color: Tokens.Palette.routeAlt.resolvedColor(with: traits), width: 7))
+            style.addLayer(lineLayer("route-sel-casing", source: sel, color: Tokens.Palette.brandInk.resolvedColor(with: traits), width: 13))
+            style.addLayer(lineLayer("route-sel", source: sel, color: Tokens.Palette.routeActive.resolvedColor(with: traits), width: 9))
             for level in 1...4 {
                 style.addLayer(lineLayer("route-traffic-\(level)", source: traffic, color: Tokens.Palette.traffic(level: level), width: 9,
                                          predicate: NSPredicate(format: "level == %d", level)))
@@ -223,6 +232,12 @@ struct GimanoMapView: UIViewRepresentable {
             driverLayer.iconAllowsOverlap = NSExpression(forConstantValue: true)
             driverLayer.iconScale = NSExpression(forConstantValue: 0.9)
             style.addLayer(driverLayer)
+
+            let privLayer = MLNSymbolStyleLayer(identifier: "private", source: priv)
+            privLayer.iconImageName = NSExpression(forConstantValue: "private")
+            privLayer.iconAllowsOverlap = NSExpression(forConstantValue: true)
+            privLayer.iconAnchor = NSExpression(forConstantValue: "bottom")
+            style.addLayer(privLayer)
 
             let alertLayer = MLNSymbolStyleLayer(identifier: "alerts", source: alerts)
             alertLayer.iconImageName = NSExpression(forKeyPath: "icon")
@@ -236,6 +251,19 @@ struct GimanoMapView: UIViewRepresentable {
             destLayer.iconAnchor = NSExpression(forConstantValue: "bottom")
             style.addLayer(destLayer)
 
+            // Accuracy circle under the puck (radius in points, recomputed on zoom).
+            let accuracySource = MLNShapeSource(identifier: "puck-accuracy", shape: nil)
+            style.addSource(accuracySource)
+            let accLayer = MLNCircleStyleLayer(identifier: "puck-accuracy", source: accuracySource)
+            accLayer.circleRadius = NSExpression(forKeyPath: "radius")
+            accLayer.circleColor = NSExpression(forConstantValue: UIColor(hex: 0x0047AB))
+            accLayer.circleOpacity = NSExpression(forConstantValue: 0.12)
+            accLayer.circleStrokeColor = NSExpression(forConstantValue: UIColor(hex: 0x0047AB))
+            accLayer.circleStrokeOpacity = NSExpression(forConstantValue: 0.35)
+            accLayer.circleStrokeWidth = NSExpression(forConstantValue: 1)
+            accLayer.circlePitchAlignment = NSExpression(forConstantValue: "map")
+            style.addLayer(accLayer)
+
             let puckLayer = MLNSymbolStyleLayer(identifier: "puck", source: puck)
             puckLayer.iconImageName = NSExpression(forKeyPath: "icon")
             puckLayer.iconRotation = NSExpression(forKeyPath: "heading")
@@ -245,7 +273,7 @@ struct GimanoMapView: UIViewRepresentable {
             puckLayer.iconIgnoresPlacement = NSExpression(forConstantValue: true)
             style.addLayer(puckLayer)
 
-            lastRoutes = []; lastJams = []; lastAlerts = []; lastDrivers = []; lastDestination = nil
+            lastRoutes = []; lastJams = []; lastAlerts = []; lastDrivers = []; lastDestination = nil; lastPrivate = []
             appliedCameraRevision = -1
             apply()
         }
@@ -299,11 +327,28 @@ struct GimanoMapView: UIViewRepresentable {
             source("drivers")?.shape = MLNShapeCollectionFeature(shapes: features)
         }
 
+        private func updatePrivate(_ pins: [LatLng]) {
+            let features: [MLNPointFeature] = pins.map { p in
+                let f = MLNPointFeature()
+                f.coordinate = p.coordinate
+                return f
+            }
+            source("private")?.shape = MLNShapeCollectionFeature(shapes: features)
+        }
+
         private func updateDestination(_ p: LatLng?, style: MLNStyle) {
             guard let p else { source("dest")?.shape = nil; return }
             let f = MLNPointFeature()
             f.coordinate = p.coordinate
             source("dest")?.shape = f
+        }
+
+        private func updateAccuracy(_ p: LatLng?, accuracyM: Double?) {
+            guard let p, let accuracyM, accuracyM > 15, let map else { source("puck-accuracy")?.shape = nil; return }
+            let f = MLNPointFeature()
+            f.coordinate = p.coordinate
+            f.attributes = ["radius": min(400, accuracyM / max(0.01, map.metersPerPoint(atLatitude: p.lat)))]
+            source("puck-accuracy")?.shape = f
         }
 
         private func updatePuck(_ p: LatLng?, heading: Double, nav: Bool, style: MLNStyle) {
@@ -348,6 +393,7 @@ struct GimanoMapView: UIViewRepresentable {
             style.setImage(puckImage(nav: true), forName: "puck-nav")
             style.setImage(driverImage(), forName: "driver")
             style.setImage(destinationImage(), forName: "dest")
+            style.setImage(privateImage(), forName: "private")
         }
 
         private static func symbol(_ name: String, size: CGFloat, color: UIColor) -> UIImage? {
@@ -403,6 +449,23 @@ struct GimanoMapView: UIViewRepresentable {
                 UIBezierPath(roundedRect: CGRect(x: 0, y: 0, width: 18, height: 16), cornerRadius: 7).fill()
                 brand.withAlphaComponent(0.85).setFill()
                 UIBezierPath(roundedRect: CGRect(x: 2, y: 2, width: 14, height: 12), cornerRadius: 5).fill()
+            }
+        }
+
+        /// "Just for me" pin: heart duotone pebble.
+        static func privateImage() -> UIImage {
+            UIGraphicsImageRenderer(size: CGSize(width: 36, height: 44)).image { ctx in
+                let c = ctx.cgContext
+                c.setShadow(offset: CGSize(width: 0, height: 2), blur: 3, color: UIColor(hex: 0x0B1B3A, alpha: 0.25).cgColor)
+                UIColor.white.setFill()
+                UIBezierPath(roundedRect: CGRect(x: 2, y: 2, width: 32, height: 32), cornerRadius: 12).fill()
+                let tail = UIBezierPath()
+                tail.move(to: CGPoint(x: 13, y: 33)); tail.addLine(to: CGPoint(x: 18, y: 42)); tail.addLine(to: CGPoint(x: 23, y: 33)); tail.close()
+                tail.fill()
+                c.setShadow(offset: .zero, blur: 0, color: nil)
+                UIColor(hex: 0xE3ECFA).setFill()
+                UIBezierPath(roundedRect: CGRect(x: 5, y: 5, width: 26, height: 26), cornerRadius: 10).fill()
+                GIcon.heart.draw(in: c, rect: CGRect(x: 8, y: 8, width: 20, height: 20), stroke: UIColor(hex: 0x0A2E6E), fill: UIColor(hex: 0x8FB0E8))
             }
         }
 

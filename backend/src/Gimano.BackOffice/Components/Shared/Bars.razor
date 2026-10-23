@@ -1,0 +1,23 @@
+<div class="bars">
+    @if (Items.Count == 0)
+    {
+        <span class="muted small">No data</span>
+    }
+    @foreach (var b in Items)
+    {
+        <div>
+            <div class="bar-label"><span title="@b.Label">@b.Label</span><strong>@b.Count</strong></div>
+            <div class="bar"><div style="width: @(Pct(b.Count))%"></div></div>
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter, EditorRequired] public IReadOnlyList<Bucket> Items { get; set; } = [];
+
+    private string Pct(int n)
+    {
+        var max = Items.Count == 0 ? 1 : Math.Max(1, Items.Max(i => i.Count));
+        return (100.0 * n / max).ToString("0.#", System.Globalization.CultureInfo.InvariantCulture);
+    }
+}

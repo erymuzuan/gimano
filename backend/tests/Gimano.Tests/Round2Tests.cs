@@ -479,7 +479,7 @@ public class FeedbackTests
     }
 
     [Fact]
-    public void GitHub_issue_never_contains_device_or_user_id_and_rounds_location()
+    public void GitHub_issue_never_contains_device_model_location_or_user_id()
     {
         var userId = Guid.NewGuid();
         var fb = new Feedback
@@ -491,7 +491,8 @@ public class FeedbackTests
         };
         var (title, body, labels) = FeedbackIssueFormatter.Format(fb);
         Assert.Equal("[route] Laluan salah di persimpangan", title);
-        Assert.Contains("3.12, 101.62", body);
+        Assert.DoesNotContain("iPhone17,3", body);
+        Assert.DoesNotContain("3.12", body);
         Assert.DoesNotContain("3.1187", body);
         Assert.DoesNotContain("101.619", body);
         Assert.DoesNotContain(userId.ToString(), body);

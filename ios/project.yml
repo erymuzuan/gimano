@@ -15,8 +15,8 @@ settings:
   base:
     SWIFT_VERSION: "6.0"
     CODE_SIGN_STYLE: Automatic
-    MARKETING_VERSION: "0.1.0"
-    CURRENT_PROJECT_VERSION: "1"
+    MARKETING_VERSION: "0.2.3"
+    CURRENT_PROJECT_VERSION: "5"
     ENABLE_USER_SCRIPT_SANDBOXING: YES
     SWIFT_EMIT_LOC_STRINGS: YES
     LOCALIZATION_PREFERS_STRING_CATALOGS: YES
@@ -26,13 +26,28 @@ settings:
     Debug:
       GIMANO_API_BASE_URL: "http://100.101.150.9:5080/api/v1/"
     Release:
-      # Placeholder until a production host exists; override in Debug settings or here.
-      GIMANO_API_BASE_URL: "http://localhost:5080/api/v1/"
+      # Production (ATS-strict, https). The live hub is derived: wss://gimano-api.bukitbunga.com/hubs/live
+      GIMANO_API_BASE_URL: "https://gimano-api.bukitbunga.com/api/v1/"
 
 packages:
   MapLibre:
     url: https://github.com/maplibre/maplibre-gl-native-distribution
     from: 6.31.0
+  GRDB:
+    url: https://github.com/groue/GRDB.swift
+    from: 7.11.1
+  Sodium:
+    url: https://github.com/jedisct1/swift-sodium
+    from: 0.11.0
+  ZIPFoundation:
+    url: https://github.com/weichsel/ZIPFoundation
+    from: 0.9.20
+  GoogleSignIn:
+    url: https://github.com/google/GoogleSignIn-iOS
+    from: 10.1.0
+  libwebp:
+    url: https://github.com/SDWebImage/libwebp-Xcode
+    from: 1.6.0
 
 targets:
   Gimano:
@@ -43,16 +58,28 @@ targets:
         excludes:
           - "Resources/Info.plist"
           - "Resources/Info-Debug.plist"
+          - "Resources/Gimano.entitlements"
+          - "Resources/Gimano-NoCloud.entitlements"
     dependencies:
       - package: MapLibre
+      - package: GRDB
+        product: GRDB
+      - package: Sodium
+        product: Sodium
+      - package: ZIPFoundation
+      - package: GoogleSignIn
+        product: GoogleSignIn
+      - package: libwebp
+        product: libwebp
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: my.gimano.app
+        PRODUCT_BUNDLE_IDENTIFIER: $(APP_BUNDLE_ID)
         PRODUCT_NAME: Gimano
         TARGETED_DEVICE_FAMILY: "1"
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
         GENERATE_INFOPLIST_FILE: NO
+        CODE_SIGN_ENTITLEMENTS: $(GIMANO_ENTITLEMENTS_$(GIMANO_ICLOUD))
       configs:
         # Hand-maintained; keep in sync. Debug adds the cleartext ATS exception, Release is ATS-strict.
         Debug:
@@ -69,10 +96,23 @@ targets:
       - target: Gimano
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: my.gimano.app.tests
+        PRODUCT_BUNDLE_IDENTIFIER: $(APP_BUNDLE_ID).tests
         GENERATE_INFOPLIST_FILE: YES
         TEST_HOST: $(BUILT_PRODUCTS_DIR)/Gimano.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/Gimano
         BUNDLE_LOADER: $(TEST_HOST)
+
+  GimanoUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources:
+      - path: GimanoUITests
+    dependencies:
+      - target: Gimano
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: $(APP_BUNDLE_ID).uitests
+        GENERATE_INFOPLIST_FILE: YES
+        TEST_TARGET_NAME: Gimano
 
 schemes:
   Gimano:
@@ -80,9 +120,11 @@ schemes:
       targets:
         Gimano: all
         GimanoTests: [test]
+        GimanoUITests: [test]
     test:
       targets:
         - GimanoTests
+        - GimanoUITests
       gatherCoverageData: false
     run:
       config: Debug

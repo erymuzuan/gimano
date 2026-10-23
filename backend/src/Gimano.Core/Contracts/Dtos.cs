@@ -149,13 +149,46 @@ public sealed record LocationBatch(string? RouteId, IReadOnlyList<LocationPoint>
 
 // ---- Feedback ---------------------------------------------------------------
 
+/// <summary>Legacy (0.1.x) diagnostics block. Newer apps send <see cref="DeviceInfo"/> + <see cref="CoarseLocation"/>.</summary>
 public sealed record FeedbackContext(
     string? AppVersion, string? Platform, string? OsVersion, string? DeviceModel, string? Locale,
     double? Lat, double? Lng, string? RouteId, string? PlaceId);
 
+public sealed record ScreenInfo(int WidthPx, int HeightPx, double Density, int WidthDp, int HeightDp);
+
+/// <summary>The <c>device</c> block: only when the user ticked "include device info" (always on crash reports, shown first).</summary>
+public sealed record DeviceInfo(
+    string? AppVersion, int? AppBuild, string? Platform, string? OsVersion, int? ApiLevel, string? DeviceModel,
+    string? Manufacturer, ScreenInfo? Screen, string? Locale, string? Theme, string? DataMode,
+    string? LocationPermission = null, int? LastFixAccuracyM = null);
+
+/// <summary>Rounded to 2 dp on the phone, and again on the server.</summary>
+public sealed record CoarseLocation(double Lat, double Lng);
+
+/// <summary>Volunteered for ONE report (docs/api.md "Contact details"). Sealed on arrival; never returned by any API.</summary>
+public sealed record ContactDetails(string? Email, string? Whatsapp, bool Consent);
+
 public sealed record CreateFeedbackRequest(
-    FeedbackCategory Category, string Message, int? Rating, FeedbackScreen? Screen, FeedbackContext? Context, string? Screenshot);
+    FeedbackCategory Category, string Message, int? Rating, FeedbackScreen? Screen, FeedbackContext? Context, string? Screenshot,
+    DeviceInfo? Device = null, CoarseLocation? Location = null, ContactDetails? Contact = null, string? RouteId = null, string? PlaceId = null);
 
 public sealed record FeedbackCreatedResponse(Guid Id, DateTimeOffset CreatedAt);
 
-public sealed record FeedbackSummary(Guid Id, FeedbackCategory Category, string Message, FeedbackStatus Status, DateTimeOffset CreatedAt);
+public sealed record FeedbackSummary(Guid Id, FeedbackCategory Category, string Message, FeedbackStatus Status, DateTimeOffset CreatedAt, bool HasContact = false);
+
+// ---- Crash reports -------------------------------------------------------------
+
+public sealed record CreateCrashReportRequest(
+    DateTimeOffset OccurredAt, CrashKind Kind, string Exception, string? Message, string Stack, string? Threads,
+    string? Screen, long? UptimeS, DeviceInfo Device, ContactDetails? Contact = null);
+
+public sealed record CrashReportCreatedResponse(Guid Id, string Signature);
+
+// ---- Inbox ---------------------------------------------------------------------
+
+public sealed record InboxItemDto(
+    Guid Id, string Kind, string Title, string Body, string? RefType, string? RefId, DateTimeOffset CreatedAt, bool Read, int Count);
+
+public sealed record InboxPage(IReadOnlyList<InboxItemDto> Items, string? Next, int Unread);
+
+public sealed record InboxReadRequest(DateTimeOffset UpTo);

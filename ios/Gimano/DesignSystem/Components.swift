@@ -183,6 +183,11 @@ extension PlaceCategory {
         case .transitStation: "tram"
         case .airport: "airplane"
         case .government: "building.2"
+        case .toilets: "toilet"
+        case .street: "road.lanes"
+        case .address: "house"
+        case .postcode: "envelope"
+        case .point: "mappin.circle"
         default: "mappin"
         }
     }
@@ -204,5 +209,34 @@ struct CategoryIcon: View {
         }
         .frame(width: size, height: size)
         .background(Color.brandMist, in: RoundedRectangle(cornerRadius: size * 0.32, style: .continuous))
+    }
+}
+
+/// Wrapping row of chips.
+struct FlowLayout: Layout {
+    var spacing: CGFloat = 8
+
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+        let width = proposal.width ?? .infinity
+        var x: CGFloat = 0, y: CGFloat = 0, rowH: CGFloat = 0, maxX: CGFloat = 0
+        for v in subviews {
+            let s = v.sizeThatFits(.unspecified)
+            if x > 0, x + s.width > width { x = 0; y += rowH + spacing; rowH = 0 }
+            x += s.width + spacing
+            rowH = max(rowH, s.height)
+            maxX = max(maxX, x - spacing)
+        }
+        return CGSize(width: min(maxX, width), height: y + rowH)
+    }
+
+    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
+        var x = bounds.minX, y = bounds.minY, rowH: CGFloat = 0
+        for v in subviews {
+            let s = v.sizeThatFits(.unspecified)
+            if x > bounds.minX, x + s.width > bounds.maxX { x = bounds.minX; y += rowH + spacing; rowH = 0 }
+            v.place(at: CGPoint(x: x, y: y), proposal: ProposedViewSize(s))
+            x += s.width + spacing
+            rowH = max(rowH, s.height)
+        }
     }
 }

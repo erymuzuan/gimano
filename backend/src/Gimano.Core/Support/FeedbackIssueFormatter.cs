@@ -5,8 +5,8 @@ using Gimano.Core.Contracts;
 namespace Gimano.Core.Support;
 
 /// <summary>
-/// Builds the public GitHub issue for a feedback item. Privacy rules (docs/api.md#feedback):
-/// never the device id or user id, location rounded to 2 dp (~1 km), no screenshot bytes.
+/// Builds the public GitHub issue for a feedback item. Privacy rules (docs/api.md#feedback): never the user id,
+/// contact details, device model or location, and no screenshot bytes. Maintainers see those in the back office.
 /// </summary>
 public static class FeedbackIssueFormatter
 {
@@ -29,9 +29,7 @@ public static class FeedbackIssueFormatter
             void Row(string k, string? v) { if (!string.IsNullOrWhiteSpace(v)) sb.AppendLine($"| {k} | {Escape(v)} |"); }
             Row("App", c.AppVersion);
             Row("Platform", c.Platform is null ? null : $"{c.Platform} {c.OsVersion}".Trim());
-            Row("Device", c.DeviceModel);
             Row("Locale", c.Locale);
-            if (c.Lat is { } lat && c.Lng is { } lng) Row("Area (≈1 km)", RoundedLocation(lat, lng));
             Row("Route", c.RouteId);
             Row("Place", c.PlaceId);
         }

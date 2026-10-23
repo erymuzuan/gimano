@@ -1,5 +1,5 @@
 # Gimano dev/test stack.  Usage (from repo root):
-#   cp deploy/.env.example deploy/.env   # then set JWT_SIGNING_KEY
+#   cp deploy/.env.example deploy/.env   # then set JWT_SIGNING_KEY, POSTGRES_PASSWORD and RABBITMQ_PASSWORD
 #   docker compose -f deploy/docker-compose.yml up -d --build
 #   docker compose -f deploy/docker-compose.yml --profile tools run --rm importer
 # Host ports are overridable via deploy/.env (defaults avoid clashing with other stacks on the same host).
@@ -7,12 +7,12 @@ name: gimano
 
 x-dotnet-env: &dotnet-env
   Media__Root: /data/media
-  ConnectionStrings__Postgres: "Host=postgis;Port=5432;Database=${POSTGRES_DB:-gimano};Username=${POSTGRES_USER:-gimano};Password=${POSTGRES_PASSWORD:-gimano};Command Timeout=1800;GSS Encryption Mode=Disable"
+  ConnectionStrings__Postgres: "Host=postgis;Port=5432;Database=${POSTGRES_DB:-gimano};Username=${POSTGRES_USER:-gimano};Password=${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in deploy/.env};Command Timeout=1800;GSS Encryption Mode=Disable"
   OpenSearch__Url: "http://opensearch:9200"
   RabbitMq__Host: "rabbitmq"
   RabbitMq__Port: "5672"
   RabbitMq__User: "${RABBITMQ_USER:-gimano}"
-  RabbitMq__Password: "${RABBITMQ_PASSWORD:-gimano}"
+  RabbitMq__Password: "${RABBITMQ_PASSWORD:?Set RABBITMQ_PASSWORD in deploy/.env}"
   DOTNET_ENVIRONMENT: "${DOTNET_ENVIRONMENT:-Production}"
   ASPNETCORE_ENVIRONMENT: "${DOTNET_ENVIRONMENT:-Production}"
 
@@ -23,7 +23,7 @@ services:
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-gimano}
       POSTGRES_USER: ${POSTGRES_USER:-gimano}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-gimano}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in deploy/.env}
     # Dev tuning: the importer bulk-loads ~1.3 M rows; durability settings are relaxed (set PG_FSYNC=on for anything real).
     command: ["postgres", "-c", "shared_buffers=1GB", "-c", "work_mem=64MB", "-c", "maintenance_work_mem=1GB", "-c", "max_wal_size=4GB",
               "-c", "fsync=${PG_FSYNC:-off}", "-c", "synchronous_commit=off", "-c", "full_page_writes=${PG_FSYNC:-off}",
@@ -63,7 +63,7 @@ services:
     hostname: gimano-rabbit
     environment:
       RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-gimano}
-      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:-gimano}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:?Set RABBITMQ_PASSWORD in deploy/.env}
     ports:
       - "${RABBITMQ_PORT:-5673}:5672"
       - "${RABBITMQ_MGMT_PORT:-15673}:15672"
@@ -110,6 +110,10 @@ services:
       Jwt__SigningKey: ${JWT_SIGNING_KEY:?Set JWT_SIGNING_KEY (>= 32 chars) in deploy/.env}
       # Feedback screenshots are base64 (≤ 1.5 MB decoded ≈ 2 MB JSON).
       Kestrel__Limits__MaxRequestBodySize: "4194304"
+      # Seals contact details volunteered on feedback / crash reports (unset = they are dropped, not stored).
+      Contact__EncryptionKey: ${CONTACT_ENCRYPTION_KEY:-}
+      # /admin/v1 and /mcp (AI agents): refused when the request came through the public Cloudflare edge.
+      Admin__AllowPublic: "false"
     ports: ["${API_PORT:-5080}:8080"]
     volumes: ["media:/data/media"]
     depends_on:
@@ -117,6 +121,26 @@ services:
       rabbitmq: { condition: service_healthy }
       opensearch: { condition: service_started }
       valhalla: { condition: service_started }
+
+  # Maintainer back office (Blazor): feedback, crash groups, agent runs and tokens. Tailscale only; never expose publicly.
+  # Passkeys need HTTPS: put it behind `tailscale serve` (see backend/README.md). Password + authenticator works over HTTP.
+  backoffice:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile.backoffice
+    image: gimano/backoffice:dev
+    restart: unless-stopped
+    environment:
+      <<: *dotnet-env
+      Urls: "http://+:8080"
+      Contact__EncryptionKey: ${CONTACT_ENCRYPTION_KEY:-}
+      BackOffice__Maintainers__0: ${BACKOFFICE_MAINTAINER:-}
+      BackOffice__ApiBaseUrl: ${BACKOFFICE_API_BASE_URL:-http://100.101.150.9:5080}
+      DataProtection__KeysPath: /data/keys
+    ports: ["${BACKOFFICE_PORT:-5090}:8080"]
+    volumes: ["backofficekeys:/data/keys"]
+    depends_on:
+      api: { condition: service_started }   # the API applies the main EF migrations; the back office migrates only its own schema
 
   worker:
     build:
@@ -152,6 +176,7 @@ services:
       opensearch: { condition: service_healthy }
 
 volumes:
+  backofficekeys:   # ASP.NET Data Protection keys for back-office sign-in cookies
   media:      # photos (content-addressed WebP); set Media__Provider=s3 + Media__S3__* to use object storage instead
   pgdata:
   osdata:

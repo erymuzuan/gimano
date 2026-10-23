@@ -1,14 +1,17 @@
 using System.Text.Json;
 using Gimano.Api;
+using Gimano.Api.Admin;
 using Gimano.Api.Auth;
 using Gimano.Api.Endpoints;
 using Gimano.Api.Health;
 using Gimano.Api.Live;
 using Gimano.Api.Services;
+using Gimano.Core.BackOffice;
 using Gimano.Core.Community;
 using Gimano.Core.Contracts;
 using Gimano.Core.Data;
 using Gimano.Core.Infrastructure;
+using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.EntityFrameworkCore;
@@ -40,10 +43,22 @@ builder.Services.AddScoped<GeoLookup>().AddScoped<ReportService>().AddScoped<Rou
     .AddScoped<CommunityService>().AddScoped<ReviewService>().AddScoped<PhotoService>();
 builder.Services.AddGimanoMedia(config);
 
+// Feedback, crash reports and the back office (docs/back-office.md). Without Contact:EncryptionKey, volunteered
+// contact details are dropped rather than stored.
+builder.Services.Configure<ContactOptions>(config.GetSection(ContactOptions.Section));
+if (!string.IsNullOrWhiteSpace(config[$"{ContactOptions.Section}:EncryptionKey"])) builder.Services.AddSingleton<ContactProtector>();
+builder.Services.AddScoped<ReportIntake>().AddScoped<TriageService>();
+builder.Services.Configure<AdminOptions>(config.GetSection(AdminOptions.Section));
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddMcpServer(o => o.ServerInfo = new() { Name = "gimano-backoffice", Version = "1.0.0" })
+    .WithHttpTransport(o => o.Stateless = true)
+    .WithTools<BackOfficeMcpTools>();
+
 // Auth: anonymous device JWTs (HS256)
 builder.Services.Configure<JwtOptions>(config.GetSection(JwtOptions.Section));
 builder.Services.AddSingleton<JwtTokenService>();
-builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme).AddJwtBearer();
+builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme).AddJwtBearer()
+    .AddScheme<AuthenticationSchemeOptions, AgentTokenAuthenticationHandler>(AgentTokenAuthenticationHandler.SchemeName, null);
 builder.Services.AddOptions<JwtBearerOptions>(JwtBearerDefaults.AuthenticationScheme)
     .Configure<IOptions<JwtOptions>>((o, jwt) =>
     {
@@ -66,7 +81,8 @@ builder.Services.AddOptions<JwtBearerOptions>(JwtBearerDefaults.AuthenticationSc
             },
         };
     });
-builder.Services.AddAuthorization();
+builder.Services.AddAuthorization(o => o.AddPolicy(AgentTokenAuthenticationHandler.Policy, p => p
+    .AddAuthenticationSchemes(AgentTokenAuthenticationHandler.SchemeName).RequireAuthenticatedUser().RequireClaim(AgentTokenAuthenticationHandler.AgentClaim)));
 
 // Live
 builder.Services.AddSignalR().AddJsonProtocol(o => GimanoJson.Configure(o.PayloadSerializerOptions));
@@ -111,6 +127,7 @@ if (config.GetValue("Database:MigrateOnStartup", true))
 app.UseExceptionHandler();
 app.UseStatusCodePages();
 app.UseCors();
+app.UseMiddleware<AdminAccessMiddleware>();
 app.UseAuthentication();
 app.UseAuthorization();
 
@@ -121,8 +138,10 @@ app.MapHealthChecks("/healthz", new HealthCheckOptions { Predicate = _ => false,
 app.MapHealthChecks("/readyz", new HealthCheckOptions { Predicate = c => c.Tags.Contains("ready"), ResponseWriter = HealthWriter.WriteAsync });
 
 var api = app.MapGroup("/api/v1");
-api.MapAuthAndMe().MapPlaces().MapRoutes().MapLive().MapFeedback().MapPrivacy().MapCommunity();
+api.MapAuthAndMe().MapPlaces().MapRoutes().MapLive().MapFeedback().MapCrashReports().MapInbox().MapPrivacy().MapCommunity();
 app.MapMedia();
+app.MapAdmin();
+app.MapMcp("/mcp").RequireAuthorization(AgentTokenAuthenticationHandler.Policy);
 
 app.MapHub<LiveHub>("/hubs/live");
 app.MapGet("/", () => Results.Redirect("/scalar/v1")).ExcludeFromDescription();

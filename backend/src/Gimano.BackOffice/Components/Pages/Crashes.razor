@@ -1,0 +1,84 @@
+@page "/crashes"
+@inherits BackOfficePage
+
+<PageTitle>Crash groups · Gimano back office</PageTitle>
+
+<header class="page-head">
+    <div>
+        <h1>Crash groups</h1>
+        <p>Reports grouped by exception and top app frames. Events are kept 90 days; counts stay.</p>
+    </div>
+</header>
+
+<form class="card form-grid" method="get" style="margin-bottom: 20px;">
+    <label class="field">Status
+        <select name="status">
+            <option value="">Open (any)</option>
+            @foreach (var s in Enum.GetValues<CrashStatus>())
+            {
+                <option value="@Fmt.Wire(s)" selected="@(Status == Fmt.Wire(s))">@Fmt.Label(Fmt.Wire(s))</option>
+            }
+            <option value="all" selected="@(Status == "all")">All</option>
+        </select>
+    </label>
+    <label class="field">Platform
+        <select name="platform">
+            <option value="">Both</option>
+            <option value="android" selected="@(Platform == "android")">Android</option>
+            <option value="ios" selected="@(Platform == "ios")">iOS</option>
+        </select>
+    </label>
+    <label class="field">Search
+        <input type="search" name="text" value="@Text" placeholder="Exception, frame or signature" />
+    </label>
+    <button class="btn primary" type="submit">Filter</button>
+</form>
+
+<section class="table-box">
+    @if (groups is null || groups.Count == 0)
+    {
+        <p class="empty">@(groups is null ? "Loading…" : "No crash groups match.")</p>
+    }
+    else
+    {
+        <table class="grid">
+            <thead><tr><th scope="col">Crash</th><th scope="col">Events</th><th scope="col">Versions</th><th scope="col">Status</th><th scope="col">Severity</th><th scope="col">Last seen</th></tr></thead>
+            <tbody>
+                @foreach (var g in groups)
+                {
+                    <tr>
+                        <td>
+                            <div class="hrow" style="align-items: flex-start; flex-wrap: nowrap; gap: 12px;">
+                                <Pill Text="@Fmt.Wire(g.Kind)" />
+                                <div style="min-width: 0;">
+                                    <a class="title" href="crashes/@g.Signature">@g.Exception</a>
+                                    <div class="sub">@g.Platform · @Fmt.Sig(g.Signature) · @(g.TopFrame ?? "no app frame")</div>
+                                </div>
+                            </div>
+                        </td>
+                        <td><strong>@g.EventCount</strong></td>
+                        <td class="small nowrap">@g.FirstVersion@(g.LatestVersion is { } l && l != g.FirstVersion ? $"–{l}" : "")</td>
+                        <td><Pill Text="@Fmt.Wire(g.Status)" /></td>
+                        <td>@if (g.Severity is { } s) { <Pill Text="@Fmt.Wire(s)" /> } else { <span class="muted">—</span> }</td>
+                        <td class="nowrap muted small">@Fmt.Ago(g.LastSeenAt)</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+</section>
+
+@code {
+    [SupplyParameterFromQuery] private string? Status { get; set; }
+    [SupplyParameterFromQuery] private string? Platform { get; set; }
+    [SupplyParameterFromQuery] private string? Text { get; set; }
+
+    private IReadOnlyList<CrashGroupItem>? groups;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        CrashStatus? status = GimanoJson.TryParseWire<CrashStatus>(Status, out var st) ? st : null;
+        groups = await Triage.CrashGroupsAsync(new CrashQuery(status, Platform is { Length: > 0 } ? Platform : null, Text,
+            OpenOnly: string.IsNullOrEmpty(Status), Take: 200));
+    }
+}

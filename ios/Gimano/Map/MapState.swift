@@ -36,12 +36,16 @@ final class MapState {
     var styleURL: URL
     var puck: LatLng?
     var puckHeading: Double = 0
+    /// Horizontal accuracy (m) drawn as a circle around the puck.
+    var puckAccuracyM: Double?
     var navigationPuck = false
     var routes: [RouteLine] = []
     var destination: LatLng?
     var alerts: [Report] = []
     var jams: [JamLine] = []
     var drivers: [Driver] = []
+    /// "Just for me" places, drawn from the local DB only.
+    var privatePins: [LatLng] = []
     var camera: CameraMode = .trackNorth(zoom: 14)
     var cameraRevision = 0
     /// Extra insets (sheet/banners) so fitted content stays visible.

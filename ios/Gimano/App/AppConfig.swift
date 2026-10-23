@@ -45,16 +45,28 @@ final class AppConfig {
         let plistStyle = (bundle.object(forInfoDictionaryKey: "GimanoMapStyleURL") as? String)?.trimmingCharacters(in: .whitespaces)
         bundleAPIBaseURL = (plistAPI?.isEmpty == false && !(plistAPI!.contains("$("))) ? plistAPI! : Self.fallbackAPIBaseURL
         bundleStyleURL = (plistStyle?.isEmpty == false && !(plistStyle!.contains("$("))) ? plistStyle! : Self.fallbackStyleURL
+        #if DEBUG
         apiBaseURLOverride = defaults.string(forKey: Keys.api) ?? ""
         styleURLOverride = defaults.string(forKey: Keys.style) ?? ""
         dataMode = DataMode(rawValue: defaults.string(forKey: Keys.mode) ?? "") ?? .auto
         simulateDrive = defaults.object(forKey: Keys.simulate) as? Bool ?? false
         simulationSpeedup = defaults.object(forKey: Keys.speedup) as? Double ?? 3
         applyLaunchArguments()
+        #else
+        // Release: no developer overrides; production server, demo data only when it's unreachable / 5xx.
+        apiBaseURLOverride = ""
+        styleURLOverride = ""
+        dataMode = .auto
+        simulateDrive = false
+        simulationSpeedup = 1
+        #endif
     }
 
+    /// Launch-argument server (tests); not persisted.
+    private var launchAPIBaseURL: String?
+
     var apiBaseURL: URL {
-        let raw = apiBaseURLOverride.trimmingCharacters(in: .whitespaces).isEmpty ? bundleAPIBaseURL : apiBaseURLOverride
+        let raw = launchAPIBaseURL ?? (apiBaseURLOverride.trimmingCharacters(in: .whitespaces).isEmpty ? bundleAPIBaseURL : apiBaseURLOverride)
         var s = raw.trimmingCharacters(in: .whitespaces)
         if !s.hasSuffix("/") { s += "/" }
         return URL(string: s) ?? URL(string: Self.fallbackAPIBaseURL)!
@@ -63,6 +75,12 @@ final class AppConfig {
     var styleURL: URL {
         let raw = styleURLOverride.trimmingCharacters(in: .whitespaces).isEmpty ? bundleStyleURL : styleURLOverride
         return URL(string: raw) ?? URL(string: Self.fallbackStyleURL)!
+    }
+
+    /// Dark basemap (OpenFreeMap "dark"); a custom style override applies to both themes.
+    var darkStyleURL: URL {
+        if !styleURLOverride.trimmingCharacters(in: .whitespaces).isEmpty { return styleURL }
+        return URL(string: "https://tiles.openfreemap.org/styles/dark")!
     }
 
     /// `ws(s)://host/hubs/live`, derived from the API base URL (`…/api/v1/` stripped).
@@ -85,6 +103,13 @@ final class AppConfig {
     private func applyLaunchArguments() {
         if let m = defaults.string(forKey: "GimanoDataMode"), let mode = DataMode(rawValue: m) { dataMode = mode }
         if defaults.object(forKey: "GimanoSimulateDrive") != nil { simulateDrive = defaults.bool(forKey: "GimanoSimulateDrive") }
+        // `-GimanoAPIBaseURL https://…/api/v1/` (UI tests against another server, e.g. production): this run only,
+        // never saved. `-GimanoFreshDevice YES` also forgets a saved developer override.
+        if defaults.bool(forKey: "GimanoFreshDevice") {
+            defaults.removeObject(forKey: Keys.api)
+            apiBaseURLOverride = ""
+        }
+        if let u = defaults.string(forKey: "GimanoAPIBaseURL"), !u.isEmpty { launchAPIBaseURL = u }
     }
 
     private enum Keys {

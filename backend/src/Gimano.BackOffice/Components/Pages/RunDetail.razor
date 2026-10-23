@@ -1,0 +1,86 @@
+@page "/runs/{Id:int}"
+@rendermode InteractiveServer
+@inherits BackOfficePage
+
+<PageTitle>Agent run · Gimano back office</PageTitle>
+
+@if (run is null)
+{
+    <p class="empty">@(loaded ? "No run with that id." : "Loading…")</p>
+}
+else
+{
+    <header class="page-head">
+        <div>
+            <div class="crumbs"><a href="runs">← Agent runs</a></div>
+            <div class="hrow"><Pill Text="@Fmt.Wire(run.Status)" /><span class="muted small">Run #@run.Id · started @Fmt.When(run.StartedAt) · @run.Steps.Count steps</span></div>
+            <h1 style="margin-top: 8px;">@run.Title</h1>
+            <p>Agent <strong>@run.Agent</strong> on <a href="@TargetLink">@run.TargetType @(run.TargetType == "crash" ? Fmt.Sig(run.TargetId) : run.TargetId)</a>@(run.Branch is { } b ? $" · branch {b}" : "")</p>
+        </div>
+        <div class="hrow">
+            @if (run.PrUrl is { } pr) { <a class="btn primary" href="@pr" target="_blank" rel="noopener">Review PR on GitHub</a> }
+            @if (run.Status is not (AgentRunStatus.Done or AgentRunStatus.Cancelled))
+            {
+                <button class="btn" @onclick="() => SetStatus(AgentRunStatus.Done)">Mark done</button>
+                <button class="btn danger" @onclick="() => SetStatus(AgentRunStatus.Cancelled)">Cancel run</button>
+            }
+        </div>
+    </header>
+
+    <Messages Error="@Error" Notice="@Notice" />
+
+    <div class="split">
+        <div class="primary">
+            @if (run.Summary is { } summary)
+            {
+                <section class="card agent"><h2>Summary</h2><pre class="wrap">@summary</pre></section>
+            }
+            <section class="card">
+                <h2>Steps</h2>
+                <div class="timeline">
+                    @foreach (var s in run.Steps)
+                    {
+                        <div class="step">
+                            <span class="dot" aria-hidden="true"></span>
+                            <div class="body">
+                                <strong>@s.Title</strong>
+                                <span class="muted small">@Fmt.Short(s.At)</span>
+                                @if (s.Detail is { } d) { <pre class="wrap">@d</pre> }
+                            </div>
+                        </div>
+                    }
+                </div>
+            </section>
+        </div>
+        <aside class="aside">
+            <section class="card dark">
+                <h2>Human gates</h2>
+                <p style="margin: 0 0 8px;">✓ Agents push only <code>agent/*</code> branches and open draft PRs.</p>
+                <p style="margin: 0 0 8px;">✓ Merge on GitHub (branch protection: the agent cannot).</p>
+                <p style="margin: 0 0 8px;">✓ Releases and the WS556 deploy stay manual.</p>
+                <p style="margin: 0;">✓ After the release, mark the crash group fixed with its build number.</p>
+            </section>
+        </aside>
+    </div>
+}
+
+@code {
+    [Parameter] public int Id { get; set; }
+
+    private bool loaded;
+    private AgentRunView? run;
+
+    private string TargetLink => run is null ? "" : run.TargetType == "crash" ? $"crashes/{run.TargetId}" : $"feedback/{run.TargetId}";
+
+    protected override async Task OnParametersSetAsync()
+    {
+        run = await Triage.GetRunAsync(Id);
+        loaded = true;
+    }
+
+    private async Task SetStatus(AgentRunStatus status)
+    {
+        var me = await MeAsync();
+        await TryAsync(async () => run = await Triage.UpdateRunAsync(Id, new AgentRunUpdate(status), me), "Updated.");
+    }
+}

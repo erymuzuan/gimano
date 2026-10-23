@@ -11,16 +11,16 @@
 <header>
   <img src="../logo.png" alt="Gimano logo">
   <a href="../">Gimano</a>
-  <nav><a href="../terms/">Terms</a><a href="https://github.com/erymuzuan/gimano">GitHub</a></nav>
+  <nav><a href="../download/">Download</a><a href="../terms/">Terms</a><a href="https://github.com/erymuzuan/gimano">GitHub</a></nav>
 </header>
 <main>
   <h1>Privacy Policy</h1>
   <p class="lede">Effective 23 October 2026 · Applies to the Gimano apps for Android and iOS and the Gimano service.</p>
 
   <div class="card"><b>In short:</b> your personal places and history stay on your phone. We never store them on our
-  servers. We only receive what you choose to share publicly, plus anonymous speed points while you navigate, which
+  servers. We only receive what you choose to share publicly or send us (feedback, crash reports), plus anonymous speed points while you navigate, which
   we turn into road traffic within minutes and never keep.<br>
-  <span class="ms">Ringkasnya: tempat dan sejarah peribadi kamu kekal dalam telefon kamu. Kami tidak menyimpannya di pelayan kami.</span></div>
+  <span class="ms">Ringkasnya: tempat dan sejarah peribadi anda kekal dalam telefon anda. Kami tidak menyimpannya di pelayan kami.</span></div>
 
   <h2>1. Data that stays on your device only</h2>
   <p>Home and Work, favourites and their labels, recent destinations, search history, places you add "just for me" and
@@ -38,35 +38,57 @@
   including the Limited Use requirements. Gimano accesses only its own backup files in your Drive's app folder, only to
   save and restore your backups, and transfers that data to no one.</p>
 
-  <h2>3. Data we do process on our servers</h2>
+  <h2>3. We never know who you are</h2>
+  <p>Your public contributions are credited to a random pseudonym that only your phone and your own backup can sign
+  for. We never ask for your email, phone number, name or a Google/Apple login to use Gimano. Your contributor tier (Baharu, Perak,
+  Emas) describes your public work, not you. When you vote on whether a community-added place exists, the vote is
+  linked to your pseudonym only until the place is decided; after that it is unlinked from you. Verifier identities
+  are never shown to anyone.<br>
+  <span class="ms">Kami tidak pernah tahu siapa anda: sumbangan anda dikreditkan kepada nama samaran rawak. Kami tidak pernah
+  meminta e-mel, nombor telefon atau nama anda untuk menggunakan Gimano.</span></p>
+
+  <h2>4. Data we do process on our servers</h2>
   <table>
     <tr><th>What</th><th>Why</th><th>How long</th></tr>
     <tr><td>An anonymous device account (random id and token)</td><td>To accept your public contributions and prevent abuse</td><td>Until you delete your account</td></tr>
+    <tr><td>Contributor pseudonym, public signing key, tier and contribution counters</td><td>To credit and weigh public contributions</td><td>Until you delete your account</td></tr>
+    <tr><td>Your votes on whether a new place exists</td><td>To verify community-added places and prevent double votes</td><td>Linked to your pseudonym only until the place is decided; after that the vote is unlinked from you (kept only as an anonymous, salted count)</td></tr>
     <tr><td>Speed points while navigating (position, speed, heading, time), tagged with a pseudonym that changes every hour</td><td>To compute live road traffic for everyone</td><td>Processed in memory and discarded within minutes; only road-level speeds (not linked to you) are kept</td></tr>
     <tr><td>Things you choose to share publicly: road reports and votes, public places, reviews, photos</td><td>To show them on the map for all users</td><td>While relevant; reports expire automatically</td></tr>
-    <tr><td>Feedback you send (message, optional rating and screenshot; optional diagnostics with location rounded to ~1 km)</td><td>To fix bugs and improve the app</td><td>Up to 24 months, or until you delete your account</td></tr>
+    <tr><td>Feedback you send: your message, and an optional rating and screenshot. Device info (app version, OS, model, screen size) only if you tick it; coarse location (rounded to ~1 km) only if you tick that separately</td><td>To fix bugs and improve the app</td><td>Up to 24 months, or until you delete your account</td></tr>
+    <tr><td>Crash reports, sent only if you agree after a crash: the stack trace and device info, scrubbed of locations and personal data on your phone before sending. We use no third-party crash SDKs</td><td>To find and fix crashes</td><td>90 days</td></tr>
     <tr><td>Route requests (start, stops, destination)</td><td>To calculate your route</td><td>Not stored beyond a 3-hour cache used for rerouting</td></tr>
   </table>
   <p>Photos are re-encoded on our server and <b>all metadata, including GPS location, is removed</b> before publishing.</p>
 
-  <h2>4. What we never do</h2>
-  <p>No advertising, no tracking or analytics SDKs, no selling or sharing of personal data, no building of location
-  history about you. Crash reporting, if offered, is opt-in and contains no location.</p>
+  <h2>5. If you leave your email or WhatsApp</h2>
+  <p>When you send feedback or a crash report, you may <b>choose</b> to leave an email address or WhatsApp number so we
+  can reply. It is optional and asked for per report. It is used only to reply about that report, is never linked to
+  your pseudonym or profile, and is stored encrypted. It is deleted automatically 30 days after the report is closed,
+  and in any case after 90 days. You can delete it at any time from <b>My feedback</b> in the app, or by deleting your
+  account.<br>
+  <span class="ms">Jika anda memilih untuk meninggalkan e-mel/WhatsApp pada laporan, ia hanya digunakan untuk membalas
+  laporan itu dan kemudian dipadam.</span></p>
 
-  <h2>5. Your choices and rights</h2>
+  <h2>6. What we never do</h2>
+  <p>No advertising, no tracking or analytics SDKs, no selling or sharing of personal data, no building of location
+  history about you. Crash reports are sent only if you agree, never contain your location, and go only to us, not to
+  any third-party crash service.</p>
+
+  <h2>7. Your choices and rights</h2>
   <p>You can delete any on-device data in the app, delete your backups from your own Drive/iCloud, and delete your Gimano
   account in Settings. That removes every server record linked to you; your public reports and reviews stay on the map
   but are anonymised. You may also contact us to access or correct data we hold, consistent with Malaysia's Personal Data
   Protection Act 2010.</p>
 
-  <h2>6. Open source</h2>
+  <h2>8. Open source</h2>
   <p>Gimano is MIT-licensed. You can inspect exactly what the apps and server do at
   <a href="https://github.com/erymuzuan/gimano">github.com/erymuzuan/gimano</a>.</p>
 
-  <h2>7. Children</h2>
+  <h2>9. Children</h2>
   <p>Gimano is not directed at children under 13 and does not knowingly collect their data.</p>
 
-  <h2>8. Changes and contact</h2>
+  <h2>10. Changes and contact</h2>
   <p>We will post changes on this page and update the effective date. Contact: <a href="mailto:privacy@bukitbunga.com">privacy@bukitbunga.com</a>.</p>
 </main>
 <footer>© Gimano contributors · <a href="../">Home</a> · <a href="../terms/">Terms</a></footer>

@@ -8,6 +8,9 @@ struct RoutePreviewView: View {
     @State private var countdownActive = false
     @State private var countdownToken = 0
     @State private var showLeaveLater = false
+    @State private var showStartPicker = false
+    @State private var showTolls = false
+    @State private var showStops = false
 
     static let countdownSeconds: Double = 10
 
@@ -30,14 +33,17 @@ struct RoutePreviewView: View {
                     }
                     HStack {
                         Spacer()
-                        avoidMenu(planner)
+                        if planner.vehicle.isMotorized { avoidMenu(planner) }
                     }
                     .padding(.horizontal, Tokens.Space.gutter)
                     Spacer()
                     bottomCard(planner)
                 }
             }
-            .sheet(isPresented: $showLeaveLater) {
+            .sheet(isPresented: $showStartPicker) {
+            if let planner = model.planner { StartPickerSheet(planner: planner).presentationDetents([.medium, .large]) }
+        }
+        .sheet(isPresented: $showLeaveLater) {
                 LeaveLaterSheet(planner: planner) { date in
                     stopCountdown()
                     planner.departAt = date
@@ -45,8 +51,19 @@ struct RoutePreviewView: View {
                 }
                 .presentationDetents([.medium, .large])
             }
+            .sheet(isPresented: $showTolls) {
+                if let r = planner.selected {
+                    TollSheet(route: r, mode: planner.vehicle).presentationDetents([.medium, .large])
+                }
+            }
+            .sheet(isPresented: $showStops) {
+                StopsSheet(planner: planner) { stopCountdown() }.presentationDetents([.medium, .large])
+            }
             .onChange(of: planner.isLoading) { _, loading in
-                if !loading, planner.selected != nil, planner.departAt == nil { startCountdown() }
+                // `-GimanoNoAutoStart YES` (UI tests) disables the auto-start countdown.
+                // Auto-start only from a fresh GPS fix (never from a chosen start).
+                if !loading, planner.selected != nil, planner.departAt == nil, planner.start.isGPS,
+                   !UserDefaults.standard.bool(forKey: "GimanoNoAutoStart") { startCountdown() }
             }
             .task(id: countdownToken) {
                 guard countdownActive else { return }
@@ -89,16 +106,39 @@ struct RoutePreviewView: View {
             }
             .accessibilityLabel(Text("Back"))
             VStack(alignment: .leading, spacing: 6) {
-                HStack(spacing: 8) {
-                    Circle().fill(Color.brand).frame(width: 10, height: 10)
-                    Text("Your location").font(Tokens.Font.caption).foregroundStyle(Color.textMuted)
+                Button { stopCountdown(); showStartPicker = true } label: {
+                    HStack(spacing: 8) {
+                        Circle().fill(planner.start.isGPS ? Color.brand : Color(uiColor: Tokens.Palette.traffic2)).frame(width: 10, height: 10)
+                        Text(startLabel(planner.start)).font(Tokens.Font.caption).foregroundStyle(Color.textMuted).lineLimit(1)
+                        Image(systemName: "chevron.down").font(.system(size: 10, weight: .bold)).foregroundStyle(Color.textMuted)
+                    }
                 }
+                .buttonStyle(.plain)
+                .accessibilityIdentifier("routeStart")
                 HStack(spacing: 8) {
                     Image(systemName: "mappin.circle.fill").foregroundStyle(Color.report).font(.system(size: 12))
                     Text(planner.destination.name).font(Tokens.Font.bodyBold).lineLimit(1)
                 }
             }
             Spacer()
+            Button { stopCountdown(); model.swapRouteEnds() } label: {
+                Image(systemName: "arrow.up.arrow.down").font(.system(size: 18, weight: .bold)).frame(width: 40, height: 40)
+            }
+            .disabled(planner.start.point == nil)
+            .accessibilityLabel(Text("Swap start and destination"))
+            .accessibilityIdentifier("routeSwap")
+            Menu {
+                Button { stopCountdown(); model.openFeedback(from: .routePreview, placeId: planner.destination.placeId) } label: {
+                    Label("Add feedback", systemImage: "bubble.left.and.text.bubble.right")
+                }
+            } label: {
+                Image(systemName: "ellipsis")
+                    .font(.system(size: 20, weight: .bold))
+                    .frame(width: 44, height: 44)
+                    .contentShape(Rectangle())
+            }
+            .accessibilityLabel(Text("More"))
+            .accessibilityIdentifier("routeMore")
         }
         .foregroundStyle(Color.textPrimary)
         .padding(12)
@@ -112,7 +152,7 @@ struct RoutePreviewView: View {
         @Bindable var planner = planner
         let count = [planner.avoid.tolls, planner.avoid.highways, planner.avoid.ferries].filter { $0 }.count
         return Menu {
-            Toggle("Avoid tolls", isOn: $planner.avoid.tolls)
+            Toggle("Avoid tolls", isOn: $planner.avoid.tolls).accessibilityIdentifier("avoidTolls")
             Toggle("Avoid highways", isOn: $planner.avoid.highways)
             Toggle("Avoid ferries", isOn: $planner.avoid.ferries)
         } label: {
@@ -128,6 +168,7 @@ struct RoutePreviewView: View {
             .background(Color.surface, in: Capsule())
             .fabShadow()
         }
+        .accessibilityIdentifier("avoidMenu")
         .onChange(of: planner.avoid) {
             stopCountdown()
             Task { await model.fetchRoutes() }
@@ -186,20 +227,60 @@ struct RoutePreviewView: View {
 
     private func bottomCard(_ planner: RoutePlanner) -> some View {
         VStack(alignment: .leading, spacing: 14) {
-            VehicleTabs(selection: Binding(get: { planner.vehicle }, set: { v in
+            TravelModeTabs(selection: Binding(get: { planner.vehicle }, set: { v in
                 stopCountdown()
-                planner.vehicle = v
-                Task { await model.fetchRoutes() }
+                model.setTravelMode(v)
             }))
 
-            if planner.isLoading && planner.routes.isEmpty {
+            StopsStrip(planner: planner, onAdd: {
+                stopCountdown()
+                model.screen = .search(.addStop)
+            }, onEdit: {
+                stopCountdown()
+                showStops = true
+            })
+
+            if planner.start == .locating {
+                HStack(spacing: 10) { ProgressView(); Text("Finding your location…").font(Tokens.Font.bodyBold) }
+                    .frame(maxWidth: .infinity, minHeight: 90)
+                    .accessibilityIdentifier("startLocating")
+            } else if planner.start == .unknown {
+                unknownStart
+            } else if planner.alreadyHere {
+                Label("You're already here", systemImage: "mappin.and.ellipse")
+                    .font(Tokens.Font.title).frame(maxWidth: .infinity, minHeight: 90)
+                    .accessibilityIdentifier("alreadyHere")
+            } else if planner.isLoading && planner.routes.isEmpty {
                 HStack { Spacer(); ProgressView(); Spacer() }.frame(height: 90)
             } else if let error = planner.error, planner.routes.isEmpty {
                 Text(error).foregroundStyle(Color.speeding).frame(maxWidth: .infinity, minHeight: 90)
+                    .accessibilityIdentifier("routeError")
             } else if let r = planner.selected {
+                if !(r.issues ?? []).isEmpty { RouteIssuesBanner(route: r) }
                 routeSummary(r, planner: planner)
             }
 
+            if case .chosen(let name, _, _) = planner.start, planner.selected != nil {
+                // A chosen start is previewed only; navigation starts from where the phone is.
+                Label("This route starts at \(name), not where you are. Navigation can only start from your location.",
+                      systemImage: "exclamationmark.triangle.fill")
+                    .font(Tokens.Font.caption)
+                    .foregroundStyle(Color.amberInk)
+                    .padding(12)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(Color.amberMist, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                    .accessibilityIdentifier("chosenStartNote")
+                HStack(spacing: 12) {
+                    Button("Save trip") {
+                        model.editingDrive = model.newPlannedDrive(from: planner)
+                    }
+                    .buttonStyle(SecondaryButtonStyle())
+                    .accessibilityIdentifier("saveTrip")
+                    Button("Drive to \(name) first") { model.driveToStartFirst() }
+                        .buttonStyle(PrimaryButtonStyle())
+                        .accessibilityIdentifier("driveToStartFirst")
+                }
+            } else if planner.start.isGPS && !planner.alreadyHere {
             HStack(spacing: 12) {
                 Button {
                     stopCountdown()
@@ -229,6 +310,7 @@ struct RoutePreviewView: View {
                 .disabled(planner.selected == nil)
                 .accessibilityIdentifier("goNow")
             }
+            }
         }
         .padding(Tokens.Space.gutter)
         .background(
@@ -237,6 +319,44 @@ struct RoutePreviewView: View {
                 .shadow(color: .black.opacity(0.15), radius: 10, y: -2)
                 .ignoresSafeArea(edges: .bottom)
         )
+    }
+
+    private func startLabel(_ start: RouteStart) -> String {
+        switch start {
+        case .gps: String(localized: "Your location")
+        case .locating: String(localized: "Finding your location…")
+        case .unknown: String(localized: "Your location unknown")
+        case .chosen(let name, _, _): name
+        }
+    }
+
+    /// No fresh GPS fix: no route request; three ways forward.
+    private var unknownStart: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Label("Your location unknown", systemImage: "location.slash")
+                .font(Tokens.Font.title)
+                .accessibilityIdentifier("startUnknown")
+            Text("We only start routes from where you really are, or from a place you choose.")
+                .font(Tokens.Font.caption).foregroundStyle(Color.textMuted)
+            Button {
+                if model.location.needsPermission { model.location.requestPermission() }
+                else if let u = URL(string: UIApplication.openSettingsURLString) { UIApplication.shared.open(u) }
+            } label: { Label("Allow location", systemImage: "location.fill") }
+                .buttonStyle(PrimaryButtonStyle())
+                .accessibilityIdentifier("startAllowLocation")
+            HStack(spacing: 10) {
+                Button { model.startPinPick(.setOrigin, start: model.planner?.destination.location) } label: {
+                    Label("Choose start on map", systemImage: "map")
+                }
+                .buttonStyle(SecondaryButtonStyle())
+                .accessibilityIdentifier("startChooseOnMap")
+                Button { model.go(.search(.setOrigin)) } label: {
+                    Label("Search for a start", systemImage: "magnifyingglass")
+                }
+                .buttonStyle(SecondaryButtonStyle())
+                .accessibilityIdentifier("startSearch")
+            }
+        }
     }
 
     private func routeSummary(_ r: Route, planner: RoutePlanner) -> some View {
@@ -249,10 +369,20 @@ struct RoutePreviewView: View {
                     .font(Tokens.Font.body)
                     .foregroundStyle(Color.textMuted)
                 Spacer()
-                if r.hasTolls {
-                    Label(r.tollEstimateMyr.map { String(format: "RM %.2f", $0) } ?? String(localized: "Toll"), systemImage: "dollarsign.circle.fill")
-                        .font(Tokens.Font.label)
-                        .foregroundStyle(Color.textMuted)
+                if let text = TollBadge.make(for: r, mode: planner.vehicle).text {
+                    Button { stopCountdown(); showTolls = true } label: {
+                        HStack(spacing: 6) {
+                            GimanoIcon(icon: .fare, size: 24)
+                            Text(text).font(Tokens.Font.nunito(16, .black))
+                        }
+                        .foregroundStyle(Color.brandInk)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 8)
+                        .background(Color.brandMist, in: Capsule())
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityIdentifier("tollBadge")
+                    .accessibilityLabel(Text(text))
                 }
             }
             Text(r.summary)
@@ -261,8 +391,10 @@ struct RoutePreviewView: View {
                 .lineLimit(1)
             HStack(spacing: 6) {
                 if r.isBest { Text("Best route").fontWeight(.semibold).foregroundStyle(Color.brand); Text("·") }
-                Text(r.trafficDescription ?? String(localized: "Typical traffic"))
-                Text("·")
+                if planner.vehicle.isMotorized {
+                    Text(r.trafficDescription ?? String(localized: "Typical traffic"))
+                    Text("·")
+                }
                 Text("Arrive \(ETAFormatter.arrivalTime(now: planner.departAt ?? .now, remainingS: r.effectiveDurationS))")
             }
             .font(Tokens.Font.caption)
@@ -272,30 +404,236 @@ struct RoutePreviewView: View {
     }
 }
 
-/// Car / motorbike segmented tabs.
-struct VehicleTabs: View {
+/// Four big icon tabs: Car, Motorcycle, Bicycle, Walk.
+struct TravelModeTabs: View {
     @Binding var selection: Vehicle
 
     var body: some View {
-        HStack(spacing: 4) {
-            tab(.car, title: "Car", icon: "car.fill")
-            tab(.motorcycle, title: "Motorbike", icon: "motorcycle")
+        HStack(spacing: 8) {
+            ForEach(Vehicle.allCases) { v in
+                Button { selection = v } label: {
+                    VStack(spacing: 2) {
+                        GimanoIcon(icon: v.gIcon, size: 34)
+                        Text(v.shortTitle).font(Tokens.Font.nunito(12, .extrabold))
+                    }
+                    .foregroundStyle(Color.brandInk)
+                    .frame(maxWidth: .infinity, minHeight: 64)
+                    .selectableTile(selection == v, radius: 18)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(Text(v.title))
+                .accessibilityIdentifier("mode.\(v.rawValue)")
+                .accessibilityAddTraits(selection == v ? .isSelected : [])
+            }
         }
-        .padding(4)
-        .background(Color.surfaceAlt, in: Capsule())
+    }
+}
+
+extension Vehicle {
+    var gIcon: GIcon {
+        switch self {
+        case .car: .car
+        case .motorcycle: .motorcycle
+        case .bicycle: .bicycle
+        case .walk: .walk
+        }
     }
 
-    private func tab(_ v: Vehicle, title: LocalizedStringKey, icon: String) -> some View {
-        Button { selection = v } label: {
-            Label(title, systemImage: icon)
-                .font(Tokens.Font.label)
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 8)
-                .foregroundStyle(selection == v ? Color.brandOn : Color.textPrimary)
-                .background(selection == v ? Color.brand : Color.clear, in: Capsule())
+    var shortTitle: LocalizedStringKey {
+        switch self {
+        case .car: "Car"
+        case .motorcycle: "Moto"
+        case .bicycle: "Bike"
+        case .walk: "Walk"
         }
-        .buttonStyle(.plain)
-        .accessibilityAddTraits(selection == v ? .isSelected : [])
+    }
+
+    var title: LocalizedStringKey {
+        switch self {
+        case .car: "Car"
+        case .motorcycle: "Motorbike"
+        case .bicycle: "Bicycle"
+        case .walk: "Walk"
+        }
+    }
+}
+
+/// Stops on the trip with their ETA, plus "Add a stop".
+struct StopsStrip: View {
+    @Environment(AppModel.self) private var model
+    let planner: RoutePlanner
+    let onAdd: () -> Void
+    let onEdit: () -> Void
+
+    var body: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 8) {
+                let offsets = planner.schedule?.offsetsS ?? []
+                ForEach(Array(planner.stops.enumerated()), id: \.element.id) { i, stop in
+                    Button(action: onEdit) {
+                        HStack(spacing: 8) {
+                            Text("\(i + 1)")
+                                .font(Tokens.Font.nunito(14, .black))
+                                .foregroundStyle(Color.brandOn)
+                                .frame(width: 26, height: 26)
+                                .background(Color.brand, in: Circle())
+                            VStack(alignment: .leading, spacing: 0) {
+                                Text(stop.name).font(Tokens.Font.label).lineLimit(1)
+                                if i < offsets.count {
+                                    Text(ETAFormatter.arrivalTime(now: planner.departAt ?? .now, remainingS: offsets[i]))
+                                        .font(Tokens.Font.small).foregroundStyle(Color.textMuted)
+                                        .accessibilityIdentifier("stopEta.\(i)")
+                                }
+                            }
+                            .frame(maxWidth: 130, alignment: .leading)
+                        }
+                        .foregroundStyle(Color.textPrimary)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 6)
+                        .background(Color.surfaceAlt, in: Capsule())
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityIdentifier("stop.\(i)")
+                }
+                if planner.stops.count < TripStop.maxStops {
+                    Button(action: onAdd) {
+                        HStack(spacing: 6) {
+                            GimanoIcon(icon: .addStop, size: 26)
+                            Text("Stop").font(Tokens.Font.label)
+                        }
+                        .foregroundStyle(Color.brandInk)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 8)
+                        .background(Color.brandMist, in: Capsule())
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel(Text("Add a stop"))
+                    .accessibilityIdentifier("addStopButton")
+                }
+                if !planner.stops.isEmpty {
+                    Button(action: onEdit) {
+                        Image(systemName: "arrow.up.arrow.down")
+                            .font(.system(size: 16, weight: .bold))
+                            .foregroundStyle(Color.brandInk)
+                            .frame(width: 40, height: 40)
+                            .background(Color.brandMist, in: Circle())
+                    }
+                    .accessibilityLabel(Text("Edit stops"))
+                    .accessibilityIdentifier("editStops")
+                }
+            }
+        }
+    }
+}
+
+/// Reorder / remove stops (up to 5), with ETA per stop.
+struct StopsSheet: View {
+    @Environment(AppModel.self) private var model
+    @Environment(\.dismiss) private var dismiss
+    let planner: RoutePlanner
+    let onChange: () -> Void
+
+    var body: some View {
+        NavigationStack {
+            List {
+                let offsets = planner.schedule?.offsetsS ?? []
+                Section {
+                    ForEach(Array(planner.stops.enumerated()), id: \.element.id) { i, stop in
+                        HStack(spacing: 12) {
+                            Text("\(i + 1)")
+                                .font(Tokens.Font.nunito(15, .black))
+                                .foregroundStyle(Color.brandOn)
+                                .frame(width: 30, height: 30)
+                                .background(Color.brand, in: Circle())
+                            Text(stop.name).font(Tokens.Font.bodyBold).lineLimit(1)
+                            Spacer()
+                            if i < offsets.count {
+                                Text(ETAFormatter.arrivalTime(now: planner.departAt ?? .now, remainingS: offsets[i]))
+                                    .font(Tokens.Font.label).foregroundStyle(Color.textMuted)
+                            }
+                        }
+                    }
+                    .onMove { from, to in onChange(); model.moveStops(from: from, to: to) }
+                    .onDelete { idx in
+                        onChange()
+                        for i in idx { model.removeStop(planner.stops[i].id) }
+                    }
+                    HStack(spacing: 12) {
+                        GimanoIcon(icon: .home, size: 28)
+                        Text(planner.destination.name).font(Tokens.Font.bodyBold).lineLimit(1)
+                        Spacer()
+                        if let last = offsets.last {
+                            Text(ETAFormatter.arrivalTime(now: planner.departAt ?? .now, remainingS: last))
+                                .font(Tokens.Font.label).foregroundStyle(Color.textMuted)
+                        }
+                    }
+                }
+                if planner.stops.count < TripStop.maxStops {
+                    Button {
+                        onChange()
+                        dismiss()
+                        model.screen = .search(.addStop)
+                    } label: { Label("Add a stop", systemImage: "plus.circle.fill") }
+                }
+            }
+            .environment(\.editMode, .constant(.active))
+            .navigationTitle("Stops")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar { ToolbarItem(placement: .topBarTrailing) { Button("Done") { dismiss() } } }
+        }
+    }
+}
+
+/// Toll plazas on the route with fare and source.
+struct TollSheet: View {
+    let route: Route
+    let mode: Vehicle
+
+    var body: some View {
+        NavigationStack {
+            List {
+                Section {
+                    HStack {
+                        GimanoIcon(icon: .fare, size: 40)
+                        Text(TollBadge.make(for: route, mode: mode).text ?? "")
+                            .font(Tokens.Font.nunito(28, .black))
+                            .accessibilityIdentifier("tollTotal")
+                    }
+                } footer: {
+                    if route.tollFareComplete == false {
+                        Text("Some fares are unknown, so the total is a minimum.")
+                    }
+                }
+                if let plazas = route.tolls, !plazas.isEmpty {
+                    Section("Toll plazas") {
+                        ForEach(plazas) { p in
+                            HStack(alignment: .top, spacing: 12) {
+                                GimanoIcon(icon: .toll, size: 30)
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(p.name).font(Tokens.Font.bodyBold)
+                                    if let h = p.highway { Text(h).font(Tokens.Font.caption).foregroundStyle(Color.textMuted) }
+                                    if let src = p.source {
+                                        // Show "Source: llm.gov.my" rather than a long URL.
+                                        Text("Source: \(URL(string: src)?.host() ?? src)").font(Tokens.Font.small).foregroundStyle(Color.textMuted)
+                                    }
+                                }
+                                Spacer()
+                                Text(p.fareMyr.map(TollBadge.myr) ?? String(localized: "Unknown"))
+                                    .font(Tokens.Font.nunito(16, .black))
+                            }
+                            .accessibilityIdentifier("tollPlaza")
+                        }
+                    }
+                } else {
+                    Section {
+                        Text("This route has tolls, but plaza details aren't available yet.")
+                            .foregroundStyle(Color.textMuted)
+                    }
+                }
+            }
+            .navigationTitle("Tolls")
+            .navigationBarTitleDisplayMode(.inline)
+        }
     }
 }
 
@@ -315,6 +653,11 @@ struct LeaveLaterSheet: View {
                     Button {
                         onPick(nil); dismiss()
                     } label: { Label("Leave now", systemImage: "bolt.fill") }
+                    Button {
+                        dismiss()
+                        model.editingDrive = model.newPlannedDrive(from: planner)
+                    } label: { Label("Plan this drive (reminder)", systemImage: "calendar.badge.clock") }
+                        .accessibilityIdentifier("planThisDrive")
                 }
                 Section("Best time to leave") {
                     if loading { ProgressView() }
@@ -348,8 +691,60 @@ struct LeaveLaterSheet: View {
             .navigationBarTitleDisplayMode(.inline)
         }
         .task {
-            slots = (try? await model.repo.departureTimes(origin: model.position, destination: planner.destination.location, date: .now)) ?? []
+            slots = (try? await model.repo.departureTimes(origin: model.position, destination: planner.destination.location, date: .now, vehicle: planner.vehicle)) ?? []
             loading = false
         }
+    }
+}
+
+/// Start picker: Your location, Home, Work, favourites, recents, search, choose on map.
+struct StartPickerSheet: View {
+    @Environment(AppModel.self) private var model
+    @Environment(\.dismiss) private var dismiss
+    let planner: RoutePlanner
+
+    var body: some View {
+        NavigationStack {
+            List {
+                Section {
+                    Button { pick(.locating) } label: { Label("Your location", systemImage: "location.fill") }
+                        .accessibilityIdentifier("startPick.gps")
+                    Button { dismiss(); model.go(.search(.setOrigin)) } label: { Label("Search for a start", systemImage: "magnifyingglass") }
+                    Button {
+                        dismiss()
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { model.startPinPick(.setOrigin, start: planner.destination.location) }
+                    } label: { Label("Choose start on map", systemImage: "map") }
+                        .accessibilityIdentifier("startPick.map")
+                }
+                let saved = model.savedPlaces
+                if !saved.isEmpty {
+                    Section("Saved") {
+                        ForEach(saved) { s in
+                            Button { pick(.chosen(name: s.name, location: s.location, placeId: s.placeId)) } label: {
+                                Label { Text(verbatim: s.name) } icon: { GimanoIcon(icon: model.icon(for: s).gIcon, size: 22) }
+                            }
+                            .accessibilityIdentifier("startPick.saved")
+                        }
+                    }
+                }
+                if !model.recents.isEmpty {
+                    Section("Recent") {
+                        ForEach(model.recents.prefix(8)) { r in
+                            Button { pick(.chosen(name: r.name, location: r.location, placeId: r.placeId)) } label: {
+                                Label { Text(verbatim: r.name) } icon: { Image(systemName: "clock") }
+                            }
+                        }
+                    }
+                }
+            }
+            .navigationTitle("Start from")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar { ToolbarItem(placement: .topBarLeading) { Button("Cancel") { dismiss() } } }
+        }
+    }
+
+    private func pick(_ s: RouteStart) {
+        dismiss()
+        model.setRouteStart(s)
     }
 }

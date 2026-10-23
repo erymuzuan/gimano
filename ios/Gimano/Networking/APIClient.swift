@@ -10,15 +10,18 @@ struct ProblemDetails: Codable, Sendable {
 enum APIError: Error, LocalizedError, Sendable {
     case transport(URLError)
     case http(status: Int, problem: ProblemDetails?)
+    /// 409 with a JSON body (e.g. the existing place for a duplicate "Add a place").
+    case conflict(Data)
     case decoding(String)
     case notAvailable
 
     var errorDescription: String? {
         switch self {
         case .transport(let e): e.localizedDescription
-        case .http(let status, let p): p?.detail ?? p?.title ?? "HTTP \(status)"
-        case .decoding(let s): "Unexpected response: \(s)"
-        case .notAvailable: "Not available"
+        case .http(let status, let p): p?.detail ?? p?.title ?? String(localized: "Something went wrong on the server (\(status)).")
+        case .conflict: String(localized: "This place may already exist.")
+        case .decoding: String(localized: "The server sent something unexpected. Try again later.")
+        case .notAvailable: String(localized: "Not available")
         }
     }
 
@@ -99,10 +102,36 @@ actor APIClient {
 
     func setToken(_ token: String?) { self.token = token }
 
+    /// Signs contribution requests (X-Gimano-Ts / X-Gimano-Sig) once the pseudonym has a key.
+    private(set) var signer: IdentityKeys?
+    func setSigner(_ keys: IdentityKeys?) { signer = keys }
+
+    /// Adds the signature headers when `path` is a signed endpoint (docs/identity-and-reputation.md §2).
+    private func sign(_ req: inout URLRequest, method: String, path: String, body: Data?, now: Date = .now) {
+        guard let signer, let url = req.url, SignedEndpoints.requiresSignature(method: method, path: path) else { return }
+        let ts = SigningClock.fixedTs ?? Int64(now.timeIntervalSince1970)
+        let canonical = Canonical.request(method: method, pathAndQuery: Canonical.pathAndQuery(of: url), ts: ts, body: body ?? Data())
+        req.setValue(String(ts), forHTTPHeaderField: "X-Gimano-Ts")
+        req.setValue(signer.sign(canonical), forHTTPHeaderField: "X-Gimano-Sig")
+    }
+
+    /// The request exactly as `perform` would send it (tests check the signature on it).
+    func preparedRequest(method: String, path: String, query: [URLQueryItem] = [], body: Data?) -> URLRequest {
+        var req = URLRequest(url: url(path, query: query))
+        req.httpMethod = method
+        req.httpBody = body
+        sign(&req, method: method, path: path, body: body)
+        return req
+    }
+
     func url(_ path: String, query: [URLQueryItem] = []) -> URL {
         let relative = path.hasPrefix("/") ? String(path.dropFirst()) : path
         var c = URLComponents(url: baseURL.appendingPathComponent(relative), resolvingAgainstBaseURL: false)!
-        if !query.isEmpty { c.queryItems = query }
+        if !query.isEmpty {
+            c.queryItems = query
+            // Foundation leaves "+" as-is, which servers read as a space ("6PH57VP3+PR" → "6PH57VP3 PR").
+            c.percentEncodedQuery = c.percentEncodedQuery?.replacingOccurrences(of: "+", with: "%2B")
+        }
         return c.url!
     }
 
@@ -117,13 +146,48 @@ actor APIClient {
         return try decode(data)
     }
 
-    func sendNoContent(_ method: String, _ path: String, body: (some Encodable & Sendable)?) async throws {
+    func sendNoContent(_ method: String, _ path: String, body: (some Encodable & Sendable)?, authorization: String? = nil) async throws {
         let payload = try body.map { try encoder.encode($0) }
-        _ = try await perform(method: method, path: path, query: [], body: payload)
+        _ = try await perform(method: method, path: path, query: [], body: payload, authorization: authorization)
     }
 
     func ping(_ path: String) async -> Bool {
         (try? await perform(method: "GET", path: path, query: [], body: nil)) != nil
+    }
+
+    /// `multipart/form-data` upload with byte progress (0…1).
+    func upload<T: Decodable & Sendable>(_ path: String, fields: [String: String], file: Data, fileName: String, mimeType: String,
+                                        progress: @escaping @Sendable (Double) -> Void) async throws -> T {
+        let boundary = "gimano-\(UUID().uuidString)"
+        var body = Data()
+        for (k, v) in fields {
+            body.append("--\(boundary)\r\nContent-Disposition: form-data; name=\"\(k)\"\r\n\r\n\(v)\r\n".data(using: .utf8)!)
+        }
+        body.append("--\(boundary)\r\nContent-Disposition: form-data; name=\"file\"; filename=\"\(fileName)\"\r\nContent-Type: \(mimeType)\r\n\r\n".data(using: .utf8)!)
+        body.append(file)
+        body.append("\r\n--\(boundary)--\r\n".data(using: .utf8)!)
+        var req = URLRequest(url: url(path))
+        req.httpMethod = "POST"
+        req.setValue("multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: "Content-Type")
+        req.setValue("application/json", forHTTPHeaderField: "Accept")
+        req.setValue(AppLanguage.acceptLanguage, forHTTPHeaderField: "Accept-Language")
+        if let token { req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization") }
+        sign(&req, method: "POST", path: path, body: body)
+        req.timeoutInterval = 120
+        let delegate = UploadProgressDelegate(progress)
+        let data: Data
+        let response: URLResponse
+        do {
+            (data, response) = try await URLSession.shared.upload(for: req, from: body, delegate: delegate)
+        } catch let e as URLError {
+            throw APIError.transport(e)
+        }
+        guard let http = response as? HTTPURLResponse else { throw APIError.transport(URLError(.badServerResponse)) }
+        guard (200..<300).contains(http.statusCode) else {
+            throw APIError.http(status: http.statusCode, problem: try? decoder.decode(ProblemDetails.self, from: data))
+        }
+        progress(1)
+        return try decode(data)
     }
 
     private func decode<T: Decodable>(_ data: Data) throws -> T {
@@ -134,7 +198,8 @@ actor APIClient {
         }
     }
 
-    private func perform(method: String, path: String, query: [URLQueryItem], body: Data?) async throws -> Data {
+    /// `authorization` overrides the bearer token (e.g. `Share <writeToken>`).
+    private func perform(method: String, path: String, query: [URLQueryItem], body: Data?, authorization: String? = nil) async throws -> Data {
         var req = URLRequest(url: url(path, query: query))
         req.httpMethod = method
         req.setValue("application/json", forHTTPHeaderField: "Accept")
@@ -142,8 +207,10 @@ actor APIClient {
             req.httpBody = body
             req.setValue("application/json", forHTTPHeaderField: "Content-Type")
         }
-        if let token { req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization") }
-        req.setValue(Locale.preferredLanguages.first ?? "en", forHTTPHeaderField: "Accept-Language")
+        if let authorization { req.setValue(authorization, forHTTPHeaderField: "Authorization") }
+        else if let token { req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization") }
+        req.setValue(AppLanguage.acceptLanguage, forHTTPHeaderField: "Accept-Language")
+        sign(&req, method: method, path: path, body: body)
 
         let data: Data
         let response: URLResponse
@@ -154,6 +221,7 @@ actor APIClient {
         }
         guard let http = response as? HTTPURLResponse else { throw APIError.transport(URLError(.badServerResponse)) }
         guard (200..<300).contains(http.statusCode) else {
+            if http.statusCode == 409, !data.isEmpty { throw APIError.conflict(data) }
             let problem = try? decoder.decode(ProblemDetails.self, from: data)
             throw APIError.http(status: http.statusCode, problem: problem)
         }
@@ -163,3 +231,13 @@ actor APIClient {
 
 /// Empty body / response helper.
 struct Empty: Codable, Sendable {}
+
+final class UploadProgressDelegate: NSObject, URLSessionTaskDelegate, Sendable {
+    private let onProgress: @Sendable (Double) -> Void
+    init(_ onProgress: @escaping @Sendable (Double) -> Void) { self.onProgress = onProgress }
+    func urlSession(_ session: URLSession, task: URLSessionTask, didSendBodyData bytesSent: Int64, totalBytesSent: Int64,
+                    totalBytesExpectedToSend: Int64) {
+        guard totalBytesExpectedToSend > 0 else { return }
+        onProgress(Double(totalBytesSent) / Double(totalBytesExpectedToSend))
+    }
+}
