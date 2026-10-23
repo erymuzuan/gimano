@@ -137,53 +137,11 @@
         }
     }
 
-    private async Task OnValidSubmitAsync()
+    private Task OnValidSubmitAsync()
     {
-        if (externalLoginInfo is null)
-        {
-            RedirectManager.RedirectToWithStatus("Account/Login", "Error loading external login information during confirmation.", HttpContext);
-            return;
-        }
-
-        var emailStore = GetEmailStore();
-        var user = CreateUser();
-
-        await UserStore.SetUserNameAsync(user, Input.Email, CancellationToken.None);
-        await emailStore.SetEmailAsync(user, Input.Email, CancellationToken.None);
-
-        var result = await UserManager.CreateAsync(user);
-        if (result.Succeeded)
-        {
-            result = await UserManager.AddLoginAsync(user, externalLoginInfo);
-            if (result.Succeeded)
-            {
-                Logger.LogInformation("User created an account using {Name} provider.", externalLoginInfo.LoginProvider);
-
-                var userId = await UserManager.GetUserIdAsync(user);
-                var code = await UserManager.GenerateEmailConfirmationTokenAsync(user);
-                code = WebEncoders.Base64UrlEncode(Encoding.UTF8.GetBytes(code));
-
-                var callbackUrl = NavigationManager.GetUriWithQueryParameters(
-                    NavigationManager.ToAbsoluteUri("Account/ConfirmEmail").AbsoluteUri,
-                    new Dictionary<string, object?> { ["userId"] = userId, ["code"] = code });
-                await EmailSender.SendConfirmationLinkAsync(user, Input.Email, HtmlEncoder.Default.Encode(callbackUrl));
-
-                // If account confirmation is required, we need to show the link if we don't have a real email sender
-                if (UserManager.Options.SignIn.RequireConfirmedAccount)
-                {
-                    RedirectManager.RedirectTo("Account/RegisterConfirmation", new() { ["email"] = Input.Email });
-                }
-                else
-                {
-                    await SignInManager.SignInAsync(user, isPersistent: false, externalLoginInfo.LoginProvider);
-                    RedirectManager.RedirectTo(ReturnUrl);
-                }
-            }
-        }
-        else
-        {
-            message = $"Error: {string.Join(",", result.Errors.Select(error => error.Description))}";
-        }
+        // No self-registration (docs/back-office.md): accounts are created only from a one-time invite on Account/Register.
+        RedirectManager.RedirectToWithStatus("Account/Login", "Error: new maintainer accounts need an invite link.", HttpContext);
+        return Task.CompletedTask;
     }
 
     private ApplicationUser CreateUser()

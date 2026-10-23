@@ -11,9 +11,19 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
     public static void Configure(DbContextOptionsBuilder o, string connectionString) =>
         o.UseNpgsql(connectionString, npg => npg.MigrationsHistoryTable("__EFMigrationsHistory", Schema));
 
+    public DbSet<MaintainerInvite> MaintainerInvites => Set<MaintainerInvite>();
+
     protected override void OnModelCreating(ModelBuilder builder)
     {
         builder.HasDefaultSchema(Schema);
         base.OnModelCreating(builder);
+        builder.Entity<MaintainerInvite>(e =>
+        {
+            e.ToTable("MaintainerInvites");
+            e.Property(x => x.NormalizedEmail).HasMaxLength(256);
+            e.Property(x => x.TokenHash).HasMaxLength(64);
+            e.HasIndex(x => x.TokenHash).IsUnique();
+            e.HasIndex(x => x.NormalizedEmail);
+        });
     }
 }

@@ -14,6 +14,7 @@
 @inject ILogger<Register> Logger
 @inject NavigationManager NavigationManager
 @inject IdentityRedirectManager RedirectManager
+@inject MaintainerInvites Invites
 
 <PageTitle>Register</PageTitle>
 
@@ -24,8 +25,10 @@
         <StatusMessage Message="@Message" />
         <EditForm Model="Input" method="post" OnValidSubmit="RegisterUser" FormName="register">
             <DataAnnotationsValidator />
-            <h2>Create a new account.</h2>
+            <h2>Create a maintainer account.</h2>
+            <p>Accounts need a one-time invite link for your email (ask the operator: <code>backoffice invite &lt;email&gt;</code>).</p>
             <hr />
+            <input type="hidden" name="Input.Invite" value="@Input.Invite" />
             <ValidationSummary class="text-danger" role="alert" />
             <div class="form-floating mb-3">
                 <InputText @bind-Value="Input.Email" id="Input.Email" class="form-control" autocomplete="username" aria-required="true" placeholder="name@example.com" />
@@ -45,13 +48,6 @@
             <button type="submit" class="w-100 btn btn-lg btn-primary">Register</button>
         </EditForm>
     </div>
-    <div class="col-lg-4 col-lg-offset-2">
-        <section>
-            <h3>Use another service to register.</h3>
-            <hr />
-            <ExternalLoginPicker />
-        </section>
-    </div>
 </div>
 
 @code {
@@ -65,13 +61,23 @@
 
     private string? Message => identityErrors is null ? null : $"Error: {string.Join(", ", identityErrors.Select(error => error.Description))}";
 
+    [SupplyParameterFromQuery(Name = "invite")]
+    private string? InviteFromLink { get; set; }
+
     protected override void OnInitialized()
     {
         Input ??= new();
+        if (string.IsNullOrEmpty(Input.Invite)) Input.Invite = InviteFromLink ?? "";
     }
 
     public async Task RegisterUser(EditContext editContext)
     {
+        // No self-registration: a valid, unused, unexpired invite for exactly this email is consumed first.
+        if (!await Invites.TryConsumeAsync(Input.Invite, Input.Email))
+        {
+            identityErrors = [new IdentityError { Code = "InvalidInvite", Description = "This invite link is missing, expired, already used or for another email." }];
+            return;
+        }
         var user = CreateUser();
 
         await UserStore.SetUserNameAsync(user, Input.Email, CancellationToken.None);
@@ -81,6 +87,7 @@
 
         if (!result.Succeeded)
         {
+            await Invites.ReleaseAsync(Input.Invite);   // e.g. a weak password: the same link can be used again
             identityErrors = result.Errors;
             return;
         }
@@ -133,6 +140,8 @@
 
     private sealed class InputModel
     {
+        public string Invite { get; set; } = "";
+
         [Required]
         [EmailAddress]
         [Display(Name = "Email")]

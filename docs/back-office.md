@@ -84,6 +84,17 @@ A feedback status change (by anyone) puts the standard status notice in the repo
 (`CF-Connecting-IP` / `CF-Ray`). Agents use Tailscale (`http://100.101.150.9:5080`). `Admin:AllowedNetworks`
 (CIDRs) can tighten this further, and `Admin:Enabled=false` turns both endpoints off.
 
+**Production** (`deploy/docker-compose.prod.yml`) ships with the agent endpoints **off** (`Admin__Enabled=false`) until
+the back office is deliberately deployed there. To enable them, set in `deploy/.env.prod`:
+
+```
+AGENT_ADMIN_ENABLED=true
+AGENT_ADMIN_NETWORKS=100.64.0.0/10     # the CIDR agents connect from (here: Tailscale); one network
+```
+
+and recreate the api. `Admin__AllowPublic` stays `false`, so requests through Cloudflare get 404 either way, and the
+network check uses the client address after the trusted-proxy forwarded headers (`EdgeSetup`).
+
 **Prompt injection:** reporter-written text from the MCP tools is wrapped in `<untrusted-{nonce}>…</untrusted-{nonce}>`
 with a notice. None of the tools can reach outside the back office, so the worst a hostile message can do is produce a bad
 draft, and a person reads every draft before it goes out.
@@ -128,7 +139,19 @@ The REST twin is `/admin/v1` (`/queue`, `/feedback`, `/feedback/{id}`, `/feedbac
 ASP.NET Core Identity in the `backoffice` schema of the Manotu (`gimano`) database. Only emails in `BackOffice:Maintainers` can
 register or stay signed in; removing an email signs that person out on their next request. Changing a password, 2FA or
 passkeys signs the account's other sessions out (Identity security stamp, checked every 30 minutes).
-There is no email confirmation: register your maintainer email before giving others access to the tailnet. Passkeys need a secure
+
+**No self-registration.** There is no mail sender, so email ownership is never proven; instead an account can only be
+created with a **one-time invite** minted on the host for one allowlisted email:
+
+```powershell
+docker compose -f deploy/docker-compose.yml run --rm backoffice invite me@example.com
+# (locally: dotnet run --project backend/src/Gimano.BackOffice -- invite me@example.com)
+```
+
+It prints `…/Account/Register?invite=inv_…` (base URL from `BackOffice:PublicUrl`, default `http://100.101.150.9:5090`).
+The invite works once, only for that email, expires after 24 hours, and only its sha256 is stored
+(`backoffice."MaintainerInvites"`); minting a new one for the same email cancels the unused old one. A failed
+registration (e.g. a weak password) leaves the invite usable. External-login account creation is disabled. Passkeys need a secure
 context, so serve the back office over HTTPS, e.g. `tailscale serve --bg --https=443 http://localhost:5090` on WS556,
 then open `https://<ws556>.<tailnet>.ts.net`. Over plain HTTP, use a password plus an authenticator app (2FA).
 

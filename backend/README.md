@@ -60,7 +60,8 @@ dotnet user-secrets --project src/Gimano.Api set "Jwt:SigningKey" "$(openssl ran
 
 dotnet run --project src/Gimano.Api          # http://0.0.0.0:5080
 dotnet run --project src/Gimano.Worker
-dotnet run --project src/Gimano.BackOffice   # http://localhost:5090; Development allows any email to register
+dotnet run --project src/Gimano.BackOffice   # http://localhost:5090
+dotnet run --project src/Gimano.BackOffice -- invite me@example.com   # one-time registration link (no self-registration)
 dotnet run --project src/Gimano.Importer -- --dry-run   # parse the extract only, no DB needed (~30 s)
 ```
 
@@ -96,6 +97,7 @@ dotnet test            # Microsoft.Testing.Platform (configured in global.json)
 | `Admin:Enabled` / `AllowPublic` / `AllowedNetworks` | `true` / `false` / `[]` | api: guards the agent endpoints `/admin/v1` and `/mcp` |
 | `BackOffice:Maintainers` | `[]` (`["*"]` in Development) | backoffice: emails allowed to register / sign in |
 | `BackOffice:ApiBaseUrl` | `http://100.101.150.9:5080` | backoffice: shown in the MCP setup command |
+| `BackOffice:PublicUrl` | `http://100.101.150.9:5090` | backoffice: base of the invite links printed by `invite <email>` |
 | `DataProtection:KeysPath` | *(none)* | backoffice: persist cookie keys (set in compose) |
 
 ## Maintainer view (feedback & crash reports)

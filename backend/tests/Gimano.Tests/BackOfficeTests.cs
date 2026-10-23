@@ -266,6 +266,64 @@ public class BackOfficeTests
         Assert.False(allow.Allows(null));
     }
 
+    // ---- invites (no self-registration) ---------------------------------------------------------------------------
+
+    [Fact]
+    public void Invites_are_random_hashed_single_email_and_expire_after_24_hours()
+    {
+        var token = MaintainerInvites.NewToken();
+        Assert.StartsWith("inv_", token);
+        Assert.NotEqual(token, MaintainerInvites.NewToken());
+        Assert.Equal(64, MaintainerInvites.Hash(token).Length);
+        Assert.DoesNotContain(token[4..], MaintainerInvites.Hash(token));
+        Assert.Equal(TimeSpan.FromHours(24), MaintainerInvites.Lifetime);
+
+        var invite = new MaintainerInvite { NormalizedEmail = MaintainerInvites.Normalize(" Me@Example.com "), TokenHash = MaintainerInvites.Hash(token),
+            CreatedAt = T0, ExpiresAt = T0 + MaintainerInvites.Lifetime };
+        Assert.True(MaintainerInvites.Usable(invite, "me@example.com", T0.AddHours(23)));
+        Assert.False(MaintainerInvites.Usable(invite, "attacker@example.com", T0.AddHours(1)));   // someone else's email
+        Assert.False(MaintainerInvites.Usable(invite, "me@example.com", T0.AddHours(24)));         // expired
+        invite.UsedAt = T0.AddHours(1);
+        Assert.False(MaintainerInvites.Usable(invite, "me@example.com", T0.AddHours(2)));          // single use
+        Assert.False(MaintainerInvites.Usable(null, "me@example.com", T0));
+    }
+
+    [Fact]
+    public void Register_page_consumes_an_invite_before_creating_the_account()
+    {
+        // Guard against the template's self-registration coming back: the page must consume an invite first.
+        var dir = AppContext.BaseDirectory;
+        while (!File.Exists(Path.Combine(dir, "Gimano.slnx"))) dir = Path.GetDirectoryName(dir)!;
+        var register = File.ReadAllText(Path.Combine(dir, "src/Gimano.BackOffice/Components/Account/Pages/Register.razor"));
+        Assert.True(register.IndexOf("Invites.TryConsumeAsync", StringComparison.Ordinal) is > 0 and var consume
+            && consume < register.IndexOf("UserManager.CreateAsync", StringComparison.Ordinal));
+        var external = File.ReadAllText(Path.Combine(dir, "src/Gimano.BackOffice/Components/Account/Pages/ExternalLogin.razor"));
+        Assert.DoesNotContain("UserManager.CreateAsync", external);
+    }
+
+    // ---- /admin/v1 filters ------------------------------------------------------------------------------------------
+
+    [Theory]
+    [InlineData("wont_fix", CrashGroupStatus.WontFix)]
+    [InlineData("WontFix", CrashGroupStatus.WontFix)]
+    [InlineData("REGRESSED", CrashGroupStatus.Regressed)]
+    [InlineData(" open ", CrashGroupStatus.Open)]
+    public void Admin_filters_take_wire_or_enum_names(string value, CrashGroupStatus expected) =>
+        Assert.Equal(expected, AgentAdminEndpoints.Filter<CrashGroupStatus>(value, "status"));
+
+    [Fact]
+    public void Admin_filters_reject_unknown_values_and_ignore_empty_ones()
+    {
+        Assert.Equal(FeedbackStatus.WontFix, AgentAdminEndpoints.Filter<FeedbackStatus>("wont_fix", "status"));
+        Assert.Equal(FeedbackCategory.MapData, AgentAdminEndpoints.Filter<FeedbackCategory>("map_data", "category"));
+        Assert.Equal(FeedbackScreen.RoutePreview, AgentAdminEndpoints.Filter<FeedbackScreen>("route_preview", "screen"));
+        Assert.Null(AgentAdminEndpoints.Filter<FeedbackStatus>(" ", "status"));
+        var e = Assert.Throws<ValidationException>(() => AgentAdminEndpoints.Filter<CrashGroupStatus>("fixed", "status"));
+        Assert.Equal("status", e.Field);
+        Assert.Contains("wont_fix", e.Message);
+        Assert.Throws<ValidationException>(() => AgentAdminEndpoints.Filter<CrashGroupStatus>("99", "status"));
+    }
+
     private sealed class StaticMonitor(BackOfficeOptions value) : IOptionsMonitor<BackOfficeOptions>
     {
         public BackOfficeOptions CurrentValue => value;

@@ -156,6 +156,12 @@ services:
       Identity__AllowLegacyUnsigned: ${ALLOW_LEGACY_UNSIGNED:-true}
       Feedback__ContactKey: ${FEEDBACK_CONTACT_KEY:?Set FEEDBACK_CONTACT_KEY in deploy/.env.prod}
       Admin__Key: ${ADMIN_KEY:-}
+      # Agent endpoints /admin/v1 and /mcp (docs/back-office.md): OFF in production until the back office is deliberately
+      # deployed here. To enable, set AGENT_ADMIN_ENABLED=true and AGENT_ADMIN_NETWORKS to the agents' CIDR (Tailscale:
+      # 100.64.0.0/10) in deploy/.env.prod. Requests through Cloudflare are refused either way (Admin__AllowPublic=false).
+      Admin__Enabled: ${AGENT_ADMIN_ENABLED:-false}
+      Admin__AllowPublic: "false"
+      Admin__AllowedNetworks__0: ${AGENT_ADMIN_NETWORKS:-127.0.0.1/32}
       Search__AliasesPath: /data/search/aliases.csv
       Attestation__Mode: ${ATTESTATION_MODE:-log}
       Attestation__Android__PackageName: ${ATTESTATION_ANDROID_PACKAGE:-}

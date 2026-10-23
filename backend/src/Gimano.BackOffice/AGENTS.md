@@ -24,6 +24,8 @@ plain GET forms and stay static.
 ## Authentication
 ASP.NET Core Identity with passkeys is configured (`Data/ApplicationDbContext`, schema `backoffice`). Only emails in
 `BackOffice:Maintainers` can register or stay signed in (`MaintainerUserValidator`, cookie `OnValidatePrincipal`).
+There is no self-registration: `Account/Register` needs a one-time invite (`Data/MaintainerInvites`, minted with
+`invite <email>` on the command line); external-login account creation is disabled. Keep it that way.
 Every page under `Components/Pages` requires sign-in (`_Imports.razor` has `[Authorize]`). The Identity pages under
 `Components/Account/` are always static SSR: don't add `@rendermode` to them. They are the only pages that load Bootstrap.
 

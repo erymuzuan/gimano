@@ -106,6 +106,34 @@ public sealed class BackOfficePostgresTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task Invites_work_once_for_their_email_and_failed_registrations_can_retry()
+    {
+        if (_ds is null) { Assert.Skip("GIMANO_PG_TEST not set"); return; }
+        var o = new DbContextOptionsBuilder<Gimano.BackOffice.Data.ApplicationDbContext>();
+        Gimano.BackOffice.Data.ApplicationDbContext.Configure(o, new NpgsqlConnectionStringBuilder(_admin) { Database = _dbName }.ConnectionString);
+        await using var idb = new Gimano.BackOffice.Data.ApplicationDbContext(o.Options);
+        await idb.Database.MigrateAsync();
+        var allow = new Gimano.BackOffice.Data.MaintainerAllowlist(new StaticOptions(new() { Maintainers = ["me@example.com"] }));
+        var invites = new Gimano.BackOffice.Data.MaintainerInvites(idb, allow, _clock);
+        await Assert.ThrowsAsync<InvalidOperationException>(() => invites.CreateAsync("attacker@example.com"));
+        var token = await invites.CreateAsync("me@example.com");
+        Assert.False(await invites.TryConsumeAsync(token, "attacker@example.com"));
+        Assert.True(await invites.TryConsumeAsync(token, "ME@example.com"));
+        Assert.False(await invites.TryConsumeAsync(token, "me@example.com"));          // single use
+        await invites.ReleaseAsync(token);                                               // account creation failed
+        _clock.Now = T0.AddHours(25);
+        Assert.False(await invites.TryConsumeAsync(token, "me@example.com"));          // expired
+        Assert.DoesNotContain(token, string.Join(",", idb.MaintainerInvites.Select(i => i.TokenHash)));
+    }
+
+    private sealed class StaticOptions(Gimano.BackOffice.Data.BackOfficeOptions value) : Microsoft.Extensions.Options.IOptionsMonitor<Gimano.BackOffice.Data.BackOfficeOptions>
+    {
+        public Gimano.BackOffice.Data.BackOfficeOptions CurrentValue => value;
+        public Gimano.BackOffice.Data.BackOfficeOptions Get(string? name) => value;
+        public IDisposable? OnChange(Action<Gimano.BackOffice.Data.BackOfficeOptions, string?> listener) => null;
+    }
+
+    [Fact]
     public async Task Triage_errors_are_domain_exceptions_and_reveal_is_audited_without_values()
     {
         if (_ds is null) { Assert.Skip("GIMANO_PG_TEST not set"); return; }

@@ -35,9 +35,11 @@ public static class AgentAdminEndpoints
         read.MapGet("/queue", (string? type, int? take, TriageService t, CancellationToken ct) => t.QueueAsync(type, take ?? 100, ct))
             .WithSummary("Open feedback and crash groups in one list (type = feedback | crash).");
 
-        read.MapGet("/feedback", (FeedbackStatus? status, FeedbackCategory? category, FeedbackScreen? screen, string? platform, string? text,
+        read.MapGet("/feedback", (string? status, string? category, string? screen, string? platform, string? text,
                 DateTimeOffset? since, bool? openOnly, int? take, TriageService t, CancellationToken ct) =>
-            t.SearchFeedbackAsync(new FeedbackQuery(status, category, screen, platform, text, since, openOnly ?? false, take ?? 50), ct));
+            t.SearchFeedbackAsync(new FeedbackQuery(Filter<FeedbackStatus>(status, "status"), Filter<FeedbackCategory>(category, "category"),
+                Filter<FeedbackScreen>(screen, "screen"), platform, text, since, openOnly ?? false, take ?? 50), ct))
+            .WithSummary("status/category/screen take the wire names (wont_fix, map_data, route_preview) or the enum names.");
         read.MapGet("/feedback/{id:guid}", async Task<Results<Ok<FeedbackView>, NotFound>> (Guid id, TriageService t, CancellationToken ct) =>
             await t.GetFeedbackAsync(id, ct) is { } f ? TypedResults.Ok(f) : TypedResults.NotFound());
         read.MapGet("/feedback/{id:guid}/screenshot", async Task<Results<FileContentHttpResult, NotFound>> (Guid id, HttpContext http, TriageService t, CancellationToken ct) =>
@@ -48,8 +50,9 @@ public static class AgentAdminEndpoints
         admin.MapPost("/feedback/{id:guid}/replies", (Guid id, DraftReplyRequest body, HttpContext http, TriageService t, CancellationToken ct) =>
             t.DraftReplyAsync(id, body.Message, body.NewStatus, http.User.ToActor(), ct)).WithSummary("Scope replies:draft. A maintainer approves before it is sent.");
 
-        read.MapGet("/crash-groups", (CrashGroupStatus? status, string? platform, string? text, bool? openOnly, int? take, TriageService t, CancellationToken ct) =>
-            t.CrashGroupsAsync(new CrashQuery(status, platform, text, openOnly ?? false, take ?? 50), ct));
+        read.MapGet("/crash-groups", (string? status, string? platform, string? text, bool? openOnly, int? take, TriageService t, CancellationToken ct) =>
+            t.CrashGroupsAsync(new CrashQuery(Filter<CrashGroupStatus>(status, "status"), platform, text, openOnly ?? false, take ?? 50), ct))
+            .WithSummary("status: open|triaged|fixing|regressed|done|wont_fix (enum names are accepted too).");
         read.MapGet("/crash-groups/{signature}", async Task<Results<Ok<CrashGroupView>, NotFound>> (string signature, TriageService t, CancellationToken ct) =>
             await t.GetCrashGroupAsync(signature, ct) is { } g ? TypedResults.Ok(g) : TypedResults.NotFound());
         read.MapGet("/crash-groups/{signature}/events", (string signature, int? take, TriageService t, CancellationToken ct) =>
@@ -74,5 +77,16 @@ public static class AgentAdminEndpoints
             t.UpdateRunAsync(id, body, http.User.ToActor(), ct)).WithSummary("Branch must start with agent/; an agent cannot mark a run done.");
 
         return app;
+    }
+
+    /// <summary>
+    /// Query filters accept the snake_case wire names (as JSON and the MCP tools use: <c>wont_fix</c>) and the enum names
+    /// (<c>WontFix</c>), case-insensitively. Empty = no filter; anything else is a 400 listing the valid values.
+    /// </summary>
+    internal static T? Filter<T>(string? value, string field) where T : struct, Enum
+    {
+        if (string.IsNullOrWhiteSpace(value)) return null;
+        return GimanoJson.TryParseWire<T>(value.Trim(), out var parsed) ? parsed
+            : throw new ValidationException(field, $"{field} must be one of: {string.Join(", ", Enum.GetValues<T>().Select(v => GimanoJson.ToWire(v)))}.");
     }
 }

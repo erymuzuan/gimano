@@ -154,6 +154,8 @@ services:
       Feedback__ContactKey: ${FEEDBACK_CONTACT_KEY:-}
       BackOffice__Maintainers__0: ${BACKOFFICE_MAINTAINER:-}
       BackOffice__ApiBaseUrl: ${BACKOFFICE_API_BASE_URL:-http://100.101.150.9:5080}
+      # Base of the one-time invite links printed by `run --rm backoffice invite <email>`.
+      BackOffice__PublicUrl: ${BACKOFFICE_PUBLIC_URL:-http://100.101.150.9:5090}
       DataProtection__KeysPath: /data/keys
     ports: ["${BACKOFFICE_PORT:-5090}:8080"]
     volumes: ["backofficekeys:/data/keys"]

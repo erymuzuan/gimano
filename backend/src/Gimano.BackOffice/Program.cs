@@ -29,6 +29,7 @@ builder.Services.AddScoped<IdentityRedirectManager>();
 builder.Services.AddScoped<AuthenticationStateProvider, IdentityRevalidatingAuthenticationStateProvider>();
 builder.Services.Configure<BackOfficeOptions>(config.GetSection(BackOfficeOptions.Section));
 builder.Services.AddSingleton<MaintainerAllowlist>();
+builder.Services.AddScoped<MaintainerInvites>();
 
 builder.Services.AddAuthentication(options =>
     {
@@ -109,6 +110,27 @@ if (config.GetValue("Database:MigrateOnStartup", true))
         log.LogWarning("Feedback:ContactKey is not set: contact details cannot be revealed on this host.");
 }
 
+// One-time maintainer invites (no self-registration): `dotnet Gimano.BackOffice.dll invite <email>`, or on the host
+// `docker compose -f deploy/docker-compose.yml run --rm backoffice invite <email>`. Prints the link once and exits.
+if (args is ["invite", var inviteEmail, ..])
+{
+    await using var scope = app.Services.CreateAsyncScope();
+    await scope.ServiceProvider.GetRequiredService<ApplicationDbContext>().Database.MigrateAsync();
+    try
+    {
+        var token = await scope.ServiceProvider.GetRequiredService<MaintainerInvites>().CreateAsync(inviteEmail);
+        var baseUrl = (config["BackOffice:PublicUrl"] ?? "http://100.101.150.9:5090").TrimEnd('/');
+        Console.WriteLine($"Invite for {inviteEmail.Trim()} (single use, expires in {MaintainerInvites.Lifetime.TotalHours:0} h):");
+        Console.WriteLine($"{baseUrl}/Account/Register?invite={Uri.EscapeDataString(token)}");
+        return 0;
+    }
+    catch (Exception ex) when (ex is ArgumentException or InvalidOperationException)
+    {
+        Console.Error.WriteLine(ex.Message);
+        return 1;
+    }
+}
+
 if (!app.Environment.IsDevelopment())
 {
     app.UseExceptionHandler("/Error", createScopeForErrors: true);
@@ -135,5 +157,6 @@ app.MapGet("/screenshots/{id:guid}", async (Guid id, HttpContext http, TriageSer
 app.MapGet("/healthz", () => Results.Ok("ok")).AllowAnonymous();
 
 app.Run();
+return 0;
 
 public partial class Program;
