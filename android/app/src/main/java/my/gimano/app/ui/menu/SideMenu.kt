@@ -1,12 +1,19 @@
 package my.gimano.app.ui.menu
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ExitToApp
-import androidx.compose.material.icons.automirrored.filled.HelpOutline
-import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Shield
+import androidx.compose.material.icons.filled.DarkMode
+import androidx.compose.material.icons.filled.Backup
+import androidx.compose.material.icons.filled.Inbox
+import androidx.compose.material.icons.filled.Event
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -19,47 +26,64 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import my.gimano.app.R
 import my.gimano.app.data.model.User
+import my.gimano.app.ui.common.GIcon
 import my.gimano.app.ui.theme.Gimano
 
+/** Menu (design board "Gimano menu (updated)"). */
 @Composable
 fun SideMenu(
-    user: User?, onProfile: () -> Unit, onPlanned: () -> Unit, onInbox: () -> Unit, onSettings: () -> Unit, onHelp: () -> Unit, onExit: () -> Unit,
-    onAddPlace: () -> Unit, onContributions: () -> Unit, onFeedback: () -> Unit, onMyFeedback: () -> Unit, onBackup: () -> Unit,
+    user: User?, inboxUnread: Int,
+    onProfile: () -> Unit, onFavourites: () -> Unit, onPlanned: () -> Unit, onInbox: () -> Unit, onContributions: () -> Unit,
+    onAddPlace: () -> Unit, onBackup: () -> Unit, onTheme: () -> Unit, onFeedback: () -> Unit, onSettings: () -> Unit,
 ) {
     val c = Gimano.colors
-    ModalDrawerSheet(drawerContainerColor = c.surface, modifier = Modifier.width(310.dp)) {
-        Column(Modifier.fillMaxWidth().background(c.brand).windowInsetsPadding(WindowInsets.statusBars).padding(20.dp)) {
-            Box(Modifier.size(56.dp).clip(CircleShape).background(c.brandOn), contentAlignment = Alignment.Center) {
-                Text(user?.mood ?: "🙂", fontSize = 28.sp)
+    ModalDrawerSheet(drawerContainerColor = c.surface, modifier = Modifier.width(330.dp)) {
+        Column(Modifier.fillMaxHeight().verticalScroll(rememberScrollState()).windowInsetsPadding(WindowInsets.statusBars).padding(top = 12.dp, bottom = 16.dp)) {
+            Row(
+                Modifier.padding(horizontal = 16.dp).fillMaxWidth().clip(RoundedCornerShape(22.dp)).background(c.brandMist).clickable(onClick = onProfile).padding(16.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Box(Modifier.size(56.dp).clip(CircleShape).background(c.brand), contentAlignment = Alignment.Center) {
+                    Text((user?.displayName ?: "G").take(1).uppercase(), color = c.brandOn, fontSize = 24.sp, fontWeight = FontWeight.Black)
+                }
+                Spacer(Modifier.width(14.dp))
+                Column {
+                    Text(stringResource(R.string.greeting, user?.displayName ?: "Gimano"), fontSize = 19.sp, fontWeight = FontWeight.Black, color = c.text)
+                    if (user != null) Text(stringResource(R.string.points_level, user.points, user.level), fontSize = 14.sp, fontWeight = FontWeight.ExtraBold, color = c.brandInk)
+                }
             }
-            Spacer(Modifier.height(12.dp))
-            Text(stringResource(R.string.greeting, user?.displayName ?: "Gimano"), color = c.brandOn, fontSize = 22.sp, fontWeight = FontWeight.SemiBold)
-            if (user != null) Text(stringResource(R.string.points_level, user.points, user.level), color = c.brandOn.copy(alpha = 0.85f), fontSize = 14.sp)
-            TextButton(onClick = onProfile, contentPadding = PaddingValues(0.dp)) {
-                Text(stringResource(R.string.view_profile), color = c.brandOn, fontWeight = FontWeight.SemiBold)
+            Spacer(Modifier.height(8.dp))
+            Item(gicon = "star", label = stringResource(R.string.my_favourites), onClick = onFavourites)
+            Item(icon = Icons.Filled.Event, label = stringResource(R.string.planned_drives), onClick = onPlanned)
+            Item(icon = Icons.Filled.Inbox, label = stringResource(R.string.inbox), badge = inboxUnread, onClick = onInbox)
+            Item(gicon = "add_stop", label = stringResource(R.string.my_contributions), onClick = onContributions)
+            Item(gicon = "map", label = stringResource(R.string.add_a_place), onClick = onAddPlace)
+            Item(icon = Icons.Filled.Backup, label = stringResource(R.string.backup_restore), onClick = onBackup)
+            Item(icon = Icons.Filled.DarkMode, label = stringResource(R.string.theme), onClick = onTheme)
+            Item(gicon = "feedback", label = stringResource(R.string.add_feedback), onClick = onFeedback)
+            Item(icon = Icons.Filled.Settings, label = stringResource(R.string.settings), onClick = onSettings)
+            Spacer(Modifier.height(16.dp))
+            Row(
+                Modifier.padding(horizontal = 16.dp).fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(c.background).clickable(onClick = onBackup).padding(horizontal = 14.dp, vertical = 12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Icon(Icons.Filled.Shield, null, tint = c.brand, modifier = Modifier.size(22.dp))
+                Spacer(Modifier.width(10.dp))
+                Text(stringResource(R.string.places_stay_on_phone), fontSize = 13.sp, fontWeight = FontWeight.Bold, color = c.textMuted)
             }
         }
-        Spacer(Modifier.height(8.dp))
-        Item(Icons.Filled.AddLocationAlt, stringResource(R.string.add_a_place), onAddPlace)
-        Item(Icons.Filled.EmojiEvents, stringResource(R.string.my_contributions), onContributions)
-        Item(Icons.Filled.EventNote, stringResource(R.string.planned_drives), onPlanned)
-        Item(Icons.Filled.Inbox, stringResource(R.string.inbox), onInbox)
-        Item(Icons.Filled.Feedback, stringResource(R.string.add_feedback), onFeedback)
-        Item(Icons.Filled.ChecklistRtl, stringResource(R.string.my_feedback), onMyFeedback)
-        Item(Icons.Filled.Backup, stringResource(R.string.backup_restore), onBackup)
-        Item(Icons.Filled.Settings, stringResource(R.string.settings), onSettings)
-        Item(Icons.AutoMirrored.Filled.HelpOutline, stringResource(R.string.help), onHelp)
-        Item(Icons.AutoMirrored.Filled.ExitToApp, stringResource(R.string.exit), onExit)
     }
 }
 
 @Composable
-private fun Item(icon: ImageVector, label: String, onClick: () -> Unit) {
-    NavigationDrawerItem(
-        label = { Text(label, fontSize = 17.sp) },
-        icon = { Icon(icon, null, tint = Gimano.colors.text) },
-        selected = false,
-        onClick = onClick,
-        modifier = Modifier.padding(horizontal = 12.dp),
-    )
+private fun Item(label: String, icon: ImageVector? = null, gicon: String? = null, badge: Int = 0, onClick: () -> Unit) {
+    val c = Gimano.colors
+    Row(Modifier.fillMaxWidth().height(56.dp).clickable(onClick = onClick).padding(horizontal = 22.dp), verticalAlignment = Alignment.CenterVertically) {
+        Box(Modifier.size(40.dp).clip(RoundedCornerShape(13.dp)).background(c.brandMist), contentAlignment = Alignment.Center) {
+            if (gicon != null) GIcon(gicon, null, size = 24.dp) else if (icon != null) Icon(icon, null, tint = c.brandInk, modifier = Modifier.size(22.dp))
+        }
+        Spacer(Modifier.width(16.dp))
+        Text(label, Modifier.weight(1f), fontSize = 17.sp, fontWeight = FontWeight.ExtraBold, color = c.text)
+        if (badge > 0) Text("$badge", Modifier.clip(RoundedCornerShape(999.dp)).background(c.report).padding(horizontal = 9.dp, vertical = 2.dp), color = c.reportOn, fontSize = 13.sp, fontWeight = FontWeight.Black)
+    }
 }

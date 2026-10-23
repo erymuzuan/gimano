@@ -74,7 +74,7 @@ fun BackupScreen(vm: BackupViewModel, onBack: () -> Unit) {
             Spacer(Modifier.height(14.dp))
             val last = s.lastBackupAt
             Text(
-                if (last != null) stringResource(R.string.last_backup, last.take(16).replace('T', ' '), "%.1f KB".format(s.lastBackupBytes / 1024.0), s.lastBackupDest ?: "")
+                if (last != null) stringResource(R.string.last_backup, my.gimano.app.core.format.Formatters.localStamp(last), "%.1f KB".format(s.lastBackupBytes / 1024.0), s.lastBackupDest ?: "")
                 else stringResource(R.string.no_backup_yet),
                 color = c.textMuted, fontSize = 14.sp,
             )
@@ -103,7 +103,7 @@ fun BackupScreen(vm: BackupViewModel, onBack: () -> Unit) {
         AlertDialog(
             onDismissRequest = vm::cancelRestore,
             title = { Text(stringResource(R.string.restore_title), style = GimanoType.title) },
-            text = { Text(stringResource(R.string.restore_body, pr.manifest.createdAt.take(16).replace('T', ' '), pr.manifest.platform, n.saved_places, n.recents, n.private_places)) },
+            text = { Text(stringResource(R.string.restore_body, my.gimano.app.core.format.Formatters.localStamp(pr.manifest.createdAt), pr.manifest.platform, n.saved_places, n.recents, n.private_places)) },
             confirmButton = { Button(onClick = { vm.confirmRestore(RestoreMode.MERGE) }) { Text(stringResource(R.string.restore_merge)) } },
             dismissButton = { OutlinedButton(onClick = { vm.confirmRestore(RestoreMode.REPLACE) }) { Text(stringResource(R.string.restore_replace)) } },
         )
@@ -115,7 +115,7 @@ fun BackupScreen(vm: BackupViewModel, onBack: () -> Unit) {
             text = {
                 Column {
                     if (files.isEmpty()) Text(stringResource(R.string.no_backup_yet))
-                    files.forEach { f -> Text(f.createdTime.take(16).replace('T', ' ') + "  " + f.name, Modifier.fillMaxWidth().clickable { vm.restoreFromDrive(f) }.padding(vertical = 12.dp)) }
+                    files.forEach { f -> Text(my.gimano.app.core.format.Formatters.localStamp(f.createdTime) + "  " + f.name, Modifier.fillMaxWidth().clickable { vm.restoreFromDrive(f) }.padding(vertical = 12.dp)) }
                 }
             },
             confirmButton = { TextButton(onClick = vm::cancelRestore) { Text(stringResource(R.string.cancel)) } },

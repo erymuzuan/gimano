@@ -376,4 +376,26 @@
     <string name="private_places_n">%1$d tempat peribadi dalam telefon ini (tidak dikongsi)</string>
     <string name="status_published">Diterbitkan</string>
     <string name="status_pending">Menunggu pengesahan</string>
+    <string name="my_favourites">Kegemaran saya</string>
+    <string name="places_stay_on_phone">Tempat kamu kekal dalam telefon ini.</string>
+    <string name="mark_all_read">Tanda semua dibaca</string>
+    <string name="inbox_intro">Berita tentang sumbangan kamu: tempat, ulasan, laporan dan maklum balas.</string>
+    <string name="inbox_empty">Belum ada apa-apa</string>
+    <string name="my_places">Tempat saya</string>
+    <string name="long_press_to_edit">Tekan lama untuk sunting</string>
+    <string name="saved_on_phone_backup">Disimpan dalam telefon ini · sandaran terakhir %1$s</string>
+    <string name="never">belum pernah</string>
+    <string name="theme_light_sub">Lalai</string>
+    <string name="theme_dark_sub">Untuk malam</string>
+    <string name="theme_system_sub">Tetapan telefon</string>
+    <string name="theme_auto_sub">Tukar ikut matahari terbenam</string>
+    <string name="theme_note">Cerah adalah lalai: lebih mudah dibaca di bawah matahari ketika memandu, walaupun telefon dalam mod gelap. Peta turut bertukar.</string>
+    <string name="reports_n">Laporan</string>
+    <string name="sharing_stop">Berkongsi · Henti</string>
+    <string name="next_leave_by">%1$s · ke %2$s</string>
+    <string name="leave_at_big">Bertolak %1$s</string>
+    <string name="to_arrive">untuk tiba %1$s</string>
+    <string name="plaza_count">%1$d plaza</string>
+    <string name="level_n">Tahap %1$d</string>
+    <string name="points_to_next">mata · %1$d lagi ke Tahap %2$d</string>
 </resources>

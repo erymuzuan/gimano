@@ -171,8 +171,8 @@ fun HomeOverlay(ui: UiState, settings: AppSettings, vm: MainViewModel, onMic: ()
                 // 4-column shortcut grid: Home, Work, Fuel, Food / Surau, Parking, EV, Recent
                 val rows = listOf(
                     listOf(
-                        Triple("home", home?.name?.takeIf { it != "home" } ?: stringResource(R.string.home)) { if (home != null) vm.routeToSaved(home) else vm.openSearch(SearchPurpose.SET_HOME) },
-                        Triple("work", work?.name?.takeIf { it != "work" } ?: stringResource(R.string.work)) { if (work != null) vm.routeToSaved(work) else vm.openSearch(SearchPurpose.SET_WORK) },
+                        Triple("home", stringResource(R.string.home)) { if (home != null) vm.routeToSaved(home) else vm.openSearch(SearchPurpose.SET_HOME) },
+                        Triple("work", stringResource(R.string.work)) { if (work != null) vm.routeToSaved(work) else vm.openSearch(SearchPurpose.SET_WORK) },
                         Triple("fuel", stringResource(R.string.sc_fuel)) { category("fuel") },
                         Triple("food", stringResource(R.string.sc_food)) { category("restaurant") },
                     ),

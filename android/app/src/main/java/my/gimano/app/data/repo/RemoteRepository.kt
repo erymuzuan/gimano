@@ -79,6 +79,7 @@ class RemoteRepository(private val settings: SettingsStore) : GimanoRepository {
     override suspend fun thank(reportId: String) { authed { thank(reportId) }.orThrow() }
     override suspend fun postLocations(batch: LocationBatch) { authed { postLocations(batch) }.orThrow() }
 
+    override suspend fun inbox(): List<InboxItem> = try { authed { inbox() } } catch (e: HttpException) { if (e.code() in setOf(404, 405, 501)) emptyList() else throw e }
     override suspend fun sendFeedback(body: FeedbackRequest) = authed { feedback(body) }
     override suspend fun myFeedback() = authed { myFeedback() }
 

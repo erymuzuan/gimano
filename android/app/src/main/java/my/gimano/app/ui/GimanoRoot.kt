@@ -163,18 +163,17 @@ fun GimanoRoot(vm: MainViewModel, onMic: () -> Unit, onExit: () -> Unit) {
         gesturesEnabled = drawer.isOpen,
         drawerContent = {
             SideMenu(
-                ui.user,
-                onProfile = { scope.launch { drawer.close() }; vm.openSettings() },
+                ui.user, inboxUnread = ui.inbox.count { it.id !in settings.inboxRead },
+                onProfile = { scope.launch { drawer.close() }; vm.open(Screen.Contributions) },
+                onFavourites = { scope.launch { drawer.close() }; vm.open(Screen.Favourites) },
                 onPlanned = { scope.launch { drawer.close() }; vm.open(Screen.Planned) },
-                onInbox = { scope.launch { drawer.close() }; vm.toast(R.string.coming_soon) },
-                onSettings = { scope.launch { drawer.close() }; vm.openSettings() },
-                onHelp = { scope.launch { drawer.close() }; vm.openWeb("https://github.com/erymuzuan/gimano") },
-                onExit = onExit,
-                onAddPlace = { scope.launch { drawer.close() }; vm.startAddPlace(vm.here(), ""); cvm.startAdd(vm.here(), "") },
+                onInbox = { scope.launch { drawer.close() }; vm.open(Screen.Inbox) },
                 onContributions = { scope.launch { drawer.close() }; vm.open(Screen.Contributions) },
-                onFeedback = { scope.launch { drawer.close() }; vm.requestFeedback("home") },
-                onMyFeedback = { scope.launch { drawer.close() }; vm.open(Screen.MyFeedback) },
+                onAddPlace = { scope.launch { drawer.close() }; vm.startAddPlace(vm.here(), ""); cvm.startAdd(vm.here(), "") },
                 onBackup = { scope.launch { drawer.close() }; vm.open(Screen.Backup) },
+                onTheme = { scope.launch { drawer.close() }; vm.open(Screen.Theme) },
+                onFeedback = { scope.launch { drawer.close() }; vm.requestFeedback("home") },
+                onSettings = { scope.launch { drawer.close() }; vm.openSettings() },
             )
         },
     ) {
@@ -204,11 +203,14 @@ fun GimanoRoot(vm: MainViewModel, onMic: () -> Unit, onExit: () -> Unit) {
                 Screen.RoutePreview -> ui.plan?.let { RoutePreviewOverlay(it, settings, vm, handle) }
                 Screen.Navigating -> NavigationOverlay(nav, ui, settings, vm)
                 is Screen.Search -> SearchScreen(ui, screen.purpose, vm, onMic)
-                Screen.Settings -> SettingsScreen(settings, vm, fallback, ui.user?.displayName, onBackup = { vm.open(Screen.Backup) }, onMyFeedback = { vm.open(Screen.MyFeedback) })
+                Screen.Settings -> SettingsScreen(settings, vm, fallback, ui.user?.displayName, onBackup = { vm.open(Screen.Backup) }, onMyFeedback = { vm.open(Screen.MyFeedback) }, onTheme = { vm.open(Screen.Theme) })
                 Screen.Backup -> my.gimano.app.ui.backup.BackupScreen(bvm, onBack = vm::back)
                 Screen.MyFeedback -> my.gimano.app.ui.feedback.MyFeedbackScreen(fvm, onBack = vm::back, onNew = { vm.requestFeedback("settings") })
                 Screen.Contributions -> my.gimano.app.ui.contribute.ContributionsScreen(container, cvm, vm, ui.user)
                 Screen.AddPlace -> my.gimano.app.ui.contribute.AddPlaceScreen(cvm, handle, onBack = vm::back)
+                Screen.Favourites -> my.gimano.app.ui.more.FavouritesScreen(ui.saved, ui.myLocation?.point, settings.lastBackupAt, vm)
+                Screen.Inbox -> my.gimano.app.ui.inbox.InboxScreen(ui.inbox, settings.inboxRead, onBack = vm::back, onRefresh = { vm.refreshInbox() }, onMarkAll = { vm.markInboxRead() })
+                Screen.Theme -> my.gimano.app.ui.more.ThemeScreen(settings.theme, onPick = { vm.setTheme(it) }, onBack = vm::back)
                 Screen.Planned -> my.gimano.app.ui.planned.PlannedDrivesScreen(pvm, settings.use24h, onBack = vm::back,
                     onAdd = { vm.openSearch(SearchPurpose.PLAN_DRIVE) }, onGo = vm::goPlanned)
             }

@@ -27,7 +27,7 @@ import my.gimano.app.ui.theme.Gimano
 import my.gimano.app.ui.theme.Radius
 
 @Composable
-fun SettingsScreen(s: AppSettings, vm: MainViewModel, fallback: Boolean, displayName: String?, onBackup: () -> Unit, onMyFeedback: () -> Unit) {
+fun SettingsScreen(s: AppSettings, vm: MainViewModel, fallback: Boolean, displayName: String?, onBackup: () -> Unit, onMyFeedback: () -> Unit, onTheme: () -> Unit = {}) {
     val c = Gimano.colors
     Column(Modifier.fillMaxSize().background(c.surface).windowInsetsPadding(WindowInsets.statusBars)) {
         Row(Modifier.fillMaxWidth().padding(4.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -46,14 +46,8 @@ fun SettingsScreen(s: AppSettings, vm: MainViewModel, fallback: Boolean, display
             my.gimano.app.ui.common.PrivacyCard(onBackup = onBackup, modifier = Modifier.padding(vertical = 8.dp))
             NavRow(stringResource(R.string.backup_restore), onBackup)
             NavRow(stringResource(R.string.my_feedback), onMyFeedback)
+            NavRow(stringResource(R.string.theme), onTheme)
             TextSetting(stringResource(R.string.display_name), displayName ?: s.displayName ?: "", onApply = vm::setDisplayName)
-
-            Section(stringResource(R.string.theme))
-            Choice(
-                listOf("light" to stringResource(R.string.theme_light), "dark" to stringResource(R.string.theme_dark),
-                    "system" to stringResource(R.string.theme_system), "auto" to stringResource(R.string.theme_auto)),
-                s.theme,
-            ) { vm.setTheme(it) }
 
             Section(stringResource(R.string.language))
             val appLocales = AppCompatDelegate.getApplicationLocales()

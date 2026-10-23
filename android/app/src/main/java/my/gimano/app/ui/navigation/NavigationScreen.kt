@@ -78,7 +78,7 @@ fun NavigationOverlay(nav: NavState, ui: UiState, settings: AppSettings, vm: Mai
         var confirmUnshare by remember { mutableStateOf(false) }
         if (sharing != null) {
             Box(Modifier.align(Alignment.TopStart).windowInsetsPadding(WindowInsets.statusBars).padding(top = 196.dp, start = 14.dp)) {
-                Pill(stringResource(R.string.sharing), color = c.brand, textColor = c.brandOn, icon = Icons.Filled.Share, onClick = { confirmUnshare = true })
+                Pill(stringResource(R.string.sharing_stop), color = c.report, textColor = c.reportOn, icon = Icons.Filled.Share, onClick = { confirmUnshare = true })
             }
         }
         if (confirmUnshare) AlertDialog(

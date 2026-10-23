@@ -129,4 +129,11 @@ object Formatters {
             null
         }
     }
+
+    /** ISO-8601 instant (UTC, from a manifest or Drive) → "yyyy-MM-dd HH:mm" in the phone's zone. Unparseable input is shown as-is. */
+    fun localStamp(iso: String, zone: java.time.ZoneId = java.time.ZoneId.systemDefault()): String =
+        runCatching {
+            java.time.OffsetDateTime.parse(iso).atZoneSameInstant(zone)
+                .format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm"))
+        }.getOrElse { iso.take(16).replace('T', ' ') }
 }

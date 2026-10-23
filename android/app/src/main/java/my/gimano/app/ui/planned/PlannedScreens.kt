@@ -78,6 +78,22 @@ fun PlannedDrivesScreen(pvm: PlannedViewModel, use24h: Boolean, onBack: () -> Un
                 Text(stringResource(R.string.exact_alarm_prompt), color = c.text, fontSize = 14.sp, fontWeight = FontWeight.Bold)
             }
         }
+        val next by produceState<Pair<PlannedDrive, Pair<Instant, Instant>>?>(null, drives) {
+            value = drives.mapNotNull { d -> pvm.leaveByFor(d)?.let { d to it } }.minByOrNull { it.second.second }
+        }
+        next?.let { (d, t) ->
+            val z = ZoneId.systemDefault()
+            val lang = currentLang()
+            Row(Modifier.padding(horizontal = 16.dp, vertical = 8.dp).fillMaxWidth().clip(RoundedCornerShape(24.dp)).background(c.brand).clickable { onGo(d) }.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Filled.Alarm, null, tint = c.brandOn, modifier = Modifier.size(48.dp))
+                Spacer(Modifier.width(14.dp))
+                Column {
+                    Text(stringResource(R.string.next_leave_by, t.first.atZone(z).toLocalDate().toString(), d.name.ifBlank { d.destination.name }), color = c.brandOn.copy(alpha = 0.85f), fontSize = 14.sp, fontWeight = FontWeight.ExtraBold)
+                    Text(stringResource(R.string.leave_at_big, Formatters.clock(t.second.atZone(z), use24h, lang)), color = c.brandOn, fontSize = 26.sp, fontWeight = FontWeight.Black)
+                    Text(stringResource(R.string.to_arrive, Formatters.clock(t.first.atZone(z), use24h, lang)), color = c.brandOn.copy(alpha = 0.85f), fontSize = 14.sp, fontWeight = FontWeight.ExtraBold)
+                }
+            }
+        }
         if (drives.isEmpty()) Text(stringResource(R.string.no_planned), Modifier.padding(24.dp), color = c.textMuted)
         LazyColumn(contentPadding = PaddingValues(bottom = 32.dp)) {
             items(drives, key = { it.id }) { d ->
@@ -87,6 +103,14 @@ fun PlannedDrivesScreen(pvm: PlannedViewModel, use24h: Boolean, onBack: () -> Un
                     Column(Modifier.weight(1f)) {
                         Text(d.name.ifBlank { d.destination.name }, fontSize = 17.sp, fontWeight = FontWeight.ExtraBold, color = c.text, maxLines = 1, overflow = TextOverflow.Ellipsis)
                         Text(scheduleText(d.schedule), fontSize = 14.sp, color = c.textMuted)
+                        if (d.schedule.repeating) Row(horizontalArrangement = Arrangement.spacedBy(4.dp), modifier = Modifier.padding(top = 6.dp)) {
+                            PlannedSchedule.WEEK.forEach { code ->
+                                val on = code in d.schedule.days.orEmpty()
+                                Box(Modifier.size(24.dp).clip(RoundedCornerShape(8.dp)).background(if (on) c.brand else c.surfaceAlt), contentAlignment = Alignment.Center) {
+                                    Text(stringResource(DAY_LABELS.getValue(code)).take(1), fontSize = 11.sp, fontWeight = FontWeight.Black, color = if (on) c.brandOn else c.textMuted)
+                                }
+                            }
+                        }
                     }
                     Button(onClick = { onGo(d) }, shape = RoundedCornerShape(Radius.md), colors = ButtonDefaults.buttonColors(containerColor = c.brand, contentColor = c.brandOn)) {
                         Text(stringResource(R.string.go), fontWeight = FontWeight.ExtraBold)

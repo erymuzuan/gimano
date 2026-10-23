@@ -21,10 +21,10 @@ val demoMode = prop("gimano.demoMode", "false").toBoolean()
 // Google Drive backup: OAuth client id lives in git-ignored android/gimano.local.properties
 // (see gimano.local.properties.example). Blank → the app shows "Google Drive not configured".
 val localProps = Properties().apply {
-    val f = rootProject.file("gimano.local.properties")
-    if (f.exists()) f.inputStream().use { load(it) }
+    listOf("local.properties", "gimano.local.properties").map { rootProject.file(it) }.filter { it.exists() }.forEach { f -> f.inputStream().use { load(it) } }
 }
-val googleOauthClientId = (localProps.getProperty("gimano.googleOauthClientId") ?: "").trim()
+val googleOauthClientId = (localProps.getProperty("gimano.googleAndroidClientId") ?: localProps.getProperty("gimano.googleOauthClientId")
+    ?: (project.findProperty("gimano.googleAndroidClientId") as String?) ?: "").trim()
 
 // Debug-only network security config: cleartext HTTP is allowed for the dev hosts below plus
 // whatever host gimano.apiBaseUrl points at. Release uses src/main/res/xml (HTTPS only).
