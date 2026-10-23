@@ -63,7 +63,7 @@ class CannedRoutesTest {
     }
 
     @Test fun demoRepositoryReturnsRealRoadRoutesForNearbyDestination() = runBlocking {
-        val repo = DemoRepository { docs }
+        val repo = DemoRepository(cannedDocs = { docs })
         val routes = repo.routes(
             RouteRequest(LatLngDto(3.12, 101.62), LatLngDto(3.1176, 101.6774, "midvalley"), avoid = AvoidOptions()),
         )

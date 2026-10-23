@@ -1,6 +1,6 @@
 package my.gimano.app.data.live
 
-import android.util.Log
+import my.gimano.app.core.GLog
 import com.google.gson.JsonElement
 import com.microsoft.signalr.HubConnection
 import com.microsoft.signalr.HubConnectionBuilder
@@ -69,7 +69,7 @@ class LiveHub(
                     bbox?.let { h.send("Subscribe", it) }
                     while (isActive && h.connectionState == HubConnectionState.CONNECTED) delay(1_000)
                 } catch (e: Exception) {
-                    Log.i("LiveHub", "SignalR not connected: ${e.message}")
+                    GLog.i("LiveHub", "SignalR not connected: ${e.javaClass.simpleName}")
                 }
                 _connected.value = false
                 delay(backoff)

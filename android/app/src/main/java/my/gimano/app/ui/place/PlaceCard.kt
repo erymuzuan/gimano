@@ -11,6 +11,10 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -50,6 +54,7 @@ fun PlaceCard(sel: PlaceSel, vm: MainViewModel, modifier: Modifier = Modifier) {
                     }
                     Text(meta.joinToString(" · "), fontSize = 14.sp, color = if (d?.openNow == true) c.brand else c.textMuted)
                 }
+                PlaceOverflow(vm)
                 IconButton(onClick = vm::back) { Icon(Icons.Filled.Close, stringResource(R.string.close), tint = c.textMuted) }
             }
             if (p.address.isNotBlank()) Text(p.address, Modifier.padding(top = 6.dp), fontSize = 15.sp, color = c.textMuted)
@@ -57,7 +62,7 @@ fun PlaceCard(sel: PlaceSel, vm: MainViewModel, modifier: Modifier = Modifier) {
             if (sel.loading) LinearProgressIndicator(Modifier.fillMaxWidth().padding(top = 8.dp).height(2.dp), color = c.brand, trackColor = c.surfaceAlt)
 
             Row(Modifier.fillMaxWidth().padding(vertical = 14.dp), horizontalArrangement = Arrangement.SpaceEvenly) {
-                Action(if (sel.saved) Icons.Filled.Bookmark else Icons.Filled.BookmarkBorder, stringResource(if (sel.saved) R.string.saved else R.string.save), enabled = !sel.saved) { vm.savePlaceAsFavorite() }
+                Action(if (sel.savedId != null) Icons.Filled.Bookmark else Icons.Filled.BookmarkBorder, stringResource(if (sel.savedId != null) R.string.saved else R.string.save)) { vm.openFavoriteSheet() }
                 Action(Icons.Filled.Call, stringResource(R.string.call), enabled = d?.phone != null) { d?.phone?.let(vm::call) }
                 Action(Icons.Filled.Share, stringResource(R.string.share)) { vm.sharePlace() }
                 Action(Icons.Filled.Language, stringResource(R.string.website), enabled = d?.website != null) { d?.website?.let(vm::openWeb) }
@@ -96,5 +101,20 @@ private fun Action(icon: ImageVector, label: String, enabled: Boolean = true, on
             Icon(icon, label, tint = if (enabled) c.brand else c.textMuted.copy(alpha = 0.5f))
         }
         Text(label, fontSize = 13.sp, color = if (enabled) c.text else c.textMuted, modifier = Modifier.padding(top = 4.dp))
+    }
+}
+
+@Composable
+private fun PlaceOverflow(vm: MainViewModel) {
+    var open by remember { mutableStateOf(false) }
+    Box {
+        IconButton(onClick = { open = true }) { Icon(Icons.Filled.MoreVert, stringResource(R.string.more), tint = Gimano.colors.textMuted) }
+        DropdownMenu(open, onDismissRequest = { open = false }) {
+            DropdownMenuItem(
+                text = { Text(stringResource(R.string.add_feedback), fontWeight = FontWeight.Bold) },
+                leadingIcon = { my.gimano.app.ui.common.GIcon("feedback", null, size = 24.dp) },
+                onClick = { open = false; vm.requestFeedback("place") },
+            )
+        }
     }
 }

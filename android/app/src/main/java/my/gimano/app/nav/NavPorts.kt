@@ -3,7 +3,7 @@ package my.gimano.app.nav
 import android.content.Context
 import android.content.Intent
 import android.os.Build
-import android.util.Log
+import my.gimano.app.core.GLog
 import androidx.core.app.NotificationManagerCompat
 import kotlinx.coroutines.flow.Flow
 import my.gimano.app.core.format.Lang
@@ -34,7 +34,7 @@ class AndroidNavServiceControl(private val context: Context) : NavServiceControl
         try {
             if (Build.VERSION.SDK_INT >= 26) context.startForegroundService(i) else context.startService(i)
         } catch (e: Exception) {
-            Log.w("Nav", "Could not start foreground service", e)
+            GLog.w("Nav", "Could not start foreground service: ${e.message}")
         }
     }
 

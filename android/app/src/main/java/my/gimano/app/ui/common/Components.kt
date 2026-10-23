@@ -4,6 +4,7 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -147,10 +148,16 @@ fun CategoryBadge(category: String, modifier: Modifier = Modifier, size: Dp = 44
 }
 
 /** Shortcut tile for the home grid: 76 dp mist tile, 42 dp icon, one-word label. */
+@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
-fun ShortcutTile(icon: String, label: String, modifier: Modifier = Modifier, onClick: () -> Unit) {
+fun ShortcutTile(icon: String, label: String, modifier: Modifier = Modifier, onLongClick: (() -> Unit)? = null, onClick: () -> Unit) {
     val c = Gimano.colors
-    Column(modifier.clip(RoundedCornerShape(Radius.md)).clickable(onClick = onClick).padding(vertical = 2.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+    Column(
+        modifier.clip(RoundedCornerShape(Radius.md))
+            .combinedClickable(onClick = onClick, onLongClick = onLongClick, onLongClickLabel = if (onLongClick != null) "edit" else null)
+            .padding(vertical = 2.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
         Box(Modifier.size(Sizes.shortcutTile).clip(RoundedCornerShape(Radius.tile)).background(c.brandMist), contentAlignment = Alignment.Center) {
             GIcon(icon, null, size = Sizes.shortcutIcon)
         }

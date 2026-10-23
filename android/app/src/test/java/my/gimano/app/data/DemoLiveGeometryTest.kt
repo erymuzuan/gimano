@@ -29,7 +29,7 @@ class DemoLiveGeometryTest {
     }
 
     private fun checkViewport(center: GeoPoint) = runBlocking {
-        val repo = DemoRepository { docs }
+        val repo = DemoRepository(cannedDocs = { docs })
         val r = repo.live(center.lng - 0.05, center.lat - 0.05, center.lng + 0.05, center.lat + 0.05)
         assertTrue("alerts seeded", r.alerts.isNotEmpty())
         assertTrue("jams seeded", r.jams.isNotEmpty())
@@ -50,7 +50,7 @@ class DemoLiveGeometryTest {
     @Test fun liveDataFarFromCapturedRoadsIsStillOnRoads() = checkViewport(GeoPoint(5.3550, 100.3480)) // Penang
 
     @Test fun alertsOnPlannedRoutesAreOnRoads() = runBlocking {
-        val repo = DemoRepository { docs }
+        val repo = DemoRepository(cannedDocs = { docs })
         val routes = repo.routes(RouteRequest(LatLngDto(3.12, 101.62), LatLngDto(3.1579, 101.7123), avoid = AvoidOptions()))
         val alerts = routes.flatMap { it.alerts }
         assertTrue(alerts.isNotEmpty())

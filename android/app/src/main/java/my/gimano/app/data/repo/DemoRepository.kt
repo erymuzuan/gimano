@@ -13,7 +13,11 @@ import java.util.concurrent.CopyOnWriteArrayList
 import kotlin.random.Random
 
 /** Offline, in-memory backend used for demos and when the server is unreachable. */
-class DemoRepository(private val cannedDocs: () -> List<String> = { emptyList() }) : GimanoRepository {
+class DemoRepository(
+    private val cannedDocs: () -> List<String> = { emptyList() },
+    /** Saves demo photo bytes somewhere loadable and returns its URL (file:// in the app). */
+    private val photoSink: (id: String, bytes: ByteArray) -> String = { id, _ -> "demo://photos/$id.webp" },
+) : GimanoRepository {
 
     /** Real OSM road geometry (assets/demo-routes), loaded on first use. */
     val canned: CannedRoutes by lazy { CannedRoutes.parse(cannedDocs()) }
@@ -53,24 +57,6 @@ class DemoRepository(private val cannedDocs: () -> List<String> = { emptyList() 
         p("jbciq", "Bangunan Sultan Iskandar CIQ", "government", "Jalan Jim Quee, 80300 Johor Bahru", 1.4630, 103.7650),
     )
 
-    private val saved = CopyOnWriteArrayList(
-        listOf(
-            SavedPlace("home", "home", "Home", 3.1460, 101.6290, "Taman Tun Dr Ismail, 60000 Kuala Lumpur"),
-            SavedPlace("work", "work", "Work", 3.1340, 101.6865, "KL Sentral, 50470 Kuala Lumpur"),
-            SavedPlace("fav-mv", "favorite", "Mid Valley", 3.1176, 101.6774, "Lingkaran Syed Putra, 59200 Kuala Lumpur", "midvalley"),
-            SavedPlace("fav-mn", "favorite", "Masjid Negara", 3.1418, 101.6917, "Jalan Perdana, 50480 Kuala Lumpur", "masjidnegara"),
-        ),
-    )
-
-    private val recentList = CopyOnWriteArrayList(
-        listOf(
-            Recent("r1", "Pavilion Kuala Lumpur", "168 Jalan Bukit Bintang, 55100 Kuala Lumpur", 3.1490, 101.7134, "pavilion"),
-            Recent("r2", "1 Utama Shopping Centre", "Lebuh Bandar Utama, 47800 Petaling Jaya", 3.1502, 101.6152, "1u"),
-            Recent("r3", "Hospital Kuala Lumpur", "Jalan Pahang, 50586 Kuala Lumpur", 3.1716, 101.7020, "hkl"),
-            Recent("r4", "KLIA Terminal 1", "64000 Sepang, Selangor", 2.7456, 101.7072, "klia"),
-        ),
-    )
-
     private val reports = CopyOnWriteArrayList<Report>()
     private var seededAround: GeoPoint? = null
     private val jams = CopyOnWriteArrayList<Jam>()
@@ -90,30 +76,15 @@ class DemoRepository(private val cannedDocs: () -> List<String> = { emptyList() 
 
     override suspend fun ensureAuth() = user
     override suspend fun updateMe(body: UpdateMeRequest) = user.copy(displayName = body.displayName ?: user.displayName, vehicle = body.vehicle ?: user.vehicle)
-    override suspend fun places(): List<SavedPlace> = saved.toList()
-
-    override suspend fun setPlace(kind: String, body: SavePlaceRequest): SavedPlace {
-        saved.removeAll { it.kind == kind }
-        val sp = SavedPlace(kind, kind, body.name, body.lat, body.lng, body.address, body.placeId)
-        saved.add(0, sp)
-        return sp
-    }
-
-    override suspend fun addFavorite(body: SavePlaceRequest): SavedPlace {
-        val sp = SavedPlace(UUID.randomUUID().toString(), "favorite", body.name, body.lat, body.lng, body.address, body.placeId)
-        saved += sp
-        return sp
-    }
-
-    override suspend fun deletePlace(id: String) { saved.removeAll { it.id == id } }
-    override suspend fun recents(): List<Recent> = recentList.toList()
+    override suspend fun exportMyData(): MyDataExport? = null
+    override suspend fun deleteMyData() {}
 
     override suspend fun search(q: String, lat: Double?, lng: Double?, limit: Int, category: String?): List<PlaceSummary> {
         latency()
         val tokens = q.lowercase().split(' ', ',').filter { it.isNotBlank() }
         if (tokens.isEmpty()) return emptyList()
         val me = if (lat != null && lng != null) GeoPoint(lat, lng) else null
-        return catalog.asSequence()
+        return (catalog + community.values).asSequence()
             .filter { category == null || it.category == category }
             .mapNotNull { pl ->
                 val hay = "${pl.name} ${pl.brand ?: ""} ${pl.category.replace('_', ' ')} ${pl.address}".lowercase()
@@ -126,7 +97,7 @@ class DemoRepository(private val cannedDocs: () -> List<String> = { emptyList() 
             }
             .sortedWith(compareByDescending<Triple<Place, Int, Double?>> { it.second }.thenBy { it.third ?: 0.0 })
             .take(limit)
-            .map { (pl, _, d) -> PlaceSummary(pl.id, pl.name, pl.category, pl.address, pl.lat, pl.lng, d, pl.brand) }
+            .map { (pl, _, d) -> pl.summary().copy(distanceM = d, rating = ratingOf(pl.id), reviewCount = reviewStore[pl.id].orEmpty().size) }
             .toList()
     }
 
@@ -140,9 +111,11 @@ class DemoRepository(private val cannedDocs: () -> List<String> = { emptyList() 
             .take(15)
     }
 
-    override suspend fun place(id: String): Place {
+    override suspend fun place(id: String, lat: Double?, lng: Double?): Place {
         latency()
-        return catalog.firstOrNull { it.id == id } ?: catalog.first()
+        community[id]?.let { return it.copy(photos = photoStore[id].orEmpty().map(::settle), reviewCount = reviewStore[id].orEmpty().size, rating = ratingOf(id)) }
+        val base = catalog.firstOrNull { it.id == id } ?: catalog.first()
+        return base.copy(photos = photoStore[base.id].orEmpty().map(::settle), reviewCount = reviewStore[base.id].orEmpty().size, rating = ratingOf(base.id))
     }
 
     override suspend fun reverse(lat: Double, lng: Double): ReverseGeocode {
@@ -161,14 +134,7 @@ class DemoRepository(private val cannedDocs: () -> List<String> = { emptyList() 
         val routes = canned.plan(set, req.vehicle, req.avoid, departFactor)
         routes.forEach { routeSets[it.id] = set to req }
         routes.flatMap { it.alerts }.forEach { a -> if (reports.none { it.id == a.id }) reports += a.toReport() }
-        addRecent(req.destination)
-        return routes
-    }
-
-    private fun addRecent(d: LatLngDto) {
-        val pl = d.placeId?.let { id -> catalog.firstOrNull { it.id == id } } ?: return
-        recentList.removeAll { it.placeId == pl.id }
-        recentList.add(0, Recent(UUID.randomUUID().toString(), pl.name, pl.address, pl.lat, pl.lng, pl.id, Instant.now().toString()))
+                return routes
     }
 
     override suspend fun reroute(routeId: String, req: RerouteRequest): List<Route> {
@@ -180,7 +146,7 @@ class DemoRepository(private val cannedDocs: () -> List<String> = { emptyList() 
         return routes
     }
 
-    override suspend fun departureTimes(oLat: Double, oLng: Double, dLat: Double, dLng: Double): List<DepartureSlot> {
+    override suspend fun departureTimes(oLat: Double, oLng: Double, dLat: Double, dLng: Double, vehicle: String?): List<DepartureSlot> {
         latency()
         val base = GeoMath.distanceM(GeoPoint(oLat, oLng), GeoPoint(dLat, dLng)) * 1.3 / (40 / 3.6)
         val start = Instant.now().truncatedTo(ChronoUnit.HOURS).plus(15, ChronoUnit.MINUTES)
@@ -295,4 +261,110 @@ class DemoRepository(private val cannedDocs: () -> List<String> = { emptyList() 
 
     override suspend fun thank(reportId: String) {}
     override suspend fun postLocations(batch: LocationBatch) {}
+
+    // --- Feedback (demo: kept in memory) ---------------------------------------------------
+    private val feedbackStore = CopyOnWriteArrayList<FeedbackSummary>()
+
+    override suspend fun sendFeedback(body: FeedbackRequest): FeedbackCreated {
+        latency()
+        val f = FeedbackSummary(UUID.randomUUID().toString(), body.category, body.message, "received", Instant.now().toString())
+        feedbackStore.add(0, f)
+        return FeedbackCreated(f.id, f.createdAt)
+    }
+
+    override suspend fun myFeedback(): List<FeedbackSummary> = feedbackStore.toList()
+
+    // --- Community places, reviews, photos (demo) ------------------------------------------
+    private val community = java.util.concurrent.ConcurrentHashMap<String, Place>()
+    private val verifications = java.util.concurrent.ConcurrentHashMap<String, Int>()
+    private val reviewStore = java.util.concurrent.ConcurrentHashMap<String, MutableList<Review>>()
+    private val photoStore = java.util.concurrent.ConcurrentHashMap<String, MutableList<Photo>>()
+    private val photoUploadedAt = java.util.concurrent.ConcurrentHashMap<String, Long>()
+
+    private fun ratingOf(placeId: String): Double? = reviewStore[placeId]?.takeIf { it.isNotEmpty() }?.map { it.rating }?.average()
+
+    /** Demo photos are "processing" for 2 s after upload, then "published". */
+    private fun settle(p: Photo): Photo =
+        if (p.status == "processing" && System.currentTimeMillis() - (photoUploadedAt[p.id] ?: 0) > 2_000) p.copy(status = "published") else p
+
+    override suspend fun createPlace(body: CreatePlaceRequest): Place {
+        latency()
+        val id = "community-" + UUID.randomUUID().toString().take(8)
+        val p = Place(
+            id = id, name = body.name, category = body.category, address = body.address ?: "", lat = body.lat, lng = body.lng,
+            phone = body.phone, website = body.website, openingHours = body.openingHours, amenities = body.amenities.orEmpty(),
+            source = "community", status = "pending", description = body.description, addedBy = Author(user.displayName), verifiedCount = 0,
+        )
+        community[id] = p
+        return p
+    }
+
+    override suspend fun suggestEdit(placeId: String, body: SuggestEditRequest): SuggestionCreated {
+        latency()
+        return SuggestionCreated("suggestion-" + UUID.randomUUID().toString().take(8))
+    }
+
+    /** Demo: every confirmation counts as a distinct user; 3 publish the place. */
+    override suspend fun verifyPlace(placeId: String, exists: Boolean): Place {
+        latency()
+        val p = community[placeId] ?: return place(placeId, null, null)
+        val n = (verifications[placeId] ?: 0) + if (exists) 1 else 0
+        verifications[placeId] = n
+        val upd = p.copy(verifiedCount = n, status = if (n >= 3) "published" else "pending")
+        community[placeId] = upd
+        return upd
+    }
+
+    override suspend fun contributedPlaces(): List<PlaceSummary> = community.values.map { it.summary() }
+
+    override suspend fun reviews(placeId: String, sort: String): ReviewsPage {
+        latency()
+        val list = reviewStore[placeId].orEmpty().map { r -> r.copy(photos = r.photos.map(::settle)) }
+        return ReviewsPage(if (sort == "helpful") list.sortedByDescending { it.helpfulCount } else list.sortedByDescending { it.createdAt })
+    }
+
+    override suspend fun createReview(placeId: String, body: ReviewRequest): Review {
+        latency()
+        val list = reviewStore.getOrPut(placeId) { CopyOnWriteArrayList() }
+        check(list.none { it.mine }) { "one review per place" }
+        val photos = body.photoIds.orEmpty().mapNotNull { pid -> photoStore[placeId]?.firstOrNull { it.id == pid } }
+        val r = Review(UUID.randomUUID().toString(), placeId, body.rating.coerceIn(1, 5), body.text, photos, Author(user.displayName, user.level, 1),
+            0, Instant.now().toString(), null, "published", mine = true)
+        list.add(0, r)
+        return r
+    }
+
+    override suspend fun updateReview(reviewId: String, body: ReviewRequest): Review {
+        latency()
+        reviewStore.values.forEach { list ->
+            val i = list.indexOfFirst { it.id == reviewId }
+            if (i >= 0) {
+                val photos = body.photoIds.orEmpty().mapNotNull { pid -> photoStore[list[i].placeId]?.firstOrNull { it.id == pid } }
+                val upd = list[i].copy(rating = body.rating.coerceIn(1, 5), text = body.text, photos = photos.ifEmpty { list[i].photos }, editedAt = Instant.now().toString())
+                list[i] = upd
+                return upd
+            }
+        }
+        throw NoSuchElementException(reviewId)
+    }
+
+    override suspend fun deleteReview(reviewId: String) { reviewStore.values.forEach { l -> l.removeAll { it.id == reviewId } } }
+
+    override suspend fun helpful(reviewId: String) {
+        reviewStore.values.forEach { l -> val i = l.indexOfFirst { it.id == reviewId }; if (i >= 0) l[i] = l[i].copy(helpfulCount = l[i].helpfulCount + 1) }
+    }
+
+    override suspend fun flagReview(reviewId: String, reason: String) {}
+
+    override suspend fun uploadPhoto(placeId: String, jpeg: ByteArray, caption: String?): Photo {
+        delay(600)
+        val id = UUID.randomUUID().toString().take(12)
+        val url = photoSink(id, jpeg)
+        val p = Photo(id, url, url, 0, 0, caption, Author(user.displayName), Instant.now().toString(), status = "processing")
+        photoUploadedAt[id] = System.currentTimeMillis()
+        photoStore.getOrPut(placeId) { CopyOnWriteArrayList() }.add(p)
+        return p
+    }
+
+    override suspend fun photos(placeId: String): PhotosPage = PhotosPage(photoStore[placeId].orEmpty().map(::settle))
 }

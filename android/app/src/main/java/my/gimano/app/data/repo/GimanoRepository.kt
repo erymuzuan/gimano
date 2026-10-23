@@ -2,25 +2,45 @@ package my.gimano.app.data.repo
 
 import my.gimano.app.data.model.*
 
-/** Everything the UI needs from the backend. Implemented by [RemoteRepository] and [DemoRepository]. */
+/**
+ * Everything the app needs from the backend. Implemented by [RemoteRepository] and [DemoRepository].
+ * Personal data (favourites, recents, private places) is deliberately absent: see LocalStore.
+ */
 interface GimanoRepository {
     suspend fun ensureAuth(): User
     suspend fun updateMe(body: UpdateMeRequest): User
-    suspend fun places(): List<SavedPlace>
-    suspend fun setPlace(kind: String, body: SavePlaceRequest): SavedPlace
-    suspend fun addFavorite(body: SavePlaceRequest): SavedPlace
-    suspend fun deletePlace(id: String)
-    suspend fun recents(): List<Recent>
+
+    /** Legacy server copy for the one-time migration; null if the server has none / no endpoint. */
+    suspend fun exportMyData(): MyDataExport?
+    suspend fun deleteMyData()
+
     suspend fun search(q: String, lat: Double?, lng: Double?, limit: Int = 10, category: String? = null): List<PlaceSummary>
     suspend fun nearby(lat: Double, lng: Double, category: String, radius: Int = 5000): List<PlaceSummary>
-    suspend fun place(id: String): Place
+    suspend fun place(id: String, lat: Double? = null, lng: Double? = null): Place
     suspend fun reverse(lat: Double, lng: Double): ReverseGeocode
     suspend fun routes(req: RouteRequest): List<Route>
     suspend fun reroute(routeId: String, req: RerouteRequest): List<Route>
-    suspend fun departureTimes(oLat: Double, oLng: Double, dLat: Double, dLng: Double): List<DepartureSlot>
+    suspend fun departureTimes(oLat: Double, oLng: Double, dLat: Double, dLng: Double, vehicle: String? = null): List<DepartureSlot>
     suspend fun live(minLng: Double, minLat: Double, maxLng: Double, maxLat: Double): LiveResponse
     suspend fun createReport(body: CreateReportRequest): Report
     suspend fun vote(reportId: String, stillThere: Boolean): Report
     suspend fun thank(reportId: String)
     suspend fun postLocations(batch: LocationBatch)
+
+    suspend fun sendFeedback(body: FeedbackRequest): FeedbackCreated
+    suspend fun myFeedback(): List<FeedbackSummary>
+
+    suspend fun createPlace(body: CreatePlaceRequest): Place
+    suspend fun suggestEdit(placeId: String, body: SuggestEditRequest): SuggestionCreated
+    suspend fun verifyPlace(placeId: String, exists: Boolean): Place
+    suspend fun contributedPlaces(): List<PlaceSummary>
+
+    suspend fun reviews(placeId: String, sort: String = "recent"): ReviewsPage
+    suspend fun createReview(placeId: String, body: ReviewRequest): Review
+    suspend fun updateReview(reviewId: String, body: ReviewRequest): Review
+    suspend fun deleteReview(reviewId: String)
+    suspend fun helpful(reviewId: String)
+    suspend fun flagReview(reviewId: String, reason: String)
+    suspend fun uploadPhoto(placeId: String, jpeg: ByteArray, caption: String?): Photo
+    suspend fun photos(placeId: String): PhotosPage
 }

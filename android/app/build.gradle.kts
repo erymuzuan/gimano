@@ -1,11 +1,13 @@
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 import java.net.URI
+import java.util.Properties
 
 // AGP 9 has built-in Kotlin support: no org.jetbrains.kotlin.android plugin.
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.compose.compiler)
     alias(libs.plugins.kotlin.serialization)
+    alias(libs.plugins.ksp)
 }
 
 fun prop(key: String, default: String): String =
@@ -14,6 +16,14 @@ fun prop(key: String, default: String): String =
 val apiBaseUrl = prop("gimano.apiBaseUrl", "http://100.101.150.9:5080/api/v1/").let { if (it.endsWith("/")) it else "$it/" }
 val mapStyleUrl = prop("gimano.mapStyleUrl", "https://tiles.openfreemap.org/styles/liberty")
 val demoMode = prop("gimano.demoMode", "false").toBoolean()
+
+// Google Drive backup: OAuth client id lives in git-ignored android/gimano.local.properties
+// (see gimano.local.properties.example). Blank → the app shows "Google Drive not configured".
+val localProps = Properties().apply {
+    val f = rootProject.file("gimano.local.properties")
+    if (f.exists()) f.inputStream().use { load(it) }
+}
+val googleOauthClientId = (localProps.getProperty("gimano.googleOauthClientId") ?: "").trim()
 
 // Debug-only network security config: cleartext HTTP is allowed for the dev hosts below plus
 // whatever host gimano.apiBaseUrl points at. Release uses src/main/res/xml (HTTPS only).
@@ -47,6 +57,7 @@ android {
         buildConfigField("String", "API_BASE_URL", "\"$apiBaseUrl\"")
         buildConfigField("String", "MAP_STYLE_URL", "\"$mapStyleUrl\"")
         buildConfigField("boolean", "DEMO_MODE_DEFAULT", "$demoMode")
+        buildConfigField("String", "GOOGLE_OAUTH_CLIENT_ID", "\"$googleOauthClientId\"")
     }
 
     androidResources {
@@ -121,6 +132,21 @@ dependencies {
     implementation(libs.maplibre.android)
     implementation(libs.play.services.location)
 
+    implementation(libs.room.runtime)
+    implementation(libs.room.ktx)
+    ksp(libs.room.compiler)
+    implementation(libs.work.runtime.ktx)
+    implementation(libs.play.services.auth)
+    implementation(libs.lazysodium.android) { exclude(group = "net.java.dev.jna") }
+    implementation("net.java.dev.jna:jna:${libs.versions.jna.get()}@aar")
+
     testImplementation(libs.junit4)
+    testImplementation(libs.lazysodium.java) { exclude(group = "net.java.dev.jna") }
+    testImplementation(libs.jna)
+    testImplementation(libs.xerial.sqlite)
     testImplementation(libs.kotlinx.coroutines.test)
+}
+
+ksp {
+    arg("room.schemaLocation", "$projectDir/schemas")
 }

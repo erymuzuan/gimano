@@ -27,7 +27,7 @@ import my.gimano.app.ui.theme.Gimano
 import my.gimano.app.ui.theme.Radius
 
 @Composable
-fun SettingsScreen(s: AppSettings, vm: MainViewModel, fallback: Boolean, displayName: String?) {
+fun SettingsScreen(s: AppSettings, vm: MainViewModel, fallback: Boolean, displayName: String?, onBackup: () -> Unit, onMyFeedback: () -> Unit) {
     val c = Gimano.colors
     Column(Modifier.fillMaxSize().background(c.surface).windowInsetsPadding(WindowInsets.statusBars)) {
         Row(Modifier.fillMaxWidth().padding(4.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -43,6 +43,9 @@ fun SettingsScreen(s: AppSettings, vm: MainViewModel, fallback: Boolean, display
                     }
                 }
             }
+            my.gimano.app.ui.common.PrivacyCard(onBackup = onBackup, modifier = Modifier.padding(vertical = 8.dp))
+            NavRow(stringResource(R.string.backup_restore), onBackup)
+            NavRow(stringResource(R.string.my_feedback), onMyFeedback)
             TextSetting(stringResource(R.string.display_name), displayName ?: s.displayName ?: "", onApply = vm::setDisplayName)
 
             Section(stringResource(R.string.language))
@@ -62,7 +65,7 @@ fun SettingsScreen(s: AppSettings, vm: MainViewModel, fallback: Boolean, display
             ) { vm.setSoundMode(SoundMode.valueOf(it)) }
 
             Section(stringResource(R.string.vehicle))
-            Choice(listOf("car" to stringResource(R.string.car), "motorcycle" to stringResource(R.string.motorbike)), s.vehicle) { vm.setVehicleHome(it) }
+            Choice(listOf("car" to stringResource(R.string.car), "motorcycle" to stringResource(R.string.motorbike), "bicycle" to stringResource(R.string.bicycle), "walk" to stringResource(R.string.walk)), s.vehicle) { vm.setVehicleHome(it) }
 
             Spacer(Modifier.height(8.dp))
             SwitchRow(stringResource(R.string.clock_24h), null, s.use24h, vm::setUse24h)
@@ -78,6 +81,14 @@ fun SettingsScreen(s: AppSettings, vm: MainViewModel, fallback: Boolean, display
             Text(stringResource(R.string.about_text), color = c.textMuted, fontSize = 14.sp)
             Text("v${BuildConfig.VERSION_NAME} (${if (BuildConfig.DEBUG) "debug" else "release"})", color = c.textMuted, fontSize = 13.sp, modifier = Modifier.padding(top = 6.dp, bottom = 32.dp))
         }
+    }
+}
+
+@Composable
+private fun NavRow(title: String, onClick: () -> Unit) {
+    Row(Modifier.fillMaxWidth().clickable(onClick = onClick).padding(vertical = 14.dp), verticalAlignment = Alignment.CenterVertically) {
+        Text(title, fontSize = 17.sp, fontWeight = FontWeight.ExtraBold, color = Gimano.colors.text, modifier = Modifier.weight(1f))
+        Text("›", fontSize = 22.sp, color = Gimano.colors.textMuted)
     }
 }
 
