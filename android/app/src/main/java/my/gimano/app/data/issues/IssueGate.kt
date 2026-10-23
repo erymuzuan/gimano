@@ -36,6 +36,8 @@ class IssueGate(private val repo: SwitchingRepository) {
             repo.block()
         } catch (e: HttpException) {
             if (collection && IssueSupport.endpointMissing(e.code())) _available.value = false
+            // Debug builds only: the server's problem title/errors (validation messages, no request body).
+            if (my.gimano.app.BuildConfig.DEBUG) my.gimano.app.core.GLog.w("Issues", "HTTP ${e.code()} ${runCatching { e.response()?.errorBody()?.string()?.take(400) }.getOrNull()}")
             null
         } catch (e: Exception) {
             null

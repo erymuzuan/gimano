@@ -63,10 +63,10 @@ class IssueSupportTest {
         assertFalse(GimanoJson.encodeToString(my.gimano.app.data.model.RouteRequest.serializer(), plain).contains("ignoreIssues"))
         val issue = my.gimano.app.data.model.CreateIssueRequest("place_entrance_wrong", lat = 3.0, lng = 101.0, placeId = "p", source = "place_edit",
             payload = kotlinx.serialization.json.buildJsonObject {
-                put("navLat", kotlinx.serialization.json.JsonPrimitive("3.000100")); put("navLng", kotlinx.serialization.json.JsonPrimitive("101.000200"))
+                put("navLat", kotlinx.serialization.json.JsonPrimitive(3.0001)); put("navLng", kotlinx.serialization.json.JsonPrimitive(101.0002))
             })
         val j = GimanoJson.encodeToString(my.gimano.app.data.model.CreateIssueRequest.serializer(), issue)
-        assertTrue(j.contains("\"navLat\":\"3.000100\"")); assertTrue(j.contains("\"source\":\"place_edit\""))
+        assertTrue("numbers, not strings", j.contains("\"navLat\":3.0001")); assertTrue(j.contains("\"source\":\"place_edit\""))
     }
 
     @Test fun apiMdShapes() {

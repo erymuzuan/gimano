@@ -27,6 +27,8 @@ data class AppSettings(
     val deviceId: String = "",
     val demoMode: Boolean = BuildConfig.DEMO_MODE_DEFAULT,
     val simulateDrive: Boolean = false,
+    /** Debug builds only: the simulated drive leaves the route at the first turn (tests "Kenapa tak ikut laluan?"). */
+    val simulateDetour: Boolean = false,
     val voiceLang: String = "auto", // auto | en | ms
     val soundMode: SoundMode = SoundMode.ON,
     val vehicle: String = "car",     // car | motorcycle
@@ -75,6 +77,7 @@ class SettingsStore(private val context: Context, private val scope: CoroutineSc
         val deviceId = stringPreferencesKey("deviceId")
         val demoMode = booleanPreferencesKey("demoMode")
         val simulateDrive = booleanPreferencesKey("simulateDrive")
+        val simulateDetour = booleanPreferencesKey("simulateDetour")
         val voiceLang = stringPreferencesKey("voiceLang")
         val soundMode = stringPreferencesKey("soundMode")
         val vehicle = stringPreferencesKey("vehicle")
@@ -121,6 +124,7 @@ class SettingsStore(private val context: Context, private val scope: CoroutineSc
         deviceId = p[K.deviceId] ?: "",
         demoMode = p[K.demoMode] ?: BuildConfig.DEMO_MODE_DEFAULT,
         simulateDrive = BuildConfig.DEBUG && (p[K.simulateDrive] ?: false),
+        simulateDetour = BuildConfig.DEBUG && (p[K.simulateDetour] ?: false),
         voiceLang = p[K.voiceLang] ?: "auto",
         soundMode = p[K.soundMode]?.let { runCatching { SoundMode.valueOf(it) }.getOrNull() } ?: SoundMode.ON,
         vehicle = p[K.vehicle] ?: "car",
@@ -162,6 +166,7 @@ class SettingsStore(private val context: Context, private val scope: CoroutineSc
     suspend fun setDisplayName(v: String) = context.dataStore.edit { it[K.displayName] = v }
     suspend fun setDemoMode(v: Boolean) = context.dataStore.edit { it[K.demoMode] = v }
     suspend fun setSimulateDrive(v: Boolean) = context.dataStore.edit { it[K.simulateDrive] = v }
+    suspend fun setSimulateDetour(v: Boolean) = context.dataStore.edit { it[K.simulateDetour] = v }
     suspend fun setVoiceLang(v: String) = context.dataStore.edit { it[K.voiceLang] = v }
     suspend fun setSoundMode(v: SoundMode) = context.dataStore.edit { it[K.soundMode] = v.name }
     suspend fun setVehicle(v: String) = context.dataStore.edit { it[K.vehicle] = v }

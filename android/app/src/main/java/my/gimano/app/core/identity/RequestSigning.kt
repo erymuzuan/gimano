@@ -37,6 +37,9 @@ object RequestSigning {
         setOf("POST") to Regex("/photos"),
         setOf("POST") to Regex("/reports"),
         setOf("POST") to Regex("/reports/[^/]+/votes"),
+        // Complaints v1 (docs/api.md "Issues": auth, signed).
+        setOf("POST") to Regex("/issues"),
+        setOf("POST") to Regex("/issues/[^/]+/votes"),
     )
 
     /** True for the signed endpoints listed in the doc. [path] may carry the `/api/v1` prefix. */

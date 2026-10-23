@@ -54,6 +54,8 @@ private val quickCategories = listOf(
 
 @Composable
 fun SearchScreen(ui: UiState, purpose: SearchPurpose, vm: MainViewModel, onMic: () -> Unit) {
+    // Distances only from a real fix (otherwise they would be from the map view).
+    val hasFix = vm.myFreshLocation() != null
     val c = Gimano.colors
     val focus = remember { FocusRequester() }
     val kb = LocalSoftwareKeyboardController.current
@@ -170,8 +172,8 @@ fun SearchScreen(ui: UiState, purpose: SearchPurpose, vm: MainViewModel, onMic: 
                 }
                 rows.forEach { row ->
                     when (row) {
-                        is my.gimano.app.core.search.ResultRow.Single -> item(key = "s" + row.place.id) { ResultRow(row.place) { kb?.hide(); vm.pickResult(row.place) } }
-                        is my.gimano.app.core.search.ResultRow.Chain -> item(key = "g" + row.key) { ChainGroup(row) { p -> kb?.hide(); vm.pickResult(p) } }
+                        is my.gimano.app.core.search.ResultRow.Single -> item(key = "s" + row.place.id) { ResultRow(row.place, hasFix) { kb?.hide(); vm.pickResult(row.place) } }
+                        is my.gimano.app.core.search.ResultRow.Chain -> item(key = "g" + row.key) { ChainGroup(row, hasFix) { p -> kb?.hide(); vm.pickResult(p) } }
                     }
                 }
             }
@@ -202,7 +204,7 @@ private fun SortChips(ui: UiState, vm: MainViewModel) {
 }
 
 @Composable
-private fun ChainGroup(g: my.gimano.app.core.search.ResultRow.Chain, onPick: (PlaceSummary) -> Unit) {
+private fun ChainGroup(g: my.gimano.app.core.search.ResultRow.Chain, hasFix: Boolean, onPick: (PlaceSummary) -> Unit) {
     val c = Gimano.colors
     var open by rememberSaveable(g.key) { mutableStateOf(false) }
     Column {
@@ -214,7 +216,7 @@ private fun ChainGroup(g: my.gimano.app.core.search.ResultRow.Chain, onPick: (Pl
                 Text(g.name, fontSize = 17.sp, fontWeight = FontWeight.Black, color = c.text)
                 Text(stringResource(R.string.chain_nearby, maxOf(g.countNearby ?: 0, g.branches.size)), fontSize = 13.sp, fontWeight = FontWeight.ExtraBold, color = c.textMuted)
             }
-            g.nearest.distanceM?.let { Text(Formatters.distance(it), fontSize = 15.sp, fontWeight = FontWeight.Black, color = c.brand) }
+            g.nearest.distanceM?.takeIf { hasFix }?.let { Text(Formatters.distance(it), fontSize = 15.sp, fontWeight = FontWeight.Black, color = c.brand) }
             Icon(if (open) Icons.Filled.ExpandLess else Icons.Filled.ExpandMore, null, tint = c.brand)
         }
         if (open) g.branches.forEach { p ->
@@ -223,7 +225,7 @@ private fun ChainGroup(g: my.gimano.app.core.search.ResultRow.Chain, onPick: (Pl
                     Text(p.name, fontSize = 15.sp, fontWeight = FontWeight.Black, color = c.text)
                     if (p.address.isNotBlank()) Text(p.address, fontSize = 13.sp, fontWeight = FontWeight.Bold, color = c.textMuted, maxLines = 1)
                 }
-                p.distanceM?.let { Text(Formatters.distance(it), fontSize = 15.sp, fontWeight = FontWeight.Black, color = c.brand) }
+                p.distanceM?.takeIf { hasFix }?.let { Text(Formatters.distance(it), fontSize = 15.sp, fontWeight = FontWeight.Black, color = c.brand) }
             }
             Divider(Modifier.padding(start = 78.dp))
         }
@@ -243,6 +245,7 @@ private fun OutlinedPickButton(modifier: Modifier, onClick: () -> Unit) {
 /** Canvas CariTiada: never a dead end. */
 @Composable
 private fun NoResults(ui: UiState, vm: MainViewModel, onPick: () -> Unit, onAdd: () -> Unit) {
+    val hasFix = vm.myFreshLocation() != null
     val c = Gimano.colors
     Column(Modifier.fillMaxSize().navigationBarsPadding().padding(horizontal = 16.dp)) {
         Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(top = 32.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -255,7 +258,7 @@ private fun NoResults(ui: UiState, vm: MainViewModel, onPick: () -> Unit, onAdd:
                 @OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
                 FlowRow(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     ui.suggestions.take(6).forEach { s ->
-                        val extra = s.count?.let { " · $it" } ?: s.distanceM?.let { " · " + Formatters.distance(it) } ?: ""
+                        val extra = s.count?.let { " · $it" } ?: s.distanceM?.takeIf { hasFix }?.let { " · " + Formatters.distance(it) } ?: ""
                         Text(s.label + extra, Modifier.height(40.dp).clip(RoundedCornerShape(999.dp)).background(c.brandMist).clickable { vm.pickSuggestion(s) }
                             .padding(horizontal = 14.dp, vertical = 10.dp), fontSize = 14.sp, fontWeight = FontWeight.Black, color = c.brandInk)
                     }
@@ -281,11 +284,11 @@ private fun SectionTitle(t: String) {
 }
 
 @Composable
-private fun ResultRow(p: PlaceSummary, onClick: () -> Unit) {
+private fun ResultRow(p: PlaceSummary, hasFix: Boolean, onClick: () -> Unit) {
     Column {
         PlaceRow(
             "map", p.name, p.address,
-            p.distanceM?.let { Formatters.distance(it) }, onClick,
+            p.distanceM?.takeIf { hasFix }?.let { Formatters.distance(it) }, onClick,
             leading = { CategoryBadge(p.category) },
             badge = if (p.source == "community") stringResource(if (p.status == "published") R.string.community else R.string.unverified) else null,
         )

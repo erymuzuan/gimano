@@ -55,10 +55,12 @@ class IdentityTest {
             "POST" to "/api/v1/places", "PATCH" to "/api/v1/places/p1", "POST" to "/api/v1/places/p1/verify",
             "POST" to "/api/v1/places/p1/suggest-edit", "POST" to "/api/v1/places/p1/reviews", "PATCH" to "/api/v1/reviews/r1",
             "DELETE" to "/api/v1/reviews/r1", "POST" to "/api/v1/photos", "POST" to "/api/v1/reports", "POST" to "/api/v1/reports/x/votes",
+            "POST" to "/api/v1/issues", "POST" to "/api/v1/issues/x/votes",
         ).forEach { (m, p) -> assertTrue("$m $p", RequestSigning.isSigned(m, p)) }
         listOf(
             "GET" to "/api/v1/places/p1", "DELETE" to "/api/v1/places/p1", "POST" to "/api/v1/routes", "POST" to "/api/v1/reports/x/thanks",
             "POST" to "/api/v1/feedback", "POST" to "/api/v1/locations", "GET" to "/api/v1/places/pending-nearby", "POST" to "/api/v1/auth/register",
+            "GET" to "/api/v1/issues/nearby", "GET" to "/api/v1/issues/x",
         ).forEach { (m, p) -> assertFalse("$m $p", RequestSigning.isSigned(m, p)) }
     }
 

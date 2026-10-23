@@ -103,8 +103,12 @@ class NavigationController(
     /** Along-route distance where the current stop card was raised. */
     private var stopCardAlongM = 0.0
 
-    fun start(route: Route, destination: NavDestination, request: RouteRequest?, simulate: Boolean, stops: List<NavDestination> = emptyList()) {
+    /** Debug: the simulated drive leaves the route at the first turn and the off-route / deviation checks run on it. */
+    private var simDetour = false
+
+    fun start(route: Route, destination: NavDestination, request: RouteRequest?, simulate: Boolean, stops: List<NavDestination> = emptyList(), detour: Boolean = false) {
         stopInternal(flush = false)
+        simDetour = detour && simulate && BuildConfig.DEBUG
         lastRequest = request
         stopsVisited = 0
         stopGate.value = -1
@@ -126,7 +130,9 @@ class NavigationController(
 
     private fun fixes(route: Route, simulate: Boolean, mode: TravelMode): Flow<Fix> {
         val t = tracker!!
-        return if (simulate) {
+        return if (simulate && simDetour) {
+            DriveSimulator.drive(my.gimano.app.core.issues.SimDetour.geometry(t.geometry, t.maneuvers.map { t.geometry.distanceAtIndex(it.beginShapeIndex) }), 40.0)
+        } else if (simulate) {
             val avg = if (route.effectiveDurationS > 0) route.distanceM / route.effectiveDurationS * 3.6 else mode.simSpeedKmh
             val speed = if (mode.isMotorised) (avg.coerceIn(25.0, 70.0) * 1.6) else mode.simSpeedKmh * 2.5
             DriveSimulator.drive(t.geometry, speed, holdAtM = t.stopAlongM, awaitResume = { k ->
@@ -152,8 +158,8 @@ class NavigationController(
             }
             return
         }
-        if (!fix.simulated) {
-            deviation.onFix(fix.point)?.let { d -> _state.update { it.copy(deviation = d) } }
+        if (!fix.simulated || simDetour) {
+            deviation.onFix(fix.point)?.let { d -> GLog.d("Nav", "deviation confirmed"); _state.update { it.copy(deviation = d) } }
             trace.add(fix.point)
         }
         val p = t.update(fix.point) ?: return
@@ -219,8 +225,13 @@ class NavigationController(
         // A real driver pulling away from a stop dismisses the stop card by itself.
         if (_state.value.arrivedAtStop != null && !fix.simulated && p.distanceAlongM > stopCardAlongM + 100) continueAfterStop()
 
-        if (!fix.simulated && offRoute.update(p.distanceFromRouteM, fix.accuracyM?.toDouble(), fix.timeMs, headingDiff(fix.bearing?.toDouble(), p.bearing), speed.toDouble())) {
-            lastOnRoute?.let { lp -> deviation.onLeftRoute(lp.distanceAlongM, lp.distanceToNextM, lp.nextManeuver?.streetName, t.geometry) }
+        if ((!fix.simulated || simDetour) && offRoute.update(p.distanceFromRouteM, fix.accuracyM?.toDouble(), fix.timeMs, headingDiff(fix.bearing?.toDouble(), p.bearing), speed.toDouble())) {
+            lastOnRoute?.let { lp ->
+                val prev = t.maneuvers.getOrNull(lp.nextManeuverIndex - 1)
+                val since = prev?.let { lp.distanceAlongM - t.geometry.distanceAtIndex(it.beginShapeIndex) }
+                deviation.onLeftRoute(lp.distanceAlongM, lp.distanceToNextM, lp.nextManeuver?.streetName, t.geometry, since, prev?.streetName)
+                GLog.d("Nav", "left route ${lp.distanceToNextM.toInt()} m before / ${since?.toInt()} m after a manoeuvre")
+            }
             reroute(fix)
         }
     }

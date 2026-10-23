@@ -18,7 +18,7 @@ class DeviationTest {
 
     @Test fun leftAtDecisionPointAndNeverRejoinedIsConfirmed() {
         val t = DeviationTracker()
-        t.onLeftRoute(alongM = 1_900.0, distanceToNextManeuverM = 100.0, road = "Jalan Ditutup", route = route)
+        t.onLeftRoute(alongM = 1_900.0, distanceToNextManeuverM = 100.0, nextRoad = "Jalan Ditutup", route = route)
         // Driver carries on north past the corner instead of turning east.
         assertNull(t.onFix(GeoMath.offset(corner, 0.0, 200.0)))
         val d = t.onFix(GeoMath.offset(corner, 0.0, 700.0))
@@ -41,9 +41,31 @@ class DeviationTest {
         assertNull(t.confirmed)
     }
 
+    @Test fun aSlipRoadBesideTheRoadTakenIsNotRejoining() {
+        // The route forks right gently (a slip road 10° off); the driver stays straight. For the first ~150 m the
+        // fixes are within 30 m of the slip road, which must not count as rejoining.
+        val fork = GeoMath.offset(start, 0.0, 1_000.0)
+        val slip = RouteGeometry((0..10).map { GeoMath.offset(start, 0.0, it * 100.0) } + (1..20).map { GeoMath.offset(fork, 10.0, it * 50.0) })
+        val t = DeviationTracker()
+        t.onLeftRoute(950.0, 50.0, "Susur", slip)
+        (1..8).forEach { assertNull(t.onFix(GeoMath.offset(fork, 0.0, it * 25.0))) }
+        assertNotNull(t.onFix(GeoMath.offset(fork, 0.0, 600.0)))
+    }
+
+    @Test fun noticedJustAfterTheTurnUsesThePreviousManeuver() {
+        // Off-route is noticed 80 m after the corner (the tracker already counts the next manoeuvre, far away).
+        val t = DeviationTracker()
+        t.onLeftRoute(alongM = 2_080.0, distanceToNextManeuverM = 1_900.0, nextRoad = "Far", route = route, sinceLastManeuverM = 80.0, lastRoad = "Jalan Timur")
+        assertNull(t.onFix(GeoMath.offset(corner, 0.0, 200.0)))
+        val d = t.onFix(GeoMath.offset(corner, 0.0, 700.0))!!
+        assertEquals("Jalan Timur", d.road)
+        assertTrue(GeoMath.distanceM(d.junction, corner) < 5)
+        assertEquals(90.0, d.heading, 2.0)
+    }
+
     @Test fun leavingFarFromAnyManeuverIsNotADeviationQuestion() {
         val t = DeviationTracker()
-        t.onLeftRoute(500.0, 1_500.0, "Jalan B", route)
+        t.onLeftRoute(500.0, 1_500.0, "Jalan B", route, sinceLastManeuverM = 500.0, lastRoad = "Jalan A")
         assertNull(t.onFix(GeoMath.offset(start, 270.0, 900.0)))
         assertNull(t.confirmed)
     }
