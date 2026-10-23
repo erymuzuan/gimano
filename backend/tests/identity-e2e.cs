@@ -58,7 +58,7 @@ else
     var lme = (await Send(HttpMethod.Get, "/api/v1/me", null, ljwt, null)).Item2;
     Check(lme?["tier"]?.ToString() == "baharu" && lme["nextTier"]?["missing"]?.AsArray().Any(m => m?.ToString() == "signingKey") == true, $"legacy /me: tier={lme?["tier"]} missing={lme?["nextTier"]?["missing"]?.ToJsonString()}");
     var inbox = (await Send(HttpMethod.Get, "/api/v1/me/inbox", null, ljwt, null)).Item2;
-    Check(inbox?["items"]?.AsArray().Any(i => i?["title"]?.ToString() == "Kemas kini Gimano untuk melindungi akaun anda") == true, "legacy inbox has the update notice");
+    Check(inbox?["items"]?.AsArray().Any(i => i?["title"]?.ToString() == "Kemas kini Manotu untuk melindungi akaun anda") == true, "legacy inbox has the update notice");
     // the legacy account upgrades: attach a key with its JWT → from now on it must sign
     var (lk, lpk) = NewKey();
     Check((int)(await Send(HttpMethod.Post, "/api/v1/me/keys", new { publicKey = lpk }, ljwt, null)).Item1.StatusCode == 204, "legacy attaches a key with its JWT → 204");
@@ -66,7 +66,7 @@ else
     Check((int)l2.StatusCode == 401 && lp2?["type"]?.ToString().EndsWith("signature-missing") == true, $"after attaching a key, unsigned → {(int)l2.StatusCode} {lp2?["type"]}");
     Check((int)(await Send(HttpMethod.Post, "/api/v1/reports", lreport, ljwt, lk)).Item1.StatusCode == 201, "after attaching a key, signed → 201");
     var inbox2 = (await Send(HttpMethod.Get, "/api/v1/me/inbox", null, ljwt, null)).Item2;
-    Check(inbox2?["items"]?.AsArray().All(i => i?["title"]?.ToString() != "Kemas kini Gimano untuk melindungi akaun anda") == true, "update notice removed once keyed");
+    Check(inbox2?["items"]?.AsArray().All(i => i?["title"]?.ToString() != "Kemas kini Manotu untuk melindungi akaun anda") == true, "update notice removed once keyed");
 }
 await Send(HttpMethod.Delete, "/api/v1/me", null, ljwt, null);
 

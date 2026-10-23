@@ -345,7 +345,7 @@ public class SignaturePolicyTests
     [Fact]
     public void Legacy_inbox_notice_text()
     {
-        Assert.Equal("Kemas kini Gimano untuk melindungi akaun anda", Gimano.Core.Community.InboxRules.LegacyUpdateText("ms-MY").Title);
-        Assert.Equal("Update Gimano to protect your account", Gimano.Core.Community.InboxRules.LegacyUpdateText("en").Title);
+        Assert.Equal("Kemas kini Manotu untuk melindungi akaun anda", Gimano.Core.Community.InboxRules.LegacyUpdateText("ms-MY").Title);
+        Assert.Equal("Update Manotu to protect your account", Gimano.Core.Community.InboxRules.LegacyUpdateText("en").Title);
     }
 }

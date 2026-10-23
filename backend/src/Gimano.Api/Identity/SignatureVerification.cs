@@ -92,7 +92,7 @@ public sealed class SignatureMiddleware(RequestDelegate next, IConfiguration con
                 await next(ctx);
                 return;
             case SignatureDecision.RejectNoKey:
-                (ok, type, detail) = (false, "no-key", "Signed requests are required: update Gimano, then attach a key with POST /api/v1/me/keys.");
+                (ok, type, detail) = (false, "no-key", "Signed requests are required: update Manotu, then attach a key with POST /api/v1/me/keys.");
                 break;
             default:
                 (ok, type, detail) = await VerifyAsync(ctx, uid, key!);
