@@ -185,7 +185,9 @@ public sealed class SearchPipeline(PlaceSearchIndex index, Func<AliasTable> alia
             h.Category == PlaceCategory.Area ? L10n.AreaAddress(h.Address, r.Lang) : h.Address,
             h.Lat, h.Lng, uLat is { } a && uLng is { } b ? Math.Round(GeoMath.HaversineM(a, b, h.Lat, h.Lng)) : null, h.Brand,
             h.Source, h.Status is PlaceStatus.Pending or PlaceStatus.Published ? h.Status : null, h.Rating, h.ReviewCount, MediaKeys.Url(h.ThumbKey),
-            OpenNow: Core.Places.OpeningHours.IsOpen(h.OpeningHours, LocalNow))).ToList();
+            OpenNow: Core.Places.OpeningHours.IsOpen(h.OpeningHours, LocalNow),
+            // brand/category + area: results are ordered from the area's centre (interpretation.areaLat/areaLng), not the user
+            AnchorDistanceM: ranked.Interpretation.Kind is "brand_area" or "category_area" && FromOrigin(h) is { } ad ? Math.Round(ad) : null)).ToList();
 
         // Chain groups: "FamilyMart · 12 berdekatan".
         if (ranked.OriginLat is { } oa && ranked.OriginLng is { } ob)

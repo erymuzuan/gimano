@@ -75,7 +75,7 @@ GET /geocode/reverse?lat=&lng=
                 source: "osm"|"community", status?: "pending"|"published",
                 rating?: number, reviewCount: int, thumbnailUrl?,
                 confirmationsWeighted?: number, required?: number,
-                chainGroup?: {key, name, countNearby}, openNow?: bool}`
+                chainGroup?: {key, name, countNearby}, openNow?: bool, anchorDistanceM?: number}`
 
 `openNow` is set only when the place has OSM `opening_hours` we can evaluate (Malaysia time); otherwise null.
 
@@ -108,7 +108,9 @@ Steps, in order:
    primary: "surau" lists suraus first and a masjid only when it is ≥ 2 km nearer (and vice versa for "masjid").
 7. **Brand + area**: a trailing or leading area name ("kfc ss2", "mydin shah alam", "minyak shah alam") → the rest of the
    query searched near that area's centre (within 10 km), unless some result's whole name already equals the query
-   ("Hospital Putrajaya").
+   ("Hospital Putrajaya"). These results are ordered by distance from that area's centre: `distanceM` stays the
+   distance from the user, `anchorDistanceM` is the distance from the area centre, and `interpretation.area/areaLat/areaLng`
+   name the anchor, so the app can say "berhampiran SS2" (and sort/label by `anchorDistanceM`).
 8. **Ranking**: a whole-name or brand match and areas beat names that merely contain the word; distance (from `near`, else
    the user) and popularity add to that. **Chains are always nearest-first**: results with the same spacing-free name keep
    the positions ranking gave them but are re-ordered by distance, and get `chainGroup: {key, name, countNearby}`

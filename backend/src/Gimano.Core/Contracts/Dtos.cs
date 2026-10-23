@@ -32,7 +32,8 @@ public sealed record RecentDto(Guid Id, string Name, string Address, double Lat,
 public sealed record PlaceSummary(
     string Id, string Name, PlaceCategory Category, string Address, double Lat, double Lng, double? DistanceM, string? Brand,
     PlaceSource Source = PlaceSource.Osm, PlaceStatus? Status = null, double? Rating = null, int ReviewCount = 0, string? ThumbnailUrl = null,
-    double? ConfirmationsWeighted = null, double? Required = null, ChainGroup? ChainGroup = null, bool? OpenNow = null);
+    double? ConfirmationsWeighted = null, double? Required = null, ChainGroup? ChainGroup = null, bool? OpenNow = null,
+    double? AnchorDistanceM = null);
 
 /// <summary>Several results of one chain ("FamilyMart · 12 berdekatan"): <c>countNearby</c> = outlets within 10 km of the search origin.</summary>
 public sealed record ChainGroup(string Key, string Name, int CountNearby);

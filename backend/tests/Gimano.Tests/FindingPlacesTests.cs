@@ -332,11 +332,13 @@ public class OpenSearchIntegrationFindingPlacesTests
             }
             static bool Ascending(List<PlaceSummary> r) => r.Zip(r.Skip(1)).All(p => p.First.DistanceM <= p.Second.DistanceM);
 
-            await Expect("Family Mart", (r, _) => r.Count >= 3 && r.Take(3).All(h => h.Brand == "FamilyMart") && r[0].Id == "f1"
+            await Expect("Family Mart", (r, _) => r.All(h => h.AnchorDistanceM is null) && r.Count >= 3 && r.Take(3).All(h => h.Brand == "FamilyMart") && r[0].Id == "f1"
                 && r[0].ChainGroup is { CountNearby: >= 3 }, "FamilyMarts nearest first, chain group");
             await Expect("famly mart", (r, _) => r.Count > 0 && r[0].Brand == "FamilyMart", "a FamilyMart");
             await Expect("myddin", (r, _) => r.Count > 0 && r[0].Id == "m1", "Mydin");
-            await Expect("kfc ss2", (r, _) => r.Count > 0 && r[0].Id == "c2", "the KFC in SS2 (not the nearer Uptown one)");
+            await Expect("kfc ss2", (r, i) => r.Count > 0 && r[0].Id == "c2" && i.Area == "SS2"
+                && r.All(h => h.AnchorDistanceM is not null) && r.Zip(r.Skip(1)).All(p => p.First.AnchorDistanceM <= p.Second.AnchorDistanceM),
+                "the KFC in SS2 (not the nearer Uptown one), ordered by anchorDistanceM from SS2");
             await Expect("7 eleven", (r, _) => r.Count >= 2 && r[0].Id == "s1" && r.FindIndex(h => h.Id == "s2") > r.FindIndex(h => h.Id == "s3"),
                 "the 580 m 7-Eleven first, the 13.7 km '7 eleven' after the closer ones");
             await Expect("tesco", (r, _) => r.Count > 0 && r[0].Id == "l1", "Lotus's");
