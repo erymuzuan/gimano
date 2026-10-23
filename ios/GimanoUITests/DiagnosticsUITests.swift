@@ -99,7 +99,7 @@ final class DiagnosticsUITests: XCTestCase {
         wait(app.buttons["whereTo"], 30)
         wait(app.buttons["menuButton"]).tap()
         let version = wait(app.staticTexts["menuVersion"])
-        XCTAssertTrue(version.label.hasPrefix("Gimano 0."), version.label)
+        XCTAssertTrue(version.label.hasPrefix("Manotu 0."), version.label)
         for _ in 0..<7 { version.tap() }
         sleep(1)
         shot("w-menu-version-copied")

@@ -24,9 +24,20 @@ enum ImageProcessing {
         return UIImage(cgImage: cg)
     }
 
-    /// JPEG for upload (HEIC → JPEG), long edge ≤ 2048 px, no metadata.
+    /// JPEG for upload (HEIC → JPEG), long edge ≤ 2048 px, orientation applied, and NO metadata:
+    /// the pixels are re-encoded on their own, so EXIF, GPS, TIFF (make/model), XMP and IPTC never leave the phone.
     static func uploadJPEG(_ data: Data, quality: CGFloat = 0.82) -> Data? {
-        downscaled(data, maxPixels: maxUploadPixels)?.jpegData(compressionQuality: quality)
+        guard let cg = downscaled(data, maxPixels: maxUploadPixels)?.cgImage else { return nil }
+        return strippedJPEG(cg, quality: quality)
+    }
+
+    /// Encodes pixels only (the destination gets no source properties).
+    static func strippedJPEG(_ cg: CGImage, quality: CGFloat) -> Data? {
+        let out = NSMutableData()
+        guard let dest = CGImageDestinationCreateWithData(out, UTType.jpeg.identifier as CFString, 1, nil) else { return nil }
+        CGImageDestinationAddImage(dest, cg, [kCGImageDestinationLossyCompressionQuality: quality] as CFDictionary)
+        guard CGImageDestinationFinalize(dest) else { return nil }
+        return out as Data
     }
 
     static func uploadJPEG(_ image: UIImage, quality: CGFloat = 0.82) -> Data? {

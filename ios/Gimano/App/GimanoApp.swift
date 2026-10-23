@@ -64,8 +64,8 @@ struct GimanoApp: App {
                 .onChange(of: scenePhase) { _, phase in model.isForeground = phase == .active }
                 .onOpenURL { url in
                     if GIDSignIn.sharedInstance.handle(url) { return }
-                    // A .gimano file opened from Files / WhatsApp / Mail.
-                    if url.pathExtension.lowercased() == "gimano" { model.incomingBackup = url }
+                    // A .manotu (or older .gimano) backup opened from Files / WhatsApp / Mail.
+                    if ["manotu", "gimano"].contains(url.pathExtension.lowercased()) { model.incomingBackup = url }
                 }
         }
     }

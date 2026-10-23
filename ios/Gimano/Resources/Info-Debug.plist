@@ -2,11 +2,6 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-	<key>NSLocationTemporaryUsageDescriptionDictionary</key>
-	<dict>
-		<key>Navigation</key>
-		<string>Gimano needs your precise location for turn-by-turn directions on this drive.</string>
-	</dict>
 	<key>BGTaskSchedulerPermittedIdentifiers</key>
 	<array>
 		<string>my.gimano.app.backup</string>
@@ -14,12 +9,12 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>en</string>
 	<key>CFBundleDisplayName</key>
-	<string>Gimano</string>
+	<string>Manotu</string>
 	<key>CFBundleDocumentTypes</key>
 	<array>
 		<dict>
 			<key>CFBundleTypeName</key>
-			<string>Gimano backup</string>
+			<string>Manotu backup</string>
 			<key>CFBundleTypeRole</key>
 			<string>Viewer</string>
 			<key>LSHandlerRank</key>
@@ -90,13 +85,18 @@
 		</dict>
 	</dict>
 	<key>NSCameraUsageDescription</key>
-	<string>Gimano uses the camera so you can add photos of places and reviews.</string>
+	<string>Manotu uses the camera so you can add photos of places and reviews.</string>
 	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
-	<string>Gimano keeps using your location while you navigate with the screen off, so voice guidance and traffic reports keep working.</string>
+	<string>Manotu keeps using your location while you navigate with the screen off, so voice guidance and traffic reports keep working.</string>
+	<key>NSLocationTemporaryUsageDescriptionDictionary</key>
+	<dict>
+		<key>Navigation</key>
+		<string>Manotu needs your precise location for turn-by-turn directions on this drive.</string>
+	</dict>
 	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>Gimano uses your location to show where you are, find places near you and guide you turn by turn.</string>
+	<string>Manotu uses your location to show where you are, find places near you and guide you turn by turn.</string>
 	<key>NSPhotoLibraryAddUsageDescription</key>
-	<string>Gimano can save photos you choose to your library.</string>
+	<string>Manotu can save photos you choose to your library.</string>
 	<key>UIAppFonts</key>
 	<array>
 		<string>Nunito.ttf</string>
@@ -134,17 +134,19 @@
 				<string>public.data</string>
 			</array>
 			<key>UTTypeDescription</key>
-			<string>Gimano backup</string>
+			<string>Manotu backup</string>
 			<key>UTTypeIdentifier</key>
 			<string>my.gimano.backup</string>
 			<key>UTTypeTagSpecification</key>
 			<dict>
 				<key>public.filename-extension</key>
 				<array>
+					<string>manotu</string>
 					<string>gimano</string>
 				</array>
 				<key>public.mime-type</key>
 				<array>
+					<string>application/vnd.manotu.backup+zip</string>
 					<string>application/vnd.gimano.backup+zip</string>
 				</array>
 			</dict>

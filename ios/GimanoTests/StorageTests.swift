@@ -223,3 +223,21 @@ struct BackupTests {
         #expect(throws: BackupError.notABackup) { try BackupService.readManifest(junk) }
     }
 }
+
+@Suite("Manotu backups")
+struct ManotuBackupTests {
+    @Test("New backups are .manotu; a .gimano file from before the rename still restores")
+    func extensions() throws {
+        let dir = FileManager.default.temporaryDirectory.appendingPathComponent("m-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        let src = try LocalStore(path: dir.appendingPathComponent("a.sqlite").path, photosDirectory: dir.appendingPathComponent("pa"))
+        try src.setHomeWork(.home, name: "Home", lat: 3.1, lng: 101.6, address: "Rumah", placeId: nil)
+        let file = try BackupService(store: src, kdfLimits: .interactive).makeBackup()
+        #expect(file.pathExtension == "manotu" && file.lastPathComponent.hasPrefix("manotu-backup-"))
+        let old = dir.appendingPathComponent("gimano-backup-old.gimano")
+        try FileManager.default.copyItem(at: file, to: old)
+        let dst = try LocalStore(path: dir.appendingPathComponent("b.sqlite").path, photosDirectory: dir.appendingPathComponent("pb"))
+        try BackupService(store: dst).restore(old, mode: .replace)
+        #expect(try dst.savedPlaces().first?.kind == .home)
+    }
+}

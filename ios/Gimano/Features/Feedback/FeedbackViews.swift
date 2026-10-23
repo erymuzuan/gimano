@@ -153,7 +153,7 @@ struct FeedbackForm: View {
                 ToolbarItem(placement: .principal) {
                     VStack(spacing: 0) {
                         Text("Add feedback").font(Tokens.Font.bodyBold)
-                        Text(verbatim: "Gimano \(AppInfo.versionString)").font(Tokens.Font.small).foregroundStyle(Color.textMuted)
+                        Text(verbatim: "\(AppInfo.name) \(AppInfo.versionString)").font(Tokens.Font.small).foregroundStyle(Color.textMuted)
                             .accessibilityIdentifier("feedbackVersion")
                     }
                 }

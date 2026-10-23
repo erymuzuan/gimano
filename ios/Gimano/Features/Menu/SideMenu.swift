@@ -67,7 +67,7 @@ struct SideMenu: View {
 
                 Spacer()
                 VStack(alignment: .leading, spacing: 4) {
-                    Text(verbatim: "Gimano \(AppInfo.versionString)")
+                    Text(verbatim: "\(AppInfo.name) \(AppInfo.versionString)")
                         .accessibilityIdentifier("menuVersion")
                         .onTapGesture { versionTapped() }
                     Text("Gimano code is open source (MIT) · Map data © OpenStreetMap contributors")
@@ -488,9 +488,12 @@ enum AppInfo {
     static var build: String { Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "?" }
     static var versionString: String { "\(version) (\(build))" }
 
-    static let privacyURL = URL(string: "https://www.bukitbunga.com/gimano/privacy/")!
-    static let termsURL = URL(string: "https://www.bukitbunga.com/gimano/terms/")!
-    static let sourceURL = URL(string: "https://github.com/erymuzuan/gimano")!
+    /// The product name shown to users (formerly Gimano; bundle id, API host and share links are unchanged).
+    static let name = "Manotu"
+    static let websiteURL = URL(string: "https://manotu.app/")!
+    static let privacyURL = URL(string: "https://manotu.app/privacy/")!
+    static let termsURL = URL(string: "https://manotu.app/terms/")!
+    static let sourceURL = URL(string: "https://github.com/erymuzuan/manotu")!
     static let osmCopyrightURL = URL(string: "https://www.openstreetmap.org/copyright")!
 
     /// Support summary: device block + server + mode. No location, ids or personal data.
@@ -498,7 +501,7 @@ enum AppInfo {
     static func diagnostics(model: AppModel) -> String {
         let device = DeviceInfoToggle.json(model.currentDevice())
         return """
-        Gimano \(versionString)
+        \(name) \(versionString)
         server: \(model.config.apiBaseURL.host() ?? "?") · \(model.backendStatus == .online ? "live" : "\(model.backendStatus)")
         device: \(device)
         """
@@ -535,7 +538,9 @@ struct AboutView: View {
                         .frame(width: 60, height: 60)
                         .background(Color.brandMist, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
                     VStack(alignment: .leading, spacing: 2) {
-                        Text("Gimano").font(Tokens.Font.title)
+                        Text(verbatim: AppInfo.name).font(Tokens.Font.title)
+                        Text("Formerly Gimano").font(Tokens.Font.small).foregroundStyle(Color.textMuted)
+                            .accessibilityIdentifier("formerlyGimano")
                         Text(verbatim: AppInfo.versionString).font(Tokens.Font.caption).foregroundStyle(Color.textMuted)
                             .accessibilityIdentifier("aboutVersion")
                     }

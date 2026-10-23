@@ -127,7 +127,7 @@ final class DriveBackupUITests: XCTestCase {
         wait(rows.firstMatch, 30)
         // Prefer a backup whose name doesn't look like an iOS one ("gimano-backup-…").
         var target = rows.firstMatch
-        for i in 0..<rows.count where !rows.element(boundBy: i).label.contains("gimano-backup-") { target = rows.element(boundBy: i); break }
+        for i in 0..<rows.count where !rows.element(boundBy: i).label.contains("gimano-backup-") && !rows.element(boundBy: i).label.contains("manotu-backup-") { target = rows.element(boundBy: i); break }
         shot("s-remote-backups")
         target.tap()
         wait(app.buttons["restoreButton"])

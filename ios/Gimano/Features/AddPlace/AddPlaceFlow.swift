@@ -1,3 +1,4 @@
+import AVFoundation
 import PhotosUI
 import SwiftUI
 
@@ -89,6 +90,8 @@ struct PhotoPickerRow: View {
     @Binding var photos: [PickedPhoto]
     @State private var items: [PhotosPickerItem] = []
     @State private var showCamera = false
+    @State private var showLibrary = false
+    @State private var cameraDenied = false
 
     var body: some View {
         ScrollView(.horizontal, showsIndicators: false) {
@@ -108,15 +111,18 @@ struct PhotoPickerRow: View {
                         .accessibilityIdentifier("pickedPhoto")
                 }
                 if photos.count < PhotoPicking.maxPhotos {
-                    let photosTile = tile(system: "photo.on.rectangle.angled", title: "Photos")
-                    PhotosPicker(selection: $items, maxSelectionCount: PhotoPicking.maxPhotos - photos.count, matching: .images) {
-                        photosTile
+                    // One "Add photo" tile: Take photo / Choose from library (no full photo-library permission).
+                    Menu {
+                        if UIImagePickerController.isSourceTypeAvailable(.camera) {
+                            Button { openCamera() } label: { Label("Take photo", systemImage: "camera") }
+                                .accessibilityIdentifier("takePhoto")
+                        }
+                        Button { showLibrary = true } label: { Label("Choose from library", systemImage: "photo.on.rectangle") }
+                            .accessibilityIdentifier("pickPhotos")
+                    } label: {
+                        tile(system: "camera.fill", title: "Add photo")
                     }
-                    .accessibilityIdentifier("pickPhotos")
-                    if UIImagePickerController.isSourceTypeAvailable(.camera) {
-                        Button { showCamera = true } label: { tile(system: "camera.fill", title: "Camera") }
-                            .accessibilityIdentifier("takePhoto")
-                    }
+                    .accessibilityIdentifier("addPhotoMenu")
                     #if DEBUG
                     if UserDefaults.standard.bool(forKey: "GimanoTestPhotos") {
                         Button { if let p = PhotoPicking.testPhoto() { photos.append(p) } } label: { tile(system: "testtube.2", title: "Test") }
@@ -126,6 +132,8 @@ struct PhotoPickerRow: View {
                 }
             }
         }
+        .photosPicker(isPresented: $showLibrary, selection: $items, maxSelectionCount: max(1, PhotoPicking.maxPhotos - photos.count),
+                      matching: .images, photoLibrary: .shared())
         .onChange(of: items) {
             let picked = items
             items = []
@@ -137,6 +145,25 @@ struct PhotoPickerRow: View {
                 showCamera = false
             }
             .ignoresSafeArea()
+        }
+        .alert("Camera access is off", isPresented: $cameraDenied) {
+            Button("Open Settings") { if let u = URL(string: UIApplication.openSettingsURLString) { UIApplication.shared.open(u) } }
+            Button("Choose from library") { showLibrary = true }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("Allow camera access for Manotu in Settings, or choose a photo from your library.")
+        }
+    }
+
+    /// Asks for the camera the first time; explains how to turn it on when it was refused.
+    private func openCamera() {
+        switch AVCaptureDevice.authorizationStatus(for: .video) {
+        case .authorized: showCamera = true
+        case .notDetermined:
+            AVCaptureDevice.requestAccess(for: .video) { ok in
+                Task { @MainActor in if ok { showCamera = true } else { cameraDenied = true } }
+            }
+        default: cameraDenied = true
         }
     }
 

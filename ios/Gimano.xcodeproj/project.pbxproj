@@ -28,6 +28,7 @@
 		21F53C814B4D840037955B17 /* InfoPlist.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = 3F15E288221AA3BECD1A4EC0 /* InfoPlist.xcstrings */; };
 		26661DE9BEC534AA68B52D83 /* PolylineTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E3820150BB82A2510C4945B2 /* PolylineTests.swift */; };
 		29575FD027DAA9EE93013315 /* Nunito.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 28F8D8E468983421C5B7ED97 /* Nunito.ttf */; };
+		29B0A4A29D75F3B988CACC6A /* PhotoPrivacyTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3EB1195B33BE0861CC3B8188 /* PhotoPrivacyTests.swift */; };
 		2AA09D8DE0E38C1F2152DCC5 /* MapLibre in Frameworks */ = {isa = PBXBuildFile; productRef = 4791C2A1E4DB927E7924B45E /* MapLibre */; };
 		2CE151E5AF12C91658656725 /* Round4UITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C5F669B6DCBAC9CDBDA48CAF /* Round4UITests.swift */; };
 		2CE943CA67FF097CEE1F896B /* Repository.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5ADB4D9750870AD43B247AC /* Repository.swift */; };
@@ -64,6 +65,7 @@
 		91A71275CF784270F9E4C450 /* FavoritesViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 10C8980C61AB2C11DC29BA4A /* FavoritesViews.swift */; };
 		923C38259DAA5E15A0F5E112 /* PlannedDrivesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A28FF1A102FC82C9B86A3FD6 /* PlannedDrivesView.swift */; };
 		9479BDFB94242004B415BBDC /* Keychain.swift in Sources */ = {isa = PBXBuildFile; fileRef = FEBDD7794BF35380C8835FD5 /* Keychain.swift */; };
+		97690B0DB8285043D2503E70 /* PhotoAndBrandUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D2165133D336C822DD9FA666 /* PhotoAndBrandUITests.swift */; };
 		997A6F6EE64064654956768F /* HomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CD7F057954292BA508D976F5 /* HomeView.swift */; };
 		99AD437AD034E5F0FC1FB500 /* PreciseLocationUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 327388AA4FE1D5A5AAC4723E /* PreciseLocationUITests.swift */; };
 		9B1881F81CE1327DEDC2B2DC /* PlannedDrives.swift in Sources */ = {isa = PBXBuildFile; fileRef = A6522DC93B862C2E6B1412BF /* PlannedDrives.swift */; };
@@ -144,6 +146,7 @@
 		36C79CC4B929AF753C68F7D6 /* SelectOnMap.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SelectOnMap.swift; sourceTree = "<group>"; };
 		3B4338B4089BA06ED2E5A9CC /* VettingUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VettingUITests.swift; sourceTree = "<group>"; };
 		3C0F8DF2CCB59B6F1619E7D8 /* AddPlaceFlow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddPlaceFlow.swift; sourceTree = "<group>"; };
+		3EB1195B33BE0861CC3B8188 /* PhotoPrivacyTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PhotoPrivacyTests.swift; sourceTree = "<group>"; };
 		3F15E288221AA3BECD1A4EC0 /* InfoPlist.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = InfoPlist.xcstrings; sourceTree = "<group>"; };
 		3F56F9F5C1405379C126E611 /* SideMenu.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SideMenu.swift; sourceTree = "<group>"; };
 		41614307C95440C6622D1E8C /* ShareDrive.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShareDrive.swift; sourceTree = "<group>"; };
@@ -204,6 +207,7 @@
 		CD7F057954292BA508D976F5 /* HomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeView.swift; sourceTree = "<group>"; };
 		D0238A1CD728A2F2D9CBDD03 /* ProdUserUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProdUserUITests.swift; sourceTree = "<group>"; };
 		D028E26C9546B7B894417E36 /* NavigationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NavigationTests.swift; sourceTree = "<group>"; };
+		D2165133D336C822DD9FA666 /* PhotoAndBrandUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PhotoAndBrandUITests.swift; sourceTree = "<group>"; };
 		D2A2809B4A861031AAB5862D /* VettingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VettingTests.swift; sourceTree = "<group>"; };
 		D4C2F7F6E792D502FD5E8B92 /* IdentityTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IdentityTests.swift; sourceTree = "<group>"; };
 		D54728F5506AB4817C165892 /* FormatterTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FormatterTests.swift; sourceTree = "<group>"; };
@@ -283,6 +287,7 @@
 				B87558CFB1FF80DBC5A662E7 /* DriveBackupUITests.swift */,
 				5960D200AFAFCFB933F4A293 /* FindingPlacesUITests.swift */,
 				8106EEE1D3C7F24F35288A1F /* GimanoUITests.swift */,
+				D2165133D336C822DD9FA666 /* PhotoAndBrandUITests.swift */,
 				327388AA4FE1D5A5AAC4723E /* PreciseLocationUITests.swift */,
 				EEBE29304DF119F04E43590B /* ProdHooksUITests.swift */,
 				D0238A1CD728A2F2D9CBDD03 /* ProdUserUITests.swift */,
@@ -375,6 +380,7 @@
 				D4C2F7F6E792D502FD5E8B92 /* IdentityTests.swift */,
 				FCB4A8EBDBFD3D3E30CD851F /* InboxTests.swift */,
 				D028E26C9546B7B894417E36 /* NavigationTests.swift */,
+				3EB1195B33BE0861CC3B8188 /* PhotoPrivacyTests.swift */,
 				290AD2E4977FFEDB651E4762 /* PlannedDriveTests.swift */,
 				E3820150BB82A2510C4945B2 /* PolylineTests.swift */,
 				4F93249E570D3CB483EE564A /* Round2Tests.swift */,
@@ -709,6 +715,7 @@
 				323DF3131EA33160F5C6ABA3 /* IdentityTests.swift in Sources */,
 				CD7DC3409E227B4A874AA1EB /* InboxTests.swift in Sources */,
 				A5EEC9BEAC5DEBA6083B81A3 /* NavigationTests.swift in Sources */,
+				29B0A4A29D75F3B988CACC6A /* PhotoPrivacyTests.swift in Sources */,
 				534C137ABCED2AB78A8DF771 /* PlannedDriveTests.swift in Sources */,
 				26661DE9BEC534AA68B52D83 /* PolylineTests.swift in Sources */,
 				18FC7697C4D36096EC2D8390 /* Round2Tests.swift in Sources */,
@@ -792,6 +799,7 @@
 				F43F46EFEA44DC04DAF89F39 /* DriveBackupUITests.swift in Sources */,
 				614D045FAF8AA500E4F66BF4 /* FindingPlacesUITests.swift in Sources */,
 				701C90310AC26FACD1D6872B /* GimanoUITests.swift in Sources */,
+				97690B0DB8285043D2503E70 /* PhotoAndBrandUITests.swift in Sources */,
 				99AD437AD034E5F0FC1FB500 /* PreciseLocationUITests.swift in Sources */,
 				7C69BDCE20FBD4840F4154F4 /* ProdHooksUITests.swift in Sources */,
 				658D6AEB5A770EBA24F9DEDA /* ProdUserUITests.swift in Sources */,
@@ -893,7 +901,7 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 3;
+				CURRENT_PROJECT_VERSION = 5;
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
@@ -916,7 +924,7 @@
 				GIMANO_MAP_STYLE_URL = "https://tiles.openfreemap.org/styles/liberty";
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
-				MARKETING_VERSION = 0.2.1;
+				MARKETING_VERSION = 0.2.3;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;
@@ -1036,7 +1044,7 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 3;
+				CURRENT_PROJECT_VERSION = 5;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				ENABLE_NS_ASSERTIONS = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
@@ -1053,7 +1061,7 @@
 				GIMANO_MAP_STYLE_URL = "https://tiles.openfreemap.org/styles/liberty";
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
-				MARKETING_VERSION = 0.2.1;
+				MARKETING_VERSION = 0.2.3;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";

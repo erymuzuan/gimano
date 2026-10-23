@@ -111,6 +111,7 @@ struct ReviewsSection: View {
         RatingSummary.make(reviews: reviews, serverAverage: place?.rating ?? summary.rating, serverCount: place?.reviewCount ?? summary.reviewCount)
     }
 
+    @State private var showAddPhotos = false
     private var myReviewId: String? { try? model.store.setting("review.\(summary.id)") }
     private var myReview: Review? { reviews.first { $0.id == myReviewId } }
 
@@ -152,6 +153,11 @@ struct ReviewsSection: View {
             }
             .buttonStyle(SecondaryButtonStyle())
             .accessibilityIdentifier("writeReview")
+            Button { showAddPhotos = true } label: {
+                Label("Add photo", systemImage: "camera")
+            }
+            .buttonStyle(SecondaryButtonStyle())
+            .accessibilityIdentifier("placeAddPhoto")
 
             ForEach(reviews.prefix(3)) { r in
                 ReviewRow(review: r) { await reload() }
@@ -166,6 +172,9 @@ struct ReviewsSection: View {
         .task(id: summary.id) { await reload() }
         .sheet(isPresented: $writing) {
             WriteReviewSheet(placeId: summary.id, placeName: summary.name, existing: myReview) { await reload() }
+        }
+        .sheet(isPresented: $showAddPhotos) {
+            AddPlacePhotosSheet(placeId: summary.id, placeName: summary.name)
         }
         .sheet(isPresented: $showAll) { AllReviewsSheet(placeId: summary.id) }
     }
@@ -500,6 +509,55 @@ extension PlaceStatus {
         case .published: "Published"
         case .closed: "Closed"
         case .hidden: "Hidden"
+        }
+    }
+}
+
+/// Place card → "Add photo": camera or library, metadata stripped on the phone, then uploaded.
+struct AddPlacePhotosSheet: View {
+    @Environment(AppModel.self) private var model
+    @Environment(\.dismiss) private var dismiss
+    let placeId: String
+    let placeName: String
+    @State private var photos: [PickedPhoto] = []
+    @State private var progress: Double?
+    @State private var error: String?
+
+    var body: some View {
+        NavigationStack {
+            VStack(alignment: .leading, spacing: 16) {
+                PhotoPickerRow(photos: $photos)
+                Text("Location and camera details are removed on your phone before upload.")
+                    .font(Tokens.Font.small).foregroundStyle(Color.textMuted)
+                if let progress { ProgressView(value: progress) }
+                if let error { Text(error).font(Tokens.Font.caption).foregroundStyle(Color.speeding) }
+                Button("Upload") { Task { await upload() } }
+                    .buttonStyle(PrimaryButtonStyle())
+                    .disabled(photos.isEmpty || progress != nil)
+                    .accessibilityIdentifier("uploadPhotos")
+                Spacer()
+            }
+            .padding(Tokens.Space.gutter)
+            .navigationTitle(placeName)
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar { ToolbarItem(placement: .topBarLeading) { Button("Cancel") { dismiss() } } }
+        }
+    }
+
+    private func upload() async {
+        progress = 0
+        defer { progress = nil }
+        do {
+            for (i, p) in photos.enumerated() {
+                let base = Double(i) / Double(photos.count), share = 1 / Double(photos.count)
+                _ = try await model.repo.uploadPhoto(p.jpeg, placeId: placeId, caption: nil) { f in
+                    Task { @MainActor in progress = base + f * share }
+                }
+            }
+            model.showToast(String(localized: "Thanks! Photos are being processed."))
+            dismiss()
+        } catch {
+            self.error = error.localizedDescription
         }
     }
 }

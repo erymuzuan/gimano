@@ -315,10 +315,16 @@
     },
     "About Gimano": {
       "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "About Manotu"
+          }
+        },
         "ms": {
           "stringUnit": {
             "state": "translated",
-            "value": "Tentang Gimano"
+            "value": "Tentang Manotu"
           }
         }
       }
@@ -403,6 +409,16 @@
         }
       }
     },
+    "Add photo": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tambah gambar"
+          }
+        }
+      }
+    },
     "Add to favourites": {
       "localizations": {
         "ms": {
@@ -415,10 +431,16 @@
     },
     "Added by a Gimano user": {
       "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Added by a Manotu user"
+          }
+        },
         "ms": {
           "stringUnit": {
             "state": "translated",
-            "value": "Ditambah oleh pengguna Gimano"
+            "value": "Ditambah oleh pengguna Manotu"
           }
         }
       }
@@ -459,6 +481,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Semua ulasan (%lld)"
+          }
+        }
+      }
+    },
+    "Allow camera access for Manotu in Settings, or choose a photo from your library.": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Benarkan akses kamera untuk Manotu dalam Tetapan, atau pilih gambar dari galeri anda."
           }
         }
       }
@@ -985,6 +1017,12 @@
     },
     "Build default comes from the GimanoAPIBaseURL Info.plist key. The iPhone must be on Tailscale to reach WS556.": {
       "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Build default comes from the GimanoAPIBaseURL Info.plist key. The iPhone must be on Tailscale to reach WS556."
+          }
+        },
         "ms": {
           "stringUnit": {
             "state": "translated",
@@ -1019,6 +1057,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Kamera"
+          }
+        }
+      }
+    },
+    "Camera access is off": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Akses kamera dimatikan"
           }
         }
       }
@@ -1153,6 +1201,16 @@
         }
       }
     },
+    "Choose from library": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pilih dari galeri"
+          }
+        }
+      }
+    },
     "Choose on map": {
       "localizations": {
         "ms": {
@@ -1205,10 +1263,16 @@
     },
     "Close and reopen Gimano to switch language.": {
       "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Close and reopen Manotu to switch language."
+          }
+        },
         "ms": {
           "stringUnit": {
             "state": "translated",
-            "value": "Tutup dan buka semula Gimano untuk menukar bahasa."
+            "value": "Tutup dan buka semula Manotu untuk menukar bahasa."
           }
         }
       }
@@ -1705,10 +1769,16 @@
     },
     "Drive smarter with reports from drivers around you. Gimano needs your location to show where you are and guide you turn by turn.": {
       "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Drive smarter with reports from drivers around you. Manotu needs your location to show where you are and guide you turn by turn."
+          }
+        },
         "ms": {
           "stringUnit": {
             "state": "translated",
-            "value": "Memandu lebih bijak dengan laporan daripada pemandu di sekeliling anda. Gimano memerlukan lokasi anda untuk menunjukkan kedudukan anda dan memandu arah demi arah."
+            "value": "Memandu lebih bijak dengan laporan daripada pemandu di sekeliling anda. Manotu memerlukan lokasi anda untuk menunjukkan kedudukan anda dan memandu arah demi arah."
           }
         }
       }
@@ -1835,20 +1905,32 @@
     },
     "End-to-end encrypted. Gimano never stores your passphrase: if you lose it, this backup can't be recovered.": {
       "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "End-to-end encrypted. Manotu never stores your passphrase: if you lose it, this backup can't be recovered."
+          }
+        },
         "ms": {
           "stringUnit": {
             "state": "translated",
-            "value": "Disulitkan hujung ke hujung. Gimano tidak pernah menyimpan frasa laluan anda: jika hilang, sandaran ini tidak dapat dipulihkan."
+            "value": "Disulitkan hujung ke hujung. Manotu tidak pernah menyimpan frasa laluan anda: jika hilang, sandaran ini tidak dapat dipulihkan."
           }
         }
       }
     },
     "End-to-end encrypted: only people with the link can see your position. Gimano's server can't read it.": {
       "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "End-to-end encrypted: only people with the link can see your position. Manotu's server can't read it."
+          }
+        },
         "ms": {
           "stringUnit": {
             "state": "translated",
-            "value": "Disulitkan hujung ke hujung: hanya orang yang ada pautan boleh melihat kedudukan anda. Pelayan Gimano tidak dapat membacanya."
+            "value": "Disulitkan hujung ke hujung: hanya orang yang ada pautan boleh melihat kedudukan anda. Pelayan Manotu tidak dapat membacanya."
           }
         }
       }
@@ -1865,10 +1947,16 @@
     },
     "English is the default; Gimano uses Malay when your phone or this setting says so. A change applies the next time you open Gimano.": {
       "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "English is the default; Manotu uses Malay when your phone or this setting says so. A change applies the next time you open Manotu."
+          }
+        },
         "ms": {
           "stringUnit": {
             "state": "translated",
-            "value": "Bahasa Inggeris ialah lalai; Gimano menggunakan Bahasa Melayu apabila telefon anda atau tetapan ini memilihnya. Perubahan berkuat kuasa apabila anda membuka Gimano semula."
+            "value": "Bahasa Inggeris ialah lalai; Manotu menggunakan Bahasa Melayu apabila telefon anda atau tetapan ini memilihnya. Perubahan berkuat kuasa apabila anda membuka Manotu semula."
           }
         }
       }
@@ -1935,10 +2023,16 @@
     },
     "Export a .gimano file and keep it anywhere: Files, WhatsApp, email.": {
       "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Export a .manotu file and keep it anywhere: Files, WhatsApp, email."
+          }
+        },
         "ms": {
           "stringUnit": {
             "state": "translated",
-            "value": "Eksport fail .gimano dan simpan di mana-mana: Fail, WhatsApp, e-mel."
+            "value": "Eksport fail .manotu dan simpan di mana-mana: Fail, WhatsApp, e-mel."
           }
         }
       }
@@ -2053,6 +2147,16 @@
         }
       }
     },
+    "Formerly Gimano": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dahulu Gimano"
+          }
+        }
+      }
+    },
     "Fuel": {
       "localizations": {
         "ms": {
@@ -2075,10 +2179,16 @@
     },
     "Gimano": {
       "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Manotu"
+          }
+        },
         "ms": {
           "stringUnit": {
             "state": "translated",
-            "value": "Gimano"
+            "value": "Manotu"
           }
         }
       }
@@ -2088,60 +2198,96 @@
     },
     "Gimano code is open source (MIT)": {
       "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Manotu code is open source (MIT)"
+          }
+        },
         "ms": {
           "stringUnit": {
             "state": "translated",
-            "value": "Kod Gimano sumber terbuka (MIT)"
+            "value": "Kod Manotu sumber terbuka (MIT)"
           }
         }
       }
     },
     "Gimano code is open source (MIT) · Map data © OpenStreetMap contributors": {
       "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Manotu code is open source (MIT) · Map data © OpenStreetMap contributors"
+          }
+        },
         "ms": {
           "stringUnit": {
             "state": "translated",
-            "value": "Kod Gimano sumber terbuka (MIT) · Data peta © penyumbang OpenStreetMap"
+            "value": "Kod Manotu sumber terbuka (MIT) · Data peta © penyumbang OpenStreetMap"
           }
         }
       }
     },
     "Gimano is a community-driven navigation app for Malaysia, built on OpenStreetMap data. Gimano's own code is open source (MIT).": {
       "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Manotu is a community-driven navigation app for Malaysia, built on OpenStreetMap data. Manotu's own code is open source (MIT)."
+          }
+        },
         "ms": {
           "stringUnit": {
             "state": "translated",
-            "value": "Gimano ialah aplikasi navigasi yang dipacu komuniti untuk Malaysia, dibina menggunakan data OpenStreetMap. Kod Gimano sendiri sumber terbuka (MIT)."
+            "value": "Manotu ialah aplikasi navigasi yang dipacu komuniti untuk Malaysia, dibina menggunakan data OpenStreetMap. Kod Manotu sendiri sumber terbuka (MIT)."
           }
         }
       }
     },
     "Gimano may contact me about this report": {
       "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Manotu may contact me about this report"
+          }
+        },
         "ms": {
           "stringUnit": {
             "state": "translated",
-            "value": "Gimano boleh menghubungi saya tentang laporan ini"
+            "value": "Manotu boleh menghubungi saya tentang laporan ini"
           }
         }
       }
     },
     "Gimano never knows who you are. Your public work is credited to this random pseudonym, which only your phone and your own backup can sign for.": {
       "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Manotu never knows who you are. Your public work is credited to this random pseudonym, which only your phone and your own backup can sign for."
+          }
+        },
         "ms": {
           "stringUnit": {
             "state": "translated",
-            "value": "Gimano tidak pernah tahu siapa anda. Sumbangan awam anda dikreditkan kepada nama samaran rawak ini, yang hanya telefon dan sandaran anda boleh tandatangani."
+            "value": "Manotu tidak pernah tahu siapa anda. Sumbangan awam anda dikreditkan kepada nama samaran rawak ini, yang hanya telefon dan sandaran anda boleh tandatangani."
           }
         }
       }
     },
     "Gimano stopped last time. Send a report?": {
       "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Manotu stopped last time. Send a report?"
+          }
+        },
         "ms": {
           "stringUnit": {
             "state": "translated",
-            "value": "Gimano terhenti tadi. Hantar laporan?"
+            "value": "Manotu terhenti tadi. Hantar laporan?"
           }
         }
       }
@@ -2388,10 +2534,16 @@
     },
     "Home, work, kampung, your in-laws' house: your places live on your phone, not on our servers. Gimano never stores your personal data. Backups go straight to your own Google Drive or iCloud, optionally locked with a passphrase only you know.": {
       "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Home, work, kampung, your in-laws' house: your places live on your phone, not on our servers. Manotu never stores your personal data. Backups go straight to your own Google Drive or iCloud, optionally locked with a passphrase only you know."
+          }
+        },
         "ms": {
           "stringUnit": {
             "state": "translated",
-            "value": "Rumah, tempat kerja, kampung, rumah mertua: semua tempat kegemaran anda disimpan dalam telefon anda sahaja. Gimano tidak menyimpan data peribadi anda di pelayan kami. Sandaran pergi terus ke Google Drive atau iCloud anda sendiri, dan boleh dikunci dengan frasa laluan yang hanya anda tahu."
+            "value": "Rumah, tempat kerja, kampung, rumah mertua: semua tempat kegemaran anda disimpan dalam telefon anda sahaja. Manotu tidak menyimpan data peribadi anda di pelayan kami. Sandaran pergi terus ke Google Drive atau iCloud anda sendiri, dan boleh dikunci dengan frasa laluan yang hanya anda tahu."
           }
         }
       }
@@ -2418,10 +2570,16 @@
     },
     "I'm driving to %@ with Gimano. ETA %@.": {
       "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "I'm driving to %@ with Manotu. ETA %@."
+          }
+        },
         "ms": {
           "stringUnit": {
             "state": "translated",
-            "value": "Saya sedang memandu ke %@ dengan Gimano. Anggaran tiba %@."
+            "value": "Saya sedang memandu ke %@ dengan Manotu. Anggaran tiba %@."
           }
         }
       }
@@ -2718,10 +2876,16 @@
     },
     "Language settings for Gimano": {
       "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Language settings for Manotu"
+          }
+        },
         "ms": {
           "stringUnit": {
             "state": "translated",
-            "value": "Tetapan bahasa untuk Gimano"
+            "value": "Tetapan bahasa untuk Manotu"
           }
         }
       }
@@ -2926,6 +3090,16 @@
         }
       }
     },
+    "Location and camera details are removed on your phone before upload.": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Butiran lokasi dan kamera dibuang dalam telefon anda sebelum dimuat naik."
+          }
+        }
+      }
+    },
     "Location is right": {
       "localizations": {
         "ms": {
@@ -2988,10 +3162,26 @@
     },
     "Make this place discoverable by other Gimano users?": {
       "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Make this place discoverable by other Manotu users?"
+          }
+        },
         "ms": {
           "stringUnit": {
             "state": "translated",
-            "value": "Benarkan pengguna Gimano lain mencari tempat ini?"
+            "value": "Benarkan pengguna Manotu lain mencari tempat ini?"
+          }
+        }
+      }
+    },
+    "Manotu code is open source (MIT)": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kod Manotu sumber terbuka (MIT)"
           }
         }
       }
@@ -3638,10 +3828,16 @@
     },
     "On Wi-Fi while charging, only when something changed. Automatic backups are not passphrase-locked, because Gimano never stores your passphrase.": {
       "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "On Wi-Fi while charging, only when something changed. Automatic backups are not passphrase-locked, because Manotu never stores your passphrase."
+          }
+        },
         "ms": {
           "stringUnit": {
             "state": "translated",
-            "value": "Melalui Wi-Fi semasa mengecas, hanya jika ada perubahan. Sandaran automatik tidak dikunci dengan frasa laluan kerana Gimano tidak pernah menyimpan frasa laluan anda."
+            "value": "Melalui Wi-Fi semasa mengecas, hanya jika ada perubahan. Sandaran automatik tidak dikunci dengan frasa laluan kerana Manotu tidak pernah menyimpan frasa laluan anda."
           }
         }
       }
@@ -3712,6 +3908,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Hanya penulis boleh mengubah ulasan ini."
+          }
+        }
+      }
+    },
+    "Open Settings": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Buka Tetapan"
           }
         }
       }
@@ -4268,10 +4474,16 @@
     },
     "Repeats every week. Gimano reminds you when to leave.": {
       "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Repeats every week. Manotu reminds you when to leave."
+          }
+        },
         "ms": {
           "stringUnit": {
             "state": "translated",
-            "value": "Berulang setiap minggu. Gimano akan mengingatkan bila perlu bertolak."
+            "value": "Berulang setiap minggu. Manotu akan mengingatkan bila perlu bertolak."
           }
         }
       }
@@ -4608,10 +4820,16 @@
     },
     "Saved only on this phone (and in your own backups). Never sent to Gimano.": {
       "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Saved only on this phone (and in your own backups). Never sent to Manotu."
+          }
+        },
         "ms": {
           "stringUnit": {
             "state": "translated",
-            "value": "Disimpan dalam telefon ini sahaja (dan dalam sandaran anda sendiri). Tidak pernah dihantar ke Gimano."
+            "value": "Disimpan dalam telefon ini sahaja (dan dalam sandaran anda sendiri). Tidak pernah dihantar ke Manotu."
           }
         }
       }
@@ -5396,6 +5614,16 @@
         }
       }
     },
+    "Take photo": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ambil gambar"
+          }
+        }
+      }
+    },
     "Take the ramp on the left": {
       "localizations": {
         "ms": {
@@ -5616,6 +5844,16 @@
         }
       }
     },
+    "Thanks! Photos are being processed.": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Terima kasih! Gambar sedang diproses."
+          }
+        }
+      }
+    },
     "Thanks! Your report is live.": {
       "localizations": {
         "ms": {
@@ -5718,20 +5956,32 @@
     },
     "This backup was made by a newer version of Gimano. Update the app first.": {
       "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This backup was made by a newer version of Manotu. Update the app first."
+          }
+        },
         "ms": {
           "stringUnit": {
             "state": "translated",
-            "value": "Sandaran ini dibuat oleh versi Gimano yang lebih baharu. Kemas kini aplikasi dahulu."
+            "value": "Sandaran ini dibuat oleh versi Manotu yang lebih baharu. Kemas kini aplikasi dahulu."
           }
         }
       }
     },
     "This file isn't a Gimano backup.": {
       "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This file isn't a Manotu backup."
+          }
+        },
         "ms": {
           "stringUnit": {
             "state": "translated",
-            "value": "Fail ini bukan sandaran Gimano."
+            "value": "Fail ini bukan sandaran Manotu."
           }
         }
       }
@@ -6048,10 +6298,16 @@
     },
     "Update checks will appear here once Gimano is on TestFlight / the App Store.": {
       "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Update checks will appear here once Manotu is on TestFlight / the App Store."
+          }
+        },
         "ms": {
           "stringUnit": {
             "state": "translated",
-            "value": "Semakan kemas kini akan dipaparkan di sini apabila Gimano ada di TestFlight / App Store."
+            "value": "Semakan kemas kini akan dipaparkan di sini apabila Manotu ada di TestFlight / App Store."
           }
         }
       }
@@ -6062,6 +6318,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Kemas kini aplikasi untuk menandatangani sumbangan anda"
+          }
+        }
+      }
+    },
+    "Upload": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Muat naik"
           }
         }
       }
@@ -6268,10 +6534,16 @@
     },
     "Welcome to Gimano": {
       "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Welcome to Manotu"
+          }
+        },
         "ms": {
           "stringUnit": {
             "state": "translated",
-            "value": "Selamat datang ke Gimano"
+            "value": "Selamat datang ke Manotu"
           }
         }
       }
@@ -6518,10 +6790,16 @@
     },
     "Your places stay on your phone. Backups go straight to your own storage; Gimano can't read them.": {
       "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Your places stay on your phone. Backups go straight to your own storage; Manotu can't read them."
+          }
+        },
         "ms": {
           "stringUnit": {
             "state": "translated",
-            "value": "Tempat anda kekal dalam telefon. Sandaran pergi terus ke storan anda sendiri; Gimano tidak dapat membacanya."
+            "value": "Tempat anda kekal dalam telefon. Sandaran pergi terus ke storan anda sendiri; Manotu tidak dapat membacanya."
           }
         }
       }

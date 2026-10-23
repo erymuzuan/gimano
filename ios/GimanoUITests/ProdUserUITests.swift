@@ -81,7 +81,7 @@ final class ProdUserUITests: XCTestCase {
     // MARK: matrix
 
     func test_01_FirstLaunchAndRegistration() {
-        let welcome = app.staticTexts["Welcome to Gimano"]
+        let welcome = app.staticTexts.matching(NSPredicate(format: "label IN {'Welcome to Manotu', 'Welcome to Gimano'}")).firstMatch
         XCTAssertTrue(welcome.waitForExistence(timeout: 20), "first launch shows onboarding")
         shot("01-onboarding")
         app.buttons["Continue"].tap()

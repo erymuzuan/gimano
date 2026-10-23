@@ -195,7 +195,8 @@ struct BackupService: Sendable {
                                       encryption: BackupManifest.encryptionNone, kdf: nil)
 
         let stamp = now.formatted(Date.ISO8601FormatStyle().year().month().day()) + "-" + String(Int(now.timeIntervalSince1970) % 100_000)
-        let output = work.appendingPathComponent("gimano-backup-\(stamp).gimano")
+        // Manotu (formerly Gimano): new backups are .manotu; .gimano files still import (same format).
+        let output = work.appendingPathComponent("manotu-backup-\(stamp).manotu")
         let archive = try Archive(url: output, accessMode: .create)
 
         if let passphrase, !passphrase.isEmpty {

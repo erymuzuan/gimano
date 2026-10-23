@@ -7,13 +7,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Gimano"
+            "value": "Manotu"
           }
         },
         "ms": {
           "stringUnit": {
             "state": "translated",
-            "value": "Gimano"
+            "value": "Manotu"
           }
         }
       }
@@ -24,13 +24,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Gimano uses the camera so you can add photos of places and reviews."
+            "value": "Manotu uses the camera so you can add photos of places and reviews."
           }
         },
         "ms": {
           "stringUnit": {
             "state": "translated",
-            "value": "Gimano menggunakan kamera supaya anda boleh menambah gambar tempat dan ulasan."
+            "value": "Manotu menggunakan kamera supaya anda boleh menambah gambar tempat dan ulasan."
           }
         }
       }
@@ -41,13 +41,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Gimano keeps using your location while you navigate with the screen off, so voice guidance and traffic reports keep working."
+            "value": "Manotu keeps using your location while you navigate with the screen off, so voice guidance and traffic reports keep working."
           }
         },
         "ms": {
           "stringUnit": {
             "state": "translated",
-            "value": "Gimano terus menggunakan lokasi anda semasa navigasi dengan skrin dimatikan, supaya panduan suara dan laporan trafik terus berfungsi."
+            "value": "Manotu terus menggunakan lokasi anda semasa navigasi dengan skrin dimatikan, supaya panduan suara dan laporan trafik terus berfungsi."
           }
         }
       }
@@ -58,13 +58,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Gimano uses your location to show where you are, find places near you and guide you turn by turn."
+            "value": "Manotu uses your location to show where you are, find places near you and guide you turn by turn."
           }
         },
         "ms": {
           "stringUnit": {
             "state": "translated",
-            "value": "Gimano menggunakan lokasi anda untuk menunjukkan kedudukan anda, mencari tempat berdekatan dan memandu anda selekoh demi selekoh."
+            "value": "Manotu menggunakan lokasi anda untuk menunjukkan kedudukan anda, mencari tempat berdekatan dan memandu anda selekoh demi selekoh."
           }
         }
       }
@@ -75,13 +75,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Gimano can save photos you choose to your library."
+            "value": "Manotu can save photos you choose to your library."
           }
         },
         "ms": {
           "stringUnit": {
             "state": "translated",
-            "value": "Gimano boleh menyimpan gambar yang anda pilih ke pustaka anda."
+            "value": "Manotu boleh menyimpan gambar yang anda pilih ke pustaka anda."
           }
         }
       }
@@ -92,13 +92,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Gimano needs your precise location for turn-by-turn directions on this drive."
+            "value": "Manotu needs your precise location for turn-by-turn directions on this drive."
           }
         },
         "ms": {
           "stringUnit": {
             "state": "translated",
-            "value": "Gimano perlukan lokasi tepat anda untuk arahan selekoh demi selekoh semasa perjalanan ini."
+            "value": "Manotu perlukan lokasi tepat anda untuk arahan selekoh demi selekoh semasa perjalanan ini."
           }
         }
       }
