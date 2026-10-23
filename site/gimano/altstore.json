@@ -6,36 +6,6 @@
   "website": "https://manotu.app/",
   "iconURL": "https://manotu.app/logo.png",
   "tintColor": "0047AB",
-  "apps": [
-    {
-      "name": "Manotu",
-      "bundleIdentifier": "my.gimano.app",
-      "developerName": "Manotu contributors",
-      "localizedDescription": "This is an early iPhone preview; on-device branding may differ from the current website. Open-source community navigation for Malaysia. Favourites and planned drives stay on your phone. This preview uses file backups; iCloud and Google Drive sign-in are unavailable in the sideload build. Requires AltStore Classic or Sideloadly. Free accounts need a refresh every seven days.",
-      "iconURL": "https://manotu.app/logo.png",
-      "tintColor": "0047AB",
-      "category": "utilities",
-      "versions": [
-        {
-          "version": "0.1.0",
-          "buildVersion": "1",
-          "date": "2026-10-23T04:38:49.490363+00:00",
-          "localizedDescription": "Public preview for AltStore Classic. File backup/restore available. iCloud and Google Drive sign-in disabled in this re-signed build.",
-          "downloadURL": "https://github.com/erymuzuan/manotu/releases/download/v0.1.0/gimano-0.1.0.ipa",
-          "size": 8642607,
-          "minOSVersion": "17.0"
-        }
-      ],
-      "appPermissions": {
-        "entitlements": [],
-        "privacy": {
-          "NSCameraUsageDescription": "Gimano uses the camera so you can add photos of places and reviews.",
-          "NSLocationAlwaysAndWhenInUseUsageDescription": "Gimano keeps using your location while you navigate with the screen off, so voice guidance and traffic reports keep working.",
-          "NSLocationWhenInUseUsageDescription": "Gimano uses your location to show where you are, find places near you and guide you turn by turn.",
-          "NSPhotoLibraryAddUsageDescription": "Gimano can save photos you choose to your library."
-        }
-      }
-    }
-  ],
+  "apps": [],
   "news": []
 }
