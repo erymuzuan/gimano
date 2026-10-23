@@ -75,8 +75,8 @@ android {
         minSdk = 26
         targetSdk = 36
         // Override for test builds: -Pgimano.versionCode=3 -Pgimano.versionName=0.2.1
-        versionCode = prop("gimano.versionCode", "2").toInt()
-        versionName = prop("gimano.versionName", "0.2.0")
+        versionCode = prop("gimano.versionCode", "3").toInt()
+        versionName = prop("gimano.versionName", "0.2.1")
 
         buildConfigField("String", "API_BASE_URL", "\"$apiBaseUrl\"")
         buildConfigField("String", "MAP_STYLE_URL", "\"$mapStyleUrl\"")

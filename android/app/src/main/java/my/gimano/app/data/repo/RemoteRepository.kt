@@ -98,7 +98,7 @@ class RemoteRepository(
     suspend fun restoreFromSeed(seed: ByteArray): String = withContext(Dispatchers.IO) {
         val pk = identity.publicKeyOf(seed)
         val ts = nowTs()
-        val r = api.authToken(TokenRequest(publicKey = pk, ts = ts, sig = identity.signWith(seed, RequestSigning.authMessage(pk, ts))))
+        val r = api.authToken(TokenRequest(publicKey = pk, ts = ts, sig = identity.signWith(seed, RequestSigning.keyLoginMessage(pk, ts))))
         val userId = r.userId ?: throw IllegalStateException("server did not return a userId")
         identity.adopt(seed, userId, r.displayName)
         settings.saveAuth(r.token, userId, r.displayName)

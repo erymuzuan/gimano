@@ -21,6 +21,9 @@ object RequestSigning {
     /** `POST /auth/token` proof: Ed25519 over "GIMANO-AUTH\n" + userId + "\n" + ts. */
     fun authMessage(userId: String, ts: Long): String = "GIMANO-AUTH\n$userId\n$ts"
 
+    /** Sign-in by key (recovery code: the words give the seed, not the userId): "GIMANO1-LOGIN\n" + publicKey + "\n" + ts. */
+    fun keyLoginMessage(publicKeyB64: String, ts: Long): String = "GIMANO1-LOGIN\n$publicKeyB64\n$ts"
+
     /** Play Integrity requestHash / App Attest clientData for a vote (docs §7): ts = the request's X-Gimano-Ts. */
     fun attestClientData(placeId: String, ts: Long): String = "GIMANO-ATTEST\n$placeId\n$ts"
 

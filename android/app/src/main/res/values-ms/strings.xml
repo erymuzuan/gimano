@@ -521,4 +521,7 @@
     <string name="closed_location">Lokasi Perkhidmatan Google Play: menukar isyarat GPS, Wi-Fi dan mudah alih kepada kedudukan anda dalam telefon, untuk peta dan navigasi.</string>
     <string name="closed_drive">Log masuk Google dan kebenaran Drive: hanya bila anda memilih sandaran Google Drive. Drive hanya menerima sandaran yang ANDA hantar ke Drive anda sendiri.</string>
     <string name="closed_integrity">Play Integrity: bila anda mengesahkan tempat berdekatan, menyemak undian datang dari telefon sebenar. Hanya keputusan lulus/gagal sampai ke Gimano.</string>
+    <string name="recovery_unknown_key">Tiada akaun Gimano menggunakan kod pemulihan ini. Semak perkataannya; kod tidak lagi berfungsi selepas kunci diganti.</string>
+    <string name="recovery_rate_limited">Terlalu banyak cubaan. Tunggu seminit dan cuba lagi.</string>
+    <string name="recovery_offline">Tidak dapat menghubungi pelayan Gimano. Semak sambungan dan cuba lagi.</string>
 </resources>
