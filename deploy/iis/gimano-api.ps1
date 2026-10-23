@@ -11,7 +11,7 @@
       (HTTP_HOST ^gimano-api\.bukitbunga\.com$, /.well-known/acme-challenge/ excluded, rewrite to http://gimano-api-docker/{R:1})
     - allowed server variable HTTP_X_FORWARDED_PROTO (append only)
     - app pool + site "gimano-api.bukitbunga.com" (C:\apps\websites\gimano-api.bukitbunga.com, only a web.config)
-      with http :80 and https :443 SNI bindings (cert by thumbprint), WebSockets on (SignalR /hubs/live)
+      with http :80 and https :443 SNI bindings (cert by thumbprint). WebSockets rely on the server-level setting.
   The only global setting it may change: it turns on the ARR proxy (system.webServer/proxy enabled) if it's off,
   and says so. Nothing else on the server is modified.
 
@@ -124,11 +124,11 @@ Step "folder $PhysicalPath + web.config" {
     @'
 <?xml version="1.0" encoding="utf-8"?>
 <!-- Placeholder site for gimano-api.bukitbunga.com. Requests are proxied by the server-level rule
-     "Proxy-gimano-api.bukitbunga.com" to the gimano-api-docker web farm. WebSockets are needed for SignalR /hubs/live. -->
+     "Proxy-gimano-api.bukitbunga.com" to the gimano-api-docker web farm. WebSockets for SignalR /hubs/live come from
+     the SERVER-level system.webServer/webSocket (enabled on .13). Do NOT add <webSocket> here: that section is locked
+     (overrideModeDefault=Deny) and a site-level element makes every request fail with IIS 500.19. -->
 <configuration>
-  <system.webServer>
-    <webSocket enabled="true" />
-  </system.webServer>
+  <system.webServer />
 </configuration>
 '@ | Set-Content -Path (Join-Path $PhysicalPath 'web.config') -Encoding utf8
 }
