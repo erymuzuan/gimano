@@ -365,7 +365,7 @@ POST /me/inbox/read          {upTo: ISO time}   → 204   (everything created at
 ```
 
 `InboxItem = {id, kind, title, body, refType?, refId?, createdAt, read, count}`
-`kind ∈ place_published, place_rejected, report_thanked, review_helpful, edit_accepted, feedback_status, announcement`
+`kind ∈ place_published, place_rejected, place_expired, report_thanked, review_helpful, edit_accepted, feedback_status, announcement`
 
 - `report_thanked` and `review_helpful` are **aggregated per day** (Malaysia time) into one item, e.g. "24 drivers thanked
   you" (`count: 24`). Each new thank moves it to the top as unread.

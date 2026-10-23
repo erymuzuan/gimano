@@ -5,7 +5,18 @@ namespace Gimano.Core.Contracts;
 public sealed record DeviceAuthRequest(string DeviceId, Platform Platform, string? Locale);
 public sealed record DeviceAuthResponse(string Token, Guid UserId, string DisplayName);
 
-public sealed record UserDto(Guid Id, string DisplayName, string Mood, Vehicle Vehicle, int Points, int Level, DateTimeOffset JoinedAt);
+public sealed record UserDto(Guid Id, string DisplayName, string Mood, Vehicle Vehicle, int Points, int Level, DateTimeOffset JoinedAt,
+    Tier Tier = Tier.Baharu, double? Accuracy = null, int PlacesAccepted = 0, int VerifierVotes = 0, NextTierDto? NextTier = null,
+    DateTimeOffset? SuspendedUntil = null);
+
+public sealed record NextTierDto(Tier Name, IReadOnlyList<string> Missing);
+
+// ---- Identity (docs/identity-and-reputation.md) -------------------------------------------
+
+public sealed record RegisterRequest(string PublicKey, Platform Platform, string? Locale);
+public sealed record TokenRequest(Guid UserId, long Ts, string Sig);
+public sealed record TokenResponse(string Token);
+public sealed record AttachKeyRequest(string PublicKey, string? SigByOldKey);
 public sealed record PatchMeRequest(string? DisplayName, string? Mood, Vehicle? Vehicle, string? Locale);
 
 // ---- Saved places ---------------------------------------------------------
@@ -46,7 +57,13 @@ public sealed record SuggestEditRequest(
 
 public sealed record SuggestionAccepted(Guid SuggestionId);
 
-public sealed record VerifyPlaceRequest(bool Exists, bool? CorrectLocation);
+public sealed record ProximityClaim(string Cell, int WithinM);
+public sealed record AttestationClaim(Platform Platform, string Token);
+public sealed record VerifyPlaceRequest(
+    Identity.VoteAnswer? Answer, bool? NameCorrect, bool? LocationCorrect, ProximityClaim? Proximity, AttestationClaim? Attestation,
+    // Legacy shape (pre-vetting apps): {exists, correctLocation}
+    bool? Exists = null, bool? CorrectLocation = null);
+public sealed record VerifyResult(PlaceStatus Status, double ConfirmationsWeighted, double Required);
 
 // ---- Reviews & photos ----------------------------------------------------------
 

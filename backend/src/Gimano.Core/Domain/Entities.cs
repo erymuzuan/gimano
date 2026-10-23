@@ -6,7 +6,8 @@ namespace Gimano.Core.Domain;
 public sealed class User
 {
     public Guid Id { get; set; } = Guid.CreateVersion7();
-    public required string DeviceId { get; set; }
+    /// <summary>Legacy POST /auth/device accounts only; pseudonyms registered with a key have none.</summary>
+    public string? DeviceId { get; set; }
     public Platform Platform { get; set; }
     public required string DisplayName { get; set; }
     public string Mood { get; set; } = "happy";
@@ -19,6 +20,19 @@ public sealed class User
     public DateTimeOffset LastSeenAt { get; set; } = DateTimeOffset.UtcNow;
     /// <summary>Inbox items created at or before this instant are read.</summary>
     public DateTimeOffset? InboxReadUpTo { get; set; }
+
+    // ---- reputation ledger (docs/identity-and-reputation.md §3) ----
+    public Tier Tier { get; set; } = Tier.Baharu;
+    public int PlacesAccepted { get; set; }
+    public int PlacesRejected { get; set; }
+    public int PlacesDisputedUpheld { get; set; }
+    public int VerifierVotes { get; set; }
+    public int VerifierAgreed { get; set; }
+    public DateTimeOffset? SuspendedUntil { get; set; }
+    public DateOnly? LastActiveDay { get; set; }
+    /// <summary>Votes cast on <see cref="VotesDay"/> (≤ 20/day); kept here because resolved votes are unlinked.</summary>
+    public DateOnly? VotesDay { get; set; }
+    public int VotesToday { get; set; }
 
     public int Level => Points switch { < 100 => 1, < 500 => 2, < 2_000 => 3, < 10_000 => 4, < 50_000 => 5, _ => 6 };
 
@@ -107,7 +121,7 @@ public sealed class Report
 
     public ReportDto ToDto() => new(
         Id, Type, Subtype, Location.Y, Location.X, Heading, Street,
-        new ReportedBy(Reporter?.DisplayName ?? "Gimano driver", Reporter?.Mood ?? "happy"),
+        new ReportedBy(Reporter?.DisplayName ?? "Pemandu Gimano", Reporter?.Mood ?? "happy"),
         CreatedAt, ExpiresAt, Confirmations, Thanks);
 }
 

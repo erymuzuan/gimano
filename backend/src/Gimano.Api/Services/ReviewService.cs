@@ -166,7 +166,7 @@ public sealed class ReviewService(GimanoDbContext db, IEventPublisher bus, TimeP
             r.Id, r.PlaceId, r.Rating, r.Text,
             photos.Where(p => p.ReviewId == r.Id).Select(PhotoService.ToDto).ToList(),
             r.User is null
-                ? new ReviewAuthor("Gimano user", 1, 0)
+                ? new ReviewAuthor("Pemandu Gimano", 1, 0)
                 : new ReviewAuthor(r.User.DisplayName, r.User.Level, counts.GetValueOrDefault(r.User.Id)),
             r.HelpfulCount, r.CreatedAt, r.EditedAt, r.Status)).ToList();
     }

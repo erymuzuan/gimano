@@ -3,6 +3,8 @@ using Gimano.Core.Contracts;
 using Gimano.Core.Data;
 using Gimano.Core.Domain;
 using Gimano.Core.Geo;
+using Gimano.Core.Identity;
+using Gimano.Api.Identity;
 using Gimano.Core.Messaging;
 using Gimano.Core.Places;
 using Gimano.Core.Routing;
@@ -25,7 +27,7 @@ public sealed class DuplicatePlaceException(PlaceSummary existing) : Exception($
 }
 
 /// <summary>Community places: add (always public), owner edit/delete, verification votes, suggested edits.</summary>
-public sealed class CommunityService(GimanoDbContext db, IEventPublisher bus, TimeProvider clock)
+public sealed class CommunityService(GimanoDbContext db, IEventPublisher bus, Gimano.Api.Identity.AttestationService attestation, TimeProvider clock)
 {
     private static readonly TextFilter Filter = TextFilter.Default;
 
@@ -38,8 +40,11 @@ public sealed class CommunityService(GimanoDbContext db, IEventPublisher bus, Ti
         await CheckLocationAsync(at, ct);
 
         var now = clock.GetUtcNow();
+        if (user.SuspendedUntil > now)
+            throw new ForbiddenException($"Contributions are paused until {user.SuspendedUntil:yyyy-MM-dd HH:mm} UTC after several rejected places.");
+        var perDay = Reputation.PublicPlacesPerDay(user.Tier);
         var today = await db.CommunityPlaces.CountAsync(p => p.OwnerId == userId && p.CreatedAt > now.AddDays(-1), ct);
-        if (today >= CommunityRules.PlacesPerDay) throw new RateLimitedException($"At most {CommunityRules.PlacesPerDay} new places per day.");
+        if (today >= perDay) throw new RateLimitedException($"At most {perDay} new places per day.");
         var hour = await db.CommunityPlaces.CountAsync(p => p.OwnerId == userId && p.CreatedAt > now.AddHours(-1), ct);
         if (hour >= CommunityRules.PublicPlacesPerHour) throw new RateLimitedException($"At most {CommunityRules.PublicPlacesPerHour} public places per hour.");
 
@@ -52,8 +57,18 @@ public sealed class CommunityService(GimanoDbContext db, IEventPublisher bus, Ti
             Website = req.Website?.Trim(), OpeningHours = req.OpeningHours?.Trim(),
             Amenities = (req.Amenities ?? []).Select(a => a.Trim()).Where(a => a.Length is > 0 and <= 40).Distinct().Take(30).ToList(),
             Country = CountryResolver.Resolve(at.Lat, at.Lng), OwnerId = userId, Owner = user, CreatedAt = now, UpdatedAt = now,
+            RequiredConfirmations = Reputation.RequiredConfirmations(user.Tier),
+            Rural = await IsRuralAsync(at, ct),
         };
-        user.Points += CommunityRules.Points.PlaceAdded;
+        // Emas contributors publish immediately; 10 % are also sent for local audit.
+        if (user.Tier == Tier.Emas)
+        {
+            place.Status = PlaceStatus.Published;
+            place.AuditOpen = Reputation.PickForAudit(Random.Shared.NextDouble);
+            if (!place.AuditOpen) { place.ResolvedAt = now; user.PlacesAccepted++; }
+        }
+        user.Points += CommunityRules.Points.PlaceAdded + (place.Status == PlaceStatus.Published ? CommunityRules.Points.PlacePublished : 0);
+        user.LastActiveDay = DateOnly.FromDateTime(now.UtcDateTime);
         db.CommunityPlaces.Add(place);
         await db.SaveChangesAsync(ct);
         await bus.PublishAsync(RoutingKeys.PlaceChanged, new PlaceChangedEvent(place.Id), ct);
@@ -96,34 +111,106 @@ public sealed class CommunityService(GimanoDbContext db, IEventPublisher bus, Ti
         await bus.PublishAsync(RoutingKeys.PlaceChanged, new PlaceChangedEvent(id), ct);
     }
 
-    public async Task<PlaceDto> VerifyAsync(Guid userId, string id, VerifyPlaceRequest req, CancellationToken ct)
+    /// <summary>
+    /// Local vetting vote (docs/identity-and-reputation.md §4): eligibility, proximity (computed on the phone, checked
+    /// against the place's geohash-6 neighbourhood, never stored), attestation verdict, tier weights, resolution + unlinking.
+    /// </summary>
+    public async Task<VerifyResult> VerifyAsync(Guid userId, string id, VerifyPlaceRequest req, bool? attestationOk, CancellationToken ct)
     {
-        await RequireUserAsync(userId, ct);
+        var voter = await RequireUserAsync(userId, ct);
+        var now = clock.GetUtcNow();
         var place = await db.CommunityPlaces.Include(p => p.Owner).FirstOrDefaultAsync(p => p.Id == id, ct)
                     ?? throw new NotFoundException("Only community places can be verified.");
-        if (place.OwnerId == userId) throw new ForbiddenException("You can't verify your own place.");
-        if (place.Status is PlaceStatus.Closed) throw new ConflictException("This place is closed.");
+        if (place.OwnerId == userId) throw new ForbiddenException("You can't verify a place you added.");
+        var open = place.Status == PlaceStatus.Pending || (place.Status == PlaceStatus.Published && place.AuditOpen);
+        if (!open) throw new ConflictException("This place is no longer waiting for verification.");
 
-        var vote = await db.PlaceVerifications.FindAsync([id, userId], ct);
-        if (vote is null) db.PlaceVerifications.Add(vote = new PlaceVerification { PlaceId = id, UserId = userId });
-        vote.Exists = req.Exists;
-        vote.CorrectLocation = req.CorrectLocation;
-        vote.CreatedAt = clock.GetUtcNow();
+        var answer = req.Answer ?? (req.Exists is { } ex ? (ex && req.CorrectLocation != false ? VoteAnswer.Yes : VoteAnswer.No) : (VoteAnswer?)null)
+                     ?? throw new ValidationException("answer", "answer must be yes, no or unsure.");
+        if (req.Proximity is { } prox)
+        {
+            if (!Geohash.IsValid(prox.Cell) || prox.Cell.Length != 6) throw new ValidationException("proximity.cell", "cell must be a 6-character geohash.");
+            var placeCell = Geohash.Encode(place.Location.Y, place.Location.X, 6);
+            if (!Geohash.WithNeighbours(placeCell).Contains(prox.Cell))
+                throw new ForbiddenException("You need to be near this place to verify it.");
+            if (!Reputation.WithinProximity(prox.WithinM, place.Rural))
+                throw new ForbiddenException($"You need to be within {(place.Rural ? Reputation.RuralWithinM : Reputation.TownWithinM)} m of this place to verify it.");
+        }
+        else if (req.Answer is not null) throw new ValidationException("proximity", "proximity {cell, withinM} is required.");
+
+        if (await db.PlaceVotes.AnyAsync(v => v.PlaceId == id && v.VoterId == userId, ct))
+            throw new ConflictException("You already voted on this place.");
+        var day = DateOnly.FromDateTime(now.UtcDateTime);
+        if (voter.VotesDay != day) { voter.VotesDay = day; voter.VotesToday = 0; }
+        if (voter.VotesToday >= Reputation.VotesPerDay) throw new RateLimitedException($"At most {Reputation.VotesPerDay} verification votes per day.");
+        if (attestationOk == false && attestation.Mode == AttestationMode.Enforce)
+            throw new ForbiddenException("Device check failed; votes from this device can't be counted.");
+
+        var weight = Reputation.VoteWeight(voter.Tier, voter.JoinedAt, now, answer);
+        db.PlaceVotes.Add(new PlaceVote
+        {
+            PlaceId = id, VoterId = userId, Answer = answer, NameCorrect = req.NameCorrect, LocationCorrect = req.LocationCorrect ?? req.CorrectLocation,
+            Weight = weight, AttestationOk = attestationOk, CreatedAt = now, Day = day,
+        });
+        await Ledger.SaltAsync(db, id, ct);
+        voter.VotesToday++;
+        voter.LastActiveDay = day;
+        if (answer == VoteAnswer.Yes) { place.WeightedYes += weight; place.VerifiedCount++; }
+        if (answer == VoteAnswer.No) { place.WeightedNo += weight; place.RejectedCount++; }
         await db.SaveChangesAsync(ct);
 
-        var votes = await db.PlaceVerifications.Where(v => v.PlaceId == id).ToListAsync(ct);
-        var positives = votes.Count(v => v.Positive);
-        var negatives = votes.Count - positives;
         var before = place.Status;
-        place.VerifiedCount = positives;
-        place.RejectedCount = negatives;
-        place.Status = CommunityRules.AfterVerification(place.Status, positives, negatives);
-        if (before != PlaceStatus.Published && place.Status == PlaceStatus.Published && place.Owner is not null)
-            place.Owner.Points += CommunityRules.Points.PlacePublished;
+        if (place.AuditOpen)
+        {
+            if (Reputation.AuditFails(place.WeightedNo))
+            {
+                db.PlaceDisputes.Add(new PlaceDispute { PlaceId = id, ContributorId = place.OwnerId, CreatedAt = now });
+                await Ledger.ResolveAsync(db, place, PlaceStatus.Hidden, now, ct);
+            }
+            else if (place.WeightedYes >= Reputation.RequiredConfirmations(Tier.Baharu))
+            {
+                await Ledger.ResolveAsync(db, place, PlaceStatus.Published, now, ct);
+            }
+        }
+        else
+        {
+            switch (Reputation.Resolve(place.WeightedYes, place.WeightedNo, place.RequiredConfirmations))
+            {
+                case Reputation.Outcome.Published:
+                    if (place.Owner is not null) place.Owner.Points += CommunityRules.Points.PlacePublished;
+                    await Ledger.ResolveAsync(db, place, PlaceStatus.Published, now, ct);
+                    break;
+                case Reputation.Outcome.Hidden:
+                    await Ledger.ResolveAsync(db, place, PlaceStatus.Hidden, now, ct);
+                    break;
+            }
+        }
         await db.SaveChangesAsync(ct);
         await bus.PublishAsync(RoutingKeys.PlaceChanged, new PlaceChangedEvent(id), ct);
         if (place.Status != before) await bus.PublishAsync(RoutingKeys.PlaceVerified, new PlaceVerifiedEvent(id, place.Status), ct);
-        return Dto(place);
+        return new VerifyResult(place.Status, Math.Round(place.WeightedYes, 2), place.AuditOpen ? Reputation.RequiredConfirmations(Tier.Baharu) : place.RequiredConfirmations);
+    }
+
+    /// <summary>Pending (and audit-open) places in a geohash-6 cell and its 8 neighbours, excluding the caller's own and ones they voted on.</summary>
+    public async Task<IReadOnlyList<PlaceSummary>> PendingNearbyAsync(Guid userId, string cell, CancellationToken ct)
+    {
+        if (!Geohash.IsValid(cell) || cell.Length != 6) throw new ValidationException("cell", "cell must be a 6-character geohash.");
+        var cells = Geohash.WithNeighbours(cell).ToHashSet();
+        var poly = Geohash.NeighbourhoodBounds(cell).ToPolygon();
+        var rows = await db.CommunityPlaces.AsNoTracking()
+            .Where(p => (p.Status == PlaceStatus.Pending || (p.Status == PlaceStatus.Published && p.AuditOpen))
+                        && p.OwnerId != userId && p.Location.Intersects(poly)
+                        && !db.PlaceVotes.Any(v => v.PlaceId == p.Id && v.VoterId == userId))
+            .OrderByDescending(p => p.CreatedAt).Take(100).ToListAsync(ct);
+        return rows.Where(p => cells.Contains(Geohash.Encode(p.Location.Y, p.Location.X, 6)))
+            .Select(p => PlaceService.ToSummary(p, null, null) with { Status = PlaceStatus.Pending }).ToList();
+    }
+
+    /// <summary>Rural = fewer than 20 mapped places within 2 km (5 km verification radius instead of 1 km).</summary>
+    private async Task<bool> IsRuralAsync(GeoPoint at, CancellationToken ct)
+    {
+        var pt = at.ToPoint();
+        return await db.Places.Where(p => p.Location.IsWithinDistance(pt, 2000)).Take(20).CountAsync(ct) < 20;
     }
 
     /// <summary>Any user, any place (OSM too). Owner suggestions on their own community place apply directly.</summary>

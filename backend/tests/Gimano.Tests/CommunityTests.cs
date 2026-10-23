@@ -50,31 +50,6 @@ public class DuplicateDetectionTests
     }
 }
 
-public class VerificationStateMachineTests
-{
-    [Theory]
-    [InlineData(PlaceStatus.Pending, 0, 0, PlaceStatus.Pending)]
-    [InlineData(PlaceStatus.Pending, 2, 0, PlaceStatus.Pending)]
-    [InlineData(PlaceStatus.Pending, 3, 0, PlaceStatus.Published)]
-    [InlineData(PlaceStatus.Pending, 3, 3, PlaceStatus.Hidden)]       // negatives win
-    [InlineData(PlaceStatus.Pending, 0, 3, PlaceStatus.Hidden)]
-    [InlineData(PlaceStatus.Published, 5, 2, PlaceStatus.Published)]
-    [InlineData(PlaceStatus.Published, 5, 3, PlaceStatus.Hidden)]
-    [InlineData(PlaceStatus.Hidden, 9, 0, PlaceStatus.Hidden)]        // only a moderator un-hides
-    [InlineData(PlaceStatus.Closed, 9, 9, PlaceStatus.Closed)]
-    public void Transitions(PlaceStatus from, int pos, int neg, PlaceStatus to) =>
-        Assert.Equal(to, CommunityRules.AfterVerification(from, pos, neg));
-
-    [Fact]
-    public void Wrong_location_counts_as_negative()
-    {
-        Assert.True(new PlaceVerification { PlaceId = "c", Exists = true }.Positive);
-        Assert.True(new PlaceVerification { PlaceId = "c", Exists = true, CorrectLocation = true }.Positive);
-        Assert.False(new PlaceVerification { PlaceId = "c", Exists = true, CorrectLocation = false }.Positive);
-        Assert.False(new PlaceVerification { PlaceId = "c", Exists = false }.Positive);
-    }
-}
-
 public class SearchVisibilityTests
 {
     private static readonly Guid Owner = Guid.NewGuid();

@@ -9,8 +9,6 @@ public static class CommunityRules
 {
     public const double DuplicateRadiusM = 100;
     public const double DuplicateSimilarity = 0.6;
-    public const int ConfirmationsToPublish = 3;
-    public const int RejectionsToHide = 3;
     public const int FlagsToHide = 3;
 
     public const int PlacesPerDay = 10;
@@ -31,14 +29,6 @@ public static class CommunityRules
         public const int Photo = 2;
         public const int HelpfulReceived = 1;
     }
-
-    /// <summary>Verification state machine: pending → published at 3 distinct confirmations; pending/published → hidden at 3 negatives.</summary>
-    public static PlaceStatus AfterVerification(PlaceStatus current, int positives, int negatives) => current switch
-    {
-        PlaceStatus.Pending or PlaceStatus.Published when negatives >= RejectionsToHide => PlaceStatus.Hidden,
-        PlaceStatus.Pending when positives >= ConfirmationsToPublish => PlaceStatus.Published,
-        _ => current,
-    };
 
     /// <summary>Who can see a community place (GET by id, nearby): pending and published for everyone (so nearby users can verify), hidden/closed only for the owner.</summary>
     public static bool IsVisibleTo(PlaceStatus status, Guid? ownerId, Guid? viewer) =>

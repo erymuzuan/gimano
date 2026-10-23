@@ -17,6 +17,9 @@ adds or changes a dependency; a reviewer checks it against the rule in `AGENTS.m
 | Android app | Kotlin, Jetpack Compose, Room | Apache-2.0 | JetBrains, Android Open Source Project |
 | iOS app | Swift, SwiftUI, GRDB.swift | Apache-2.0 / MIT | swift.org, GRDB community |
 | Encryption | libsodium | ISC | libsodium project |
+| Signatures (backend) | NSec.Cryptography (Ed25519 over libsodium; NuGet `libsodium` 1.0.22, ISC) | MIT | Klaus Hartke (open source) |
+| CBOR (backend, App Attest) | System.Formats.Cbor | MIT | .NET Foundation |
+| Device attestation | Google Play Integrity API / Apple App Attest | platform services | Google / Apple (verdicts only; no SDK on the server) |
 | Images | SkiaSharp / Skia | MIT / BSD-3 | .NET Foundation / Skia project |
 | Font | Nunito | SIL OFL | Open-source type project |
 

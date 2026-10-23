@@ -38,7 +38,7 @@ public enum FeedbackStatus { Received, Triaged, Planned, Done, WontFix }
 public enum PlaceSource { Osm, Community }
 
 /// <summary>Community place lifecycle. Only <c>pending</c>/<c>published</c> appear in PlaceSummary.status.</summary>
-public enum PlaceStatus { Pending, Published, Hidden, Closed }
+public enum PlaceStatus { Pending, Published, Hidden, Closed, Expired }
 
 public enum ReviewStatus { Published, Hidden }
 
@@ -48,4 +48,7 @@ public enum FlagReason { Spam, Offensive, OffTopic, ConflictOfInterest, Other }
 
 public enum PhotoStatus { Processing, Published, Rejected }
 
-public enum InboxKind { PlacePublished, PlaceRejected, ReportThanked, ReviewHelpful, EditAccepted, FeedbackStatus, Announcement }
+public enum InboxKind { PlacePublished, PlaceRejected, ReportThanked, ReviewHelpful, EditAccepted, FeedbackStatus, Announcement, PlaceExpired }
+
+/// <summary>Contributor trust tier (docs/identity-and-reputation.md).</summary>
+public enum Tier { Baharu, Perak, Emas }

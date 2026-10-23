@@ -9,6 +9,8 @@
     <PackageReference Include="OpenSearch.Net" />
     <PackageReference Include="RabbitMQ.Client" />
     <PackageReference Include="SkiaSharp" />
+    <PackageReference Include="NSec.Cryptography" />
+    <PackageReference Include="System.Formats.Cbor" />
     <PackageReference Include="Microsoft.Extensions.Http" />
     <PackageReference Include="SkiaSharp.NativeAssets.Linux.NoDependencies" />
     <PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" />

@@ -23,6 +23,15 @@ public sealed class CommunityPlace
     public PlaceStatus Status { get; set; } = PlaceStatus.Pending;
     public int VerifiedCount { get; set; }
     public int RejectedCount { get; set; }
+    /// <summary>Weighted "yes" needed (by the contributor's tier at creation: baharu 3, perak 2, emas 0 = immediate).</summary>
+    public double RequiredConfirmations { get; set; } = 3;
+    public double WeightedYes { get; set; }
+    public double WeightedNo { get; set; }
+    /// <summary>Emas places randomly sent for local audit while already published.</summary>
+    public bool AuditOpen { get; set; }
+    /// <summary>Rural places allow 5 km proximity for verification (1 km in towns).</summary>
+    public bool Rural { get; set; }
+    public DateTimeOffset? ResolvedAt { get; set; }
     public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;
     public DateTimeOffset UpdatedAt { get; set; } = DateTimeOffset.UtcNow;
 
@@ -30,15 +39,65 @@ public sealed class CommunityPlace
     public static bool IsCommunityId(string id) => id.Length == 33 && id[0] == 'c';
 }
 
-public sealed class PlaceVerification
+/// <summary>
+/// A vetting vote. While the place is pending, <see cref="VoterId"/> is set (only to prevent double votes).
+/// On resolution the row is unlinked: VoterId → null, VoterHash = hmac_sha256(perPlaceSalt, voterId), time → day.
+/// Verifier identities are never returned by any API.
+/// </summary>
+public sealed class PlaceVote
+{
+    public long Id { get; set; }
+    public required string PlaceId { get; set; }
+    public Guid? VoterId { get; set; }
+    public byte[]? VoterHash { get; set; }
+    public Identity.VoteAnswer Answer { get; set; }
+    public bool? NameCorrect { get; set; }
+    public bool? LocationCorrect { get; set; }
+    public double Weight { get; set; }
+    /// <summary>Only the boolean attestation verdict (null = not checked / not configured).</summary>
+    public bool? AttestationOk { get; set; }
+    public DateTimeOffset? CreatedAt { get; set; }
+    public DateOnly Day { get; set; }
+}
+
+/// <summary>Per-place salt for unlinking votes; deleted 30 days after the place resolves.</summary>
+public sealed class PlaceSalt
 {
     public required string PlaceId { get; set; }
-    public Guid UserId { get; set; }
-    public bool Exists { get; set; }
-    public bool? CorrectLocation { get; set; }
+    public required byte[] Salt { get; set; }
     public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;
+    public DateTimeOffset? ResolvedAt { get; set; }
+}
 
-    public bool Positive => Exists && CorrectLocation != false;
+/// <summary>Raised when an audited Emas place fails its audit; a moderator sets Upheld.</summary>
+public sealed class PlaceDispute
+{
+    public long Id { get; set; }
+    public required string PlaceId { get; set; }
+    public Guid? ContributorId { get; set; }
+    public bool? Upheld { get; set; }
+    public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;
+    public DateTimeOffset? ResolvedAt { get; set; }
+}
+
+/// <summary>A pseudonym's Ed25519 public key. The newest non-revoked key is current.</summary>
+public sealed class UserKey
+{
+    public long Id { get; set; }
+    public Guid UserId { get; set; }
+    public required byte[] PublicKey { get; set; }
+    public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;
+    public DateTimeOffset? RevokedAt { get; set; }
+}
+
+/// <summary>An iOS App Attest key attested for this pseudonym (public key + sign counter only).</summary>
+public sealed class AppAttestKey
+{
+    public required string KeyId { get; set; }
+    public Guid UserId { get; set; }
+    public required byte[] PublicKey { get; set; }
+    public long Counter { get; set; }
+    public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;
 }
 
 public enum SuggestionStatus { Pending, Applied, Rejected }

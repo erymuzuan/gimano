@@ -41,7 +41,11 @@ public sealed class InboxGenerator(RabbitMqConnection connection, IServiceScopeF
             {
                 var e = message.Deserialize<PlaceVerifiedEvent>(o)!;
                 var p = await db.CommunityPlaces.AsNoTracking().Where(x => x.Id == e.PlaceId).Select(x => new { x.OwnerId, x.Name }).FirstOrDefaultAsync(ct);
-                var kind = e.Status switch { PlaceStatus.Published => InboxKind.PlacePublished, PlaceStatus.Hidden => InboxKind.PlaceRejected, _ => (InboxKind?)null };
+                var kind = e.Status switch
+                {
+                    PlaceStatus.Published => InboxKind.PlacePublished, PlaceStatus.Hidden => InboxKind.PlaceRejected,
+                    PlaceStatus.Expired => InboxKind.PlaceExpired, _ => (InboxKind?)null,
+                };
                 if (p?.OwnerId is { } uid && kind is { } k) await AddAsync(db, uid, k, p.Name, "place", e.PlaceId, ct);
                 break;
             }

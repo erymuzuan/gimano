@@ -106,3 +106,69 @@ POST /places/{id}/verify (signed)
 
 `DELETE /me` deletes the pseudonym's public keys, counters and tier. Places, reviews and photos stay, credited
 to "Pemandu Gimano". Pending votes by the user are removed; resolved votes are already unlinkable.
+
+## 7. Implementation notes (server)
+
+- **Problem types** (401 `application/problem+json`, `type` = `https://gimano.bukitbunga.com/problems/<code>`):
+  `signature-missing`, `signature-expired` (outside ±300 s), `signature-invalid`, `signature-replayed`,
+  `no-key` (legacy account without a key → `POST /me/keys`), `auth-failed` (`POST /auth/token`), `rotation-unsigned`.
+- `Identity:RequireSignatures` defaults to **true in Production** and false elsewhere (dev turns it on once both apps ship).
+- **PATH_AND_QUERY** is the request target exactly as sent on the request line (`/api/v1/...` plus `?query` if any,
+  percent-encoding untouched). Body = the exact bytes sent (multipart included); an empty body hashes to `e3b0c442…b855`.
+- **Key rotation:** `sigByOldKey = Ed25519(currentKey, "GIMANO-KEY\n" + userId + "\n" + newPublicKeyBase64)`, where the base64 is
+  exactly the string sent as `publicKey`. Legacy device accounts without a key attach one with the JWT alone.
+- **Attestation client data** (both platforms): `"GIMANO-ATTEST\n" + placeId + "\n" + ts`, where `ts` = the request's
+  `X-Gimano-Ts`. Android: pass `hex(sha256(clientData))` as the Play Integrity **requestHash**. iOS: get a challenge
+  (`GET /me/attest/challenge`), attest once (`POST /me/attest {keyId, attestation}`), and send each vote's
+  `attestation.token` as `base64(keyId) + "." + base64(assertion)`, with `clientDataHash = sha256(clientData)`.
+- Verdicts are stored only as a boolean on the pending vote. `Attestation:Mode=log` records the verdict without blocking.
+- `POST /places/{id}/verify` still accepts the old `{exists, correctLocation}` body from pre-vetting apps (no proximity). New apps
+  must send `answer` + `proximity`. Errors: 403 when the voter is the contributor, too far away, or the device check fails
+  in enforce mode; 409 when the voter already voted or the place is closed; 429 for more than 20 votes/day.
+- Places that expire after 30 days become `status: "expired"` (Inbox kind `place_expired`).
+
+## 8. Test vectors
+
+Both apps must reproduce these exactly (Ed25519 is deterministic). The server's unit tests
+(`SignatureVectorTests`, `GeohashTests`) check the same values. `\n` means a single LF byte (0x0A).
+
+| | value |
+|---|---|
+| seed (hex) | `000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f` |
+| public key (hex) | `03a107bff3ce10be1d70dd18e74bc09967e4d6309ba50d5f1ddc8664125531b8` |
+| public key (base64) | `A6EHv/POEL4dcN0Y50vAmWfk1jCbpQ1fHdyGZBJVMbg=` |
+
+**Request 1:** `POST /api/v1/places/c01a166b7f9c67924976aff1beb56c2cd/verify`, `X-Gimano-Ts: 1792713600`, body (UTF-8, exactly):
+`{"answer":"yes","nameCorrect":true,"locationCorrect":true,"proximity":{"cell":"w283f8","withinM":420}}`
+
+- sha256(body) = `6c091ee7b6a05d273cedfd0ada1a4a1c113a2ef99a1ed14c35f8d87f36019821`
+- canonical = `GIMANO1\nPOST\n/api/v1/places/c01a166b7f9c67924976aff1beb56c2cd/verify\n1792713600\n6c091ee7b6a05d273cedfd0ada1a4a1c113a2ef99a1ed14c35f8d87f36019821`
+- X-Gimano-Sig = `CPm5nQ7WU1z/tiBHSciXop7u2uc/M6Rt4/AgExSarydCkuW1iUQ99XT+gFyonROf7816WI+u2h901BueYupVAQ==`
+
+**Request 2 (empty body):** `DELETE /api/v1/reviews/01a16676-ce9e-78db-842e-55ffa03ef190`, ts `1792713600`
+
+- sha256(body) = `e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855`
+- X-Gimano-Sig = `62H79zlWTyZDvgEzOFxiHLBA29cFklC0eto7hkBYoWdsgHaoXp54+ygVAvS7hyS/38WD2XYwOK+XQr6RE4B+Cw==`
+
+**Request 3 (query string):** `POST /api/v1/reports?source=app`, ts `1792713601`, body
+`{"type":"hazard","subtype":"pothole","lat":3.118,"lng":101.619,"heading":90}`
+
+- sha256(body) = `e7880fafa70c2dcc331adee63b54a5c4362d39a02d0ec08341d7ac06b9713980`
+- X-Gimano-Sig = `CVlQVQXZSUEbSZDJ3pEkhmeAKHgPbZh2MyAkEwcTXo9C5d+drAlcNC2X7zdrBBXfSAJN9jq3VQo+ukoTiRLJDw==`
+
+**Signature login:** userId `01a16676-0000-7000-8000-000000000001`, ts `1792713600`
+
+- canonical = `GIMANO-AUTH\n01a16676-0000-7000-8000-000000000001\n1792713600`
+- sig = `aApOheYmDSVKSLICJI8tuRW9Cp06hzkHJQKwdLab1N5sYCPAwvKFum8s+fnw6+6QsktcXji/+OLZzEQqijW+Cw==`
+
+**Key rotation:** new seed `202122232425262728292a2b2c2d2e2f303132333435363738393a3b3c3d3e3f` → new public key
+`Kay64UG8yvCyLhqU000LxzYeUm0L/hLIl5S8kyKWbdc=`
+
+- canonical = `GIMANO-KEY\n01a16676-0000-7000-8000-000000000001\nKay64UG8yvCyLhqU000LxzYeUm0L/hLIl5S8kyKWbdc=`
+- sigByOldKey (signed with the first seed) = `y+8fzyom8LvtpxVQGE3Hebps7dovTSlGQYQhrgqO8hAekGT4pX0PXw282mqNZc8vMCOtLmmwfDbgVqlBKYsBDg==`
+
+**Attestation client data:** `GIMANO-ATTEST\nc01a166b7f9c67924976aff1beb56c2cd\n1792713600` → sha256 hex
+`ff664bac6820f2ce7bb5823ae9a2b33b103e47bca5bb6aa4ec11af46a9aa78be`
+
+**Geohash-6 cells:** (3.1180, 101.6190) → `w2838r` · (3.1579, 101.7116) → `w283fw` · (1.3521, 103.8198) → `w21zdq` ·
+(4.9031, 114.9398) → `w8cezs`

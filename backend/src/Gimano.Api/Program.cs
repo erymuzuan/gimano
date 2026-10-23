@@ -85,6 +85,10 @@ builder.Services.AddSingleton<LiveSubscriptions>();
 builder.Services.AddHostedService<LiveFanoutConsumer>();
 builder.Services.AddSingleton<MoodCache>();
 builder.Services.AddSingleton<ShareStore>();
+builder.Services.AddSingleton<Gimano.Api.Identity.UserKeyCache>();
+builder.Services.AddSingleton<Gimano.Api.Identity.ReplayCache>();
+builder.Services.AddScoped<Gimano.Api.Identity.AttestationService>();
+builder.Services.AddHttpClient("attestation", c => c.Timeout = TimeSpan.FromSeconds(15));
 builder.Services.AddHostedService<ShareSweeper>();
 builder.Services.AddSingleton<PingSessions>();
 builder.Services.AddSingleton<DriverSnapshotStore>();
@@ -128,6 +132,7 @@ app.UseCors();
 app.UseRateLimiter();
 app.UseAuthentication();
 app.UseAuthorization();
+app.UseMiddleware<Gimano.Api.Identity.SignatureMiddleware>();
 
 // API docs: on in Development, opt-in elsewhere (Features:ApiDocs). No Swagger/Scalar UI in Production by default.
 if (config.GetValue("Features:ApiDocs", app.Environment.IsDevelopment()))
@@ -141,7 +146,7 @@ app.MapHealthChecks("/healthz", new HealthCheckOptions { Predicate = _ => false,
 app.MapHealthChecks("/readyz", new HealthCheckOptions { Predicate = c => c.Tags.Contains("ready"), ResponseWriter = HealthWriter.WriteAsync });
 
 var api = app.MapGroup("/api/v1");
-api.MapAuthAndMe().MapPlaces().MapRoutes().MapLive().MapFeedback().MapPrivacy().MapCommunity().MapShares().MapInbox();
+api.MapAuthAndMe().MapPlaces().MapRoutes().MapLive().MapFeedback().MapPrivacy().MapCommunity().MapShares().MapInbox().MapIdentity();
 app.MapMedia();
 
 app.MapHub<LiveHub>("/hubs/live");

@@ -37,6 +37,9 @@ public static class InboxRules
             InboxKind.PlaceRejected => ms
                 ? ($"{s} disembunyikan untuk semakan", "Beberapa pengguna melaporkan tempat ini tidak wujud atau di lokasi salah.")
                 : ($"{s} is hidden for review", "Several users reported that this place doesn't exist or is in the wrong location."),
+            InboxKind.PlaceExpired => ms
+                ? ($"{s} tamat tempoh pengesahan", "Tiada cukup pengesahan dalam 30 hari. Anda boleh menambahnya semula.")
+                : ($"{s} expired unverified", "Not enough people confirmed it within 30 days. You can add it again."),
             InboxKind.EditAccepted => ms
                 ? ("Cadangan suntingan anda diterima", s)
                 : ("Your suggested edit was accepted", s),

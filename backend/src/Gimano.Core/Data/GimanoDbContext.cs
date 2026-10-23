@@ -19,7 +19,11 @@ public sealed class GimanoDbContext(DbContextOptions<GimanoDbContext> options) :
     public DbSet<Feedback> Feedback => Set<Feedback>();
     public DbSet<TollRate> TollRates => Set<TollRate>();
     public DbSet<CommunityPlace> CommunityPlaces => Set<CommunityPlace>();
-    public DbSet<PlaceVerification> PlaceVerifications => Set<PlaceVerification>();
+    public DbSet<PlaceVote> PlaceVotes => Set<PlaceVote>();
+    public DbSet<PlaceSalt> PlaceSalts => Set<PlaceSalt>();
+    public DbSet<PlaceDispute> PlaceDisputes => Set<PlaceDispute>();
+    public DbSet<UserKey> UserKeys => Set<UserKey>();
+    public DbSet<AppAttestKey> AppAttestKeys => Set<AppAttestKey>();
     public DbSet<PlaceSuggestion> PlaceSuggestions => Set<PlaceSuggestion>();
     public DbSet<Review> Reviews => Set<Review>();
     public DbSet<ReviewHelpful> ReviewHelpfuls => Set<ReviewHelpful>();
@@ -37,13 +41,14 @@ public sealed class GimanoDbContext(DbContextOptions<GimanoDbContext> options) :
 
         b.Entity<User>(e =>
         {
-            e.HasIndex(x => x.DeviceId).IsUnique();
+            e.HasIndex(x => x.DeviceId).IsUnique().HasFilter("device_id IS NOT NULL");
             e.Property(x => x.DeviceId).HasMaxLength(200);
             e.Property(x => x.DisplayName).HasMaxLength(40);
             e.Property(x => x.Mood).HasMaxLength(30);
             e.Property(x => x.Locale).HasMaxLength(20);
             e.Property(x => x.Platform).HasConversion<string>().HasMaxLength(10);
             e.Property(x => x.Vehicle).HasConversion<string>().HasMaxLength(12);
+            e.Property(x => x.Tier).HasConversion<string>().HasMaxLength(8);
             e.Ignore(x => x.Level);
         });
 
@@ -150,12 +155,42 @@ public sealed class GimanoDbContext(DbContextOptions<GimanoDbContext> options) :
             e.HasOne(x => x.Owner).WithMany().HasForeignKey(x => x.OwnerId).OnDelete(DeleteBehavior.SetNull);
         });
 
-        b.Entity<PlaceVerification>(e =>
+        b.Entity<PlaceVote>(e =>
         {
-            e.HasKey(x => new { x.PlaceId, x.UserId });
             e.Property(x => x.PlaceId).HasMaxLength(40);
-            e.Ignore(x => x.Positive);
+            e.Property(x => x.Answer).HasConversion<string>().HasMaxLength(8);
+            e.HasIndex(x => new { x.PlaceId, x.VoterId }).IsUnique().HasFilter("voter_id IS NOT NULL");
+            e.HasIndex(x => x.VoterId);
             e.HasOne<CommunityPlace>().WithMany().HasForeignKey(x => x.PlaceId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne<User>().WithMany().HasForeignKey(x => x.VoterId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        b.Entity<PlaceSalt>(e =>
+        {
+            e.HasKey(x => x.PlaceId);
+            e.Property(x => x.PlaceId).HasMaxLength(40);
+            e.HasIndex(x => x.ResolvedAt);
+        });
+
+        b.Entity<PlaceDispute>(e =>
+        {
+            e.Property(x => x.PlaceId).HasMaxLength(40);
+            e.HasIndex(x => new { x.ContributorId, x.CreatedAt });
+            e.HasOne<User>().WithMany().HasForeignKey(x => x.ContributorId).OnDelete(DeleteBehavior.SetNull);
+        });
+
+        b.Entity<UserKey>(e =>
+        {
+            e.HasIndex(x => new { x.UserId, x.RevokedAt });
+            e.HasIndex(x => x.PublicKey).IsUnique();
+            e.HasOne<User>().WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        b.Entity<AppAttestKey>(e =>
+        {
+            e.HasKey(x => x.KeyId);
+            e.Property(x => x.KeyId).HasMaxLength(100);
+            e.HasIndex(x => x.UserId);
             e.HasOne<User>().WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Cascade);
         });
 

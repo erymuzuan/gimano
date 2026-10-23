@@ -1,5 +1,6 @@
 using Gimano.Api.Auth;
 using Gimano.Api.Services;
+using Gimano.Api.Identity;
 using Gimano.Core.Community;
 using Gimano.Core.Contracts;
 using Microsoft.AspNetCore.Http.HttpResults;
@@ -15,25 +16,26 @@ public static class CommunityEndpoints
     public static RouteGroupBuilder MapCommunity(this RouteGroupBuilder api)
     {
         var places = api.MapGroup("/places").WithTags("Community places").RequireAuthorization();
-        places.MapPost("", CreatePlace).WithSummary("Add a missing place (always public: pending → published after 3 confirmations). 409 if a similar place exists within 100 m.");
-        places.MapPatch("/{id}", PatchPlace).WithSummary("Owner only, community places only.");
+        places.MapGet("/pending-nearby", PendingNearby).WithSummary("Pending places in a geohash-6 cell and its 8 neighbours (excludes your own).");
+        places.MapPost("", CreatePlace).RequireSignature().WithSummary("Add a missing place (always public: pending → published after 3 confirmations). 409 if a similar place exists within 100 m.");
+        places.MapPatch("/{id}", PatchPlace).RequireSignature().WithSummary("Owner only, community places only.");
         places.MapDelete("/{id}", DeletePlace).WithSummary("Owner only; published places become closed.");
-        places.MapPost("/{id}/suggest-edit", SuggestEdit);
-        places.MapPost("/{id}/verify", Verify);
+        places.MapPost("/{id}/suggest-edit", SuggestEdit).RequireSignature();
+        places.MapPost("/{id}/verify", Verify).RequireSignature();
         places.MapGet("/{id}/reviews", ListReviews).AllowAnonymous();
-        places.MapPost("/{id}/reviews", CreateReview);
+        places.MapPost("/{id}/reviews", CreateReview).RequireSignature();
         places.MapGet("/{id}/photos", ListPhotos).AllowAnonymous();
 
         api.MapGet("/me/places/contributed", Contributed).WithTags("Community places").RequireAuthorization();
 
         var reviews = api.MapGroup("/reviews").WithTags("Reviews").RequireAuthorization();
-        reviews.MapPatch("/{id:guid}", PatchReview);
-        reviews.MapDelete("/{id:guid}", DeleteReview);
+        reviews.MapPatch("/{id:guid}", PatchReview).RequireSignature();
+        reviews.MapDelete("/{id:guid}", DeleteReview).RequireSignature();
         reviews.MapPost("/{id:guid}/helpful", Helpful);
         reviews.MapPost("/{id:guid}/flag", FlagReview);
 
         var photos = api.MapGroup("/photos").WithTags("Photos").RequireAuthorization();
-        photos.MapPost("", Upload).DisableAntiforgery().WithMetadata(new RequestSizeLimitAttribute(MaxUploadBytes))
+        photos.MapPost("", Upload).RequireSignature().DisableAntiforgery().WithMetadata(new RequestSizeLimitAttribute(MaxUploadBytes))
             .WithSummary("multipart/form-data: file (JPEG/PNG/WebP, ≤ 15 MB), placeId, caption?. 415 for HEIC/undecodable.");
         photos.MapGet("/{id:guid}", GetPhoto).AllowAnonymous();
         photos.MapDelete("/{id:guid}", DeletePhoto);
@@ -72,8 +74,17 @@ public static class CommunityEndpoints
     private static async Task<Accepted<SuggestionAccepted>> SuggestEdit(string id, SuggestEditRequest req, HttpContext http, CommunityService svc, CancellationToken ct) =>
         TypedResults.Accepted((string?)null, new SuggestionAccepted(await svc.SuggestEditAsync(http.User.RequiredUserId(), id, req, ct)));
 
-    private static async Task<Ok<PlaceDto>> Verify(string id, VerifyPlaceRequest req, HttpContext http, CommunityService svc, CancellationToken ct) =>
-        TypedResults.Ok(await svc.VerifyAsync(http.User.RequiredUserId(), id, req, ct));
+    private static async Task<Ok<VerifyResult>> Verify(string id, VerifyPlaceRequest req, HttpContext http, CommunityService svc,
+        AttestationService attestation, TimeProvider clock, CancellationToken ct)
+    {
+        var uid = http.User.RequiredUserId();
+        var ts = long.TryParse(http.Request.Headers["X-Gimano-Ts"], out var t) ? t : clock.GetUtcNow().ToUnixTimeSeconds();
+        var verdict = await attestation.VerifyVoteAsync(uid, req.Attestation, id, ts, ct);
+        return TypedResults.Ok(await svc.VerifyAsync(uid, id, req, verdict, ct));
+    }
+
+    private static async Task<Ok<List<PlaceSummary>>> PendingNearby(string? cell, HttpContext http, CommunityService svc, CancellationToken ct) =>
+        TypedResults.Ok((await svc.PendingNearbyAsync(http.User.RequiredUserId(), cell ?? "", ct)).ToList());
 
     private static async Task<Ok<List<PlaceSummary>>> Contributed(HttpContext http, CommunityService svc, CancellationToken ct) =>
         TypedResults.Ok((await svc.ContributedAsync(http.User.RequiredUserId(), ct)).ToList());

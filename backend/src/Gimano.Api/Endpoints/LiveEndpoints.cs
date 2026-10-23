@@ -6,6 +6,7 @@ using Gimano.Core.Data;
 using Gimano.Core.Geo;
 using Gimano.Core.Messaging;
 using Gimano.Api.Live;
+using Gimano.Api.Identity;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.EntityFrameworkCore;
 
@@ -22,8 +23,8 @@ public static class LiveEndpoints
             .WithSummary("Alerts, jams and anonymised drivers in a bbox (minLng,minLat,maxLng,maxLat).");
 
         var reports = api.MapGroup("/reports").WithTags("Reports").RequireAuthorization();
-        reports.MapPost("", CreateReport);
-        reports.MapPost("/{id:guid}/votes", Vote);
+        reports.MapPost("", CreateReport).RequireSignature();
+        reports.MapPost("/{id:guid}/votes", Vote).RequireSignature();
         reports.MapPost("/{id:guid}/thanks", Thank);
 
         api.MapPost("/locations", Locations).WithTags("Live").RequireAuthorization();

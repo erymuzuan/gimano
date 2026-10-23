@@ -16,6 +16,21 @@ public static class AuthAndMeEndpoints
     private static readonly HashSet<string> Moods =
         ["happy", "chill", "sleepy", "hungry", "in_a_hurry", "cool", "zen", "excited", "grumpy", "ninja", "party", "baby"];
 
+    public static string RandomDisplayName() => $"{Animals[Random.Shared.Next(Animals.Length)]} {Random.Shared.Next(1000, 9999)}";
+
+    /// <summary>User + reputation view for /me: tier, accuracy, counts and what's missing for the next tier.</summary>
+    internal static async Task<UserDto> MeAsync(GimanoDbContext db, User user, DateTimeOffset now, CancellationToken ct)
+    {
+        var c = await Gimano.Core.Identity.Ledger.CountersAsync(db, user, now, ct);
+        var next = Gimano.Core.Identity.Reputation.Next(c, now);
+        return user.ToDto() with
+        {
+            Tier = user.Tier, Accuracy = Gimano.Core.Identity.Reputation.Accuracy(c), PlacesAccepted = user.PlacesAccepted,
+            VerifierVotes = user.VerifierVotes, NextTier = next is null ? null : new NextTierDto(next.Name, next.Missing),
+            SuspendedUntil = user.SuspendedUntil > now ? user.SuspendedUntil : null,
+        };
+    }
+
     public static RouteGroupBuilder MapAuthAndMe(this RouteGroupBuilder api)
     {
         api.MapPost("/auth/device", DeviceAuth).WithTags("Auth").AllowAnonymous()
@@ -51,7 +66,7 @@ public static class AuthAndMeEndpoints
                 DeviceId = req.DeviceId,
                 Platform = req.Platform,
                 Locale = string.IsNullOrWhiteSpace(req.Locale) ? "ms-MY" : req.Locale,
-                DisplayName = $"{Animals[Random.Shared.Next(Animals.Length)]} {Random.Shared.Next(1000, 9999)}",
+                DisplayName = RandomDisplayName(),
             };
             db.Users.Add(user);
         }
@@ -62,10 +77,10 @@ public static class AuthAndMeEndpoints
         return TypedResults.Ok(new DeviceAuthResponse(jwt.Issue(user.Id, user.DisplayName, user.Mood), user.Id, user.DisplayName));
     }
 
-    private static async Task<Results<Ok<UserDto>, NotFound>> GetMe(HttpContext http, GimanoDbContext db, CancellationToken ct)
+    private static async Task<Results<Ok<UserDto>, NotFound>> GetMe(HttpContext http, GimanoDbContext db, TimeProvider clock, CancellationToken ct)
     {
         var user = await db.Users.AsNoTracking().FirstOrDefaultAsync(u => u.Id == http.User.RequiredUserId(), ct);
-        return user is null ? TypedResults.NotFound() : TypedResults.Ok(user.ToDto());
+        return user is null ? TypedResults.NotFound() : TypedResults.Ok(await MeAsync(db, user, clock.GetUtcNow(), ct));
     }
 
     private static async Task<Results<Ok<UserDto>, NotFound, ValidationProblem>> PatchMe(
