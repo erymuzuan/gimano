@@ -7,7 +7,8 @@ import os
 @MainActor
 @Observable
 final class BackupManager {
-    nonisolated static let taskIdentifier = "my.gimano.app.backup"
+    /// "<bundle id>.backup" (listed in Info.plist BGTaskSchedulerPermittedIdentifiers via the same build setting).
+    nonisolated static let taskIdentifier = (Bundle.main.bundleIdentifier ?? "my.manotu.app") + ".backup"
     static let keep = 5
 
     let store: LocalStore

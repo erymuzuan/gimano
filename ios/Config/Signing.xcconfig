@@ -1,16 +1,35 @@
-// Code signing for Gimano. Committed; contains no personal values.
+// Code signing and app identity for Manotu (formerly Gimano). Committed; contains no personal values.
 // Put your own Apple Developer Team ID in Config/Local.xcconfig (git-ignored):
 //   cp Config/Local.xcconfig.example Config/Local.xcconfig
 DEVELOPMENT_TEAM =
-// iCloud backup (CloudKit container iCloud.my.gimano.app). Needs an Apple ID in Xcode → Settings → Accounts so
-// automatic signing can register the container. Set GIMANO_ICLOUD = NO in Local.xcconfig (or on the xcodebuild
-// command line) to build without the iCloud entitlement; the app then shows "iCloud isn't enabled in this build".
+
+// Build variant: manotu (default, bundle id my.manotu.app) or gimano (legacy my.gimano.app).
+// Override in Local.xcconfig (APP_VARIANT = gimano) or on the xcodebuild command line.
+APP_VARIANT = manotu
+APP_BUNDLE_ID_manotu = my.manotu.app
+APP_BUNDLE_ID_gimano = my.gimano.app
+
+// iCloud backup (CloudKit container iCloud.<bundle id>). Needs the iCloud capability on the App ID; set
+// GIMANO_ICLOUD = NO to build without the iCloud entitlement (the app then shows "iCloud isn't enabled in this build").
 GIMANO_ICLOUD = YES
 GIMANO_ENTITLEMENTS_YES = Gimano/Resources/Gimano.entitlements
 GIMANO_ENTITLEMENTS_NO = Gimano/Resources/Gimano-NoCloud.entitlements
-#include? "Local.xcconfig"
 
-// Optional Google Drive backup client (git-ignored): cp Config/Google.xcconfig.example Config/Google.xcconfig
+// Google Drive backup OAuth clients (git-ignored values): cp Config/Google.xcconfig.example Config/Google.xcconfig
+MANOTU_GOOGLE_CLIENT_ID =
+MANOTU_GOOGLE_REVERSED_CLIENT_ID = manotu-google-not-configured
 GIMANO_GOOGLE_CLIENT_ID =
 GIMANO_GOOGLE_REVERSED_CLIENT_ID = gimano-google-not-configured
+
+#include? "Local.xcconfig"
 #include? "Google.xcconfig"
+
+// Resolved for the active variant (used by project.yml, Info.plist and the entitlements).
+APP_BUNDLE_ID = $(APP_BUNDLE_ID_$(APP_VARIANT))
+APP_ICLOUD_CONTAINER = iCloud.$(APP_BUNDLE_ID)
+APP_GOOGLE_CLIENT_ID_manotu = $(MANOTU_GOOGLE_CLIENT_ID)
+APP_GOOGLE_CLIENT_ID_gimano = $(GIMANO_GOOGLE_CLIENT_ID)
+APP_GOOGLE_REVERSED_CLIENT_ID_manotu = $(MANOTU_GOOGLE_REVERSED_CLIENT_ID)
+APP_GOOGLE_REVERSED_CLIENT_ID_gimano = $(GIMANO_GOOGLE_REVERSED_CLIENT_ID)
+APP_GOOGLE_CLIENT_ID = $(APP_GOOGLE_CLIENT_ID_$(APP_VARIANT))
+APP_GOOGLE_REVERSED_CLIENT_ID = $(APP_GOOGLE_REVERSED_CLIENT_ID_$(APP_VARIANT))

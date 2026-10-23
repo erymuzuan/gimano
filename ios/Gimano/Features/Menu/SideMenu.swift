@@ -306,6 +306,17 @@ struct OnboardingView: View {
                     .buttonStyle(PrimaryButtonStyle())
                 Button("Not now") { model.finishOnboarding(allowLocation: false) }
                     .buttonStyle(SecondaryButtonStyle())
+                // Offered, never automatic: opens Backup & restore; nothing changes until the user picks a backup
+                // and confirms Merge or Replace.
+                Button {
+                    model.finishOnboarding(allowLocation: true)
+                    model.restoreOnFirstRun = true
+                    model.menuSheet = .backup
+                } label: {
+                    Label("Restore from Gimano or a backup", systemImage: "arrow.uturn.backward.circle")
+                        .font(Tokens.Font.label)
+                }
+                .accessibilityIdentifier("onboardingRestore")
             }
             .padding(.horizontal, 24)
             .padding(.bottom, 24)

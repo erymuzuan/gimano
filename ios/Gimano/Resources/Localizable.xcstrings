@@ -1191,6 +1191,16 @@
         }
       }
     },
+    "Choose a backup file": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pilih fail sandaran"
+          }
+        }
+      }
+    },
     "Choose a destination": {
       "localizations": {
         "ms": {
@@ -4548,6 +4558,16 @@
         }
       }
     },
+    "Restore from Gimano or a backup": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pulihkan dari Gimano atau sandaran"
+          }
+        }
+      }
+    },
     "Restore from a recovery code": {
       "localizations": {
         "ms": {
@@ -4574,6 +4594,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Pulihkan nama samaran"
+          }
+        }
+      }
+    },
+    "Restore your places from Gimano or Manotu: choose where your backup is (a file, Google Drive or iCloud), then pick it. Nothing on this phone changes until you choose Merge or Replace and confirm.": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pulihkan tempat anda dari Gimano atau Manotu: pilih lokasi sandaran anda (fail, Google Drive atau iCloud), kemudian pilih sandaran itu. Tiada apa-apa dalam telefon ini berubah sehingga anda memilih Gabung atau Ganti dan mengesahkannya."
           }
         }
       }

@@ -101,6 +101,8 @@ final class AppModel {
     var longPressPoint: LatLng?
     /// "Choose on map" in progress, and the actions for a chosen point.
     var pinPick: PinPickRequest?
+    /// Backup & restore opened from the first-run "Restore from Gimano or a backup".
+    var restoreOnFirstRun = false
     var pinActions: PickedPoint?
 
     var screen: Screen = .home

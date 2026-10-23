@@ -3,7 +3,9 @@ import SwiftUI
 import UniformTypeIdentifiers
 
 extension UTType {
-    static let gimanoBackup = UTType(exportedAs: "my.gimano.backup", conformingTo: .zip)
+    static let manotuBackup = UTType(exportedAs: "my.manotu.backup", conformingTo: .zip)
+    /// Backups made before the rename (still imported).
+    static let gimanoBackup = UTType(importedAs: "my.gimano.backup", conformingTo: .zip)
 }
 
 /// "Your places stay on your phone" (docs/privacy-promise.md, short version).
@@ -62,6 +64,16 @@ struct BackupView: View {
     var body: some View {
         @Bindable var backup = model.backup
         Form {
+            if model.restoreOnFirstRun {
+                Section {
+                    Label("Restore your places from Gimano or Manotu: choose where your backup is (a file, Google Drive or iCloud), then pick it. Nothing on this phone changes until you choose Merge or Replace and confirm.",
+                          systemImage: "arrow.uturn.backward.circle")
+                        .font(Tokens.Font.caption)
+                        .accessibilityIdentifier("firstRunRestoreNote")
+                    Button("Choose a backup file") { showImporter = true }
+                        .accessibilityIdentifier("firstRunPickFile")
+                }
+            }
             Section {
                 statusCard.listRowInsets(EdgeInsets()).listRowBackground(Color.clear)
             } footer: {
@@ -176,9 +188,10 @@ struct BackupView: View {
             #endif
         }
         .navigationTitle("Backup & restore")
+        .onDisappear { model.restoreOnFirstRun = false }
         .task { await refreshStatus() }
         .onChange(of: backup.destination) { Task { await refreshStatus() } }
-        .fileImporter(isPresented: $showImporter, allowedContentTypes: [.gimanoBackup, .zip, .data]) { result in
+        .fileImporter(isPresented: $showImporter, allowedContentTypes: [.manotuBackup, .gimanoBackup, .zip, .data]) { result in
             if case .success(let url) = result {
                 pendingRestore = PendingRestore(file: url, manifest: backup.manifest(of: url))
             }

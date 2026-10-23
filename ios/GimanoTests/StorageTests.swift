@@ -241,3 +241,25 @@ struct ManotuBackupTests {
         #expect(try dst.savedPlaces().first?.kind == .home)
     }
 }
+
+@Suite("Backup retention")
+struct BackupRetentionTests {
+    private func b(_ id: String, _ daysAgo: Double, _ install: String?) -> RemoteBackup {
+        RemoteBackup(id: id, name: id, createdAt: Date(timeIntervalSinceNow: -daysAgo * 86400), size: 1, installId: install)
+    }
+
+    @Test("Only this installation's backups beyond the newest 5 are deleted; Android/other devices/untagged are never touched")
+    func scoped() {
+        let mine = (0..<8).map { b("m\($0)", Double($0), "me") }
+        let others = [b("android1", 20, nil), b("android2", 0.5, nil), b("ipad", 30, "other-install"), b("old-gimano", 90, nil)]
+        let drop = BackupRetention.toDelete(mine + others, installId: "me", keep: 5)
+        #expect(Set(drop.map(\.id)) == ["m5", "m6", "m7"])
+        #expect(BackupRetention.toDelete(others, installId: "me", keep: 0).isEmpty, "never deletes what it didn't create")
+    }
+
+    @Test("Install id is stable and random per installation")
+    func installId() {
+        let a = BackupRetention.installId
+        #expect(a == BackupRetention.installId && a.count == 36)
+    }
+}

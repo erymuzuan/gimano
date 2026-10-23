@@ -8,6 +8,25 @@ struct RemoteBackup: Identifiable, Hashable, Sendable {
     var name: String
     var createdAt: Date
     var size: Int64?
+    /// The installation that uploaded it (nil: another app/device/older version: never pruned by us).
+    var installId: String? = nil
+}
+
+/// Retention never touches backups this installation didn't create: Drive's appDataFolder is shared by every
+/// OAuth client of the Google Cloud project (Android, older iOS builds, other phones), and so is the iCloud index.
+enum BackupRetention {
+    /// A random id per installation (not backed up, not synced; only a tag on our own uploads).
+    static var installId: String {
+        if let s = UserDefaults.standard.string(forKey: "backup.installId") { return s }
+        let s = UUID().uuidString.lowercased()
+        UserDefaults.standard.set(s, forKey: "backup.installId")
+        return s
+    }
+
+    /// Our own backups beyond the newest `keep`; everything else is left alone.
+    static func toDelete(_ all: [RemoteBackup], installId: String, keep: Int) -> [RemoteBackup] {
+        Array(all.filter { $0.installId == installId }.sorted { $0.createdAt > $1.createdAt }.dropFirst(keep))
+    }
 }
 
 enum BackupDestinationKind: String, CaseIterable, Identifiable, Sendable {
@@ -43,7 +62,8 @@ enum CloudBackupError: LocalizedError {
 /// One `GimanoBackup` record per backup with the file as a `CKAsset`, plus a fixed `GimanoBackupIndex` record listing
 /// them, so listing needs no CloudKit query indexes.
 struct ICloudBackupDestination: BackupDestination {
-    static let containerId = "iCloud.my.gimano.app"
+    /// From the build configuration (Manotu: iCloud.my.manotu.app; legacy Gimano: iCloud.my.gimano.app).
+    static let containerId = Bundle.main.object(forInfoDictionaryKey: "AppICloudContainer") as? String ?? "iCloud.my.manotu.app"
     let kind = BackupDestinationKind.icloud
 
     /// False when the app was built without the iCloud entitlement (`GIMANO_ICLOUD = NO`); touching CloudKit
@@ -82,6 +102,7 @@ struct ICloudBackupDestination: BackupDestination {
         rec["createdAt"] = createdAt as NSDate
         rec["size"] = ((try? file.resourceValues(forKeys: [.fileSizeKey]).fileSize) ?? 0) as NSNumber
         rec["platform"] = "ios" as NSString
+        rec["installId"] = BackupRetention.installId as NSString
         _ = try await db.save(rec)
         let index = try await loadIndex()
         var ids = (index["ids"] as? [String]) ?? []
@@ -94,11 +115,12 @@ struct ICloudBackupDestination: BackupDestination {
         let index = try await loadIndex()
         let ids = ((index["ids"] as? [String]) ?? []).map { CKRecord.ID(recordName: $0) }
         guard !ids.isEmpty else { return [] }
-        let results = try await db.records(for: ids, desiredKeys: ["name", "createdAt", "size"])
+        let results = try await db.records(for: ids, desiredKeys: ["name", "createdAt", "size", "installId"])
         return results.compactMap { id, r in
             guard let rec = try? r.get() else { return nil }
             return RemoteBackup(id: id.recordName, name: rec["name"] as? String ?? id.recordName,
-                                createdAt: rec["createdAt"] as? Date ?? .distantPast, size: (rec["size"] as? NSNumber)?.int64Value)
+                                createdAt: rec["createdAt"] as? Date ?? .distantPast, size: (rec["size"] as? NSNumber)?.int64Value,
+                                installId: rec["installId"] as? String)
         }.sorted { $0.createdAt > $1.createdAt }
     }
 
@@ -113,12 +135,12 @@ struct ICloudBackupDestination: BackupDestination {
     }
 
     func prune(keep: Int) async throws {
+        let drop = BackupRetention.toDelete(try await list(), installId: BackupRetention.installId, keep: keep)
+        guard !drop.isEmpty else { return }
         let index = try await loadIndex()
-        let ids = (index["ids"] as? [String]) ?? []
-        guard ids.count > keep else { return }
-        let drop = ids.dropFirst(keep).map { CKRecord.ID(recordName: $0) }
-        index["ids"] = Array(ids.prefix(keep)) as NSArray
-        _ = try await db.modifyRecords(saving: [index], deleting: drop, savePolicy: .allKeys)
+        let gone = Set(drop.map(\.id))
+        index["ids"] = ((index["ids"] as? [String]) ?? []).filter { !gone.contains($0) } as NSArray
+        _ = try await db.modifyRecords(saving: [index], deleting: drop.map { CKRecord.ID(recordName: $0.id) }, savePolicy: .allKeys)
     }
 }
 
@@ -192,12 +214,15 @@ struct GoogleDriveBackupDestination: BackupDestination {
 
     func upload(_ file: URL, createdAt: Date) async throws {
         let boundary = "gimano-\(UUID().uuidString)"
-        let meta = try JSONSerialization.data(withJSONObject: ["name": file.lastPathComponent, "parents": ["appDataFolder"],
-                                                               "mimeType": "application/vnd.gimano.backup+zip"])
+        let meta = try JSONSerialization.data(withJSONObject: [
+            "name": file.lastPathComponent, "parents": ["appDataFolder"], "mimeType": "application/vnd.manotu.backup+zip",
+            // Only backups carrying this installation's tag are ever pruned by this phone.
+            "appProperties": ["installId": BackupRetention.installId, "platform": "ios"],
+        ] as [String: Any])
         var body = Data()
         body.append("--\(boundary)\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n".data(using: .utf8)!)
         body.append(meta)
-        body.append("\r\n--\(boundary)\r\nContent-Type: application/vnd.gimano.backup+zip\r\n\r\n".data(using: .utf8)!)
+        body.append("\r\n--\(boundary)\r\nContent-Type: application/vnd.manotu.backup+zip\r\n\r\n".data(using: .utf8)!)
         body.append(try Data(contentsOf: file))
         body.append("\r\n--\(boundary)--\r\n".data(using: .utf8)!)
         _ = try await request(URL(string: "https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart")!, method: "POST",
@@ -207,11 +232,15 @@ struct GoogleDriveBackupDestination: BackupDestination {
     func list() async throws -> [RemoteBackup] {
         var c = URLComponents(string: "https://www.googleapis.com/drive/v3/files")!
         c.queryItems = [URLQueryItem(name: "spaces", value: "appDataFolder"), URLQueryItem(name: "orderBy", value: "createdTime desc"),
-                        URLQueryItem(name: "fields", value: "files(id,name,size,createdTime)"), URLQueryItem(name: "pageSize", value: "50")]
+                        URLQueryItem(name: "fields", value: "files(id,name,size,createdTime,appProperties)"), URLQueryItem(name: "pageSize", value: "100")]
         let data = try await request(c.url!)
-        struct Files: Decodable { struct F: Decodable { var id: String; var name: String; var size: String?; var createdTime: String }; var files: [F] }
+        struct Files: Decodable {
+            struct F: Decodable { var id: String; var name: String; var size: String?; var createdTime: String; var appProperties: [String: String]? }
+            var files: [F]
+        }
         return try JSONDecoder().decode(Files.self, from: data).files.map {
-            RemoteBackup(id: $0.id, name: $0.name, createdAt: JSON.parseDate($0.createdTime) ?? .distantPast, size: $0.size.flatMap(Int64.init))
+            RemoteBackup(id: $0.id, name: $0.name, createdAt: JSON.parseDate($0.createdTime) ?? .distantPast, size: $0.size.flatMap(Int64.init),
+                         installId: $0.appProperties?["installId"])
         }
     }
 
@@ -223,7 +252,7 @@ struct GoogleDriveBackupDestination: BackupDestination {
     }
 
     func prune(keep: Int) async throws {
-        for b in try await list().dropFirst(keep) {
+        for b in BackupRetention.toDelete(try await list(), installId: BackupRetention.installId, keep: keep) {
             _ = try await request(URL(string: "https://www.googleapis.com/drive/v3/files/\(b.id)")!, method: "DELETE")
         }
     }

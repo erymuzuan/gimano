@@ -7,6 +7,30 @@ The Release configuration talks to **https://gimano-api.bukitbunga.com/api/v1/**
 It is ATS-strict (no exceptions), has no developer settings or overrides, and ignores test launch arguments.
 Demo data is used only when the server is unreachable or returns 5xx.
 
+## App identity and build variants
+
+`Config/Signing.xcconfig` sets `APP_VARIANT` (default **`manotu`**; `gimano` for the legacy app) and derives:
+
+| Setting | manotu (default) | gimano (legacy) |
+|---|---|---|
+| `PRODUCT_BUNDLE_IDENTIFIER` (`APP_BUNDLE_ID`) | `my.manotu.app` | `my.gimano.app` |
+| iCloud container (`APP_ICLOUD_CONTAINER`) | `iCloud.my.manotu.app` | `iCloud.my.gimano.app` |
+| Google client (`APP_GOOGLE_CLIENT_ID` / `_REVERSED_`) | `MANOTU_GOOGLE_CLIENT_ID` / `MANOTU_GOOGLE_REVERSED_CLIENT_ID` | `GIMANO_GOOGLE_CLIENT_ID` / `GIMANO_GOOGLE_REVERSED_CLIENT_ID` |
+| Background backup task | `my.manotu.app.backup` | `my.gimano.app.backup` |
+
+Google client ids live in the git-ignored `Config/Google.xcconfig` (see `Config/Google.xcconfig.example`).
+Build the legacy app with `APP_VARIANT=gimano` (Local.xcconfig or the xcodebuild command line).
+
+### Building for a device once the individual team exists
+
+1. Put the **individual** team id in `Config/Local.xcconfig`: `DEVELOPMENT_TEAM = <individual team id>` (never STAFY).
+2. In Xcode → Settings → Accounts, sign in with that Apple ID (or pass an App Store Connect API key, see below).
+3. developer.apple.com → Identifiers: register **`my.manotu.app`** with capabilities iCloud (CloudKit container
+   `iCloud.my.manotu.app`), Background Modes and App Attest (DeviceCheck); automatic signing then creates the profiles.
+   Until the container exists, build with `GIMANO_ICLOUD=NO` (Drive and file backups still work).
+4. Google Cloud: the iOS OAuth client for bundle id `my.manotu.app` is `MANOTU_GOOGLE_CLIENT_ID` (already set locally).
+5. Build: `xcodebuild -scheme Gimano -destination 'id=<device>' -allowProvisioningUpdates` (Debug talks to WS556).
+
 ## One-time setup
 
 > **Team:** TestFlight and the App Store must use Erymuzuan Mustapa's **individual** Apple Developer team, never

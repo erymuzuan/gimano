@@ -2,9 +2,11 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<key>AppICloudContainer</key>
+	<string>$(APP_ICLOUD_CONTAINER)</string>
 	<key>BGTaskSchedulerPermittedIdentifiers</key>
 	<array>
-		<string>my.gimano.app.backup</string>
+		<string>$(PRODUCT_BUNDLE_IDENTIFIER).backup</string>
 	</array>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>en</string>
@@ -19,6 +21,18 @@
 			<string>Viewer</string>
 			<key>LSHandlerRank</key>
 			<string>Owner</string>
+			<key>LSItemContentTypes</key>
+			<array>
+				<string>my.manotu.backup</string>
+			</array>
+		</dict>
+		<dict>
+			<key>CFBundleTypeName</key>
+			<string>Gimano backup</string>
+			<key>CFBundleTypeRole</key>
+			<string>Viewer</string>
+			<key>LSHandlerRank</key>
+			<string>Alternate</string>
 			<key>LSItemContentTypes</key>
 			<array>
 				<string>my.gimano.backup</string>
@@ -49,14 +63,14 @@
 			<string>google-signin</string>
 			<key>CFBundleURLSchemes</key>
 			<array>
-				<string>$(GIMANO_GOOGLE_REVERSED_CLIENT_ID)</string>
+				<string>$(APP_GOOGLE_REVERSED_CLIENT_ID)</string>
 			</array>
 		</dict>
 	</array>
 	<key>CFBundleVersion</key>
 	<string>$(CURRENT_PROJECT_VERSION)</string>
 	<key>GIDClientID</key>
-	<string>$(GIMANO_GOOGLE_CLIENT_ID)</string>
+	<string>$(APP_GOOGLE_CLIENT_ID)</string>
 	<key>GimanoAPIBaseURL</key>
 	<string>$(GIMANO_API_BASE_URL)</string>
 	<key>GimanoICloudEnabled</key>
@@ -136,17 +150,40 @@
 			<key>UTTypeDescription</key>
 			<string>Manotu backup</string>
 			<key>UTTypeIdentifier</key>
-			<string>my.gimano.backup</string>
+			<string>my.manotu.backup</string>
 			<key>UTTypeTagSpecification</key>
 			<dict>
 				<key>public.filename-extension</key>
 				<array>
 					<string>manotu</string>
-					<string>gimano</string>
 				</array>
 				<key>public.mime-type</key>
 				<array>
 					<string>application/vnd.manotu.backup+zip</string>
+				</array>
+			</dict>
+		</dict>
+	</array>
+	<key>UTImportedTypeDeclarations</key>
+	<array>
+		<dict>
+			<key>UTTypeConformsTo</key>
+			<array>
+				<string>public.zip-archive</string>
+				<string>public.data</string>
+			</array>
+			<key>UTTypeDescription</key>
+			<string>Gimano backup</string>
+			<key>UTTypeIdentifier</key>
+			<string>my.gimano.backup</string>
+			<key>UTTypeTagSpecification</key>
+			<dict>
+				<key>public.filename-extension</key>
+				<array>
+					<string>gimano</string>
+				</array>
+				<key>public.mime-type</key>
+				<array>
 					<string>application/vnd.gimano.backup+zip</string>
 				</array>
 			</dict>
