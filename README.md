@@ -1,4 +1,8 @@
+<img src="docs/brand/gimano-icon-rounded.svg" width="96" alt="Gimano app icon: a wau bulan kite">
+
 # Gimano
+
+*"Gi mano?"* (where are you going?)
 
 **Open-source, community-driven navigation for Malaysia.** Gimano works the way
 drivers who use Waze already expect: search "Where to?", compare routes, drive

@@ -1,0 +1,11 @@
+<!-- Gimano app icon "Wau": full-bleed square master (iOS App Store 1024, Play Store 512). Platforms apply their own corner mask. MIT. -->
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 200 200">
+  <rect width="200" height="200" fill="#0047AB"/>
+  <g>
+    <path d="M100 30C116 44 146 50 168 68 146 82 120 82 108 90V106C128 108 154 122 160 150 136 138 114 144 100 170 86 144 64 138 40 150 46 122 72 108 92 106V90C80 82 54 82 32 68 54 50 84 44 100 30Z" fill="#FFFFFF"/>
+    <path d="M100 30C108 44 132 52 150 66 130 74 114 74 104 82" fill="none" stroke="#8FB0E8" stroke-width="5" stroke-linecap="round"/>
+    <path d="M100 30C92 44 68 52 50 66 70 74 86 74 96 82" fill="none" stroke="#8FB0E8" stroke-width="5" stroke-linecap="round"/>
+    <path d="M100 40V160" stroke="#0A1F4D" stroke-width="4" stroke-linecap="round"/>
+    <circle cx="100" cy="98" r="11" fill="#FF6B4A"/>
+  </g>
+</svg>
