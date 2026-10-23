@@ -85,7 +85,8 @@ class CrashReporter(
         return CrashRecord(
             id = UUID.randomUUID().toString(), occurredAt = Instant.now().toString(), kind = "crash",
             exception = e.javaClass.name, message = e.message, stack = "thread: ${t.name}\n$sw", screen = screen,
-            uptimeS = SystemClock.elapsedRealtime() / 1000,
+            // App uptime (since this process started), not device uptime.
+            uptimeS = (SystemClock.elapsedRealtime() - android.os.Process.getStartElapsedRealtime()) / 1000,
         )
     }
 
@@ -135,7 +136,8 @@ class CrashReporter(
     )
 
     fun previewJson(r: CrashRecord, contact: ContactDetails?): String =
-        kotlinx.serialization.json.Json { prettyPrint = true; explicitNulls = false }.encodeToString(CrashReportRequest.serializer(), request(r, contact))
+        // Same settings as the request body (GimanoJson: defaults included), so the preview is exactly what is sent.
+        kotlinx.serialization.json.Json(GimanoJson) { prettyPrint = true }.encodeToString(CrashReportRequest.serializer(), request(r, contact))
 
     fun discard(r: CrashRecord) {
         File(dir, "${r.id}.json").delete()

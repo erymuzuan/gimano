@@ -110,6 +110,8 @@ fun HomeOverlay(ui: UiState, settings: AppSettings, vm: MainViewModel, onMic: ()
     val dragState = rememberDraggableState { delta -> scope.launch { sheet.snapTo((sheet.value - delta).coerceIn(minPx, maxPx)) } }
     val progress = ((sheet.value - minPx) / (maxPx - minPx)).coerceIn(0f, 1f)
     val sheetDp = with(density) { sheet.value.toDp() }
+    // The map must keep the puck above this sheet (it grows with a row of favourites).
+    LaunchedEffect(collapsed) { vm.setHomeSheetDp(collapsed.value.toInt()) }
     val me = ui.myLocation?.point
     val home = ui.saved.firstOrNull { it.kind == "home" }
     val work = ui.saved.firstOrNull { it.kind == "work" }

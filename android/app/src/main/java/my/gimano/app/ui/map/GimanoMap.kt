@@ -124,6 +124,8 @@ fun GimanoMap(
     onAlertClick: (String) -> Unit = {},
     onRouteClick: (String) -> Unit = {},
     onPrivateClick: (String) -> Unit = {},
+    /** Height (dp) of UI covering the bottom of the map (the home sheet): camera centres above it. */
+    bottomInsetDp: Int = 0,
 ) {
     val context = LocalContext.current
     val density = LocalDensity.current
@@ -233,7 +235,13 @@ fun GimanoMap(
     LaunchedEffect(camera?.id, handle.ready) {
         val map = handle.map ?: return@LaunchedEffect
         val cmd = camera ?: return@LaunchedEffect
-        applyCamera(map, cmd, density)
+        applyCamera(map, cmd, density, bottomInsetDp)
+    }
+    // When the covered area changes (home sheet appears / grows), shift the view so its centre stays visible.
+    LaunchedEffect(bottomInsetDp, handle.ready) {
+        val map = handle.map ?: return@LaunchedEffect
+        if (camera is CameraCommand.Follow) return@LaunchedEffect
+        map.animateCamera(CameraUpdateFactory.paddingTo(0.0, 0.0, 0.0, (bottomInsetDp * density.density).toDouble()), 300)
     }
 
     Box(modifier) {
@@ -241,11 +249,11 @@ fun GimanoMap(
     }
 }
 
-private fun applyCamera(map: MapLibreMap, cmd: CameraCommand, density: Density) {
+private fun applyCamera(map: MapLibreMap, cmd: CameraCommand, density: Density, bottomInsetDp: Int = 0) {
     val px = { dp: Int -> (dp * density.density).toDouble() }
     when (cmd) {
         is CameraCommand.MoveTo -> {
-            val b = CameraPosition.Builder().target(LatLng(cmd.point.lat, cmd.point.lng)).padding(0.0, 0.0, 0.0, 0.0)
+            val b = CameraPosition.Builder().target(LatLng(cmd.point.lat, cmd.point.lng)).padding(0.0, 0.0, 0.0, px(bottomInsetDp))
             cmd.zoom?.let { b.zoom(it) }
             val u = CameraUpdateFactory.newCameraPosition(b.build())
             if (cmd.animate) map.animateCamera(u, 700) else map.moveCamera(u)
@@ -269,7 +277,7 @@ private fun applyCamera(map: MapLibreMap, cmd: CameraCommand, density: Density) 
         }
         is CameraCommand.Reset2D -> {
             val pos = CameraPosition.Builder().target(LatLng(cmd.point.lat, cmd.point.lng)).bearing(0.0).tilt(0.0).zoom(cmd.zoom)
-                .padding(0.0, 0.0, 0.0, 0.0).build()
+                .padding(0.0, 0.0, 0.0, px(bottomInsetDp)).build()
             map.animateCamera(CameraUpdateFactory.newCameraPosition(pos), 700)
         }
     }

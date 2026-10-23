@@ -213,7 +213,8 @@ private fun TurnBanner(nav: NavState) {
         if (nav.rerouting || m == null) {
             CircularProgressIndicator(Modifier.size(40.dp), color = c.brand, strokeWidth = 4.dp)
             Spacer(Modifier.width(16.dp))
-            Text(stringResource(R.string.rerouting), color = c.navBannerOn, style = GimanoType.title)
+            // No progress yet and not rerouting = no usable GPS fix (e.g. "Approximate" location): say so.
+            Text(stringResource(if (nav.rerouting) R.string.rerouting else R.string.waiting_for_gps), color = c.navBannerOn, style = GimanoType.title)
             return@Row
         }
         Icon(GIcons.maneuver(ManeuverFormatter.icon(m.type)), null, tint = c.navBannerOn, modifier = Modifier.size(60.dp))
