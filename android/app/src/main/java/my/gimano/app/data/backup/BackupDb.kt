@@ -14,7 +14,7 @@ interface SqlPort {
 
 enum class RestoreMode { REPLACE, MERGE }
 
-class BackupTooNewException(val version: Int) : Exception("This backup was made by a newer version of Gimano (schema $version)")
+class BackupTooNewException(val version: Int) : Exception("This backup was made by a newer version of Manotu (schema $version)")
 
 /** Snapshot and restore of the on-device DB, using the shared schema's table names only. */
 object BackupDb {

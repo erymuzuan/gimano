@@ -115,6 +115,7 @@ class ContributeViewModel(private val c: AppContainer) : ViewModel() {
         viewModelScope.launch {
             val dir = File(c.app.filesDir, "photos")
             val files = s.photos.mapNotNull { u -> PhotoPrep.decode(c.app, u)?.let { PhotoPrep.saveWebp(it, dir, UUID.randomUUID().toString()) } }
+            s.photos.forEach { PhotoPrep.deleteIfCameraTemp(c.app, it) }
             val e = c.local.addPrivatePlace(s.name.trim(), s.category!!, s.pin.lat, s.pin.lng, s.address.ifBlank { null }, s.description.ifBlank { null },
                 s.phone.ifBlank { null }, s.website.ifBlank { null }, s.hours, s.amenities.toList(), files)
             _add.value = AddPlaceState()
@@ -135,6 +136,7 @@ class ContributeViewModel(private val c: AppContainer) : ViewModel() {
                     s.phone.ifBlank { null }, s.website.ifBlank { null }, s.hours, s.amenities.toList().ifEmpty { null },
                 ))
                 s.photos.forEach { u -> PhotoPrep.decode(c.app, u)?.let { b -> runCatching { c.repo.uploadPhoto(p.id, PhotoPrep.jpeg(b), null) }.onSuccess { ph -> log.photo(ph.id, ph.url) } } }
+                s.photos.forEach { PhotoPrep.deleteIfCameraTemp(c.app, it) }
                 _add.value = AddPlaceState()
                 _events.tryEmit(ContribEvent.Message(R.string.place_added_public))
                 _events.tryEmit(ContribEvent.ShowPlace(p.summary()))
@@ -232,7 +234,10 @@ class ContributeViewModel(private val c: AppContainer) : ViewModel() {
 
     private suspend fun upload(placeId: String, u: Uri): Photo? {
         val b = PhotoPrep.decode(c.app, u) ?: return null
-        return runCatching { c.repo.uploadPhoto(placeId, PhotoPrep.jpeg(b), null) }.getOrNull()?.also { log.photo(it.id, it.url) }
+        return runCatching { c.repo.uploadPhoto(placeId, PhotoPrep.jpeg(b), null) }.getOrNull()?.also {
+            log.photo(it.id, it.url)
+            PhotoPrep.deleteIfCameraTemp(c.app, u)   // uploaded: the camera's temp file is no longer needed
+        }
     }
 
     fun submitReview(place: Place) {

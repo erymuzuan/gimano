@@ -96,7 +96,7 @@ object BackupArchive {
                 if (e.name == MANIFEST) return parseManifest(zip.readBytes())
             }
         }
-        throw BackupFormatException("Not a Gimano backup (no manifest.json)")
+        throw BackupFormatException("Not a Manotu backup (no manifest.json)")
     }
 
     private fun parseManifest(bytes: ByteArray): BackupManifest {
@@ -116,7 +116,7 @@ object BackupArchive {
     fun extract(input: InputStream, workDir: File, passphrase: String?, crypto: BackupCrypto?): Extracted {
         workDir.mkdirs()
         val outer = readEntries(input)
-        val m = outer.firstOrNull { it.first == MANIFEST }?.let { parseManifest(it.second) } ?: throw BackupFormatException("Not a Gimano backup (no manifest.json)")
+        val m = outer.firstOrNull { it.first == MANIFEST }?.let { parseManifest(it.second) } ?: throw BackupFormatException("Not a Manotu backup (no manifest.json)")
         val entries = when (m.encryption) {
             BackupManifest.ENCRYPTION_NONE -> outer.filter { it.first != MANIFEST }
             BackupManifest.ENCRYPTION_PASSPHRASE -> {

@@ -36,7 +36,27 @@ object PhotoPrep {
         }.getOrNull()
     }
 
-    fun jpeg(b: Bitmap, quality: Int = 85): ByteArray = ByteArrayOutputStream().also { b.compress(Bitmap.CompressFormat.JPEG, quality, it) }.toByteArray()
+    /** Upload bytes: re-encoded JPEG, then every metadata segment stripped (no GPS / model / timestamps). */
+    fun jpeg(b: Bitmap, quality: Int = 85): ByteArray =
+        my.gimano.app.core.photo.MetadataStripper.jpeg(ByteArrayOutputStream().also { b.compress(Bitmap.CompressFormat.JPEG, quality, it) }.toByteArray())
+
+    /** Camera shots go to cache/shared/camera-*.jpg (FileProvider); delete them once used or cancelled. */
+    fun newCameraFile(context: Context): File =
+        File(File(context.cacheDir, "shared").apply { mkdirs() }, "camera-${java.util.UUID.randomUUID()}.jpg")
+
+    fun cameraUri(context: Context, f: File): Uri = androidx.core.content.FileProvider.getUriForFile(context, "${context.packageName}.files", f)
+
+    /** Deletes [uri] if it is one of our camera temp files (gallery picks are left alone). */
+    fun deleteIfCameraTemp(context: Context, uri: Uri) {
+        if (uri.authority != "${context.packageName}.files") return
+        val name = uri.lastPathSegment ?: return
+        if (name.startsWith("camera-")) File(File(context.cacheDir, "shared"), name).delete()
+    }
+
+    /** Leftovers from a crash or a cancelled flow, older than a day. */
+    fun sweepCameraTemps(context: Context) {
+        File(context.cacheDir, "shared").listFiles { f -> f.name.startsWith("camera-") && System.currentTimeMillis() - f.lastModified() > 86_400_000 }?.forEach { it.delete() }
+    }
 
     /** Private-place photos: WebP in files/photos/<id>.webp (shared backup layout). */
     fun saveWebp(b: Bitmap, dir: File, id: String): String {
@@ -44,7 +64,8 @@ object PhotoPrep {
         val name = "$id.webp"
         @Suppress("DEPRECATION")
         val fmt = if (Build.VERSION.SDK_INT >= 30) Bitmap.CompressFormat.WEBP_LOSSY else Bitmap.CompressFormat.WEBP
-        File(dir, name).outputStream().use { b.compress(fmt, 80, it) }
+        val bytes = ByteArrayOutputStream().also { b.compress(fmt, 80, it) }.toByteArray()
+        File(dir, name).writeBytes(my.gimano.app.core.photo.MetadataStripper.webp(bytes))
         return name
     }
 }

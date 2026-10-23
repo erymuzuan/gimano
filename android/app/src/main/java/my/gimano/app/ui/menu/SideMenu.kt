@@ -56,7 +56,7 @@ fun SideMenu(
                 }
                 Spacer(Modifier.width(14.dp))
                 Column {
-                    Text(stringResource(R.string.greeting, user?.displayName ?: "Gimano"), fontSize = 19.sp, fontWeight = FontWeight.Black, color = c.text)
+                    Text(stringResource(R.string.greeting, user?.displayName ?: stringResource(R.string.app_name)), fontSize = 19.sp, fontWeight = FontWeight.Black, color = c.text)
                     if (user != null) Text(stringResource(R.string.points_level, user.points, user.level), fontSize = 14.sp, fontWeight = FontWeight.ExtraBold, color = c.brandInk)
                 }
             }
@@ -107,13 +107,13 @@ private fun VersionLine() {
     var taps by remember { mutableIntStateOf(0) }
     val copied = stringResource(R.string.diagnostics_copied)
     Text(
-        "Gimano ${my.gimano.app.BuildConfig.VERSION_NAME} (${my.gimano.app.BuildConfig.VERSION_CODE})",
+        "${stringResource(R.string.app_name)} ${my.gimano.app.BuildConfig.VERSION_NAME} (${my.gimano.app.BuildConfig.VERSION_CODE})",
         Modifier.fillMaxWidth().clickable {
             taps++
             if (taps >= 7) {
                 taps = 0
                 val info = (ctx.applicationContext as my.gimano.app.GimanoApp).container.deviceInfo.diagnosticsText()
-                ctx.getSystemService(android.content.ClipboardManager::class.java)?.setPrimaryClip(android.content.ClipData.newPlainText("Gimano diagnostics", info))
+                ctx.getSystemService(android.content.ClipboardManager::class.java)?.setPrimaryClip(android.content.ClipData.newPlainText("Manotu diagnostics", info))
                 android.widget.Toast.makeText(ctx, copied, android.widget.Toast.LENGTH_SHORT).show()
             }
         }.padding(horizontal = 16.dp, vertical = 14.dp),

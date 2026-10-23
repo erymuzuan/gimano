@@ -27,7 +27,7 @@ class BackupWorker(context: Context, params: WorkerParameters) : CoroutineWorker
         val auth = runCatching { c.drive.authorize() }.getOrNull() as? DriveAuth.Token ?: return Result.success()
         return try {
             val bytes = ByteArrayOutputStream().also { c.backup.createBackup(it, c.backupPassphrase()) }.toByteArray()
-            c.drive.upload(auth.accessToken, "gimano-${LocalDate.now()}.gimano", bytes)
+            c.drive.upload(auth.accessToken, "manotu-${LocalDate.now()}.manotu", bytes)
             c.drive.prune(auth.accessToken)
             c.settings.setLastBackup(java.time.Instant.now().toString(), bytes.size.toLong(), fp, "drive")
             Result.success()

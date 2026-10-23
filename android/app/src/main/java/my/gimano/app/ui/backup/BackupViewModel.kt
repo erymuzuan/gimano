@@ -69,7 +69,7 @@ class BackupViewModel(private val c: AppContainer) : ViewModel() {
     private var sessionPassphrase: String? = null
     private var afterConsent: (suspend (String) -> Unit)? = null
 
-    fun fileName() = "gimano-${LocalDate.now()}.gimano"
+    fun fileName() = "manotu-${LocalDate.now()}.manotu"
 
     fun setUsePassphrase(v: Boolean) = _ui.update { it.copy(usePassphrase = v) }
 

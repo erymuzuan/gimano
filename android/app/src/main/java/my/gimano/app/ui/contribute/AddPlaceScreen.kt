@@ -113,7 +113,10 @@ private fun DetailsStep(s: AddPlaceState, cvm: ContributeViewModel) {
     val context = LocalContext.current
     var cameraUri by remember { mutableStateOf<Uri?>(null) }
     val pick = rememberLauncherForActivityResult(ActivityResultContracts.PickMultipleVisualMedia(10)) { cvm.addPhotos(it) }
-    val camera = rememberLauncherForActivityResult(ActivityResultContracts.TakePicture()) { ok -> if (ok) cameraUri?.let { cvm.addPhotos(listOf(it)) } }
+    val camera = rememberLauncherForActivityResult(ActivityResultContracts.TakePicture()) { ok ->
+        val u = cameraUri
+        if (ok && u != null) cvm.addPhotos(listOf(u)) else if (u != null) my.gimano.app.data.places.PhotoPrep.deleteIfCameraTemp(context, u)
+    }
     Column(Modifier.fillMaxSize().background(c.background)) {
         TopBar(stringResource(R.string.add_a_place)) { cvm.step(AddStep.PIN) }
         Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(16.dp).imePadding()) {
@@ -142,8 +145,8 @@ private fun DetailsStep(s: AddPlaceState, cvm: ContributeViewModel) {
             Section(stringResource(R.string.photos))
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 OutlinedButton(onClick = {
-                    val f = File(context.cacheDir, "shared").apply { mkdirs() }.resolve("camera-${System.currentTimeMillis()}.jpg")
-                    cameraUri = FileProvider.getUriForFile(context, "${context.packageName}.files", f)
+                    val f = my.gimano.app.data.places.PhotoPrep.newCameraFile(context)
+                    cameraUri = my.gimano.app.data.places.PhotoPrep.cameraUri(context, f)
                     camera.launch(cameraUri!!)
                 }, shape = RoundedCornerShape(Radius.md)) { Icon(Icons.Filled.PhotoCamera, null); Spacer(Modifier.width(6.dp)); Text(stringResource(R.string.camera), fontWeight = FontWeight.ExtraBold) }
                 OutlinedButton(onClick = { pick.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) }, shape = RoundedCornerShape(Radius.md)) {

@@ -39,7 +39,7 @@ class DeviceInfoProvider(
 
     /** Plain-text support info (7 taps on the version line): no coordinates, no identifiers. */
     fun diagnosticsText(): String = current().let { d ->
-        "Gimano ${d.appVersion} (${d.appBuild})\nAndroid ${d.osVersion} (API ${d.apiLevel})\n${d.manufacturer} ${d.deviceModel}\n" +
+        "Manotu ${d.appVersion} (${d.appBuild})\nAndroid ${d.osVersion} (API ${d.apiLevel})\n${d.manufacturer} ${d.deviceModel}\n" +
             "${d.screen.widthDp}×${d.screen.heightDp} dp · ${d.locale} · ${d.theme} · ${d.dataMode}\n" +
             "location: ${d.locationPermission} · last fix ±${d.lastFixAccuracyM?.toString() ?: "?"} m"
     }
