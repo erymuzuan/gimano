@@ -16,6 +16,8 @@ data class NavProgress(
     val remainingS: Double,
     val nextManeuverIndex: Int,
     val nextManeuver: Maneuver?,
+    /** Leg the driver is on (0 = to the first stop). */
+    val legIndex: Int = 0,
     val distanceToNextM: Double,
     val thenManeuver: Maneuver?,
     val arrived: Boolean,
@@ -24,7 +26,19 @@ data class NavProgress(
 /** Pure tracker: feed it fixes, it tells you where you are on the route. */
 class NavigationTracker(val route: Route) {
     val geometry = RouteGeometry(Polyline.decode(route.polyline))
-    val maneuvers: List<Maneuver> = route.maneuvers
+    private val legManeuvers = my.gimano.app.core.trip.RouteLegs.maneuvers(route)
+    val maneuvers: List<Maneuver> = legManeuvers.map { it.maneuver }
+    val legCount: Int = route.legs.size.coerceAtLeast(1)
+
+    /** Along-route distance of each intermediate stop (end of every leg but the last). */
+    val stopAlongM: List<Double> = legManeuvers.groupBy { it.leg }.toSortedMap().values
+        .map { geometry.distanceAtIndex(it.last().maneuver.beginShapeIndex) }
+        .dropLast(1)
+    private val reportedStops = HashSet<Int>()
+
+    /** Returns the index of an intermediate stop the driver just reached (within 25 m), once each. */
+    fun stopReached(p: NavProgress): Int? =
+        stopAlongM.indices.firstOrNull { k -> p.distanceAlongM >= stopAlongM[k] - 25 && k !in reportedStops }?.also { reportedStops += it }
     private var lastSegment = 0
     private val speedFactor: Double =
         if (geometry.lengthM > 0) route.effectiveDurationS / geometry.lengthM else 0.0 // s per metre
@@ -43,6 +57,7 @@ class NavigationTracker(val route: Route) {
         val next = maneuvers.getOrNull(idx)
         val distToNext = if (next != null) (geometry.distanceAtIndex(next.beginShapeIndex) - along).coerceAtLeast(0.0) else remainingM
         val then = maneuvers.getOrNull(idx + 1)
+        val leg = legManeuvers.getOrNull(idx)?.leg ?: 0
         val arrived = remainingM < 25
         return NavProgress(
             snapped = s.point,
@@ -53,6 +68,7 @@ class NavigationTracker(val route: Route) {
             remainingS = remainingM * speedFactor,
             nextManeuverIndex = idx,
             nextManeuver = next,
+            legIndex = leg,
             distanceToNextM = distToNext,
             thenManeuver = then,
             arrived = arrived,
@@ -70,7 +86,7 @@ class NavigationTracker(val route: Route) {
  * Decides which voice prompts to speak. Each maneuver gets at most one "far" prompt
  * (distance depends on speed) and one "now" prompt.
  */
-class VoicePromptPlanner {
+class VoicePromptPlanner(private val mode: String = "car") {
     private val spokenFar = HashSet<Int>()
     private val spokenNear = HashSet<Int>()
     private val spokenNow = HashSet<Int>()
@@ -78,6 +94,8 @@ class VoicePromptPlanner {
     enum class Stage { FAR, NEAR, NOW }
 
     fun farDistanceFor(speedKmh: Double): Double = when {
+        mode == "walk" -> 150.0
+        mode == "bicycle" -> 300.0
         speedKmh > 80 -> 2000.0
         speedKmh > 50 -> 1000.0
         else -> 500.0
@@ -86,10 +104,11 @@ class VoicePromptPlanner {
     fun check(maneuverIndex: Int, distanceM: Double, speedKmh: Double): Stage? {
         if (maneuverIndex < 0) return null
         val far = farDistanceFor(speedKmh)
-        val nowDist = if (speedKmh > 60) 120.0 else 60.0
+        val nowDist = when { mode == "walk" -> 15.0; mode == "bicycle" -> 30.0; speedKmh > 60 -> 120.0; else -> 60.0 }
+        val nearMax = if (mode == "walk" || mode == "bicycle") far else minOf(far, 400.0)
         return when {
             distanceM <= nowDist && spokenNow.add(maneuverIndex) -> Stage.NOW
-            distanceM in (nowDist + 60)..(minOf(far, 400.0)) && maneuverIndex !in spokenNow && spokenNear.add(maneuverIndex) -> Stage.NEAR
+            distanceM in (nowDist + 20)..nearMax && maneuverIndex !in spokenNow && spokenNear.add(maneuverIndex) -> Stage.NEAR
             distanceM in 401.0..far && spokenFar.add(maneuverIndex) -> Stage.FAR
             else -> null
         }

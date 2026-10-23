@@ -52,7 +52,7 @@ class NavigationControllerTest {
     private fun TestScope.rig(): Rig {
         val speaker = RecordingSpeaker()
         val service = RecordingService()
-        val repo = RecordingRepo(DemoRepository { docs })
+        val repo = RecordingRepo(DemoRepository(cannedDocs = { docs }))
         val c = NavigationController(
             backgroundScope, repo, FixSource { emptyFlow() }, speaker, service,
             soundMode = { SoundMode.ON }, langProvider = { Lang.EN },

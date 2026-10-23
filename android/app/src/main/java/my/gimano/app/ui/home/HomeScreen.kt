@@ -8,6 +8,7 @@ import androidx.compose.foundation.gestures.draggable
 import androidx.compose.foundation.gestures.rememberDraggableState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -98,7 +99,9 @@ fun HomeOverlay(ui: UiState, settings: AppSettings, vm: MainViewModel, onMic: ()
     val screenH = LocalConfiguration.current.screenHeightDp.dp
     val navInset = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
     // handle (8+5+12) + search 64 + gap 16 + 2 rows of tiles (76+6+20) + gaps + bottom padding
-    val collapsed = 25.dp + Sizes.searchField + 16.dp + (Sizes.shortcutTile + 30.dp) * 2 + 12.dp + 16.dp + navInset
+    val favs = ui.saved.filter { it.kind == "favorite" }
+    val favRowH = if (favs.isNotEmpty()) Sizes.shortcutTile + 34.dp else 0.dp
+    val collapsed = 25.dp + Sizes.searchField + 16.dp + (Sizes.shortcutTile + 30.dp) * 2 + favRowH + 12.dp + 16.dp + navInset
     val expanded = screenH * 0.82f
     val minPx = with(density) { collapsed.toPx() }
     val maxPx = with(density) { expanded.toPx() }
@@ -168,8 +171,8 @@ fun HomeOverlay(ui: UiState, settings: AppSettings, vm: MainViewModel, onMic: ()
                 // 4-column shortcut grid: Home, Work, Fuel, Food / Surau, Parking, EV, Recent
                 val rows = listOf(
                     listOf(
-                        Triple("home", stringResource(R.string.home)) { if (home != null) vm.routeToSaved(home) else vm.openSearch(SearchPurpose.SET_HOME) },
-                        Triple("work", stringResource(R.string.work)) { if (work != null) vm.routeToSaved(work) else vm.openSearch(SearchPurpose.SET_WORK) },
+                        Triple("home", home?.name?.takeIf { it != "home" } ?: stringResource(R.string.home)) { if (home != null) vm.routeToSaved(home) else vm.openSearch(SearchPurpose.SET_HOME) },
+                        Triple("work", work?.name?.takeIf { it != "work" } ?: stringResource(R.string.work)) { if (work != null) vm.routeToSaved(work) else vm.openSearch(SearchPurpose.SET_WORK) },
                         Triple("fuel", stringResource(R.string.sc_fuel)) { category("fuel") },
                         Triple("food", stringResource(R.string.sc_food)) { category("restaurant") },
                     ),
@@ -182,20 +185,34 @@ fun HomeOverlay(ui: UiState, settings: AppSettings, vm: MainViewModel, onMic: ()
                 )
                 rows.forEach { row ->
                     Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 2.dp), horizontalArrangement = Arrangement.SpaceEvenly) {
-                        row.forEach { (icon, label, action) -> ShortcutTile(icon, label, Modifier.width(84.dp), onClick = { action() }) }
+                        row.forEach { (icon, label, action) ->
+                            // Long-press Home/Work to change or remove them.
+                            val sp = when (icon) { "home" -> home; "work" -> work; else -> null }
+                            ShortcutTile(icon, label, Modifier.width(84.dp), onLongClick = sp?.let { { vm.editFavorite(it) } }, onClick = { action() })
+                        }
+                    }
+                }
+                if (favs.isNotEmpty()) {
+                    // Labelled favourites (Kampung, Rumah Mertua…): tap to go, long-press to edit/reorder/delete.
+                    LazyRow(contentPadding = PaddingValues(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.padding(top = 6.dp)) {
+                        items(favs, key = { it.id }) { f ->
+                            ShortcutTile(f.icon, f.name, Modifier.width(84.dp), onLongClick = { vm.editFavorite(f) }, onClick = { vm.routeToSaved(f) })
+                        }
+                        item { ShortcutTile("star", stringResource(R.string.add_favorite), Modifier.width(84.dp), onClick = { vm.openSearch(SearchPurpose.ADD_FAVORITE) }) }
                     }
                 }
                 Spacer(Modifier.height(12.dp))
             }
             LazyColumn(Modifier.fillMaxWidth().weight(1f).alpha((progress * 3f).coerceAtMost(1f)), contentPadding = PaddingValues(bottom = navInset + 16.dp)) {
+                if (!settings.privacyCardDismissed) item {
+                    PrivacyCard(onBackup = { vm.open(my.gimano.app.ui.Screen.Backup) }, onDismiss = vm::dismissPrivacyCard, modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp))
+                }
                 item { SectionLabel(stringResource(R.string.recents)) }
                 items(ui.recents, key = { it.id }) { r -> RecentRow(r, me) { vm.routeToRecent(r) } }
-                val favs = ui.saved.filter { it.kind == "favorite" }
                 if (favs.isNotEmpty()) {
                     item { SectionLabel(stringResource(R.string.saved_places)) }
                     items(favs, key = { "f" + it.id }) { f ->
-                        PlaceRow("home", f.name, f.address, me?.let { Formatters.distance(GeoMath.distanceM(it, GeoPoint(f.lat, f.lng))) }, onClick = { vm.routeToSaved(f) },
-                            leading = { IconTile { Icon(Icons.Filled.Star, null, tint = Gimano.colors.brand, modifier = Modifier.size(24.dp)) } })
+                        PlaceRow(f.icon, f.name, f.address, me?.let { Formatters.distance(GeoMath.distanceM(it, GeoPoint(f.lat, f.lng))) }, onClick = { vm.routeToSaved(f) })
                     }
                 }
                 item {
@@ -244,7 +261,7 @@ fun RecentRow(r: Recent, me: GeoPoint?, onClick: () -> Unit) {
 }
 
 @Composable
-fun PlaceRow(icon: String, title: String, subtitle: String, trailing: String?, onClick: () -> Unit, leading: (@Composable () -> Unit)? = null) {
+fun PlaceRow(icon: String, title: String, subtitle: String, trailing: String?, onClick: () -> Unit, leading: (@Composable () -> Unit)? = null, badge: String? = null) {
     val c = Gimano.colors
     Row(
         Modifier.fillMaxWidth().clickable(onClick = onClick).padding(horizontal = 16.dp, vertical = 10.dp),
@@ -254,6 +271,7 @@ fun PlaceRow(icon: String, title: String, subtitle: String, trailing: String?, o
         Spacer(Modifier.width(14.dp))
         Column(Modifier.weight(1f)) {
             Text(title, fontSize = 17.sp, fontWeight = FontWeight.ExtraBold, color = c.text, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            if (badge != null) Text(badge, fontSize = 12.sp, fontWeight = FontWeight.ExtraBold, color = c.brand)
             if (subtitle.isNotBlank()) Text(subtitle, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = c.textMuted, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
         if (trailing != null) {

@@ -22,7 +22,10 @@ import my.gimano.app.data.model.User
 import my.gimano.app.ui.theme.Gimano
 
 @Composable
-fun SideMenu(user: User?, onProfile: () -> Unit, onPlanned: () -> Unit, onInbox: () -> Unit, onSettings: () -> Unit, onHelp: () -> Unit, onExit: () -> Unit) {
+fun SideMenu(
+    user: User?, onProfile: () -> Unit, onPlanned: () -> Unit, onInbox: () -> Unit, onSettings: () -> Unit, onHelp: () -> Unit, onExit: () -> Unit,
+    onAddPlace: () -> Unit, onContributions: () -> Unit, onFeedback: () -> Unit, onMyFeedback: () -> Unit, onBackup: () -> Unit,
+) {
     val c = Gimano.colors
     ModalDrawerSheet(drawerContainerColor = c.surface, modifier = Modifier.width(310.dp)) {
         Column(Modifier.fillMaxWidth().background(c.brand).windowInsetsPadding(WindowInsets.statusBars).padding(20.dp)) {
@@ -37,8 +40,13 @@ fun SideMenu(user: User?, onProfile: () -> Unit, onPlanned: () -> Unit, onInbox:
             }
         }
         Spacer(Modifier.height(8.dp))
+        Item(Icons.Filled.AddLocationAlt, stringResource(R.string.add_a_place), onAddPlace)
+        Item(Icons.Filled.EmojiEvents, stringResource(R.string.my_contributions), onContributions)
         Item(Icons.Filled.EventNote, stringResource(R.string.planned_drives), onPlanned)
         Item(Icons.Filled.Inbox, stringResource(R.string.inbox), onInbox)
+        Item(Icons.Filled.Feedback, stringResource(R.string.add_feedback), onFeedback)
+        Item(Icons.Filled.ChecklistRtl, stringResource(R.string.my_feedback), onMyFeedback)
+        Item(Icons.Filled.Backup, stringResource(R.string.backup_restore), onBackup)
         Item(Icons.Filled.Settings, stringResource(R.string.settings), onSettings)
         Item(Icons.AutoMirrored.Filled.HelpOutline, stringResource(R.string.help), onHelp)
         Item(Icons.AutoMirrored.Filled.ExitToApp, stringResource(R.string.exit), onExit)

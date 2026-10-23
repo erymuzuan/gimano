@@ -36,6 +36,25 @@ data class AppSettings(
     val showAlerts: Boolean = true,
     val showDrivers: Boolean = true,
     val use24h: Boolean = false,
+    val autoBackup: Boolean = false,
+    val lastBackupAt: String? = null,
+    val lastBackupBytes: Long = 0,
+    val lastBackupFingerprint: String? = null,
+    val lastBackupDest: String? = null,
+    val legacyMigrated: Boolean = false,
+    val privacyCardDismissed: Boolean = false,
+    val feedbackDiagnostics: Boolean = false,
+)
+
+/** User-facing settings that travel with a backup (DB `settings` table, shared with iOS). */
+fun AppSettings.toBackupMap(): Map<String, String> = mapOf(
+    "voice_lang" to voiceLang,
+    "sound_mode" to soundMode.name.lowercase(),
+    "vehicle" to vehicle,
+    "use_24h" to use24h.toString(),
+    "show_traffic" to showTraffic.toString(),
+    "show_alerts" to showAlerts.toString(),
+    "show_drivers" to showDrivers.toString(),
 )
 
 /** DataStore-backed settings mirrored into a StateFlow so non-suspending code can read them. */
@@ -56,6 +75,14 @@ class SettingsStore(private val context: Context, private val scope: CoroutineSc
         val showAlerts = booleanPreferencesKey("showAlerts")
         val showDrivers = booleanPreferencesKey("showDrivers")
         val use24h = booleanPreferencesKey("use24h")
+        val autoBackup = booleanPreferencesKey("autoBackup")
+        val lastBackupAt = stringPreferencesKey("lastBackupAt")
+        val lastBackupBytes = stringPreferencesKey("lastBackupBytes")
+        val lastBackupFingerprint = stringPreferencesKey("lastBackupFingerprint")
+        val lastBackupDest = stringPreferencesKey("lastBackupDest")
+        val legacyMigrated = booleanPreferencesKey("legacyMigrated")
+        val privacyCardDismissed = booleanPreferencesKey("privacyCardDismissed")
+        val feedbackDiagnostics = booleanPreferencesKey("feedbackDiagnostics")
     }
 
     private val _state: MutableStateFlow<AppSettings>
@@ -89,6 +116,14 @@ class SettingsStore(private val context: Context, private val scope: CoroutineSc
         showAlerts = p[K.showAlerts] ?: true,
         showDrivers = p[K.showDrivers] ?: true,
         use24h = p[K.use24h] ?: false,
+        autoBackup = p[K.autoBackup] ?: false,
+        lastBackupAt = p[K.lastBackupAt],
+        lastBackupBytes = p[K.lastBackupBytes]?.toLongOrNull() ?: 0,
+        lastBackupFingerprint = p[K.lastBackupFingerprint],
+        lastBackupDest = p[K.lastBackupDest],
+        legacyMigrated = p[K.legacyMigrated] ?: false,
+        privacyCardDismissed = p[K.privacyCardDismissed] ?: false,
+        feedbackDiagnostics = p[K.feedbackDiagnostics] ?: false,
     )
 
     suspend fun deviceId(): String {
@@ -120,4 +155,22 @@ class SettingsStore(private val context: Context, private val scope: CoroutineSc
         it[K.showTraffic] = traffic; it[K.showAlerts] = alerts; it[K.showDrivers] = drivers
     }
     suspend fun setUse24h(v: Boolean) = context.dataStore.edit { it[K.use24h] = v }
+    suspend fun setAutoBackup(v: Boolean) = context.dataStore.edit { it[K.autoBackup] = v }
+    suspend fun setLastBackup(at: String, bytes: Long, fingerprint: String, dest: String) = context.dataStore.edit {
+        it[K.lastBackupAt] = at; it[K.lastBackupBytes] = bytes.toString(); it[K.lastBackupFingerprint] = fingerprint; it[K.lastBackupDest] = dest
+    }
+    suspend fun setLegacyMigrated() = context.dataStore.edit { it[K.legacyMigrated] = true }
+    suspend fun setPrivacyCardDismissed() = context.dataStore.edit { it[K.privacyCardDismissed] = true }
+    suspend fun setFeedbackDiagnostics(v: Boolean) = context.dataStore.edit { it[K.feedbackDiagnostics] = v }
+
+    /** Applies settings restored from a backup's `settings` table. */
+    suspend fun applyBackupMap(m: Map<String, String>) = context.dataStore.edit { p ->
+        m["voice_lang"]?.let { p[K.voiceLang] = it }
+        m["sound_mode"]?.let { v -> runCatching { SoundMode.valueOf(v.uppercase()) }.getOrNull()?.let { p[K.soundMode] = it.name } }
+        m["vehicle"]?.let { p[K.vehicle] = it }
+        m["use_24h"]?.let { p[K.use24h] = it.toBoolean() }
+        m["show_traffic"]?.let { p[K.showTraffic] = it.toBoolean() }
+        m["show_alerts"]?.let { p[K.showAlerts] = it.toBoolean() }
+        m["show_drivers"]?.let { p[K.showDrivers] = it.toBoolean() }
+    }
 }

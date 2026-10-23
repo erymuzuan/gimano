@@ -70,10 +70,26 @@ class FusedLocationSource(private val context: Context) {
  * "Simulate drive" setting) so navigation can be shown without moving.
  */
 object DriveSimulator {
-    fun drive(geometry: RouteGeometry, speedKmh: Double, startAlongM: Double = 0.0, tickMs: Long = 1_000): Flow<Fix> = flow {
+    /**
+     * @param holdAtM along-route distances where the simulated driver stops (multi-stop trips);
+     *   [awaitResume] suspends until the driver taps Continue for that stop.
+     */
+    fun drive(
+        geometry: RouteGeometry, speedKmh: Double, startAlongM: Double = 0.0, tickMs: Long = 1_000,
+        holdAtM: List<Double> = emptyList(), awaitResume: suspend (Int) -> Unit = {},
+    ): Flow<Fix> = flow {
         var along = startAlongM
         val mps = speedKmh / 3.6
+        var nextHold = holdAtM.indexOfFirst { it > along }.let { if (it < 0) holdAtM.size else it }
         while (along <= geometry.lengthM) {
+            if (nextHold < holdAtM.size && along >= holdAtM[nextHold]) {
+                val (sp, sb) = geometry.pointAt(holdAtM[nextHold])
+                emit(Fix(sp, 0f, sb.toFloat(), 5f, System.currentTimeMillis(), simulated = true))
+                awaitResume(nextHold)
+                along = holdAtM[nextHold] + 1.0
+                nextHold++
+                continue
+            }
             val (p, brg) = geometry.pointAt(along)
             // Slow down near the end for a natural arrival.
             val left = geometry.lengthM - along

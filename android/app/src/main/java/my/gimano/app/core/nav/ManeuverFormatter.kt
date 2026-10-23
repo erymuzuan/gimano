@@ -90,8 +90,24 @@ object ManeuverFormatter {
         }
     }
 
+    /** Mode-specific wording for walking and cycling ("Start walking", "Keep cycling straight"). */
+    private fun modeAction(type: String, lang: Lang, mode: String): String? {
+        val en = lang == Lang.EN
+        return when {
+            mode == "walk" && type == "depart" -> if (en) "Start walking" else "Mula berjalan"
+            mode == "walk" && type == "straight" -> if (en) "Keep walking straight" else "Terus berjalan lurus"
+            mode == "bicycle" && type == "depart" -> if (en) "Start cycling" else "Mula berbasikal"
+            mode == "bicycle" && type == "straight" -> if (en) "Keep cycling straight" else "Terus berbasikal lurus"
+            else -> null
+        }
+    }
+
     /** Full instruction, e.g. "Turn left onto Jalan Ampang" / "Belok kiri ke Jalan Ampang". */
-    fun instruction(m: Maneuver, lang: Lang): String {
+    fun instruction(m: Maneuver, lang: Lang, mode: String = "car"): String {
+        modeAction(m.type, lang, mode)?.let { a ->
+            val road = road(m) ?: return a
+            return if (lang == Lang.EN) "$a on $road" else "$a di $road"
+        }
         val action = action(m.type, lang, m.exitNumber) ?: return m.instruction.ifBlank { road(m) ?: "" }
         val road = road(m) ?: return action
         return when (m.type) {
@@ -104,15 +120,18 @@ object ManeuverFormatter {
     }
 
     /** Spoken prompt before a maneuver: "In 500 metres, turn left onto Jalan Ampang". */
-    fun spokenApproach(m: Maneuver, distanceM: Double, lang: Lang): String {
-        val instr = instruction(m, lang)
+    fun spokenApproach(m: Maneuver, distanceM: Double, lang: Lang, mode: String = "car"): String {
+        val instr = instruction(m, lang, mode)
         val lowered = instr.replaceFirstChar { it.lowercase() }
         val dist = spokenDistance(distanceM, lang)
         return if (lang == Lang.EN) "In $dist, $lowered" else "Dalam $dist, $lowered"
     }
 
     /** Spoken prompt at the maneuver itself. */
-    fun spokenNow(m: Maneuver, lang: Lang): String = instruction(m, lang)
+    fun spokenNow(m: Maneuver, lang: Lang, mode: String = "car"): String = instruction(m, lang, mode)
+
+    /** "You have arrived at Kedai Mak" / "Anda telah tiba di Kedai Mak". */
+    fun arrivedAtStop(name: String, lang: Lang): String = if (lang == Lang.EN) "You have arrived at $name" else "Anda telah tiba di $name"
 
     fun spokenDistance(distanceM: Double, lang: Lang): String {
         val en = lang == Lang.EN

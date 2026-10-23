@@ -2,7 +2,7 @@ package my.gimano.app.nav
 
 import android.content.Context
 import android.speech.tts.TextToSpeech
-import android.util.Log
+import my.gimano.app.core.GLog
 import my.gimano.app.core.format.Lang
 import java.util.Locale
 
@@ -32,7 +32,7 @@ class VoiceGuide(context: Context) : TextToSpeech.OnInitListener, Speaker {
                 return
             }
         }
-        Log.w("VoiceGuide", "No TTS voice for $lang, using default")
+        GLog.w("VoiceGuide", "No TTS voice for $lang, using default")
     }
 
     override fun speak(text: String, lang: Lang, flush: Boolean) {

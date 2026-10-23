@@ -6,3 +6,4 @@ build/
 .kotlin/
 captures/
 .DS_Store
+/gimano.local.properties

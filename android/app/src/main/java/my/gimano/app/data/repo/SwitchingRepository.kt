@@ -38,23 +38,42 @@ class SwitchingRepository(
         }
     }
 
+    /**
+     * Writes the user expects to reach the real server (feedback, places, reviews, photos) never
+     * fall back to demo silently: failures propagate so the caller can queue or show an error.
+     */
+    private suspend fun <T> write(block: suspend GimanoRepository.() -> T): T =
+        if (settings.current.demoMode) demo.block() else remote.block()
+
     override suspend fun ensureAuth() = pick { ensureAuth() }
     override suspend fun updateMe(body: UpdateMeRequest) = pick { updateMe(body) }
-    override suspend fun places() = pick { places() }
-    override suspend fun setPlace(kind: String, body: SavePlaceRequest) = pick { setPlace(kind, body) }
-    override suspend fun addFavorite(body: SavePlaceRequest) = pick { addFavorite(body) }
-    override suspend fun deletePlace(id: String) = pick { deletePlace(id) }
-    override suspend fun recents() = pick { recents() }
+    override suspend fun exportMyData() = if (settings.current.demoMode) null else remote.exportMyData()
+    override suspend fun deleteMyData() = if (settings.current.demoMode) Unit else remote.deleteMyData()
     override suspend fun search(q: String, lat: Double?, lng: Double?, limit: Int, category: String?) = pick { search(q, lat, lng, limit, category) }
     override suspend fun nearby(lat: Double, lng: Double, category: String, radius: Int) = pick { nearby(lat, lng, category, radius) }
-    override suspend fun place(id: String) = pick { place(id) }
+    override suspend fun place(id: String, lat: Double?, lng: Double?) = pick { place(id, lat, lng) }
     override suspend fun reverse(lat: Double, lng: Double) = pick { reverse(lat, lng) }
     override suspend fun routes(req: RouteRequest) = pick { routes(req) }
     override suspend fun reroute(routeId: String, req: RerouteRequest) = pick { reroute(routeId, req) }
-    override suspend fun departureTimes(oLat: Double, oLng: Double, dLat: Double, dLng: Double) = pick { departureTimes(oLat, oLng, dLat, dLng) }
+    override suspend fun departureTimes(oLat: Double, oLng: Double, dLat: Double, dLng: Double, vehicle: String?) = pick { departureTimes(oLat, oLng, dLat, dLng, vehicle) }
     override suspend fun live(minLng: Double, minLat: Double, maxLng: Double, maxLat: Double) = pick { live(minLng, minLat, maxLng, maxLat) }
     override suspend fun createReport(body: CreateReportRequest) = pick { createReport(body) }
     override suspend fun vote(reportId: String, stillThere: Boolean) = pick { vote(reportId, stillThere) }
     override suspend fun thank(reportId: String) = pick { thank(reportId) }
     override suspend fun postLocations(batch: LocationBatch) = pick { postLocations(batch) }
+
+    override suspend fun sendFeedback(body: FeedbackRequest) = write { sendFeedback(body) }
+    override suspend fun myFeedback() = write { myFeedback() }
+    override suspend fun createPlace(body: CreatePlaceRequest) = write { createPlace(body) }
+    override suspend fun suggestEdit(placeId: String, body: SuggestEditRequest) = write { suggestEdit(placeId, body) }
+    override suspend fun verifyPlace(placeId: String, exists: Boolean) = write { verifyPlace(placeId, exists) }
+    override suspend fun contributedPlaces() = write { contributedPlaces() }
+    override suspend fun reviews(placeId: String, sort: String) = pick { reviews(placeId, sort) }
+    override suspend fun createReview(placeId: String, body: ReviewRequest) = write { createReview(placeId, body) }
+    override suspend fun updateReview(reviewId: String, body: ReviewRequest) = write { updateReview(reviewId, body) }
+    override suspend fun deleteReview(reviewId: String) = write { deleteReview(reviewId) }
+    override suspend fun helpful(reviewId: String) = write { helpful(reviewId) }
+    override suspend fun flagReview(reviewId: String, reason: String) = write { flagReview(reviewId, reason) }
+    override suspend fun uploadPhoto(placeId: String, jpeg: ByteArray, caption: String?) = write { uploadPhoto(placeId, jpeg, caption) }
+    override suspend fun photos(placeId: String) = pick { photos(placeId) }
 }

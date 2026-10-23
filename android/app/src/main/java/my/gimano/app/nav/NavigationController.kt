@@ -1,14 +1,17 @@
 package my.gimano.app.nav
 
-import android.util.Log
+import my.gimano.app.core.GLog
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
+import my.gimano.app.BuildConfig
 import my.gimano.app.core.format.Lang
 import my.gimano.app.core.geo.GeoPoint
 import my.gimano.app.core.nav.LocationBatcher
@@ -19,6 +22,8 @@ import my.gimano.app.core.nav.OffRouteDetector
 import my.gimano.app.core.nav.PuckPlacement
 import my.gimano.app.core.nav.VoicePromptPlanner
 import my.gimano.app.core.nav.headingDiff
+import my.gimano.app.core.trip.StopList
+import my.gimano.app.core.trip.TravelMode
 import my.gimano.app.data.location.DriveSimulator
 import my.gimano.app.data.location.Fix
 import my.gimano.app.data.model.*
@@ -26,22 +31,28 @@ import my.gimano.app.data.repo.GimanoRepository
 import my.gimano.app.data.settings.SoundMode
 import java.time.Instant
 
-data class NavDestination(val name: String, val address: String, val point: GeoPoint, val placeId: String?)
+data class NavDestination(val name: String, val address: String, val point: GeoPoint, val placeId: String?) {
+    fun toDto() = LatLngDto(point.lat, point.lng, placeId, name)
+}
 
 data class NavState(
     val active: Boolean = false,
     val route: Route? = null,
     val destination: NavDestination? = null,
+    /** Remaining intermediate stops, in order. */
     val stops: List<NavDestination> = emptyList(),
     val progress: NavProgress? = null,
     val fix: Fix? = null,
     val speedKmh: Int = 0,
     val rerouting: Boolean = false,
     val arrived: Boolean = false,
+    /** Set while the "Arrived at {stop}" card is showing. */
+    val arrivedAtStop: NavDestination? = null,
     val upcomingAlert: AlertOnRoute? = null,
     val alertDistanceM: Double? = null,
     val simulated: Boolean = false,
     val startedAt: Instant? = null,
+    val mode: TravelMode = TravelMode.CAR,
     /** Where the puck is drawn: snapped to the route when close and heading-compatible. */
     val puck: GeoPoint? = null,
     val puckBearing: Double = 0.0,
@@ -49,9 +60,9 @@ data class NavState(
 )
 
 /**
- * Owns an active drive: consumes fixes, tracks progress, speaks prompts, detects off-route
- * (→ POST /routes/{id}/reroute) and batches location pings (→ POST /locations).
- * Lives in the app container so the foreground service and UI observe the same state.
+ * Owns an active drive: consumes fixes, tracks progress across legs, speaks prompts, detects
+ * off-route (→ POST /routes/{id}/reroute with nextStopIndex) and batches anonymous location
+ * pings (→ POST /locations) ONLY while a drive is active.
  */
 class NavigationController(
     private val scope: CoroutineScope,
@@ -68,34 +79,47 @@ class NavigationController(
     private var job: Job? = null
     private var tracker: NavigationTracker? = null
     private val offRoute = OffRouteDetector()
-    private val planner = VoicePromptPlanner()
+    private var planner = VoicePromptPlanner()
     private val batcher = LocationBatcher()
     private val announcedAlerts = HashSet<String>()
     private val dismissedAlerts = HashSet<String>()
     private var lastRequest: RouteRequest? = null
 
-    fun start(route: Route, destination: NavDestination, request: RouteRequest?, simulate: Boolean) {
+    /** Stops of [lastRequest] already reached → `nextStopIndex` for reroutes. */
+    private var stopsVisited = 0
+    private val stopGate = MutableStateFlow(-1)
+    /** Along-route distance where the current stop card was raised. */
+    private var stopCardAlongM = 0.0
+
+    fun start(route: Route, destination: NavDestination, request: RouteRequest?, simulate: Boolean, stops: List<NavDestination> = emptyList()) {
         stopInternal(flush = false)
         lastRequest = request
+        stopsVisited = 0
+        stopGate.value = -1
+        val mode = TravelMode.from(route.vehicle ?: request?.vehicle)
         tracker = NavigationTracker(route)
-        offRoute.reset(); planner.reset(); announcedAlerts.clear(); dismissedAlerts.clear()
-        _state.value = NavState(active = true, route = route, destination = destination, simulated = simulate, startedAt = Instant.now())
+        planner = VoicePromptPlanner(mode.wire)
+        offRoute.reset(); announcedAlerts.clear(); dismissedAlerts.clear()
+        _state.value = NavState(active = true, route = route, destination = destination, stops = stops, simulated = simulate, startedAt = Instant.now(), mode = mode)
         val lang = langProvider()
-        val first = route.maneuvers.firstOrNull()
+        val first = tracker!!.maneuvers.firstOrNull()
         if (soundMode() == SoundMode.ON && first != null) {
-            voice.speak(ManeuverFormatter.spokenNow(first, lang), lang, flush = true)
+            voice.speak(ManeuverFormatter.spokenNow(first, lang, mode.wire), lang, flush = true)
         }
         service.start()
-        job = scope.launch {
-            fixes(route, simulate).collect { onFix(it) }
-        }
+        job = scope.launch { fixes(route, simulate, mode).collect { onFix(it) } }
     }
 
-    private fun fixes(route: Route, simulate: Boolean): Flow<Fix> {
+    private fun fixes(route: Route, simulate: Boolean, mode: TravelMode): Flow<Fix> {
         val t = tracker!!
         return if (simulate) {
-            val avg = (route.distanceM / route.effectiveDurationS * 3.6).coerceIn(25.0, 70.0)
-            DriveSimulator.drive(t.geometry, avg * 1.6)
+            val avg = if (route.effectiveDurationS > 0) route.distanceM / route.effectiveDurationS * 3.6 else mode.simSpeedKmh
+            val speed = if (mode.isMotorised) (avg.coerceIn(25.0, 70.0) * 1.6) else mode.simSpeedKmh * 2.5
+            DriveSimulator.drive(t.geometry, speed, holdAtM = t.stopAlongM, awaitResume = { k ->
+                // Wait at the stop until Continue (or 45 s), like a real driver getting back in.
+                withTimeoutOrNull(45_000) { stopGate.first { it >= k } }
+                continueAfterStop()
+            })
         } else fixSource.updates()
     }
 
@@ -105,19 +129,30 @@ class NavigationController(
         val speed = ((fix.speedMps ?: 0f) * 3.6f).toInt()
         val lang = langProvider()
         val sound = soundMode()
+        val mode = _state.value.mode.wire
 
-        // Voice prompts for maneuvers.
+        // Intermediate stop reached → "Arrived at {stop}" then continue to the next leg.
+        t.stopReached(p)?.let { k ->
+            val stop = _state.value.stops.getOrNull(0)
+                ?: _state.value.route?.legs?.getOrNull(k)?.to?.let { NavDestination(it.name ?: "", "", GeoPoint(it.lat, it.lng), null) }
+            if (stop != null) {
+                stopsVisited++
+                stopCardAlongM = p.distanceAlongM
+                _state.update { it.copy(arrivedAtStop = stop) }
+                if (sound == SoundMode.ON) voice.speak(ManeuverFormatter.arrivedAtStop(stop.name.ifBlank { if (lang == Lang.MS) "hentian" else "your stop" }, lang), lang, flush = true)
+            }
+        }
+
         val next = p.nextManeuver
-        if (sound == SoundMode.ON && next != null && !p.arrived) {
+        if (sound == SoundMode.ON && next != null && !p.arrived && _state.value.arrivedAtStop == null) {
             when (planner.check(p.nextManeuverIndex, p.distanceToNextM, speed.toDouble())) {
                 VoicePromptPlanner.Stage.FAR, VoicePromptPlanner.Stage.NEAR ->
-                    voice.speak(ManeuverFormatter.spokenApproach(next, p.distanceToNextM, lang), lang)
-                VoicePromptPlanner.Stage.NOW -> if (next.type != "arrive") voice.speak(ManeuverFormatter.spokenNow(next, lang), lang)
+                    voice.speak(ManeuverFormatter.spokenApproach(next, p.distanceToNextM, lang, mode), lang)
+                VoicePromptPlanner.Stage.NOW -> if (next.type != "arrive") voice.speak(ManeuverFormatter.spokenNow(next, lang, mode), lang)
                 null -> Unit
             }
         }
 
-        // Alerts on the route ahead.
         val alerts = _state.value.route?.alerts.orEmpty()
         val ahead = alerts
             .filter { it.id !in dismissedAlerts }
@@ -128,7 +163,6 @@ class NavigationController(
             voice.speak(alertPhrase(ahead.first.type, lang), lang)
         }
 
-        // Location pings.
         batcher.offer(
             LocationPoint(fix.point.lat, fix.point.lng, speed.toDouble(), fix.bearing?.toDouble(), fix.accuracyM?.toDouble(), Instant.ofEpochMilli(fix.timeMs).toString()),
             fix.timeMs,
@@ -149,10 +183,20 @@ class NavigationController(
             return
         }
 
-        // Off-route → reroute.
+        // A real driver pulling away from a stop dismisses the stop card by itself.
+        if (_state.value.arrivedAtStop != null && !fix.simulated && p.distanceAlongM > stopCardAlongM + 100) continueAfterStop()
+
         if (!fix.simulated && offRoute.update(p.distanceFromRouteM, fix.accuracyM?.toDouble(), fix.timeMs, headingDiff(fix.bearing?.toDouble(), p.bearing), speed.toDouble())) {
             reroute(fix)
         }
+    }
+
+    /** Dismisses "Arrived at {stop}" and resumes the next leg. */
+    fun continueAfterStop() {
+        val s = _state.value
+        if (s.arrivedAtStop == null) return
+        _state.update { it.copy(arrivedAtStop = null, stops = it.stops.drop(1)) }
+        stopGate.value = stopGate.value + 1
     }
 
     private fun alertPhrase(type: String, lang: Lang): String {
@@ -175,10 +219,10 @@ class NavigationController(
         val lang = langProvider()
         if (soundMode() == SoundMode.ON) voice.speak(if (lang == Lang.MS) "Mengira semula laluan" else "Recalculating route", lang)
         try {
-            val routes = repo.reroute(route.id, RerouteRequest(fix.point.lat, fix.point.lng, fix.bearing?.toDouble()))
-            routes.firstOrNull()?.let { replaceRoute(it) }
+            val req = RerouteRequest(fix.point.lat, fix.point.lng, fix.bearing?.toDouble(), nextStopIndex = stopsVisited.takeIf { lastRequest?.waypoints?.isNotEmpty() == true })
+            repo.reroute(route.id, req).firstOrNull()?.let { replaceRoute(it) }
         } catch (e: Exception) {
-            Log.w("Nav", "Reroute failed", e)
+            GLog.w("Nav", "Reroute failed: ${e.javaClass.simpleName}")
         } finally {
             _state.update { it.copy(rerouting = false) }
         }
@@ -186,29 +230,22 @@ class NavigationController(
 
     private fun replaceRoute(route: Route) {
         tracker = NavigationTracker(route)
-        planner.reset()
+        planner = VoicePromptPlanner(_state.value.mode.wire)
         offRoute.reset()
         _state.update { it.copy(route = route) }
     }
 
-    /** Add a stop: re-plan from the current position via [stop] to the destination. */
+    /** Add a stop while driving: it becomes the NEXT stop, then the trip is re-planned from here. */
     suspend fun addStop(stop: NavDestination): Boolean {
         val s = _state.value
         val dest = s.destination ?: return false
         val here = s.fix?.point ?: s.progress?.snapped ?: return false
-        val base = lastRequest ?: RouteRequest(LatLngDto(here.lat, here.lng), LatLngDto(dest.point.lat, dest.point.lng, dest.placeId))
-        val req = base.copy(
-            origin = LatLngDto(here.lat, here.lng),
-            waypoints = listOf(LatLngDto(stop.point.lat, stop.point.lng, stop.placeId)),
-            alternatives = 0, departAt = null,
-        )
+        val stops = runCatching { StopList.insertNext(s.stops, stop) }.getOrElse { return false }
+        val base = lastRequest ?: RouteRequest(LatLngDto(here.lat, here.lng), dest.toDto(), vehicle = s.mode.wire)
+        val req = base.copy(origin = LatLngDto(here.lat, here.lng), waypoints = stops.map { it.toDto() }, alternatives = 0, departAt = null)
         return try {
             val r = repo.routes(req).firstOrNull() ?: return false
-            lastRequest = req
-            val simulate = s.simulated
-            val destination = s.destination
-            start(r, destination, req, simulate)
-            _state.update { it.copy(stops = listOf(stop)) }
+            start(r, dest, req, s.simulated, stops)
             true
         } catch (e: Exception) {
             false
@@ -248,5 +285,4 @@ class NavigationController(
         val routeId = _state.value.route?.id
         scope.launch { runCatching { repo.postLocations(LocationBatch(routeId, points)) } }
     }
-
 }

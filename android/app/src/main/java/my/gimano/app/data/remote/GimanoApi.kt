@@ -1,18 +1,24 @@
 package my.gimano.app.data.remote
 
 import my.gimano.app.data.model.*
+import okhttp3.MultipartBody
+import okhttp3.RequestBody
 import okhttp3.ResponseBody
 import retrofit2.Response
 import retrofit2.http.Body
 import retrofit2.http.DELETE
 import retrofit2.http.GET
+import retrofit2.http.Multipart
 import retrofit2.http.PATCH
 import retrofit2.http.POST
-import retrofit2.http.PUT
+import retrofit2.http.Part
 import retrofit2.http.Path
 import retrofit2.http.Query
 
-/** Retrofit binding of docs/api.md. Paths are relative to the `/api/v1/` base URL. */
+/**
+ * Retrofit binding of docs/api.md. Paths are relative to the `/api/v1/` base URL.
+ * Personal data (favourites, recents, private places) is NOT here: it lives on the device.
+ */
 interface GimanoApi {
     @POST("auth/device")
     suspend fun authDevice(@Body body: DeviceAuthRequest): DeviceAuthResponse
@@ -23,20 +29,12 @@ interface GimanoApi {
     @PATCH("me")
     suspend fun updateMe(@Body body: UpdateMeRequest): User
 
-    @GET("me/places")
-    suspend fun places(): List<SavedPlace>
+    // One-time migration of the legacy server copy into the local DB.
+    @GET("me/data/export")
+    suspend fun exportMyData(): MyDataExport
 
-    @PUT("me/places/{kind}")
-    suspend fun putPlace(@Path("kind") kind: String, @Body body: SavePlaceRequest): SavedPlace
-
-    @POST("me/places")
-    suspend fun addFavorite(@Body body: SavePlaceRequest): SavedPlace
-
-    @DELETE("me/places/{id}")
-    suspend fun deletePlace(@Path("id") id: String): Response<ResponseBody>
-
-    @GET("me/recents")
-    suspend fun recents(): List<Recent>
+    @DELETE("me/data")
+    suspend fun deleteMyData(): Response<ResponseBody>
 
     @GET("search")
     suspend fun search(
@@ -56,7 +54,7 @@ interface GimanoApi {
     ): SearchResponse
 
     @GET("places/{id}")
-    suspend fun place(@Path("id") id: String): Place
+    suspend fun place(@Path("id") id: String, @Query("lat") lat: Double? = null, @Query("lng") lng: Double? = null): Place
 
     @GET("geocode/reverse")
     suspend fun reverse(@Query("lat") lat: Double, @Query("lng") lng: Double): ReverseGeocode
@@ -74,6 +72,7 @@ interface GimanoApi {
         @Query("destLat") destLat: Double,
         @Query("destLng") destLng: Double,
         @Query("date") date: String? = null,
+        @Query("vehicle") vehicle: String? = null,
     ): DepartureTimesResponse
 
     @GET("live")
@@ -90,4 +89,62 @@ interface GimanoApi {
 
     @POST("locations")
     suspend fun postLocations(@Body body: LocationBatch): Response<ResponseBody>
+
+    // --- Feedback ---
+    @POST("feedback")
+    suspend fun feedback(@Body body: FeedbackRequest): FeedbackCreated
+
+    @GET("me/feedback")
+    suspend fun myFeedback(): List<FeedbackSummary>
+
+    // --- Community places ---
+    @POST("places")
+    suspend fun createPlace(@Body body: CreatePlaceRequest): Place
+
+    @PATCH("places/{id}")
+    suspend fun updatePlace(@Path("id") id: String, @Body body: CreatePlaceRequest): Place
+
+    @DELETE("places/{id}")
+    suspend fun deletePlace(@Path("id") id: String): Response<ResponseBody>
+
+    @POST("places/{id}/suggest-edit")
+    suspend fun suggestEdit(@Path("id") id: String, @Body body: SuggestEditRequest): SuggestionCreated
+
+    @POST("places/{id}/verify")
+    suspend fun verifyPlace(@Path("id") id: String, @Body body: VerifyRequest): Place
+
+    @GET("me/places/contributed")
+    suspend fun contributedPlaces(): List<PlaceSummary>
+
+    // --- Reviews & photos ---
+    @GET("places/{id}/reviews")
+    suspend fun reviews(@Path("id") id: String, @Query("sort") sort: String = "recent", @Query("cursor") cursor: String? = null): ReviewsPage
+
+    @POST("places/{id}/reviews")
+    suspend fun createReview(@Path("id") id: String, @Body body: ReviewRequest): Review
+
+    @PATCH("reviews/{id}")
+    suspend fun updateReview(@Path("id") id: String, @Body body: ReviewRequest): Review
+
+    @DELETE("reviews/{id}")
+    suspend fun deleteReview(@Path("id") id: String): Response<ResponseBody>
+
+    @POST("reviews/{id}/helpful")
+    suspend fun helpful(@Path("id") id: String): Response<ResponseBody>
+
+    @POST("reviews/{id}/flag")
+    suspend fun flagReview(@Path("id") id: String, @Body body: FlagRequest): Response<ResponseBody>
+
+    @Multipart
+    @POST("photos")
+    suspend fun uploadPhoto(@Part file: MultipartBody.Part, @Part("placeId") placeId: RequestBody, @Part("caption") caption: RequestBody?): Photo
+
+    @GET("places/{id}/photos")
+    suspend fun photos(@Path("id") id: String, @Query("cursor") cursor: String? = null): PhotosPage
+
+    @DELETE("photos/{id}")
+    suspend fun deletePhoto(@Path("id") id: String): Response<ResponseBody>
+
+    @POST("photos/{id}/flag")
+    suspend fun flagPhoto(@Path("id") id: String, @Body body: FlagRequest): Response<ResponseBody>
 }

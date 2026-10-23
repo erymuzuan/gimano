@@ -41,6 +41,10 @@ import java.time.ZonedDateTime
 
 @Composable
 fun GimanoRoot(vm: MainViewModel, onMic: () -> Unit, onExit: () -> Unit) {
+    val container = (LocalContext.current.applicationContext as my.gimano.app.GimanoApp).container
+    val fvm: my.gimano.app.ui.feedback.FeedbackViewModel = androidx.lifecycle.viewmodel.compose.viewModel(factory = my.gimano.app.ui.feedback.FeedbackViewModel.Factory(container))
+    val bvm: my.gimano.app.ui.backup.BackupViewModel = androidx.lifecycle.viewmodel.compose.viewModel(factory = my.gimano.app.ui.backup.BackupViewModel.Factory(container))
+    val feedbackDraft by fvm.draft.collectAsStateWithLifecycle()
     val ui by vm.ui.collectAsStateWithLifecycle()
     val nav by vm.nav.collectAsStateWithLifecycle()
     val settings by vm.settingsState.collectAsStateWithLifecycle()
@@ -70,9 +74,28 @@ fun GimanoRoot(vm: MainViewModel, onMic: () -> Unit, onExit: () -> Unit) {
                     } else e.text
                     context.startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT, text), null))
                 }
+                is UiEvent.ToastText -> scope.launch { snackbar.currentSnackbarData?.dismiss(); snackbar.showSnackbar(e.text) }
+                is UiEvent.OpenFeedback -> scope.launch {
+                    // Capture what's behind the sheet first (map included: PixelCopy reads the window).
+                    val shot = (context as? android.app.Activity)?.let { my.gimano.app.ui.feedback.ScreenCapture.capture(it) }
+                    val jpeg = shot?.let { my.gimano.app.ui.feedback.ScreenCapture.toJpeg(it) }
+                    fvm.open(e.screen, jpeg, e.routeId, e.placeId)
+                }
+                is UiEvent.AddPlace -> vm.startAddPlace(e.at, e.name)
                 is UiEvent.Dial -> runCatching { context.startActivity(Intent(Intent.ACTION_DIAL, Uri.parse("tel:${e.phone}"))) }
                 is UiEvent.Web -> runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(e.url))) }
             }
+        }
+    }
+
+    LaunchedEffect(Unit) {
+        fvm.result.collect { r ->
+            val msg = when (r) {
+                my.gimano.app.data.feedback.FeedbackSendResult.Sent -> R.string.fb_sent
+                my.gimano.app.data.feedback.FeedbackSendResult.Queued -> R.string.fb_queued
+                is my.gimano.app.data.feedback.FeedbackSendResult.Rejected -> R.string.fb_rejected
+            }
+            snackbar.currentSnackbarData?.dismiss(); snackbar.showSnackbar(context.getString(msg))
         }
     }
 
@@ -112,7 +135,11 @@ fun GimanoRoot(vm: MainViewModel, onMic: () -> Unit, onExit: () -> Unit) {
             Screen.RoutePreview -> ui.plan?.destination?.point
             else -> if (navigating) nav.destination?.point else null
         },
-        stops = if (navigating) nav.stops.map { it.point } else emptyList(),
+        stops = when {
+            navigating -> nav.stops.map { it.point }
+            screen == Screen.RoutePreview -> ui.plan?.stops.orEmpty().map { it.point }
+            else -> emptyList()
+        },
         showTraffic = settings.showTraffic,
         showAlerts = settings.showAlerts,
         showDrivers = settings.showDrivers,
@@ -129,8 +156,13 @@ fun GimanoRoot(vm: MainViewModel, onMic: () -> Unit, onExit: () -> Unit) {
                 onPlanned = { scope.launch { drawer.close() }; vm.toast(R.string.coming_soon) },
                 onInbox = { scope.launch { drawer.close() }; vm.toast(R.string.coming_soon) },
                 onSettings = { scope.launch { drawer.close() }; vm.openSettings() },
-                onHelp = { scope.launch { drawer.close() }; vm.openWeb("https://github.com/") },
+                onHelp = { scope.launch { drawer.close() }; vm.openWeb("https://github.com/erymuzuan/gimano") },
                 onExit = onExit,
+                onAddPlace = { scope.launch { drawer.close() }; vm.startAddPlace(vm.here(), "") },
+                onContributions = { scope.launch { drawer.close() }; vm.open(Screen.Contributions) },
+                onFeedback = { scope.launch { drawer.close() }; vm.requestFeedback("home") },
+                onMyFeedback = { scope.launch { drawer.close() }; vm.open(Screen.MyFeedback) },
+                onBackup = { scope.launch { drawer.close() }; vm.open(Screen.Backup) },
             )
         },
     ) {
@@ -159,13 +191,33 @@ fun GimanoRoot(vm: MainViewModel, onMic: () -> Unit, onExit: () -> Unit) {
                 Screen.RoutePreview -> ui.plan?.let { RoutePreviewOverlay(it, settings, vm, handle) }
                 Screen.Navigating -> NavigationOverlay(nav, ui, settings, vm)
                 is Screen.Search -> SearchScreen(ui, screen.purpose, vm, onMic)
-                Screen.Settings -> SettingsScreen(settings, vm, fallback, ui.user?.displayName)
+                Screen.Settings -> SettingsScreen(settings, vm, fallback, ui.user?.displayName, onBackup = { vm.open(Screen.Backup) }, onMyFeedback = { vm.open(Screen.MyFeedback) })
+                Screen.Backup -> my.gimano.app.ui.backup.BackupScreen(bvm, onBack = vm::back)
+                Screen.MyFeedback -> my.gimano.app.ui.feedback.MyFeedbackScreen(fvm, onBack = vm::back, onNew = { vm.requestFeedback("settings") })
+                Screen.Contributions -> my.gimano.app.ui.contribute.ContributionsScreen(container, vm)
+                Screen.AddPlace -> my.gimano.app.ui.contribute.AddPlaceScreen(container, vm, handle)
             }
             // Below the right-hand FAB column (3 × 64 dp + gaps) so it never covers controls.
             SnackbarHost(snackbar, Modifier.align(Alignment.TopCenter).windowInsetsPadding(WindowInsets.statusBars).padding(top = 250.dp, start = 16.dp, end = 16.dp))
         }
     }
 
+    ui.favoriteSheet?.let { my.gimano.app.ui.sheets.FavoriteSheet(it, vm) }
+    ui.tollSheet?.let { r ->
+        my.gimano.app.ui.sheets.TollSheet(r, onDismiss = { vm.openTolls(null) }, onAvoidTolls = {
+            vm.openTolls(null); ui.plan?.let { p -> vm.setAvoid(p.avoid.copy(tolls = true)) }
+        })
+    }
+    if (feedbackDraft.open) my.gimano.app.ui.feedback.FeedbackSheet(fvm, feedbackDraft) {
+        val h = vm.here(); fvm.send(h.lat, h.lng)
+    }
+    if (!settings.privacyCardDismissed && screen == Screen.Home) {
+        AlertDialog(
+            onDismissRequest = vm::dismissPrivacyCard,
+            text = { my.gimano.app.ui.common.PrivacyCard(onBackup = { vm.dismissPrivacyCard(); vm.open(Screen.Backup) }) },
+            confirmButton = { TextButton(onClick = vm::dismissPrivacyCard) { Text(stringResource(R.string.got_it), fontWeight = FontWeight.ExtraBold) } },
+        )
+    }
     if (ui.reportOpen) {
         ReportSheet(onDismiss = { vm.openReport(false) }, onSubmit = vm::submitReport)
     }

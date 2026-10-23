@@ -116,10 +116,50 @@ fun NavigationOverlay(nav: NavState, ui: UiState, settings: AppSettings, vm: Mai
                 Spacer(Modifier.weight(1f))
                 ReportFab { vm.openReport(true) }
             }
-            if (nav.arrived) ArrivedCard(nav, vm) else EtaBar(nav, ui, settings, vm, now)
+            when {
+                nav.arrived -> ArrivedCard(nav, vm)
+                nav.arrivedAtStop != null -> StopArrivedCard(nav.arrivedAtStop.name, vm)
+                else -> EtaBar(nav, ui, settings, vm, now)
+            }
         }
     }
     if (ui.confirmStop) StopDialog(vm)
+    if (ui.passengerPrompt) PassengerDialog(vm)
+}
+
+/** "Arrived at {stop}" → Continue to the next leg. */
+@Composable
+private fun StopArrivedCard(name: String, vm: MainViewModel) {
+    val c = Gimano.colors
+    SheetSurface(Modifier.fillMaxWidth()) {
+        Column(Modifier.fillMaxWidth().windowInsetsPadding(WindowInsets.navigationBars).padding(20.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+            GIcon("add_stop", null, size = 48.dp)
+            Text(stringResource(R.string.arrived_at_stop, name), style = GimanoType.title, color = c.text, modifier = Modifier.padding(top = 8.dp))
+            Spacer(Modifier.height(16.dp))
+            Button(
+                onClick = vm::continueAfterStop, Modifier.fillMaxWidth().height(56.dp), shape = RoundedCornerShape(Radius.md),
+                colors = ButtonDefaults.buttonColors(containerColor = c.brand, contentColor = c.brandOn),
+            ) { Text(stringResource(R.string.continue_drive), style = GimanoType.button) }
+        }
+    }
+}
+
+@Composable
+private fun PassengerDialog(vm: MainViewModel) {
+    val c = Gimano.colors
+    AlertDialog(
+        onDismissRequest = { vm.confirmPassenger(false) },
+        title = { Text(stringResource(R.string.passenger_title), style = GimanoType.title) },
+        text = { Text(stringResource(R.string.passenger_body)) },
+        confirmButton = {
+            Button(onClick = { vm.confirmPassenger(true) }, Modifier.height(56.dp), colors = ButtonDefaults.buttonColors(containerColor = c.brand, contentColor = c.brandOn)) {
+                Text(stringResource(R.string.passenger_yes), fontWeight = FontWeight.ExtraBold)
+            }
+        },
+        dismissButton = {
+            OutlinedButton(onClick = { vm.confirmPassenger(false) }, Modifier.height(56.dp)) { Text(stringResource(R.string.passenger_no), fontWeight = FontWeight.ExtraBold) }
+        },
+    )
 }
 
 @Composable
@@ -165,11 +205,11 @@ private fun TurnBanner(nav: NavState) {
             Text(Formatters.navDistance(p.distanceToNextM), color = c.navBannerOn, style = GimanoType.navDistance, lineHeight = 42.sp)
             val road = ManeuverFormatter.road(m)
             Text(
-                road ?: ManeuverFormatter.instruction(m, lang),
+                road ?: ManeuverFormatter.instruction(m, lang, nav.mode.wire),
                 color = c.navBannerOn.copy(alpha = 0.92f), fontSize = 20.sp, fontWeight = FontWeight.SemiBold,
                 maxLines = 1, overflow = TextOverflow.Ellipsis,
             )
-            if (road != null) Text(ManeuverFormatter.instruction(m, lang), color = c.navBannerOn.copy(alpha = 0.65f), fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            if (road != null) Text(ManeuverFormatter.instruction(m, lang, nav.mode.wire), color = c.navBannerOn.copy(alpha = 0.65f), fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
     }
 }
@@ -194,14 +234,20 @@ private fun EtaBar(nav: NavState, ui: UiState, settings: AppSettings, vm: MainVi
             AnimatedVisibility(ui.navExpanded) {
                 Column(Modifier.padding(horizontal = 16.dp)) {
                     Divider()
+                    nav.stops.firstOrNull()?.let { st ->
+                        val legs = nav.route?.let { my.gimano.app.core.trip.RouteLegs.stopEtas(it, nav.startedAt ?: now) }
+                        val eta = legs?.getOrNull(0)?.let { Formatters.clock(java.time.ZonedDateTime.ofInstant(it, ZoneId.systemDefault()), settings.use24h, currentLang()) } ?: ""
+                        Text(stringResource(R.string.next_stop, st.name, eta), Modifier.padding(top = 12.dp), fontSize = 15.sp, fontWeight = FontWeight.Bold, color = c.brand)
+                    }
                     nav.destination?.let { d ->
-                        Text(d.name, Modifier.padding(top = 12.dp), fontSize = 18.sp, fontWeight = FontWeight.SemiBold, color = c.text, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Text(d.name, Modifier.padding(top = 8.dp), fontSize = 18.sp, fontWeight = FontWeight.SemiBold, color = c.text, maxLines = 1, overflow = TextOverflow.Ellipsis)
                         nav.route?.summary?.takeIf { it.isNotBlank() }?.let { Text(it, fontSize = 14.sp, color = c.textMuted, maxLines = 1, overflow = TextOverflow.Ellipsis) }
                     }
                     Spacer(Modifier.height(8.dp))
                     ExpandedRow(Icons.Filled.AddLocationAlt, stringResource(R.string.add_stop), vm::addStop)
                     ExpandedRow(Icons.Filled.Schedule, stringResource(R.string.best_time), vm::openBestTimeFromNav)
                     ExpandedRow(Icons.Filled.Share, stringResource(R.string.share_drive), vm::shareDrive)
+                    ExpandedRow(Icons.Filled.Feedback, stringResource(R.string.add_feedback)) { vm.requestFeedback("navigation") }
                     Spacer(Modifier.height(10.dp))
                     Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                         Button(

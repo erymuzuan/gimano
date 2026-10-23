@@ -15,6 +15,12 @@ signalr = "10.0.9"
 maplibre = "13.6.1"
 playServicesLocation = "21.3.0"
 junit4 = "4.13.2"
+ksp = "2.3.9"
+room = "2.8.4"
+work = "2.10.5"
+lazysodium = "5.2.0"
+jna = "5.17.0"
+playServicesAuth = "21.4.0"
 
 [libraries]
 androidx-core-ktx = { module = "androidx.core:core-ktx", version.ref = "androidxCore" }
@@ -44,8 +50,19 @@ signalr = { module = "com.microsoft.signalr:signalr", version.ref = "signalr" }
 maplibre-android = { module = "org.maplibre.gl:android-sdk", version.ref = "maplibre" }
 play-services-location = { module = "com.google.android.gms:play-services-location", version.ref = "playServicesLocation" }
 junit4 = { module = "junit:junit", version.ref = "junit4" }
+room-runtime = { module = "androidx.room:room-runtime", version.ref = "room" }
+room-ktx = { module = "androidx.room:room-ktx", version.ref = "room" }
+room-compiler = { module = "androidx.room:room-compiler", version.ref = "room" }
+work-runtime-ktx = { module = "androidx.work:work-runtime-ktx", version.ref = "work" }
+lazysodium-android = { module = "com.goterl:lazysodium-android", version.ref = "lazysodium" }
+# JVM build for unit tests only; 5.1.4 targets Java 8 (5.2.x needs Java 21) and bundles macOS arm64 libsodium.
+lazysodium-java = { module = "com.goterl:lazysodium-java", version = "5.1.4" }
+jna = { module = "net.java.dev.jna:jna", version.ref = "jna" }
+play-services-auth = { module = "com.google.android.gms:play-services-auth", version.ref = "playServicesAuth" }
+xerial-sqlite = { module = "org.xerial:sqlite-jdbc", version = "3.49.1.0" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
 compose-compiler = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
 kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
+ksp = { id = "com.google.devtools.ksp", version.ref = "ksp" }
