@@ -6982,6 +6982,16 @@
         }
       }
     },
+    "Waiting for your location. Try again in a moment.": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Menunggu lokasi anda. Cuba lagi sebentar lagi."
+          }
+        }
+      }
+    },
     "Walk": {
       "localizations": {
         "ms": {

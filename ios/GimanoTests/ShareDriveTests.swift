@@ -74,8 +74,24 @@ struct ShareDriveTests {
         #expect(s.shouldSend(now: t0.addingTimeInterval(15)))
         let blob = try #require(await repo.sharedBlob(s.created.shareId))
         #expect(ShareCrypto.open(blob, key: key, shareId: s.created.shareId)?.status == .driving)
-        await s.end(fix: fix, status: .arrived)
+        await s.end(fix: fix, status: .arrived, linger: 0)
         #expect(s.ended && !s.shouldSend(now: t0.addingTimeInterval(60)))
+        #expect(await repo.sharedBlob(s.created.shareId) == nil)
+    }
+
+    @Test("\"Arrived\" stays readable past a viewer poll before the share is deleted")
+    @MainActor
+    func arrivedLingers() async throws {
+        #expect(DriveShareSession.arrivedLinger > 10)
+        let repo = DemoRepository(latency: .zero)
+        let s = try await DriveShareSession.start(destinationName: "Kerja", remainingS: 60, repo: repo)
+        let key = try #require(ShareCrypto.parse(s.link)).key
+        let fix = LocationFix(coordinate: LatLng(lat: 3.15, lng: 101.70), speedKmh: 0, course: nil, accuracyM: 5, timestamp: .now)
+        let ending = Task { await s.end(fix: fix, status: .arrived, linger: 0.5) }
+        try await Task.sleep(for: .milliseconds(200))
+        let blob = try #require(await repo.sharedBlob(s.created.shareId))
+        #expect(ShareCrypto.open(blob, key: key, shareId: s.created.shareId)?.status == .arrived)
+        await ending.value
         #expect(await repo.sharedBlob(s.created.shareId) == nil)
     }
 

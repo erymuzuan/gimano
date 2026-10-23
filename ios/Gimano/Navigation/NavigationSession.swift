@@ -38,6 +38,8 @@ final class NavigationSession {
     @ObservationIgnored private var originalStopOffset = 0
     @ObservationIgnored private var batcher = LocationPingBatcher()
     @ObservationIgnored private var handledAlerts: Set<String> = []
+    /// Set by `stop()`: late reroute / add-stop responses and fixes are ignored afterwards.
+    @ObservationIgnored private(set) var isStopped = false
     @ObservationIgnored private let repo: any GimanoRepository
     @ObservationIgnored let voice: VoiceGuide
     /// Called when the active route geometry changes (reroute, add stop, alternative picked).
@@ -68,16 +70,12 @@ final class NavigationSession {
 
     func stopName(forManeuverAt index: Int?) -> String? { index.flatMap { stopArrivals[$0] } }
 
-    /// Seconds from now to each remaining stop, then the destination.
+    /// Seconds from now to each remaining stop, then the destination: the schedule's per-leg offsets (the same ones
+    /// route preview shows) minus the time already driven, so the ETAs agree with the preview.
     var etaOffsets: [Double] {
-        let along = progress?.snap.distanceAlongM ?? 0
         let sched = stopTracker.schedule
-        let start = stopTracker.nextStopIndex
-        let total = geometry.totalM
-        return (start..<sched.alongM.count).map { i in
-            let remainingM = max(0, sched.alongM[i] - along)
-            return total > 0 ? remainingS * remainingM / max(1, total - along) : 0
-        }
+        let elapsed = sched.elapsedS(atAlongM: progress?.snap.distanceAlongM ?? 0)
+        return (stopTracker.nextStopIndex..<sched.offsetsS.count).map { max(0, sched.offsetsS[$0] - elapsed) }
     }
 
     var geometry: RouteGeometry { tracker.geometry }
@@ -97,13 +95,17 @@ final class NavigationSession {
     }
 
     func handle(_ fix: LocationFix) {
+        guard !isStopped else { return }
         self.fix = fix
         guard !arrived else { return }
         guard let p = tracker.update(location: fix.coordinate) else { return }
         progress = p
         if p.snap.distanceFromRouteM <= 30 { maxOffRoadM = max(maxOffRoadM, p.snap.distanceFromRouteM) }
+        // Stops and the destination are only reached on the route: on a parallel road the snapped distance along
+        // can pass a stop while the driver is nowhere near it (the off-route check below then reroutes instead).
+        let onRoute = p.snap.distanceFromRouteM <= offRoute.tolerance(accuracyM: fix.accuracyM)
 
-        if let reached = stopTracker.update(alongM: p.snap.distanceAlongM), reached < stops.count {
+        if onRoute, let reached = stopTracker.update(alongM: p.snap.distanceAlongM), reached < stops.count {
             let name = stops[reached].name
             arrivedAtStop = name
             voice.speak(String(localized: "Arrived at \(name)"))
@@ -119,7 +121,7 @@ final class NavigationSession {
             send(batch)
         }
 
-        if p.arrived {
+        if p.arrived, onRoute {
             arrived = true
             voice.speak(String(localized: "You have arrived at \(destination.name)"))
             arrivedTask?.cancel()
@@ -173,6 +175,7 @@ final class NavigationSession {
     /// - Parameter newRequest: the route came from a fresh `POST /routes` (stop added / alternative), so stop
     ///   indexes restart at 0 for later reroutes.
     func setRoute(_ r: Route, stops newStops: [TripStop]? = nil, newRequest: Bool = true) {
+        guard !isStopped else { return }
         route = r
         if let newStops { stops = newStops }
         if newRequest { originalStopOffset = 0 }
@@ -201,6 +204,7 @@ final class NavigationSession {
         let remaining = Array(stops.dropFirst(min(next, stops.count)))
         Task {
             defer { isRerouting = false }
+            guard !isStopped else { return }
             // The server keeps the stops not yet reached (nextStopIndex into this route's stops).
             let absoluteNext = originalStopOffset + next
             var routes = (try? await repo.reroute(routeId: routeId, RerouteRequest(lat: origin.lat, lng: origin.lng, heading: heading,
@@ -213,7 +217,7 @@ final class NavigationSession {
                 routes = (try? await repo.routes(req)) ?? []
                 viaReroute = false
             }
-            guard let best = routes.first(where: \.isBest) ?? routes.first else { return }
+            guard !isStopped, let best = routes.first(where: \.isBest) ?? routes.first else { return }
             rerouteCount += 1
             setRoute(best, stops: remaining, newRequest: !viaReroute)
             if viaReroute { originalStopOffset = absoluteNext }
@@ -221,6 +225,8 @@ final class NavigationSession {
     }
 
     func stop() {
+        isStopped = true
+        arrivedTask?.cancel()
         voice.stop()
         send(batcher.drain())
     }

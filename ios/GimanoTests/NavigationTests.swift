@@ -405,3 +405,88 @@ struct DemoOnRoadTests {
         }
     }
 }
+
+@Suite("Navigation session: stops, ETAs and stopping")
+@MainActor
+struct NavigationSessionTests {
+    private let start = LatLng(lat: 3.15, lng: 101.70)
+
+    private func session(_ route: Route, stops: [TripStop]) -> NavigationSession {
+        let voice = VoiceGuide()
+        voice.mode = .off
+        return NavigationSession(destination: Destination(name: "End", address: "", location: Geo.offset(start, northM: 400, eastM: 600)),
+                                 route: route, stops: stops, vehicle: .car, avoid: AvoidOptions(),
+                                 repo: DemoRepository(latency: .zero), voice: voice)
+    }
+
+    private func fix(northM: Double, eastM: Double) -> LocationFix {
+        LocationFix(coordinate: Geo.offset(start, northM: northM, eastM: eastM), speedKmh: 40, course: 90, accuracyM: 5, timestamp: .now)
+    }
+
+    private var cornerStop: TripStop { TripStop(name: "Corner", location: Geo.offset(start, northM: 0, eastM: 600)) }
+
+    @Test("A parallel road 60 m away never marks a stop as reached; on the road it does")
+    func parallelRoadDoesNotReachStop() {
+        let nav = session(makeRoute(), stops: [cornerStop])
+        defer { nav.stop() }
+        nav.handle(fix(northM: -60, eastM: 590))
+        #expect(nav.stopTracker.nextStopIndex == 0 && nav.arrivedAtStop == nil)
+        let onRoad = session(makeRoute(), stops: [cornerStop])
+        defer { onRoad.stop() }
+        onRoad.handle(fix(northM: 0, eastM: 590))
+        #expect(onRoad.stopTracker.nextStopIndex == 1 && onRoad.arrivedAtStop == "Corner")
+    }
+
+    @Test("The destination is not reached from 60 m off the route end")
+    func destinationNeedsRoute() {
+        let nav = session(makeRoute(), stops: [])
+        defer { nav.stop() }
+        nav.handle(fix(northM: 400, eastM: 660))
+        #expect(!nav.arrived)
+        nav.handle(fix(northM: 395, eastM: 600))
+        #expect(nav.arrived)
+    }
+
+    @Test("Stop ETAs use the per-leg schedule, like route preview")
+    func etaFromLegs() {
+        var route = makeRoute()
+        let m = route.maneuvers
+        // Slow first leg (300 s to the corner), fast second leg (60 s).
+        let arriveAtCorner = Maneuver(type: .arrive, instruction: "", distanceM: 0, durationS: 0,
+                                      beginShapeIndex: m[1].beginShapeIndex, endShapeIndex: m[1].beginShapeIndex)
+        route.legs = [RouteLeg(durationS: 300, maneuvers: [m[0], arriveAtCorner]), RouteLeg(durationS: 60, maneuvers: [m[1], m[2]])]
+        route.durationS = 360
+        route.trafficDurationS = nil
+        let nav = session(route, stops: [cornerStop])
+        defer { nav.stop() }
+        #expect(nav.etaOffsets == StopSchedule.make(route: route, stops: [cornerStop.location]).offsetsS)
+        #expect(nav.etaOffsets.first == 300)
+        nav.handle(fix(northM: 0, eastM: 300))
+        #expect(abs(nav.etaOffsets[0] - 150) < 5)
+    }
+
+    @Test("A route arriving after Stop (late reroute / add stop) is ignored")
+    func setRouteAfterStop() {
+        let nav = session(makeRoute(), stops: [])
+        var changed = 0
+        nav.onRouteChanged = { _ in changed += 1 }
+        nav.stop()
+        var other = makeRoute()
+        other.id = "r2"
+        nav.setRoute(other)
+        nav.handle(fix(northM: 0, eastM: 100))
+        #expect(changed == 0 && nav.route.id == "r1" && nav.progress == nil)
+    }
+}
+
+@Suite("Stop schedule interpolation")
+struct StopScheduleElapsedTests {
+    @Test("Elapsed time is interpolated within each leg")
+    func elapsed() {
+        let s = StopSchedule(alongM: [600, 1000], offsetsS: [300, 360])
+        #expect(s.elapsedS(atAlongM: 0) == 0)
+        #expect(s.elapsedS(atAlongM: 300) == 150)
+        #expect(s.elapsedS(atAlongM: 800) == 330)
+        #expect(s.elapsedS(atAlongM: 2000) == 360)
+    }
+}

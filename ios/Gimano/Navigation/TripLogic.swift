@@ -120,6 +120,16 @@ struct StopSchedule: Equatable, Sendable {
         offsets[offsets.count - 1] = duration
         return StopSchedule(alongM: along, offsetsS: offsets)
     }
+
+    /// Seconds from departure to the point `a` metres along the route, interpolated within the leg it falls in.
+    func elapsedS(atAlongM a: Double) -> Double {
+        var prev = (along: 0.0, t: 0.0)
+        for (x, t) in zip(alongM, offsetsS) {
+            if a <= x { return x > prev.along ? prev.t + (t - prev.t) * (a - prev.along) / (x - prev.along) : prev.t }
+            prev = (x, t)
+        }
+        return offsetsS.last ?? 0
+    }
 }
 
 /// Tracks which stop is next during navigation and reports arrivals.

@@ -105,6 +105,9 @@ enum ShareCrypto {
 @Observable
 final class DriveShareSession {
     static let interval: TimeInterval = 15
+    /// How long the final "arrived" update stays readable before the share is deleted: longer than the viewer's
+    /// 10 s poll, so recipients see "Arrived" instead of going straight to "Sharing ended" (410).
+    static let arrivedLinger: TimeInterval = 30
 
     let created: ShareCreated
     let link: URL
@@ -165,13 +168,16 @@ final class DriveShareSession {
         }
     }
 
-    /// Sends a final status (arrived / ended) so viewers see it, then deletes the share.
-    func end(fix: LocationFix?, status: SharePayload.Status) async {
+    /// Sends a final status (arrived / ended) so viewers see it, then deletes the share. "Arrived" stays up for
+    /// `linger` (default `arrivedLinger`) so polling viewers get to see it; "ended" is deleted at once.
+    func end(fix: LocationFix?, status: SharePayload.Status, linger: TimeInterval? = nil) async {
         guard !ended else { return }
         ended = true
         if let fix, let blob = try? ShareCrypto.seal(payload(fix: fix, remainingS: 0, remainingM: 0, status: status),
-                                                       key: key, shareId: created.shareId) {
-            try? await repo.putShare(id: created.shareId, writeToken: created.writeToken, blob)
+                                                       key: key, shareId: created.shareId),
+           (try? await repo.putShare(id: created.shareId, writeToken: created.writeToken, blob)) != nil {
+            let wait = linger ?? (status == .arrived ? Self.arrivedLinger : 0)
+            if wait > 0 { try? await Task.sleep(for: .seconds(wait)) }
         }
         try? await repo.deleteShare(id: created.shareId, writeToken: created.writeToken)
     }

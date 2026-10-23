@@ -386,6 +386,11 @@ final class AppModel {
             defer { startingShare = false }
             do {
                 let s = try await DriveShareSession.start(destinationName: nav.destination.name, remainingS: nav.remainingS, repo: repo)
+                // Navigation stopped (or arrived) while the share was being created: never leave it live on the server.
+                guard navigation === nav, !nav.arrived else {
+                    await s.end(fix: nil, status: .ended)
+                    return
+                }
                 driveShare = s
                 showShareSheet = true
                 if let fix = nav.fix { s.update(fix: fix, remainingS: nav.remainingS, remainingM: nav.remainingM) }
@@ -537,7 +542,8 @@ final class AppModel {
                 share.update(fix: fix, remainingS: nav.remainingS, remainingM: nav.remainingM)
             }
         }
-        if let nav = navigation, let snapped = nav.progress?.snap, snapped.distanceFromRouteM <= 30 {
+        // Only a fix that was just snapped (usable for guidance) may move the puck to the road; a poor fix shows raw.
+        if GpsQuality.usableForGuidance(fix), let nav = navigation, let snapped = nav.progress?.snap, snapped.distanceFromRouteM <= 30 {
             // Keep the puck glued to the road while on route (≤ 30 m); otherwise show the raw fix (off-route logic runs on it).
             map.puck = snapped.point
         }
@@ -847,13 +853,19 @@ final class AppModel {
 
     func startNavigation() {
         // Navigation only ever starts from a fresh GPS fix, never from a chosen start.
-        guard let planner, planner.selected != nil, planner.start.isGPS else { return }
+        guard let planner, planner.selected != nil, planner.start.isGPS, navigation == nil, !startingNavigation else { return }
+        startingNavigation = true
         Task {
+            defer { startingNavigation = false }
             // Approximate location: ask once for precise location for this drive.
             if !shouldSimulate { await location.requestTemporaryPrecision() }
+            // The user may have left route preview while the precision prompt was up.
+            guard self.planner === planner, navigation == nil, screen == .routePreview else { return }
             beginNavigation()
         }
     }
+
+    @ObservationIgnored private var startingNavigation = false
 
     private func beginNavigation() {
         guard let planner, let route = planner.selected else { return }
@@ -941,7 +953,10 @@ final class AppModel {
     /// "Masalah jalan": one tap + Send, at the current fix and heading.
     func reportIssue(_ kind: IssueKind, subtype: String? = nil, duration: ClosureDuration? = nil, placeId: String? = nil,
                      at point: LatLng? = nil, source: NewIssue.Source = .report, payload: [String: String]? = nil) async -> Bool {
-        let p = point ?? position
+        guard let p = point ?? reportPosition else {
+            showToast(String(localized: "Waiting for your location. Try again in a moment."))
+            return false
+        }
         var data = payload ?? [:]
         if let nav = navigation { data["routeId"] = nav.route.id }
         let new = NewIssue(kind: kind, subtype: subtype, lat: p.lat, lng: p.lng, heading: point == nil ? heading : nil, placeId: placeId,
@@ -1332,7 +1347,19 @@ final class AppModel {
 
     // MARK: reports
 
+    /// Where a one-tap report goes: a fresh GPS fix (or the simulated drive), never the default map position or a
+    /// fix from hours ago.
+    var reportPosition: LatLng? {
+        if simulator.isRunning { return position }
+        if case .fresh(let p) = currentGPS() { return p }
+        return nil
+    }
+
     func submitReport(type: ReportType, subtype: String?, comment: String?) {
+        guard let position = reportPosition else {
+            showToast(String(localized: "Waiting for your location. Try again in a moment."))
+            return
+        }
         let new = NewReport(type: type, subtype: subtype, lat: position.lat, lng: position.lng,
                             heading: heading, comment: comment?.isEmpty == true ? nil : comment)
         showReport = false
