@@ -191,10 +191,21 @@ public sealed class PostgresIntegrationIssueTests : IAsyncLifetime
         var a = await svc.CreateAsync(users[0].Id, new CreateIssueRequest(IssueKind.PlaceClosedPerm, null, Lat, Lng, null, "n77", null, null, IssueSource.PlaceEdit, null), "ms", default);
         Assert.Equal(IssueState.Confirmed, a.State);
         Assert.Equal("Kedai Runcit Ali: tutup kekal", a.Summary);
-        await svc.VoteAsync(users[1].Id, a.Id, new IssueVoteRequest(IssueAnswer.Cleared, Near), default);
-        var r = await svc.VoteAsync(users[2].Id, a.Id, new IssueVoteRequest(IssueAnswer.Cleared, Near), default);
-        Assert.Equal(IssueState.Confirmed, r.State);   // 2 "masih buka" vs Emas weight 2 → not yet
-        Assert.Equal(2, r.RefutationsWeighted);
+
+        // While confirmed, the place is hidden from search/nearby.
+        var services = new ServiceCollection().AddScoped(_ => NewDb()).BuildServiceProvider();
+        var directory = new IssueDirectory(services.GetRequiredService<IServiceScopeFactory>(), clock, NullLogger<IssueDirectory>.Instance);
+        var snap = await directory.GetAsync(default);
+        Assert.Contains("n77", snap.ClosedPlaces);
+        Assert.Equal("Tutup kekal", IssueDirectory.Badge(snap, "n77", "ms")!.Label);
+
+        // Two "masih buka" answers reopen it (spec: reopened by 2 votes).
+        var r1 = await svc.VoteAsync(users[1].Id, a.Id, new IssueVoteRequest(IssueAnswer.Cleared, Near), default);
+        Assert.Equal(IssueState.Confirmed, r1.State);
+        var r2 = await svc.VoteAsync(users[2].Id, a.Id, new IssueVoteRequest(IssueAnswer.Cleared, Near), default);
+        Assert.Equal(IssueState.Refuted, r2.State);
+        directory.Invalidate();
+        Assert.DoesNotContain("n77", (await directory.GetAsync(default)).ClosedPlaces);
     }
 
     [Fact]

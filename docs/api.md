@@ -363,7 +363,7 @@ POST /issues/{id}/votes            (auth, signed)  {answer: "still"|"cleared"|"u
 | `place_info_wrong` | placeId | payload any of `name`, `category`, `phone`, `website`, `comment` |
 | `place_duplicate` | placeId | payload `duplicateOf` (place id) |
 
-Road reports snap to the nearest road segment within 30 m whose direction fits `heading` (400 if none). A report of the
+Road reports snap to the nearest road segment within 30 m whose direction fits `heading` (400 Bad Request if none). A report of the
 same kind on the same segment / place (or within 50 m) while one is open is **merged**: it counts as a "still" vote and
 the existing issue is returned with `merged: true`. Limits: 30 reports and 20 answers per pseudonym per day; answers
 need `proximity` like place vetting (`cell` = geohash-6 around the issue, `withinM` ≤ 1000). One answer per pseudonym:
