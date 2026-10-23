@@ -1,4 +1,4 @@
-# Gimano marketing images
+# Manotu marketing images
 
 Generated with the built-in image generation tool from [the brief](../image-prompts.md). PNG background artwork; headlines are added separately. All depicted people are fictional illustrations.
 

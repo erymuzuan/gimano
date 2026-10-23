@@ -1,4 +1,4 @@
-# Gimano Localization Glossary (EN ↔ BM)
+# Manotu Localization Glossary (EN ↔ BM)
 
 This glossary is the source of truth for English (`en`) and Bahasa Melayu (`ms` / `ms-MY`) copy across the Android (`android/app/src/main/res/values*/strings.xml`, `ManeuverFormatter.kt`, `Formatters.kt`) and iOS (`ios/Gimano/Resources/Localizable.xcstrings`, `Formatters.swift`) apps.
 
@@ -26,7 +26,7 @@ Drivers in Malaysia universally recognise these abbreviations and technical/bran
 - **Short status badges:** `Live` (map traffic pill), `Demo`, `2D`, `3D`, `Auto`, `Spam` (or `Spam / palsu`).
 
 ### Keep in Bahasa Melayu (even in English UI)
-These culturally specific Malaysian terms and Gimano community tier names stay in Bahasa Melayu in **both** English and Malay locales:
+These culturally specific Malaysian terms and Manotu community tier names stay in Bahasa Melayu in **both** English and Malay locales:
 - **Reputation / trust tiers:**
   - `Baharu` — New contributor tier (never translate as *"New"* in tier badges).
   - `Perak` — Silver contributor tier (never translate as *"Silver"*).

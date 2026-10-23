@@ -1,4 +1,4 @@
-# Gimano design tokens: "Cobalt"
+# Manotu design tokens: "Cobalt"
 
 Shared by Android (`ui/theme/GimanoTokens.kt`) and iOS (`DesignSystem/Tokens.swift`).
 Chosen option: **D · Cobalt**. Cobalt-blue brand, pale-cobalt surfaces, rounded
@@ -55,7 +55,7 @@ button carries an accessibility label even when no text is shown.
 
 - 24-unit grid, **2.0 stroke** (1.9 at 60 px+), round caps and joins, closed shapes
   filled with the matching tint at **60 % opacity**.
-- Gimano's own icon set (shared SVG path data in
+- Manotu's own icon set (shared SVG path data in
   `docs/icons/gimano-icons.json`): home, work, fuel, food, surau, parking, ev,
   toll, recent, police, accident, hazard, traffic, closure, lane, flood, camera,
   map, search, mic, sound, layers, menu, report, close.

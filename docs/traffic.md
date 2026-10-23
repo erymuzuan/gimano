@@ -1,6 +1,6 @@
-# Where Gimano's traffic comes from
+# Where Manotu's traffic comes from
 
-Short answer: **Gimano's own crowd first** (anonymous speeds plus driver reports). Official
+Short answer: **Manotu's own crowd first** (anonymous speeds plus driver reports). Official
 sources such as **LLM** (Lembaga Lebuhraya Malaysia) and the highway concessionaires are
 added only through a partnership or a published feed. **AI** helps *interpret* text sources;
 it never invents traffic.
@@ -41,7 +41,7 @@ doesn't guess.
 | **LLM (Lembaga Lebuhraya Malaysia)** traffic info / CCTV | Expressway incidents, closures, CCTV | Only via a formal data-sharing agreement or a published API. No scraping of the app or website. |
 | Concessionaires (PLUS, Prolintas, Gamuda, ANIH…) | Incidents, lane closures, toll-plaza congestion | Same: partner feeds. Their public posts on X/Facebook may only be read through official APIs, if their terms allow. |
 | JKR / PDRM / state councils | Planned road works, closures, events | Open data portals (data.gov.my) where published. |
-| e-hailing and logistics fleets | Dense probe speeds | Partner probe feeds; anonymised and aggregated before they reach Gimano. |
+| e-hailing and logistics fleets | Dense probe speeds | Partner probe feeds; anonymised and aggregated before they reach Manotu. |
 
 Each external source carries a `source` field and its own confidence, and never overrides
 fresh crowd data.

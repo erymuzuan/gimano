@@ -98,7 +98,7 @@ Reporters get Inbox items on confirmed/refuted/resolved, and accuracy counts tow
 
 ## Out of scope for v1 (keep for v2)
 
-- automatic OSM note posting and a Gimano/Manotu OSM account;
+- automatic OSM note posting and a Manotu OSM account;
 - MapRoulette;
 - users linking their own OSM account;
 - Valhalla live-traffic tiles for directional closures and soft penalties;

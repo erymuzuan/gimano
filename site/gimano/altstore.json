@@ -1,18 +1,18 @@
 {
-  "name": "Gimano",
+  "name": "Manotu",
   "identifier": "my.gimano.source",
   "sourceURL": "https://www.bukitbunga.com/gimano/altstore.json",
   "subtitle": "Community navigation for Malaysia",
-  "website": "https://www.bukitbunga.com/gimano/",
-  "iconURL": "https://www.bukitbunga.com/gimano/logo.png",
+  "website": "https://manotu.app/",
+  "iconURL": "https://manotu.app/logo.png",
   "tintColor": "0047AB",
   "apps": [
     {
-      "name": "Gimano",
+      "name": "Manotu (legacy Gimano preview)",
       "bundleIdentifier": "my.gimano.app",
-      "developerName": "Gimano contributors",
-      "localizedDescription": "Open-source community navigation for Malaysia. Favourites and planned drives stay on your phone. This preview uses file backups; iCloud and Google Drive sign-in are unavailable in the sideload build. Requires AltStore Classic or Sideloadly. Free accounts need a refresh every seven days.",
-      "iconURL": "https://www.bukitbunga.com/gimano/logo.png",
+      "developerName": "Manotu contributors",
+      "localizedDescription": "Formerly Gimano. This legacy IPA still displays the Gimano name and icon on your phone. Open-source community navigation for Malaysia. Favourites and planned drives stay on your phone. This preview uses file backups; iCloud and Google Drive sign-in are unavailable in the sideload build. Requires AltStore Classic or Sideloadly. Free accounts need a refresh every seven days.",
+      "iconURL": "https://manotu.app/logo.png",
       "tintColor": "0047AB",
       "category": "utilities",
       "versions": [
@@ -21,7 +21,7 @@
           "buildVersion": "1",
           "date": "2026-10-23T04:38:49.490363+00:00",
           "localizedDescription": "Public preview for AltStore Classic. File backup/restore available. iCloud and Google Drive sign-in disabled in this re-signed build.",
-          "downloadURL": "https://github.com/erymuzuan/gimano/releases/download/v0.1.0/gimano-0.1.0.ipa",
+          "downloadURL": "https://github.com/erymuzuan/manotu/releases/download/v0.1.0/gimano-0.1.0.ipa",
           "size": 8642607,
           "minOSVersion": "17.0"
         }

@@ -1,6 +1,6 @@
 # Personal data: on-device only, with backup and restore
 
-**Principle:** a user's personal data never lives on Gimano's servers. Favourites, Home/Work,
+**Principle:** a user's personal data never lives on Manotu's servers. Favourites, Home/Work,
 recents, private places, planned drives and settings stay **on the device**, and are backed up only to
 **the user's own cloud** (Google Drive or iCloud) or to a file they control.
 
@@ -91,7 +91,7 @@ a temp copy, then copying rows over.
 
 | Destination | Android | iOS | Notes |
 |---|---|---|---|
-| **Google Drive, app-private folder** (`appDataFolder`, scope `drive.appdata`) | ✅ | ✅ | Hidden folder in the user's own Drive that only Gimano can see. Cross-platform. Keeps the last 5 backups. |
+| **Google Drive, app-private folder** (`appDataFolder`, scope `drive.appdata`) | ✅ | ✅ | Hidden folder in the user's own Drive that only Manotu can see. Cross-platform. Keeps the last 5 backups. |
 | **iCloud** (CloudKit private database, record holding the backup file as a `CKAsset`) | — | ✅ | No sign-in needed; in the user's own iCloud quota. |
 | **Android Auto Backup** (`dataExtractionRules`, the DB + photos only) | ✅ automatic | — | Free, zero-config, end-to-end encrypted by Android using the screen lock. Baseline safety net. |
 | **Export / Import file** (share sheet / file picker) | ✅ | ✅ | Works with WhatsApp, email, USB, any cloud app. |

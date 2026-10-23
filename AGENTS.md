@@ -1,4 +1,4 @@
-# AGENTS.md — Gimano dev infrastructure
+# AGENTS.md — Manotu dev infrastructure
 
 Source of truth for the product: `docs/architecture.md`, `docs/api.md` (the mobile apps code against it —
 change it deliberately and say so). Backend: `backend/README.md`. Data/licensing: `data/README.md`.
@@ -22,7 +22,7 @@ old URL, so never create a new repo named `gimano`, or the redirect breaks). Loc
 
 - Reachable over Tailscale at **100.101.150.9**. No SSH and no remote Docker API.
 - Repo checkout on WS556: `E:/project/work/gimano`. Shell there is **PowerShell**.
-- Gimano runs as its own compose project `name: gimano` with these host ports:
+- Manotu runs as its own compose project `name: gimano` with these host ports:
 
 | Service | Port(s) |
 |---|---|
@@ -125,12 +125,12 @@ Android needs `usesCleartextTraffic`/network-security-config, iOS an ATS excepti
 This is a product promise, used in marketing (`docs/privacy-promise.md`). Any change that breaks it
 must be rejected in review.
 
-- **Never store user private data on Gimano servers.** That means Home/Work, favourites and their
+- **Never store user private data on Manotu servers.** That means Home/Work, favourites and their
   labels, recents, search history, "Just for me" places and their photos, planned drives, settings,
   contacts, and trip history. It lives only in the app's on-device SQLite DB (Room / GRDB, shared
   schema in `docs/privacy-and-backup.md`).
 - Backups go **only to the user's own storage**: Google Drive `appDataFolder`, iCloud private
-  database, or an exported file. They are optionally end-to-end encrypted with a user passphrase. Gimano
+  database, or an exported file. They are optionally end-to-end encrypted with a user passphrase. Manotu
   never sees backup contents and never proxies them through our servers.
 - The server may only hold what the user **deliberately shares with everyone**: reports, public
   places, reviews and photos, and feedback. It may also hold **anonymous, short-lived** location pings while
@@ -159,7 +159,7 @@ must be rejected in review.
 ## Public mobile distribution
 
 - APK/IPA and AltStore instructions: `docs/sideloading.md`.
-- Gimano TestFlight and App Store ownership must use Erymuzuan Mustapa's **individual** Apple Developer team, never STAFY COMPANY LIMITED. Verify the selected team before any identifier, signing or upload operation.
+- Manotu TestFlight and App Store ownership must use Erymuzuan Mustapa's **individual** Apple Developer team, never STAFY COMPANY LIMITED. Verify the selected team before any identifier, signing or upload operation.
 - AltStore builds have no team-bound iCloud/Google configuration; publish the limitation and retain file backup/restore. Never distribute personal provisioning profiles.
 
 ## Approved proprietary platform dependencies
@@ -167,6 +167,6 @@ must be rejected in review.
 On 23 October 2026 the product owner approved Google Play services Location, Google sign-in /
 authorization for direct-to-user Drive backups, and Play Integrity as documented exceptions for
 now. See `docs/supply-chain.md`. This is not permission to add other proprietary SDKs, advertising
-or tracking. Private data must still never be stored on Gimano servers. Gimano-authored code
+or tracking. Private data must still never be stored on Manotu servers. Manotu-authored code
 remains MIT-licensed; marketing must disclose these exceptions and Apple platform dependencies,
 and must not claim the entire app or dependency stack is “100% open source” or has “no closed-source SDKs”.

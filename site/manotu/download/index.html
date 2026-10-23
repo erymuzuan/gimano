@@ -4,9 +4,9 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Muat turun Manotu · Android &amp; iPhone</title>
-<meta name="description" content="Muat turun Manotu 0.1.0 untuk Android (APK) dan iPhone (IPA). Download Manotu: open source, no ads, your places stay on your phone.">
+<meta name="description" content="Muat turun Manotu dan binaan legasi Gimano untuk Android (APK) dan iPhone (IPA). Download Manotu: open source, no ads, your places stay on your phone.">
 <meta name="theme-color" content="#0047AB">
-<link rel="icon" href="../logo.png">
+<link rel="icon" href="../manotu-icon.svg">
 <link rel="preload" href="../fonts/nunito-variable.ttf" as="font" type="font/ttf" crossorigin>
 <style>
 @font-face{font-family:Nunito;src:url("../fonts/nunito-variable.ttf") format("truetype");font-weight:200 1000;font-display:swap}
@@ -75,7 +75,7 @@ footer{display:flex;flex-wrap:wrap;gap:16px 28px;padding-top:28px;padding-bottom
 
 <header class="wrap">
   <a class="brand" href="../">
-    <svg width="44" height="44" viewBox="0 0 200 200" aria-hidden="true"><rect width="200" height="200" rx="44" fill="#0047AB"></rect><g transform="translate(0 11)"><path d="M100 26 L166 75 L136 75 L100 49 L64 75 L34 75 Z" fill="#FFFFFF"></path><path d="M100 70 L152 105 L125 105 L100 88 L75 105 L48 105 Z" fill="#FFFFFF" fill-opacity="0.85"></path><path d="M44 152 C68 122 132 122 156 152 C130 141 70 141 44 152 Z" fill="#FFFFFF"></path><circle cx="100" cy="124" r="11" fill="#FF6B4A"></circle></g></svg>
+    <img src="../manotu-icon.svg" alt="Manotu" width="44" height="44">
     <span>Manotu</span>
   </a>
   <nav aria-label="Utama">
@@ -93,7 +93,7 @@ footer{display:flex;flex-wrap:wrap;gap:16px 28px;padding-top:28px;padding-bottom
     <div class="hero-text">
       <span class="pill">Android &amp; iPhone · Public preview</span>
       <h1>Muat turun Manotu.</h1>
-<p style="margin:8px 0 0;font-size:15px;font-weight:800;opacity:.85">Manotu dahulu dikenali sebagai Gimano · Manotu was formerly Gimano. Aplikasi yang dipasang masih bernama Gimano sehingga kemas kini nama baharu.</p>
+<p style="margin:8px 0 0;font-size:15px;font-weight:800;opacity:.85">Manotu dahulu dikenali sebagai Gimano · Manotu was formerly Gimano. Android kini bernama Manotu; pratonton iPhone lama masih bernama Gimano.</p>
       <p class="lede">Percuma, tanpa iklan, sumber terbuka. <span class="en">Free, no ads, open source. Get the Android APK or sideload the iPhone IPA.</span></p>
       <div class="actions">
         <a id="apk-link" class="btn btn-primary" href="https://manotu.app/download/manotu-0.3.0.apk" download type="application/vnd.android.package-archive">
@@ -210,10 +210,10 @@ footer{display:flex;flex-wrap:wrap;gap:16px 28px;padding-top:28px;padding-bottom
     <span class="eyebrow">IPHONE · iOS 17+</span>
     <h2 id="iphone">Pasang melalui AltStore · Sideload Manotu</h2>
     <div class="actions"><a class="btn btn-primary" href="https://github.com/erymuzuan/manotu/releases/download/v0.1.0/gimano-0.1.0.ipa">↓ Muat turun IPA · Download IPA</a><a class="btn btn-ghost" href="/gimano/altstore.json">AltStore source JSON</a></div>
-    <p>Manotu 0.1.0 for iPhone is available as a sideload preview. The IPA must be signed for your Apple account using AltStore Classic or Sideloadly; opening it in Safari alone does not install it.</p>
+    <p>Gimano 0.1.0 (legacy iPhone build) is available as a sideload preview. The IPA must be signed for your Apple account using AltStore Classic or Sideloadly; opening it in Safari alone does not install it.</p>
     <div class="grid">
       <div class="card"><span class="num">1</span><h3>Pasang AltStore Classic</h3><p>Use a Mac or Windows computer to install AltServer and AltStore Classic on your iPhone. Follow the official <a href="https://faq.altstore.io/altstore-classic/how-to-install-altstore-macos">Mac</a> or <a href="https://faq.altstore.io/altstore-classic/how-to-install-altstore-windows">Windows</a> guide. Enable Developer Mode and trust your developer profile if iOS requests it.</p></div>
-      <div class="card"><span class="num">2</span><h3>Tambah sumber Manotu</h3><p>In AltStore, open Sources → + and paste this URL. Add the source, then install Manotu.</p><pre>https://www.bukitbunga.com/gimano/altstore.json</pre><p>Alternatively, import the IPA through My Apps → +, or use <a href="https://sideloadly.io/">Sideloadly</a>.</p></div>
+      <div class="card"><span class="num">2</span><h3>Tambah sumber Manotu</h3><p>In AltStore, open Sources → + and paste this URL. Add the source, then install the legacy Gimano preview listed under Manotu.</p><pre>https://www.bukitbunga.com/gimano/altstore.json</pre><p>Alternatively, import the IPA through My Apps → +, or use <a href="https://sideloadly.io/">Sideloadly</a>.</p></div>
       <div class="card"><span class="num">3</span><h3>Refresh setiap tujuh hari</h3><p>Free Apple accounts need a refresh within seven days using AltServer, and allow three active sideloaded apps including AltStore. Refresh an expired app rather than deleting it and losing its local data.</p></div>
     </div>
     <p class="note"><b>Sandaran · Backups:</b> iCloud and Google Drive sign-in are disabled in this re-signed iPhone build. File backup and restore work; save the exported file to your own storage through Files. Export a backup before switching Apple accounts or installation methods.</p>

@@ -1,4 +1,4 @@
-# Gimano marketing images: generation brief
+# Manotu marketing images: generation brief
 
 Generate each image below with image-gen and save it as **PNG** at exactly the path given
 (folder `marketing/images/`). These are background artwork: **no text, letters, numbers, logos or

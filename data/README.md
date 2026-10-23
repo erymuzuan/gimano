@@ -1,6 +1,6 @@
 # Map data
 
-Gimano is built entirely on **OpenStreetMap** data.
+Manotu is built entirely on **OpenStreetMap** data.
 
 | What | Source | Used by |
 |---|---|---|
@@ -19,9 +19,9 @@ road segments and the OpenSearch `places` index are rebuilt.
 
 OpenStreetMap data is © OpenStreetMap contributors and licensed under the
 [Open Database License (ODbL) 1.0](https://opendatacommons.org/licenses/odbl/1-0/).
-Gimano's own code is MIT; the **data** keeps its ODbL licence.
+Manotu's own code is MIT; the **data** keeps its ODbL licence.
 
-What this means for Gimano:
+What this means for Manotu:
 
 - **Attribution.** Every map view in the Android and iOS apps shows
   “© OpenStreetMap contributors” linking to <https://www.openstreetmap.org/copyright>.
@@ -30,6 +30,6 @@ What this means for Gimano:
   `places` index and the Valhalla tiles are *derivative databases*. If we publicly distribute them
   (e.g. ship a data dump), they must be offered under the ODbL. Serving results through the API
   (a "Produced Work") only requires attribution.
-- **Community reports are not OSM data.** User-generated reports, jams and speeds are Gimano's own data
+- **Community reports are not OSM data.** User-generated reports, jams and speeds are Manotu's own data
   and are not mixed back into the OSM-derived tables.
 - Do not import data from sources whose licence is incompatible with the ODbL (e.g. Google Maps).

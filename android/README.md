@@ -1,6 +1,6 @@
-# Gimano for Android
+# Manotu for Android
 
-Native Android client for Gimano, open-source (MIT) community navigation for Malaysia.
+Native Android client for Manotu, open-source (MIT) community navigation for Malaysia.
 Kotlin 2.3 · Jetpack Compose + Material 3 · MapLibre Native 13 · Retrofit/kotlinx.serialization ·
 SignalR · DataStore · FusedLocationProvider. Package `my.gimano.app`, minSdk 26, target/compile 36.
 
@@ -30,7 +30,7 @@ pill. Demo mode can also be turned on in Settings. It uses an in-memory reposito
 the Klang Valley, saved places, live alerts, jams and drivers. Routes are **real road geometry** captured once from
 an OSM router (`app/src/main/assets/demo-routes/*.json`, origin SS2 Petaling Jaya, © OpenStreetMap
 contributors, ODbL). Navigation in demo mode is a simulated drive along the route polyline.
-To regenerate the routes (later against Gimano's own Valhalla):
+To regenerate the routes (later against Manotu's own Valhalla):
 
 ```sh
 python3 tools/capture-demo-routes.py [--osrm https://router.project-osrm.org]
@@ -45,7 +45,7 @@ Cobalt tokens: `ui/theme/GimanoTokens.kt` (from `docs/design-tokens.md`); the fo
 python3 tools/gen_icons.py   # → res/drawable/gi_*.xml + ui/common/GimanoIconPaths.kt
 ```
 
-The launcher icon ("Wau") is converted from `docs/brand/gimano-icon-android-foreground.svg`
+The launcher icon ("Wau") is converted from `docs/brand/manotu/manotu-icon-android-foreground.svg`
 (adaptive icon plus a monochrome themed layer).
 
 ## Layout

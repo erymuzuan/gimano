@@ -1,6 +1,6 @@
-# Releasing Gimano for iOS (TestFlight)
+# Releasing Manotu for iOS (TestFlight)
 
-Bundle id `my.gimano.app` · version `0.2.3` (build 5) (`MARKETING_VERSION` in `project.yml`) · build number = `CURRENT_PROJECT_VERSION` in `project.yml`
+Default bundle id `my.manotu.app`; legacy variant `my.gimano.app`. Version = `MARKETING_VERSION` and build number = `CURRENT_PROJECT_VERSION` in `project.yml`
 (override per upload: `scripts/testflight.sh <n>`).
 
 The Release configuration talks to **https://gimano-api.bukitbunga.com/api/v1/** (live hub: `wss://gimano-api.bukitbunga.com/hubs/live`).
@@ -38,16 +38,16 @@ Build the legacy app with `APP_VARIANT=gimano` (Local.xcconfig or the xcodebuild
 > STAFY (98KY9PMPX3), so `scripts/testflight.sh` passes `DEVELOPMENT_TEAM=$ASC_TEAM_ID` explicitly and refuses to
 > upload an archive signed by any other team. Create the App Store Connect app and API key under the individual team.
 
-1. **App Store Connect app**: My Apps → + → New App → iOS, name "Gimano", bundle id `my.gimano.app`, SKU `gimano-ios`.
+1. **App Store Connect app**: My Apps → + → New App → iOS, name "Manotu", bundle id `my.manotu.app`, SKU `manotu-ios`.
 2. **API key**: App Store Connect → Users and Access → Integrations → App Store Connect API → generate a key with the
    **App Manager** role. Download `AuthKey_<KEY_ID>.p8` (it can be downloaded only once) and note the Issuer ID and Key ID.
 3. `cp Config/asc.env.example Config/asc.env` and fill in `ASC_ISSUER_ID`, `ASC_KEY_ID`, `ASC_KEY_PATH`, `ASC_TEAM_ID` (individual team).
    `Config/asc.env` and `*.p8` are git-ignored; never commit them.
 4. `Config/Local.xcconfig` (git-ignored) must contain `DEVELOPMENT_TEAM = <your team id>`, as for development builds.
    `Config/Google.xcconfig` (git-ignored) holds the Google Drive client ids (see `Config/Google.xcconfig.example`).
-5. **Capabilities on the App ID** (developer.apple.com → Identifiers → my.gimano.app). Automatic signing with the API key creates the
+5. **Capabilities on the App ID** (developer.apple.com → Identifiers → my.manotu.app). Automatic signing with the API key creates the
    Apple Distribution certificate and the App Store profile itself. It can't create an iCloud container that doesn't exist yet, so:
-   - enable **iCloud (CloudKit)** with container `iCloud.my.gimano.app`, then build with `GIMANO_ICLOUD=YES` (the default).
+   - enable **iCloud (CloudKit)** with container `iCloud.my.manotu.app`, then build with `GIMANO_ICLOUD=YES` (the default).
      Until this is done, build with `GIMANO_ICLOUD=NO scripts/testflight.sh`: iCloud backup is hidden and Google Drive / file backups still work.
    - Background modes (location, audio, processing) need no setup.
 
@@ -83,7 +83,7 @@ Every upload needs a new build number: bump `CURRENT_PROJECT_VERSION` in `projec
 
 ## Questions App Store Connect will ask
 
-- **Encryption (export compliance)**: `ITSAppUsesNonExemptEncryption = NO` in Info.plist. Gimano uses only standard encryption: HTTPS, plus
+- **Encryption (export compliance)**: `ITSAppUsesNonExemptEncryption = NO` in Info.plist. Manotu uses only standard encryption: HTTPS, plus
   libsodium (XChaCha20-Poly1305, Argon2id, Ed25519) to protect the user's own backups, Share my drive and contribution signatures.
   It has no proprietary algorithms. This falls under the exemption for standard, published algorithms used for data protection and authentication, so no
   documentation upload or annual self-classification report should be needed. **The account holder must confirm this answer** when asked.

@@ -1,4 +1,4 @@
-# Gimano API: production runbook
+# Manotu API: production runbook
 
 `https://gimano-api.bukitbunga.com` takes this path:
 
@@ -164,7 +164,7 @@ inside the postgis container, then run the importer for the OSM tables.
 - API docs (Scalar/OpenAPI) are off in Production (`Features__ApiDocs=false`).
 - Rate limit: `RATE_LIMIT_PER_MINUTE` per client IP (default 600) → 429 with `Retry-After`.
 - Request bodies are capped at 4 MB; photo uploads at 15 MB on `/api/v1/photos` only.
-- OpenSearch is the shared 3.0 cluster on .149. Everything Gimano creates goes through `OPENSEARCH_INDEX_PREFIX`
+- OpenSearch is the shared 3.0 cluster on .149. Everything Manotu creates goes through `OPENSEARCH_INDEX_PREFIX`
   (`gimano-`). The importer fills a new physical index `gimano-places-<timestamp>` and swaps the alias `gimano-places`
   atomically, so search stays up during re-imports. `/readyz` uses `HEAD gimano-places` (no `cluster:monitor` needed).
   `OPENSEARCH_ALLOW_INVALID_CERT=true` skips certificate validation for that connection only (demo cert). Set it to

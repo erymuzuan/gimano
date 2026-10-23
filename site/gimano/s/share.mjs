@@ -10,14 +10,14 @@ const T = {
     updatedMin: m => `Dikemas kini ${m} minit lalu`, invalid: "Pautan tidak sah", invalidSub: "Minta pemandu hantar pautan baharu.",
     decrypt: "Tidak dapat membuka pautan ini", decryptSub: "Kunci dalam pautan tidak sepadan.", offline: "Tiada sambungan, mencuba semula…",
     endedSub: "Pemandu berhenti berkongsi atau tempoh tamat.",
-    privacy: "Disulitkan hujung ke hujung: hanya anda yang mempunyai pautan ini boleh melihat lokasi. Gimano tidak dapat membacanya.",
+    privacy: "Disulitkan hujung ke hujung: hanya anda yang mempunyai pautan ini boleh melihat lokasi. Manotu tidak dapat membacanya.",
   },
   en: {
     waiting: "Waiting for the first location…", driving: "On the way", arrived: "Arrived", ended: "Sharing ended",
     to: "to", eta: "ETA", remaining: "Remaining", updated: s => `Updated ${s} s ago`, updatedMin: m => `Updated ${m} min ago`,
     invalid: "Invalid link", invalidSub: "Ask the driver to send a new link.", decrypt: "Can't open this link",
     decryptSub: "The key in the link doesn't match.", offline: "Offline, retrying…", endedSub: "The driver stopped sharing or it expired.",
-    privacy: "End-to-end encrypted: only people with this link can see the location. Gimano can't read it.",
+    privacy: "End-to-end encrypted: only people with this link can see the location. Manotu can't read it.",
   },
 };
 let lang = (navigator.language || "ms").toLowerCase().startsWith("en") ? "en" : "ms";

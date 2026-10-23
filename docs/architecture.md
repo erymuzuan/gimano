@@ -1,6 +1,6 @@
-# Gimano architecture
+# Manotu architecture
 
-Gimano is an open-source, community-driven navigation app for Malaysia. It
+Manotu is an open-source, community-driven navigation app for Malaysia. It
 works the way Waze users expect (see [research/ux-study.md](research/ux-study.md))
 and is built entirely on open data from OpenStreetMap.
 

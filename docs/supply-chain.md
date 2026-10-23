@@ -1,6 +1,6 @@
-# What Gimano is built from
+# What Manotu is built from
 
-Public dependency inventory for Gimano. Gimano-authored code is MIT-licensed; the distributed
+Public dependency inventory for Manotu. Manotu-authored code is MIT-licensed; the distributed
 apps also use proprietary platform libraries and services, listed below. Update this file in the same PR that
 adds or changes a dependency; a reviewer checks it against the rule in `AGENTS.md`.
 
@@ -25,11 +25,11 @@ adds or changes a dependency; a reviewer checks it against the rule in `AGENTS.m
 | Font | Nunito | SIL OFL | Open-source type project |
 
 **Not used:** no advertising, analytics or tracking SDKs, and no closed-source map, traffic or
-navigation SDKs. Gimano's traffic is built from its own community data (see `traffic.md`), not
+navigation SDKs. Manotu's traffic is built from its own community data (see `traffic.md`), not
 bought from third-party traffic providers.
 
 Optional services the *user* chooses for their own backups (Google Drive, iCloud) are
-the user's own accounts. Gimano stores nothing there that it can read.
+the user's own accounts. Manotu stores nothing there that it can read.
 
 ## Rule
 
@@ -44,11 +44,11 @@ The product owner approved retaining these proprietary Android libraries for now
 
 | Library / service | Purpose | Boundary |
 |---|---|---|
-| Google Play services Location | Device location for navigation | Does not authorize storing private location history on Gimano servers |
-| Google sign-in / authorization libraries | User-authorized Google Drive backup access | Backups go directly to the user’s own Drive; credentials and backup contents are not proxied through Gimano |
+| Google Play services Location | Device location for navigation | Does not authorize storing private location history on Manotu servers |
+| Google sign-in / authorization libraries | User-authorized Google Drive backup access | Backups go directly to the user’s own Drive; credentials and backup contents are not proxied through Manotu |
 | Google Play Integrity | App / device integrity checks | Integrity verification does not authorize uploading favourites, trip history or other private app data |
 
-These dependencies remain subject to Google's terms; the MIT licence covers Gimano's own code,
+These dependencies remain subject to Google's terms; the MIT licence covers Manotu's own code,
 not these libraries. Apple platform frameworks and services are also proprietary. Do not market
 the complete app binary or dependency stack as “100% open source” or “no closed-source SDKs”.
 No advertising or tracking SDKs are approved. The private-data rules in `AGENTS.md` remain in force.

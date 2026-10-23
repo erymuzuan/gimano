@@ -1,6 +1,6 @@
 # Contributor identity, reputation and vetting
 
-**Principle:** Gimano never knows *who* you are. Your public contributions are credited to a random
+**Principle:** Manotu never knows *who* you are. Your public contributions are credited to a random
 **pseudonym** that only your phone, and your own backup, can sign for. Reputation describes
 your public work, never you. (Design boards: canvas page "Vetting (idea)".)
 

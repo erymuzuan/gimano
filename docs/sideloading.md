@@ -1,6 +1,7 @@
 # Direct downloads and AltStore Classic
 
-Public downloads: https://www.bukitbunga.com/gimano/download/
+Public downloads: https://manotu.app/download/
+Legacy Gimano channel: https://www.bukitbunga.com/gimano/download/
 AltStore source: https://www.bukitbunga.com/gimano/altstore.json
 GitHub releases: https://github.com/erymuzuan/manotu/releases
 
@@ -38,14 +39,14 @@ The initial iOS sideload snapshot also updates the feedback contract test from `
 
 ## Website deployment
 
-Use the Gimano-only folder and additive deployment described in AGENTS.md. Serve `altstore.json` as JSON.
+Use the dedicated Manotu and legacy Gimano folders and additive deployment described in AGENTS.md. Serve `altstore.json` as JSON.
 Keep the source URL stable; preserve older version entries when adding new releases.
 The download page must disclose signing renewal, backup limitations and whether a TestFlight link exists.
 Do not present a successful compiler run as a successful AltStore installation on a phone.
 
 ## TestFlight ownership
 
-Gimano must be registered under Erymuzuan Mustapa's individual Apple Developer membership, **not STAFY**.
+Manotu must be registered under Erymuzuan Mustapa's individual Apple Developer membership, **not STAFY**.
 Verify the team in App Store Connect and signing settings before creating identifiers or uploading.
 Enrollment, agreement acceptance and payment do not by themselves confirm membership activation.
 

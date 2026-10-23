@@ -1,6 +1,6 @@
-# Gimano backend
+# Manotu backend
 
-.NET 10 backend for Gimano: REST + SignalR API, background worker, and OSM importer.
+.NET 10 backend for Manotu: REST + SignalR API, background worker, and OSM importer.
 Contract: [`docs/api.md`](../docs/api.md) · design: [`docs/architecture.md`](../docs/architecture.md).
 
 ```

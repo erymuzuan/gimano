@@ -1,4 +1,4 @@
-# Gimano API v1 (contract)
+# Manotu API v1 (contract)
 
 Base URL: `https://{host}/api/v1`. JSON, camelCase, UTF-8. Coordinates are WGS84
 decimal degrees. Polylines use **Google encoded polyline, precision 6**
@@ -171,7 +171,7 @@ Clean-room flow, modelled on how big map apps let people add missing places:
 1. The user drops or drags a **pin** on the map (pre-filled with the reverse-geocoded address)
    and gives it a **name**. Optional: category, description, phone, website, opening
    hours, amenities, photos.
-2. **Visibility** question: "Make this place discoverable by other Gimano users?"
+2. **Visibility** question: "Make this place discoverable by other Manotu users?"
    - **No** → private: stored **only on the device** (local DB, included in the user's backup) and never
      sent to the server.
    - **Yes** → `pending`: automated checks run (below); if they pass, the place is shown to
@@ -287,7 +287,7 @@ car/motorcycle only (empty for bicycle/walk). Walking/cycling instructions use t
 waypoint/destination `name` from the request.
 
 **Tolls & fares:** OSM has toll plazas but no tariffs. `tolls` lists every toll plaza the route
-passes, in order, with the class-appropriate fare from Gimano's curated tariff table
+passes, in order, with the class-appropriate fare from Manotu's curated tariff table
 (`data/tolls/my-toll-rates.csv`, every row cites its public source and effective date).
 `tollEstimateMyr` is the sum **only when every plaza has a known fare** (`tollFareComplete: true`);
 otherwise it is the sum of the known fares and `tollFareComplete: false`, and the app shows "from RM x".
@@ -382,7 +382,7 @@ subtypes:
 ## Share my drive (end-to-end encrypted live ETA)
 
 The driver shares a link (WhatsApp etc.). The recipient opens it in any browser and sees the driver's position
-and ETA until arrival. **Gimano's server only relays ciphertext it cannot read**, so this keeps the
+and ETA until arrival. **Manotu's server only relays ciphertext it cannot read**, so this keeps the
 privacy rule in AGENTS.md.
 
 1. The app generates a random 256-bit key `K` **on the device** and calls `POST /shares`.
@@ -462,7 +462,7 @@ contact details, device model or location.
 
 No third-party crash SDK. The app writes a crash record **locally** (Android: `UncaughtExceptionHandler` +
 `ApplicationExitInfo` for ANR/native exits; iOS: MetricKit `MXCrashDiagnostic`, delivered on the next launch).
-On the next launch it asks *"Gimano terhenti tadi. Hantar laporan?"* with **Lihat butiran** (the exact JSON)
+On the next launch it asks *"Manotu terhenti tadi. Hantar laporan?"* with **Lihat butiran** (the exact JSON)
 and a remembered choice: **Tanya setiap kali** (default) · **Sentiasa hantar** · **Jangan hantar**.
 
 ```
