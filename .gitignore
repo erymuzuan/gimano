@@ -1,0 +1,57 @@
+# --- OS / editors ---
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+*.iml
+
+# --- Secrets / local env ---
+.env
+.env.*
+!.env.example
+**/appsettings.Local.json
+
+# --- .NET ---
+bin/
+obj/
+*.user
+*.suo
+.vs/
+TestResults/
+*.binlog
+artifacts/
+
+# --- Data (large, regenerable) ---
+data/osm/
+data/valhalla/
+*.osm.pbf
+
+# --- Android / Gradle ---
+.gradle/
+**/build/
+local.properties
+captures/
+.externalNativeBuild/
+.cxx/
+*.apk
+*.aab
+*.ap_
+*.dex
+*.keystore
+!debug.keystore
+google-services.json
+
+# --- Xcode / iOS ---
+DerivedData/
+xcuserdata/
+*.xcuserstate
+*.xcscmblueprint
+*.moved-aside
+*.hmap
+*.ipa
+*.dSYM.zip
+*.dSYM
+Pods/
+.build/
+.swiftpm/xcode/

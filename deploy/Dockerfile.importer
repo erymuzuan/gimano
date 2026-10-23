@@ -1,0 +1,15 @@
+# Build context: repository root (see deploy/docker-compose.yml)
+FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
+WORKDIR /src
+COPY backend/global.json backend/Directory.Build.props backend/Directory.Packages.props ./
+COPY backend/src/Gimano.Core/Gimano.Core.csproj src/Gimano.Core/
+COPY backend/src/Gimano.Importer/Gimano.Importer.csproj src/Gimano.Importer/
+RUN dotnet restore src/Gimano.Importer/Gimano.Importer.csproj
+COPY backend/src/Gimano.Core/ src/Gimano.Core/
+COPY backend/src/Gimano.Importer/ src/Gimano.Importer/
+RUN dotnet publish src/Gimano.Importer/Gimano.Importer.csproj -c Release -o /app --no-restore /p:UseAppHost=false
+
+FROM mcr.microsoft.com/dotnet/runtime:10.0 AS final
+WORKDIR /app
+COPY --from=build /app .
+ENTRYPOINT ["dotnet", "Gimano.Importer.dll"]

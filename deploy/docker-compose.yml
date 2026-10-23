@@ -1,0 +1,143 @@
+# Gimano dev/test stack.  Usage (from repo root):
+#   cp deploy/.env.example deploy/.env   # then set JWT_SIGNING_KEY
+#   docker compose -f deploy/docker-compose.yml up -d --build
+#   docker compose -f deploy/docker-compose.yml --profile tools run --rm importer
+# Host ports are overridable via deploy/.env (defaults avoid clashing with other stacks on the same host).
+name: gimano
+
+x-dotnet-env: &dotnet-env
+  ConnectionStrings__Postgres: "Host=postgis;Port=5432;Database=${POSTGRES_DB:-gimano};Username=${POSTGRES_USER:-gimano};Password=${POSTGRES_PASSWORD:-gimano};Command Timeout=1800"
+  OpenSearch__Url: "http://opensearch:9200"
+  RabbitMq__Host: "rabbitmq"
+  RabbitMq__Port: "5672"
+  RabbitMq__User: "${RABBITMQ_USER:-gimano}"
+  RabbitMq__Password: "${RABBITMQ_PASSWORD:-gimano}"
+  DOTNET_ENVIRONMENT: "${DOTNET_ENVIRONMENT:-Production}"
+  ASPNETCORE_ENVIRONMENT: "${DOTNET_ENVIRONMENT:-Production}"
+
+services:
+  postgis:
+    image: postgis/postgis:17-3.5
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-gimano}
+      POSTGRES_USER: ${POSTGRES_USER:-gimano}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-gimano}
+    command: ["postgres", "-c", "shared_buffers=1GB", "-c", "work_mem=64MB", "-c", "maintenance_work_mem=1GB", "-c", "max_wal_size=4GB"]
+    ports: ["${POSTGIS_PORT:-5433}:5432"]
+    volumes: ["pgdata:/var/lib/postgresql/data"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-gimano} -d ${POSTGRES_DB:-gimano}"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+
+  opensearch:
+    image: opensearchproject/opensearch:2.19.1
+    restart: unless-stopped
+    environment:
+      discovery.type: single-node
+      DISABLE_SECURITY_PLUGIN: "true"
+      DISABLE_INSTALL_DEMO_CONFIG: "true"
+      bootstrap.memory_lock: "true"
+      OPENSEARCH_JAVA_OPTS: "-Xms${OPENSEARCH_HEAP:-2g} -Xmx${OPENSEARCH_HEAP:-2g}"
+    ulimits:
+      memlock: { soft: -1, hard: -1 }
+      nofile: { soft: 65536, hard: 65536 }
+    ports: ["${OPENSEARCH_PORT:-9210}:9200"]
+    volumes: ["osdata:/usr/share/opensearch/data"]
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fs http://localhost:9200/_cluster/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+
+  rabbitmq:
+    image: rabbitmq:4-management
+    restart: unless-stopped
+    hostname: gimano-rabbit
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-gimano}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:-gimano}
+    ports:
+      - "${RABBITMQ_PORT:-5673}:5672"
+      - "${RABBITMQ_MGMT_PORT:-15673}:15672"
+    volumes: ["rabbitdata:/var/lib/rabbitmq"]
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 10s
+      retries: 30
+
+  # Downloads the Geofabrik extract and builds routing tiles on first start (10–30 min), then serves on :8002.
+  valhalla:
+    image: ghcr.io/valhalla/valhalla-scripted:latest
+    restart: unless-stopped
+    environment:
+      tile_urls: ${VALHALLA_TILE_URLS:-https://download.geofabrik.de/asia/malaysia-singapore-brunei-latest.osm.pbf}
+      use_tiles_ignore_pbf: "True"
+      force_rebuild: "False"
+      build_admins: "True"
+      build_time_zones: "True"
+      build_elevation: "False"
+      build_transit: "False"
+      server_threads: ${VALHALLA_THREADS:-8}
+      serve_tiles: "True"
+    ports: ["${VALHALLA_PORT:-8002}:8002"]
+    volumes: ["valhalla:/custom_files"]
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fs http://localhost:8002/status || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 120
+      start_period: 30m
+
+  api:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile.api
+    image: gimano/api:dev
+    restart: unless-stopped
+    environment:
+      <<: *dotnet-env
+      Urls: "http://+:8080"
+      Valhalla__Url: "http://valhalla:8002"
+      Jwt__SigningKey: ${JWT_SIGNING_KEY:?Set JWT_SIGNING_KEY (>= 32 chars) in deploy/.env}
+    ports: ["${API_PORT:-5080}:8080"]
+    depends_on:
+      postgis: { condition: service_healthy }
+      rabbitmq: { condition: service_healthy }
+      opensearch: { condition: service_started }
+      valhalla: { condition: service_started }
+
+  worker:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile.worker
+    image: gimano/worker:dev
+    restart: unless-stopped
+    environment: *dotnet-env
+    depends_on:
+      api: { condition: service_started }   # the API applies EF migrations on start
+      rabbitmq: { condition: service_healthy }
+
+  # One-shot OSM → Postgres/OpenSearch import:  docker compose --profile tools run --rm importer
+  importer:
+    profiles: ["tools"]
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile.importer
+    image: gimano/importer:dev
+    environment:
+      <<: *dotnet-env
+      GIMANO_PBF: /data/osm/malaysia-singapore-brunei-latest.osm.pbf
+    volumes: ["../data/osm:/data/osm"]
+    depends_on:
+      postgis: { condition: service_healthy }
+      opensearch: { condition: service_healthy }
+
+volumes:
+  pgdata:
+  osdata:
+  rabbitdata:
+  valhalla:

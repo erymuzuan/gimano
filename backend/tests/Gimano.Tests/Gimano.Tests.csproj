@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <IsPackable>false</IsPackable>
+    <OutputType>Exe</OutputType>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="xunit.v3" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Gimano.Core\Gimano.Core.csproj" />
+    <ProjectReference Include="..\..\src\Gimano.Api\Gimano.Api.csproj" />
+    <ProjectReference Include="..\..\src\Gimano.Worker\Gimano.Worker.csproj" />
+    <ProjectReference Include="..\..\src\Gimano.Importer\Gimano.Importer.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <Using Include="Xunit" />
+  </ItemGroup>
+</Project>

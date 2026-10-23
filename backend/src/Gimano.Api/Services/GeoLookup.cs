@@ -1,0 +1,93 @@
+using Gimano.Core.Contracts;
+using Gimano.Core.Data;
+using Gimano.Core.Domain;
+using Gimano.Core.Geo;
+using Microsoft.EntityFrameworkCore;
+
+namespace Gimano.Api.Services;
+
+/// <summary>PostGIS lookups: nearest street, reverse geocoding, jams and drivers in a bbox.</summary>
+public sealed class GeoLookup(GimanoDbContext db, TimeProvider clock)
+{
+    public async Task<string?> StreetNameAsync(GeoPoint p, CancellationToken ct, double radiusM = 50)
+    {
+        var pt = p.ToPoint();
+        return await db.RoadSegments.AsNoTracking()
+            .Where(s => (s.Name != null || s.Ref != null) && s.Geom.IsWithinDistance(pt, radiusM))
+            .OrderBy(s => s.Geom.Distance(pt))
+            .Select(s => s.Name ?? s.Ref)
+            .FirstOrDefaultAsync(ct);
+    }
+
+    public async Task<ReverseGeocodeResponse> ReverseAsync(GeoPoint p, CancellationToken ct)
+    {
+        var pt = p.ToPoint();
+        var place = await db.Places.AsNoTracking()
+            .Where(x => x.Location.IsWithinDistance(pt, 40))
+            .OrderBy(x => x.Location.Distance(pt))
+            .Select(x => new { x.Name, x.Address, x.Location })
+            .FirstOrDefaultAsync(ct);
+        var street = await StreetNameAsync(p, ct, 150);
+        var area = await db.Places.AsNoTracking()
+            .Where(x => x.Address != "" && x.Location.IsWithinDistance(pt, 1500))
+            .OrderBy(x => x.Location.Distance(pt))
+            .Select(x => x.Address)
+            .FirstOrDefaultAsync(ct);
+        var areaTail = AreaTail(area);
+
+        if (place is not null)
+            return new ReverseGeocodeResponse(place.Name, FirstNonEmpty(place.Address, Join(street, areaTail)) ?? "", place.Location.Y, place.Location.X);
+
+        return new ReverseGeocodeResponse(street ?? "Dropped pin", Join(street, areaTail) ?? p.ToString(), p.Lat, p.Lng);
+    }
+
+    /// <summary>Drops the street part of an address ("12, Jalan X, 47800 PJ, Selangor" → "47800 PJ, Selangor").</summary>
+    internal static string? AreaTail(string? address)
+    {
+        if (string.IsNullOrWhiteSpace(address)) return null;
+        var parts = address.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
+        var idx = Array.FindIndex(parts, x => x.Length >= 5 && x[..5].All(char.IsDigit));
+        var tail = idx >= 0 ? parts[idx..] : parts[^Math.Min(2, parts.Length)..];
+        return string.Join(", ", tail);
+    }
+
+    private static string? Join(string? a, string? b) =>
+        (a, b) switch { (null, null) => null, (null, _) => b, (_, null) => a, _ => $"{a}, {b}" };
+
+    private static string? FirstNonEmpty(params string?[] values) => values.FirstOrDefault(v => !string.IsNullOrWhiteSpace(v));
+
+    public async Task<IReadOnlyList<Jam>> JamsInBBoxAsync(BBox bbox, CancellationToken ct)
+    {
+        var poly = bbox.ToPolygon();
+        var since = clock.GetUtcNow().AddMinutes(-15);
+        return await db.Jams.AsNoTracking()
+            .Where(j => j.UpdatedAt > since && j.Geom.Intersects(poly))
+            .OrderByDescending(j => j.Level)
+            .Take(500)
+            .ToListAsync(ct);
+    }
+
+    /// <summary>Anonymised drivers: rounded to 3 dp and only for cells with ≥ 3 active drivers.</summary>
+    public async Task<IReadOnlyList<DriverDto>> DriversInBBoxAsync(BBox bbox, CancellationToken ct)
+    {
+        var poly = bbox.ToPolygon();
+        var since = clock.GetUtcNow().AddMinutes(-2);
+        var rows = await db.DriverPositions.AsNoTracking()
+            .Where(d => d.UpdatedAt > since && d.Location.Intersects(poly))
+            .Select(d => new { d.Location, d.Heading, d.Mood })
+            .Take(5000)
+            .ToListAsync(ct);
+        return Anonymise(rows.Select(r => (r.Location.Y, r.Location.X, r.Heading, r.Mood)));
+    }
+
+    internal static IReadOnlyList<DriverDto> Anonymise(IEnumerable<(double Lat, double Lng, double Heading, string Mood)> drivers, int minPerCell = 3)
+    {
+        // Cell = 0.01° (~1.1 km) so that 3 drivers per cell is meaningful; positions themselves are rounded to 3 dp.
+        return drivers
+            .GroupBy(d => (Math.Floor(d.Lat * 100), Math.Floor(d.Lng * 100)))
+            .Where(g => g.Count() >= minPerCell)
+            .SelectMany(g => g)
+            .Select(d => new DriverDto(Math.Round(d.Lat, 3), Math.Round(d.Lng, 3), Math.Round(d.Heading / 15) * 15 % 360, d.Mood))
+            .ToList();
+    }
+}

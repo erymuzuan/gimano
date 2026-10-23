@@ -1,0 +1,68 @@
+using Gimano.Api.Services;
+using Gimano.Core.Contracts;
+using Gimano.Core.Geo;
+using Gimano.Core.Search;
+using Microsoft.AspNetCore.Http.HttpResults;
+
+namespace Gimano.Api.Endpoints;
+
+public static class PlaceEndpoints
+{
+    public static RouteGroupBuilder MapPlaces(this RouteGroupBuilder api)
+    {
+        var search = api.MapGroup("/search").WithTags("Search").AllowAnonymous();
+        search.MapGet("", Search).WithSummary("Autocomplete search (OpenSearch, proximity-biased).");
+        search.MapGet("/nearby", Nearby).WithSummary("Places of a category around a point (PostGIS).");
+
+        api.MapGet("/places/{id}", GetPlace).WithTags("Search").AllowAnonymous();
+        api.MapGet("/geocode/reverse", Reverse).WithTags("Search").AllowAnonymous();
+        return api;
+    }
+
+    private static async Task<Results<Ok<SearchResponse>, ValidationProblem>> Search(
+        string? q, double? lat, double? lng, int? limit, string? category, string? country, PlaceService places, CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(q)) return Validation.Problem("q", "q is required.");
+        if (q.Length > 100) return Validation.Problem("q", "q is too long (max 100).");
+        if ((lat is null) != (lng is null) || (lat is { } a && lng is { } b && !Validation.ValidLatLng(a, b)))
+            return Validation.Problem("lat", "lat and lng must both be valid when given.");
+        PlaceCategory? cat = null;
+        if (!string.IsNullOrEmpty(category))
+        {
+            if (!GimanoJson.TryParseWire<PlaceCategory>(category, out var c)) return Validation.Problem("category", $"Unknown category '{category}'.");
+            cat = c;
+        }
+        if (country is not null && country.ToUpperInvariant() is not ("MY" or "SG" or "BN"))
+            return Validation.Problem("country", "country must be MY, SG or BN.");
+
+        var results = await places.SearchAsync(new SearchQuery(q, lat, lng, limit ?? 10, cat, country?.ToUpperInvariant()), ct);
+        return TypedResults.Ok(new SearchResponse(results));
+    }
+
+    private static async Task<Results<Ok<SearchResponse>, ValidationProblem>> Nearby(
+        double lat, double lng, string? category, double? radius, int? limit, PlaceService places, CancellationToken ct)
+    {
+        if (Validation.LatLng(lat, lng) is { } p) return p;
+        PlaceCategory? cat = null;
+        if (!string.IsNullOrEmpty(category))
+        {
+            if (!GimanoJson.TryParseWire<PlaceCategory>(category, out var c)) return Validation.Problem("category", $"Unknown category '{category}'.");
+            cat = c;
+        }
+        var r = Math.Clamp(radius ?? 5000, 50, 50_000);
+        var results = await places.NearbyAsync(new GeoPoint(lat, lng), cat, r, Math.Clamp(limit ?? 20, 1, 100), ct);
+        return TypedResults.Ok(new SearchResponse(results));
+    }
+
+    private static async Task<Results<Ok<PlaceDto>, NotFound>> GetPlace(string id, double? lat, double? lng, PlaceService places, CancellationToken ct)
+    {
+        var p = await places.GetAsync(id, lat, lng, ct);
+        return p is null ? TypedResults.NotFound() : TypedResults.Ok(p);
+    }
+
+    private static async Task<Results<Ok<ReverseGeocodeResponse>, ValidationProblem>> Reverse(double lat, double lng, GeoLookup geo, CancellationToken ct)
+    {
+        if (Validation.LatLng(lat, lng) is { } p) return p;
+        return TypedResults.Ok(await geo.ReverseAsync(new GeoPoint(lat, lng), ct));
+    }
+}

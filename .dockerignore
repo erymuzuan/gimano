@@ -1,0 +1,12 @@
+**/bin/
+**/obj/
+**/.vs/
+**/.idea/
+**/*.user
+.git/
+data/osm/
+data/valhalla/
+android/
+ios/
+docs/
+deploy/.env
