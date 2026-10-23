@@ -60,6 +60,16 @@ docker compose -f deploy/docker-compose.yml logs -f --tail 100 api worker
 
 Smoke test from the Mac: `curl http://100.101.150.9:5080/readyz`.
 
+## Public website: www.bukitbunga.com/gimano
+
+- Source: `site/gimano/` in this repo (home, `privacy/`, `terms/`). The Google OAuth consent screen links to these URLs,
+  so keep them stable.
+- Hosted on **IIS at 172.30.30.13** (BespokeTech network, reachable only with the BespokeTech VPN connected on
+  WS556-SERVER), folder `C:\apps\websites\www.bukitbunga.com\gimano\`, behind Cloudflare.
+- Deploy = copy `site/gimano/*` into that folder, **additive only**. Never touch the site root, its `web.config`
+  or other IIS sites on that box. Ask the Claude session **SERVER.HiRO** on WS556-SERVER to do it.
+- Verify: `curl -I https://www.bukitbunga.com/gimano/privacy/` → 200 (Cloudflare cache status is DYNAMIC).
+
 ## Mac (build machine) toolchain
 
 | Tool | Location / id |
