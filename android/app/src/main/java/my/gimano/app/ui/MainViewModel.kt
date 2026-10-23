@@ -723,7 +723,8 @@ class MainViewModel(private val c: AppContainer) : ViewModel() {
     fun startNavigation() {
         val plan = _ui.value.plan ?: return
         val route = plan.selected ?: return
-        val simulate = repo.isDemo || settings.current.simulateDrive || _ui.value.myLocation == null
+        // Release: never fake a drive just because GPS has no fix yet (debug keeps that for desk testing).
+        val simulate = repo.isDemo || settings.current.simulateDrive || (my.gimano.app.BuildConfig.DEBUG && _ui.value.myLocation == null)
         c.navigation.start(route.copy(vehicle = route.vehicle ?: plan.mode.wire), plan.destination, plan.request, simulate, plan.stops)
         _ui.update { it.copy(screen = Screen.Navigating, following = true, navExpanded = false, plan = plan.copy(countdownRunning = false)) }
     }

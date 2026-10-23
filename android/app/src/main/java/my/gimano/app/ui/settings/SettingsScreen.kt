@@ -71,12 +71,14 @@ fun SettingsScreen(s: AppSettings, vm: MainViewModel, fallback: Boolean, display
             Spacer(Modifier.height(8.dp))
             SwitchRow(stringResource(R.string.clock_24h), null, s.use24h, vm::setUse24h)
             SwitchRow(stringResource(R.string.demo_mode), stringResource(R.string.demo_mode_desc), s.demoMode, vm::setDemoMode)
-            SwitchRow(stringResource(R.string.simulate_drive), stringResource(R.string.simulate_drive_desc), s.simulateDrive, vm::setSimulate)
-
-            Section(stringResource(R.string.server_url))
-            TextSetting(null, s.apiBaseUrl, onApply = vm::setApiBaseUrl)
-            Section(stringResource(R.string.map_style))
-            TextSetting(null, s.mapStyleUrl, onApply = vm::setMapStyleUrl)
+            // Developer settings: debug builds only.
+            if (BuildConfig.DEBUG) {
+                SwitchRow(stringResource(R.string.simulate_drive), stringResource(R.string.simulate_drive_desc), s.simulateDrive, vm::setSimulate)
+                Section(stringResource(R.string.server_url))
+                TextSetting(null, s.apiBaseUrl, onApply = vm::setApiBaseUrl)
+                Section(stringResource(R.string.map_style))
+                TextSetting(null, s.mapStyleUrl, onApply = vm::setMapStyleUrl)
+            }
 
             Section(stringResource(R.string.about))
             Text(stringResource(R.string.about_text), color = c.textMuted, fontSize = 14.sp)

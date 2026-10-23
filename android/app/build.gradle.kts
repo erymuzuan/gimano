@@ -17,6 +17,26 @@ val apiBaseUrl = prop("gimano.apiBaseUrl", "http://100.101.150.9:5080/api/v1/").
 val mapStyleUrl = prop("gimano.mapStyleUrl", "https://tiles.openfreemap.org/styles/liberty")
 val mapStyleDarkUrl = prop("gimano.mapStyleDarkUrl", "https://tiles.openfreemap.org/styles/dark")
 val demoMode = prop("gimano.demoMode", "false").toBoolean()
+// Release builds talk to the public server (HTTPS only); debug keeps the Tailscale dev backend.
+val releaseApiBaseUrl = prop("gimano.releaseApiBaseUrl", "https://gimano-api.bukitbunga.com/api/v1/").let { if (it.endsWith("/")) it else "$it/" }
+require(releaseApiBaseUrl.startsWith("https://")) { "gimano.releaseApiBaseUrl must be https" }
+
+// Release signing: git-ignored android/keystore.properties (see keystore.properties.example).
+// The password comes from the macOS Keychain (or GIMANO_KEYSTORE_PASSWORD), never from the repo.
+val keystoreProps = Properties().apply {
+    rootProject.file("keystore.properties").takeIf { it.exists() }?.inputStream()?.use { load(it) }
+}
+val keystorePassword: String? by lazy {
+    System.getenv("GIMANO_KEYSTORE_PASSWORD")?.takeIf { it.isNotBlank() }
+        ?: keystoreProps.getProperty("storePassword")?.takeIf { it.isNotBlank() }
+        ?: keystoreProps.getProperty("keychainService")?.let { svc ->
+            runCatching {
+                providers.exec {
+                    commandLine("security", "find-generic-password", "-a", keystoreProps.getProperty("keychainAccount", "gimano"), "-s", svc, "-w")
+                }.standardOutput.asText.get().trim()
+            }.getOrNull()
+        }
+}
 
 // Google Drive backup: OAuth client id lives in git-ignored android/gimano.local.properties
 // (see gimano.local.properties.example). Blank → the app shows "Google Drive not configured".
@@ -66,9 +86,27 @@ android {
         localeFilters += listOf("en", "ms")
     }
 
+    signingConfigs {
+        if (keystoreProps.getProperty("storeFile") != null) {
+            create("release") {
+                storeFile = file(keystoreProps.getProperty("storeFile"))
+                keyAlias = keystoreProps.getProperty("keyAlias", "gimano")
+                storePassword = keystorePassword
+                keyPassword = keystorePassword
+            }
+        }
+    }
+
     buildTypes {
         release {
-            isMinifyEnabled = false
+            isMinifyEnabled = true
+            isShrinkResources = true
+            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+            buildConfigField("String", "API_BASE_URL", "\"$releaseApiBaseUrl\"")
+            buildConfigField("boolean", "DEMO_MODE_DEFAULT", "false")
+            signingConfig = signingConfigs.findByName("release")
+            // Phones (64/32-bit ARM) + x86_64 emulators; drops JNA's legacy mips/armeabi/x86 libs.
+            ndk { abiFilters += listOf("arm64-v8a", "armeabi-v7a", "x86_64") }
         }
     }
 
@@ -154,3 +192,16 @@ dependencies {
 ksp {
     arg("room.schemaLocation", "$projectDir/schemas")
 }
+
+// Release APK with a download-friendly name: app/build/outputs/apk/release/gimano-<version>.apk
+val releaseApkDir = layout.buildDirectory.dir("outputs/apk/release")
+val releaseApkName = "gimano-${android.defaultConfig.versionName}.apk"
+val copyReleaseApk = tasks.register("gimanoReleaseApk") {
+    val src = releaseApkDir.map { it.file("app-release.apk") }
+    val dst = releaseApkDir.map { it.file(releaseApkName) }
+    inputs.file(src)
+    outputs.file(dst)
+    doLast { src.get().asFile.copyTo(dst.get().asFile, overwrite = true) }
+}
+tasks.matching { it.name == "assembleRelease" }.configureEach { finalizedBy(copyReleaseApk) }
+tasks.matching { it.name.startsWith("createReleaseApkListingFileRedirect") }.configureEach { mustRunAfter(copyReleaseApk) }
