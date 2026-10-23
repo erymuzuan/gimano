@@ -46,6 +46,10 @@ protocol GimanoRepository: Sendable {
     func verifyPlace(id: String, _ v: VerifyPlaceRequest) async throws -> VerifyResult
     /// Pending community places in this geohash-6 cell and its neighbours (never the caller's own).
     func pendingNearby(cell: String) async throws -> [PlaceSummary]
+    // Complaints (docs/complaints.md): road and place issues
+    func createIssue(_ issue: NewIssue) async throws -> Issue
+    func issuesNearby(bbox: BBox, kinds: [IssueKind]?) async throws -> [Issue]
+    func voteIssue(id: String, _ vote: IssueVote) async throws -> Issue
     func attestChallenge() async throws -> String
     func attest(keyId: String, attestation: String) async throws
     func myContributions() async throws -> [PlaceSummary]
@@ -353,6 +357,24 @@ final class LiveRepository: GimanoRepository {
         try await authed { try await self.client.get("places/pending-nearby", query: [URLQueryItem(name: "cell", value: cell)]) }
     }
 
+    func createIssue(_ issue: NewIssue) async throws -> Issue {
+        try await authed { try await self.client.send("POST", "issues", body: issue) }
+    }
+
+    func issuesNearby(bbox: BBox, kinds: [IssueKind]?) async throws -> [Issue] {
+        struct R: Decodable, Sendable { var issues: [Issue] }
+        var q = [URLQueryItem(name: "bbox", value: bbox.queryValue)]
+        if let kinds, !kinds.isEmpty { q.append(URLQueryItem(name: "kinds", value: kinds.map(\.rawValue).joined(separator: ","))) }
+        let query = q
+        // Accept {issues: [...]} or a bare array.
+        if let r: R = try? await authed({ try await self.client.get("issues/nearby", query: query) }) { return r.issues }
+        return try await authed { try await self.client.get("issues/nearby", query: query) }
+    }
+
+    func voteIssue(id: String, _ vote: IssueVote) async throws -> Issue {
+        try await authed { try await self.client.send("POST", "issues/\(id)/votes", body: vote) }
+    }
+
     func attestChallenge() async throws -> String {
         struct C: Decodable, Sendable { var challenge: String }
         let c: C = try await authed { try await self.client.get("me/attest/challenge") }
@@ -548,6 +570,16 @@ final class FallbackRepository: GimanoRepository {
     }
     func pendingNearby(cell: String) async throws -> [PlaceSummary] {
         try await run(gapFallback: false, { try await $0.pendingNearby(cell: cell) }, demoOp: { try await $0.pendingNearby(cell: cell) })
+    }
+    /// Complaints never fall back to demo data while online (they're public contributions).
+    func createIssue(_ issue: NewIssue) async throws -> Issue {
+        try await run(gapFallback: false, { try await $0.createIssue(issue) }, demoOp: { try await $0.createIssue(issue) })
+    }
+    func issuesNearby(bbox: BBox, kinds: [IssueKind]?) async throws -> [Issue] {
+        try await run(gapFallback: false, { try await $0.issuesNearby(bbox: bbox, kinds: kinds) }, demoOp: { try await $0.issuesNearby(bbox: bbox, kinds: kinds) })
+    }
+    func voteIssue(id: String, _ vote: IssueVote) async throws -> Issue {
+        try await run(gapFallback: false, { try await $0.voteIssue(id: id, vote) }, demoOp: { try await $0.voteIssue(id: id, vote) })
     }
     func attestChallenge() async throws -> String { try await live.attestChallenge() }
     func attest(keyId: String, attestation: String) async throws { try await live.attest(keyId: keyId, attestation: attestation)

@@ -121,7 +121,7 @@ struct ReviewsSection: View {
             HStack(alignment: .center, spacing: 16) {
                 VStack(spacing: 2) {
                     if stats.isNew {
-                        Text("New").font(Tokens.Font.nunito(30, .black)).foregroundStyle(Color.brand).accessibilityIdentifier("ratingNew")
+                        Text("New").font(Tokens.Font.nunito(30, .black)).foregroundStyle(Color.brand).lineLimit(1).minimumScaleFactor(0.6).accessibilityIdentifier("ratingNew")
                     } else {
                         Text(String(format: "%.1f", stats.average)).font(Tokens.Font.nunito(36, .black)).accessibilityIdentifier("ratingAverage")
                     }

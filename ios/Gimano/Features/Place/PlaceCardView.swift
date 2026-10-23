@@ -9,6 +9,7 @@ struct PlaceCardView: View {
     @State private var place: Place?
     @State private var privatePlace: PrivatePlace?
     @State private var showSuggest = false
+    @State private var placeIssue: IssueKind?
     @State private var verifyDone = false
     @State private var verifyResult: VerifyResult?
     @State private var viewer: PhotoViewerItem?
@@ -37,7 +38,18 @@ struct PlaceCardView: View {
                         Label("Add feedback", systemImage: "bubble.left.and.text.bubble.right")
                     }
                     if !isPrivate && !summary.id.hasPrefix("pin:") && !summary.id.hasPrefix("local:") {
-                        Button { showSuggest = true } label: { Label("Suggest an edit", systemImage: "pencil") }
+                        Menu {
+                            Button { placeIssue = .placeClosedPerm } label: { Label("Permanently closed", systemImage: "xmark.octagon") }
+                            Button { placeIssue = .placeClosedTemp } label: { Label("Temporarily closed", systemImage: "clock.badge.xmark") }
+                            Button { placeIssue = .placeHoursWrong } label: { Label("Opening hours wrong", systemImage: "clock") }
+                            Button {
+                                model.entrancePlace = (summary.id, summary.location)
+                                model.startPinPick(.placeEntrance, start: summary.location)
+                            } label: { Label("Entrance or parking wrong", systemImage: "door.left.hand.open") }
+                            Button { showSuggest = true } label: { Label("Name, type, phone", systemImage: "pencil") }
+                            Button { placeIssue = .placeDuplicate } label: { Label("Duplicate", systemImage: "square.on.square") }
+                        } label: { Label("Suggest an edit", systemImage: "pencil") }
+                            .accessibilityIdentifier("suggestEditMenu")
                     }
                     if isPrivate {
                         Button(role: .destructive) { confirmDelete = true } label: { Label("Delete", systemImage: "trash") }
@@ -65,6 +77,9 @@ struct PlaceCardView: View {
                         header
                         actions
                         badgesAndVerify
+                        if !isPrivate && !summary.id.hasPrefix("pin:") && !summary.id.hasPrefix("local:") && !summary.isSearchOnly {
+                            PlaceIssueBadges(placeId: summary.id, location: summary.location)
+                        }
                         photosStrip
                         infoRows
                         if canReview { ReviewsSection(place: place, summary: summary) }
@@ -87,6 +102,9 @@ struct PlaceCardView: View {
                     .shadow(color: .black.opacity(0.15), radius: 10, y: -2)
                     .ignoresSafeArea(edges: .bottom)
             )
+        }
+        .sheet(item: $placeIssue) { k in
+            PlaceIssueSheet(kind: k, placeId: summary.id, location: summary.location)
         }
         .sheet(isPresented: $showSuggest) {
             SuggestEditSheet(placeId: summary.id, current: place, fallback: summary)

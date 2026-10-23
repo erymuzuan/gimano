@@ -474,7 +474,7 @@ extension InboxKind {
     /// Board tints: published = teal, thanks = coral, helpful = amber, everything else cobalt.
     var tint: Color {
         switch self {
-        case .placePublished, .editAccepted: .tealMist
+        case .placePublished, .editAccepted, .issueConfirmed, .issueResolved: .tealMist
         case .reportThanked: .coralMist
         case .reviewHelpful: .amberMist
         default: .brandMist
@@ -489,6 +489,7 @@ extension InboxKind {
         case .reviewHelpful: .star
         case .editAccepted: .addStop
         case .feedbackStatus: .feedback
+        case .issueConfirmed, .issueRefuted, .issueResolved: .hazard
         case .announcement, .unknown: .logo
         }
     }

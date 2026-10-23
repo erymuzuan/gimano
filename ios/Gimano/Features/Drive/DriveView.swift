@@ -106,6 +106,11 @@ struct DriveView: View {
                 }
 
                 VStack(spacing: 12) {
+                    if nav.approachingAlert == nil, let issue = model.stillClosedPrompt {
+                        StillClosedCard(issue: issue)
+                            .padding(.horizontal, Tokens.Space.gutter)
+                            .transition(.move(edge: .bottom).combined(with: .opacity))
+                    }
                     if let alert = nav.approachingAlert {
                         AlertCard(report: alert.report, distanceM: nav.distanceToAlert(alert),
                                   onStillThere: { nav.vote(stillThere: true) },

@@ -16,6 +16,8 @@ final class NavigationSession {
     private(set) var rerouteCount = 0
     /// Largest snapped distance from the route seen while on it (diagnostics / UI tests).
     private(set) var maxOffRoadM: Double = 0
+    /// The first time the driver left the route at a decision point (on the phone only; asked about after the trip).
+    private(set) var deviation: DeviationEvent?
     let startedAt = Date()
     /// Stops not yet reached, in order (the destination is separate).
     private(set) var stops: [TripStop]
@@ -186,6 +188,11 @@ final class NavigationSession {
 
     func reroute(from fix: LocationFix) {
         isRerouting = true
+        if deviation == nil {
+            let road = progress?.upcomingIndex.flatMap { tracker.maneuvers.indices.contains($0) ? ManeuverFormatter.roadName(tracker.maneuvers[$0]) : nil }
+            deviation = DeviationEvent(lat: fix.coordinate.lat, lng: fix.coordinate.lng, heading: fix.course, roadName: road,
+                                       at: fix.timestamp, vehicle: vehicle)
+        }
         voice.speak(String(localized: "Recalculating route"))
         let origin = fix.coordinate
         let heading = fix.course ?? 0

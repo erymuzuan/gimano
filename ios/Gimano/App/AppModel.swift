@@ -39,6 +39,8 @@ final class RoutePlanner {
     var stops: [TripStop] = []
     /// Where the route starts (only a fresh GPS fix is "Your location").
     var start: RouteStart = .locating
+    /// "Drive through anyway": issues ignored for this trip only.
+    var ignoredIssues: Set<String> = []
     /// The start is under 50 m from the destination: "You're already here", no route.
     var alreadyHere = false
 
@@ -110,6 +112,8 @@ final class AppModel {
     /// Backup & restore opened from the first-run "Restore from Gimano or a backup".
     var restoreOnFirstRun = false
     var pinActions: PickedPoint?
+    /// The place whose entrance is being moved ("Entrance or parking wrong").
+    @ObservationIgnored var entrancePlace: (String, LatLng)?
 
     var screen: Screen = .home
     var planner: RoutePlanner?
@@ -304,6 +308,12 @@ final class AppModel {
         CrashReporter.shared.onPending = { [weak self] in Task { await self?.checkCrashReports() } }
         if vettingTask == nil { startVettingTicker() }
         #if DEBUG
+        // `-GimanoFakeDeviation YES`: the after-trip "Why didn't you follow the route?" prompt (simulator screenshots).
+        if UserDefaults.standard.bool(forKey: "GimanoFakeDeviation") {
+            UserDefaults.standard.removeObject(forKey: "deviation.lastAsked")
+            UserDefaults.standard.removeObject(forKey: "deviation.optedOut")
+            deviationPrompt = DeviationEvent(lat: position.lat, lng: position.lng, heading: 90, roadName: "Jalan SS 2/24", at: .now, vehicle: .car)
+        }
         // `-GimanoVetNow YES` (demo): a pending place by someone else 250 m away, and the prompt right away.
         if UserDefaults.standard.bool(forKey: "GimanoVetNow") {
             if let demo = repo as? DemoRepository {
@@ -515,6 +525,7 @@ final class AppModel {
         map.puckHeading = heading
         map.puckAccuracyM = fix.accuracyM
         retryStartIfWaiting()
+        checkStillClosed(at: fix.coordinate)
         gpsQuality.update(accuracyM: fix.accuracyM, at: fix.timestamp)
         // Poor fixes (> 100 m, e.g. approximate location) never advance instructions or trigger reroutes.
         if GpsQuality.usableForGuidance(fix) { navigation?.handle(fix) }
@@ -665,6 +676,13 @@ final class AppModel {
         case .setOrigin:
             setRouteStart(.chosen(name: p.title, location: p.location, placeId: p.placeId))
             go(.routePreview)
+        case .placeEntrance:
+            guard let (placeId, loc) = entrancePlace else { return }
+            entrancePlace = nil
+            Task {
+                _ = await reportIssue(.placeEntranceWrong, placeId: placeId, at: loc, source: .placeEdit,
+                                      payload: ["navLat": String(format: "%.6f", p.location.lat), "navLng": String(format: "%.6f", p.location.lng)])
+            }
         case .favorite: savingPlace = p.favoriteSummary
         case .setHome: setSaved(kind: .home, place: p.summary); go(.home)
         case .setWork: setSaved(kind: .work, place: p.summary); go(.home)
@@ -802,7 +820,7 @@ final class AppModel {
             destination: RouteEndpoint(lat: planner.destination.location.lat, lng: planner.destination.location.lng, placeId: planner.destination.placeId),
             waypoints: planner.stops.map(\.endpoint),
             vehicle: planner.vehicle, avoid: planner.vehicle.isMotorized ? planner.avoid : AvoidOptions(),
-            departAt: planner.departAt, alternatives: 2)
+            departAt: planner.departAt, alternatives: 2, ignoreIssues: planner.ignoredIssues.sorted())
         do {
             let routes = try await repo.routes(req)
             guard self.planner === planner else { return }
@@ -841,6 +859,7 @@ final class AppModel {
         guard let planner, let route = planner.selected else { return }
         let session = NavigationSession(destination: planner.destination, route: route, stops: planner.stops, vehicle: planner.vehicle,
                                         avoid: planner.avoid, repo: repo, voice: voice)
+        Task { await loadTripIssues(for: route) }
         session.onRouteChanged = { [weak self] r in
             guard let self else { return }
             self.syncRouteLayers()
@@ -885,7 +904,90 @@ final class AppModel {
         }
     }
 
+    // MARK: complaints (docs/complaints.md)
+
+    /// Open road issues around the active route ("Still closed?" prompts).
+    private(set) var tripIssues: [Issue] = []
+    @ObservationIgnored private var askedStillClosed: Set<String> = []
+    var stillClosedPrompt: Issue?
+    /// "Why didn't you follow the route?" after the trip (never while driving).
+    var deviationPrompt: DeviationEvent?
+
+    func loadTripIssues(for route: Route) async {
+        guard let b = BBox(array: route.bbox)?.expanded(byM: StillClosedPolicy.radiusM) else { return }
+        tripIssues = (try? await repo.issuesNearby(bbox: b, kinds: IssueKind.allCases.filter(\.isRoad))) ?? []
+        askedStillClosed = []
+    }
+
+    private func checkStillClosed(at p: LatLng) {
+        guard navigation != nil, stillClosedPrompt == nil,
+              let issue = StillClosedPolicy.nearest(tripIssues, to: p, asked: askedStillClosed) else { return }
+        askedStillClosed.insert(issue.id)
+        stillClosedPrompt = issue
+    }
+
+    func voteIssue(_ issue: Issue, _ answer: IssueVoteAnswer) {
+        stillClosedPrompt = nil
+        Task {
+            do {
+                _ = try await repo.voteIssue(id: issue.id, IssueVote(answer: answer))
+                showToast(String(localized: "Thanks for checking!"))
+            } catch let e as APIError where e.isServerSideGap {
+                showToast(String(localized: "Road problem reports aren't available on the server yet."))
+            } catch { showToast(error.localizedDescription) }
+        }
+    }
+
+    /// "Masalah jalan": one tap + Send, at the current fix and heading.
+    func reportIssue(_ kind: IssueKind, subtype: String? = nil, duration: ClosureDuration? = nil, placeId: String? = nil,
+                     at point: LatLng? = nil, source: NewIssue.Source = .report, payload: [String: String]? = nil) async -> Bool {
+        let p = point ?? position
+        var data = payload ?? [:]
+        if let nav = navigation { data["routeId"] = nav.route.id }
+        let new = NewIssue(kind: kind, subtype: subtype, lat: p.lat, lng: p.lng, heading: point == nil ? heading : nil, placeId: placeId,
+                           vehicle: navigation?.vehicle ?? vehicle, durationHint: duration, source: source, payload: data.isEmpty ? nil : data)
+        do {
+            _ = try await repo.createIssue(new)
+            showToast(String(localized: "Thanks! Drivers nearby will be asked to confirm."))
+            return true
+        } catch let e as APIError where e.isServerSideGap {
+            showToast(String(localized: "Road problem reports aren't available on the server yet."))
+        } catch {
+            showToast(error.localizedDescription)
+        }
+        return false
+    }
+
+    /// Answer to "Why didn't you follow the route?": only the answer + that spot are sent; jams and own choices aren't.
+    func answerDeviation(_ d: DeviationEvent, _ reason: DeviationReason?, neverAskAgain: Bool) {
+        deviationPrompt = nil
+        UserDefaults.standard.set(Date(), forKey: "deviation.lastAsked")
+        if neverAskAgain { UserDefaults.standard.set(true, forKey: "deviation.optedOut") }
+        guard let kind = reason?.issueKind else { return }
+        Task {
+            _ = await reportIssue(kind, at: d.location, source: .deviation,
+                                  payload: d.roadName.map { ["roadName": $0] })
+        }
+    }
+
+    private func considerDeviationPrompt(_ d: DeviationEvent?) {
+        guard let d else { return }
+        let ok = DeviationAskPolicy.shouldAsk(lastAsked: UserDefaults.standard.object(forKey: "deviation.lastAsked") as? Date,
+                                              optedOut: UserDefaults.standard.bool(forKey: "deviation.optedOut"),
+                                              speedKmh: speedKmh, navigating: navigation != nil, now: .now)
+        if ok { deviationPrompt = d }
+    }
+
+    /// "Lalu juga": recompute this trip without that exclusion.
+    func driveThroughAnyway(_ issue: RouteIssue) {
+        guard let planner else { return }
+        planner.ignoredIssues.insert(issue.id)
+        Task { await fetchRoutes() }
+    }
+
     func stopNavigation() {
+        let deviation = navigation?.deviation
+        let speedBefore = speedKmh
         stopSharing()
         simulator.stop()
         navigation?.stop()
@@ -896,6 +998,10 @@ final class AppModel {
         speedKmh = 0
         go(.home)
         reloadLocal()
+        tripIssues = []
+        stillClosedPrompt = nil
+        // Asked after the trip only, and only if the phone isn't moving (never while driving).
+        if speedBefore < 5 { considerDeviationPrompt(deviation) }
     }
 
     /// "Add a stop" from search: appends to the trip being previewed, or to the active drive.

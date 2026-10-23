@@ -607,8 +607,10 @@ struct RouteRequest: Codable, Sendable, Hashable {
     var avoid = AvoidOptions()
     var departAt: Date?
     var alternatives = 2
+    /// "Drive through anyway": issues to ignore for this trip only.
+    var ignoreIssues: [String] = []
 
-    enum CodingKeys: String, CodingKey { case origin, destination, waypoints, vehicle, avoid, departAt, alternatives }
+    enum CodingKeys: String, CodingKey { case origin, destination, waypoints, vehicle, avoid, departAt, alternatives, ignoreIssues }
 
     func encode(to encoder: any Encoder) throws {
         var c = encoder.container(keyedBy: CodingKeys.self)
@@ -620,6 +622,7 @@ struct RouteRequest: Codable, Sendable, Hashable {
         // Contract shows explicit null.
         if let departAt { try c.encode(departAt, forKey: .departAt) } else { try c.encodeNil(forKey: .departAt) }
         try c.encode(alternatives, forKey: .alternatives)
+        if !ignoreIssues.isEmpty { try c.encode(ignoreIssues, forKey: .ignoreIssues) }
     }
 }
 
@@ -722,6 +725,8 @@ struct Route: Codable, Sendable, Identifiable, Hashable {
     var legs: [RouteLeg]
     var trafficSegments: [TrafficSegment]?
     var alerts: [AlertOnRoute]?
+    /// Road issues on or avoided by this route (complaints v1).
+    var issues: [RouteIssue]?
     /// Client-side only (demo mode): explains that a captured route was substituted. Not part of the API contract.
     var demoNote: String?
 
@@ -1024,6 +1029,10 @@ enum InboxKind: String, Codable, Sendable {
     case reviewHelpful = "review_helpful"
     case editAccepted = "edit_accepted"
     case feedbackStatus = "feedback_status"
+    /// Complaints: the reporter's issue was confirmed / refuted / resolved (OSM now matches).
+    case issueConfirmed = "issue_confirmed"
+    case issueRefuted = "issue_refuted"
+    case issueResolved = "issue_resolved"
     case announcement
     case unknown
 

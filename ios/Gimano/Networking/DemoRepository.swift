@@ -238,6 +238,44 @@ actor DemoRepository: GimanoRepository {
             && Geohash.encode(lat: $0.lat, lng: $0.lng).prefix(5) == cell.prefix(5) }.map(\.summary)
     }
 
+    // MARK: complaints (demo)
+
+    private(set) var issues: [Issue] = []
+
+    func createIssue(_ n: NewIssue) async throws -> Issue {
+        // Dedupe within 50 m of the same kind (the server merges into the existing issue).
+        if let i = issues.firstIndex(where: { $0.kind == n.kind && $0.placeId == n.placeId
+            && Geo.distance($0.location, LatLng(lat: n.lat, lng: n.lng)) < 50 && $0.state.isOpen }) {
+            issues[i].confirmations = (issues[i].confirmations ?? 1) + 1
+            if (issues[i].confirmations ?? 0) >= 2 { issues[i].state = .confirmed }
+            return issues[i]
+        }
+        let issue = Issue(id: "demo-issue-\(issues.count + 1)", kind: n.kind, subtype: n.subtype, state: .suspected, lat: n.lat, lng: n.lng,
+                          placeId: n.placeId, roadName: n.payload?["roadName"], summary: nil, confirmations: 1, required: 2,
+                          createdAt: .now, expiresAt: nil, lastEvidenceAt: .now, until: nil)
+        issues.append(issue)
+        return issue
+    }
+
+    func issuesNearby(bbox: BBox, kinds: [IssueKind]?) async throws -> [Issue] {
+        issues.filter { $0.state.isOpen && bbox.contains($0.location) && (kinds == nil || kinds!.contains($0.kind)) }
+    }
+
+    func voteIssue(id: String, _ vote: IssueVote) async throws -> Issue {
+        guard let i = issues.firstIndex(where: { $0.id == id }) else { throw APIError.http(status: 404, problem: nil) }
+        switch vote.answer {
+        case .still:
+            issues[i].confirmations = (issues[i].confirmations ?? 1) + 1
+            if (issues[i].confirmations ?? 0) >= 2 { issues[i].state = .confirmed }
+        case .cleared: issues[i].state = .refuted
+        case .unsure: break
+        }
+        return issues[i]
+    }
+
+    /// Demo: seed an issue (UI tests / screenshots).
+    func seedIssue(_ issue: Issue) { issues.append(issue) }
+
     func attestChallenge() async throws -> String { Data((0..<32).map { _ in UInt8.random(in: 0...255) }).base64EncodedString() }
     func attest(keyId: String, attestation: String) async throws {}
 

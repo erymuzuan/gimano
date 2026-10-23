@@ -273,6 +273,26 @@
         }
       }
     },
+    "A few days": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Beberapa hari"
+          }
+        }
+      }
+    },
+    "A maintainer will check it.": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Penyelenggara akan menyemaknya."
+          }
+        }
+      }
+    },
     "A place called %@ is already here.": {
       "localizations": {
         "ms": {
@@ -745,6 +765,16 @@
         }
       }
     },
+    "Avoiding %@: %@": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mengelak %1$@: %2$@"
+          }
+        }
+      }
+    },
     "Awful": {
       "localizations": {
         "ms": {
@@ -861,6 +891,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Sandaran disimpan dalam awan atau fail anda sendiri. Tambah frasa laluan untuk menyulitkannya hujung ke hujung."
+          }
+        }
+      }
+    },
+    "Bad jam": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Jem teruk"
           }
         }
       }
@@ -1101,6 +1141,16 @@
         }
       }
     },
+    "Can't turn": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tak boleh belok"
+          }
+        }
+      }
+    },
     "Cancel": {
       "localizations": {
         "ms": {
@@ -1317,6 +1367,16 @@
         }
       }
     },
+    "Closed until": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tutup sehingga"
+          }
+        }
+      }
+    },
     "Closure": {
       "localizations": {
         "ms": {
@@ -1343,6 +1403,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Disahkan oleh %lld"
+          }
+        }
+      }
+    },
+    "Confirmed by drivers nearby.": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Disahkan oleh pemandu berdekatan."
           }
         }
       }
@@ -1677,6 +1747,16 @@
         }
       }
     },
+    "Details": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Butiran"
+          }
+        }
+      }
+    },
     "Developer": {
       "localizations": {
         "ms": {
@@ -1767,6 +1847,26 @@
         }
       }
     },
+    "Don't ask again": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Jangan tanya lagi"
+          }
+        }
+      }
+    },
+    "Don't know": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tak tahu"
+          }
+        }
+      }
+    },
     "Don't send": {
       "localizations": {
         "ms": {
@@ -1813,6 +1913,16 @@
         }
       }
     },
+    "Drive through anyway (I know this road)": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lalu juga (saya tahu jalan ini)"
+          }
+        }
+      }
+    },
     "Drive to %@ first": {
       "localizations": {
         "ms": {
@@ -1823,12 +1933,32 @@
         }
       }
     },
+    "Drivers nearby will be asked to confirm before anything changes.": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pemandu berdekatan akan diminta mengesahkan sebelum apa-apa berubah."
+          }
+        }
+      }
+    },
     "Dropped pin": {
       "localizations": {
         "ms": {
           "stringUnit": {
             "state": "translated",
             "value": "Pin diletakkan"
+          }
+        }
+      }
+    },
+    "Duplicate": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pendua"
           }
         }
       }
@@ -2021,6 +2151,16 @@
         }
       }
     },
+    "Entrance or parking wrong": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pintu masuk / parkir salah"
+          }
+        }
+      }
+    },
     "Every day": {
       "localizations": {
         "ms": {
@@ -2173,6 +2313,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Makan"
+          }
+        }
+      }
+    },
+    "For how long?": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Berapa lama?"
           }
         }
       }
@@ -2608,6 +2758,16 @@
         }
       }
     },
+    "Hours may have changed": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Waktu mungkin berubah"
+          }
+        }
+      }
+    },
     "I'm a passenger": {
       "localizations": {
         "ms": {
@@ -2790,6 +2950,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Pin di lokasi salah"
+          }
+        }
+      }
+    },
+    "It's open": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dah dibuka"
           }
         }
       }
@@ -3170,6 +3340,16 @@
         }
       }
     },
+    "Long roadworks": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kerja jalan lama"
+          }
+        }
+      }
+    },
     "Lv %lld": {
       "localizations": {
         "ms": {
@@ -3496,6 +3676,16 @@
         }
       }
     },
+    "My own choice": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Saya pilih sendiri"
+          }
+        }
+      }
+    },
     "Name": {
       "localizations": {
         "ms": {
@@ -3536,6 +3726,16 @@
         }
       }
     },
+    "Name, type, phone": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nama, jenis, telefon"
+          }
+        }
+      }
+    },
     "Navigate here": {
       "localizations": {
         "ms": {
@@ -3572,6 +3772,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Baharu"
+          }
+        }
+      }
+    },
+    "New road": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Jalan baharu"
           }
         }
       }
@@ -3716,6 +3926,16 @@
         }
       }
     },
+    "No road here": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tiada jalan"
+          }
+        }
+      }
+    },
     "No route found": {
       "localizations": {
         "ms": {
@@ -3826,6 +4046,16 @@
         }
       }
     },
+    "Odd route": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Laluan pelik"
+          }
+        }
+      }
+    },
     "Off topic": {
       "localizations": {
         "ms": {
@@ -3888,6 +4118,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "Melalui Wi-Fi semasa mengecas, hanya jika ada perubahan. Sandaran automatik tidak dikunci dengan frasa laluan kerana Manotu tidak pernah menyimpan frasa laluan anda."
+          }
+        }
+      }
+    },
+    "One report never closes a road: drivers nearby are asked to confirm.": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Satu laporan tidak pernah menutup jalan: pemandu berdekatan diminta mengesahkannya."
+          }
+        }
+      }
+    },
+    "One way": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sehala"
           }
         }
       }
@@ -3962,6 +4212,16 @@
         }
       }
     },
+    "Only your answer and that spot are sent, never your trip.": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hanya jawapan anda dan titik itu dihantar, bukan perjalanan anda."
+          }
+        }
+      }
+    },
     "Open Settings": {
       "localizations": {
         "ms": {
@@ -3988,6 +4248,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Waktu operasi"
+          }
+        }
+      }
+    },
+    "Opening hours wrong": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Waktu buka salah"
           }
         }
       }
@@ -4068,6 +4338,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Perak"
+          }
+        }
+      }
+    },
+    "Permanently closed": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tutup kekal"
           }
         }
       }
@@ -4578,6 +4858,46 @@
         }
       }
     },
+    "Reported closed · confirm?": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dilaporkan tutup · sahkan?"
+          }
+        }
+      }
+    },
+    "Reported on this route: %@": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dilaporkan pada laluan ini: %@"
+          }
+        }
+      }
+    },
+    "Reported, waiting for confirmation.": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dilaporkan, menunggu pengesahan."
+          }
+        }
+      }
+    },
+    "Reports expire, and traffic driving through clears them.": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Laporan tamat tempoh, dan kenderaan yang melaluinya membatalkannya."
+          }
+        }
+      }
+    },
     "Reset device token": {
       "localizations": {
         "ms": {
@@ -4724,6 +5044,36 @@
           "stringUnit": {
             "state": "translated",
             "value": "Atas jalan"
+          }
+        }
+      }
+    },
+    "Road closed": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ditutup"
+          }
+        }
+      }
+    },
+    "Road problem": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Masalah jalan"
+          }
+        }
+      }
+    },
+    "Road problem reports aren't available on the server yet.": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Laporan masalah jalan belum tersedia di pelayan."
           }
         }
       }
@@ -5394,6 +5744,16 @@
         }
       }
     },
+    "Skip": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Langkau"
+          }
+        }
+      }
+    },
     "Small places are often not on the map yet. Know where it is? Show it on the map and go.": {
       "localizations": {
         "ms": {
@@ -5570,6 +5930,36 @@
           "stringUnit": {
             "state": "translated",
             "value": "Statistik"
+          }
+        }
+      }
+    },
+    "Still closed": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Masih"
+          }
+        }
+      }
+    },
+    "Still closed?": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Masih ditutup?"
+          }
+        }
+      }
+    },
+    "Still open": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Masih buka"
           }
         }
       }
@@ -5814,6 +6204,26 @@
         }
       }
     },
+    "Temporarily closed": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tutup sementara"
+          }
+        }
+      }
+    },
+    "Temporarily closed until %@": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tutup sementara sehingga %@"
+          }
+        }
+      }
+    },
     "Terms": {
       "localizations": {
         "ms": {
@@ -5920,6 +6330,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Terima kasih! Laporan ranap dihantar"
+          }
+        }
+      }
+    },
+    "Thanks! Drivers nearby will be asked to confirm.": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Terima kasih! Pemandu berdekatan akan diminta mengesahkan."
           }
         }
       }
@@ -6162,6 +6582,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Tandakan untuk bersetuju kami boleh menghubungi anda tentang laporan ini."
+          }
+        }
+      }
+    },
+    "Today": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hari ini"
           }
         }
       }
@@ -6602,6 +7032,16 @@
         }
       }
     },
+    "We suggested %@.": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kami mencadangkan %@."
+          }
+        }
+      }
+    },
     "Weak GPS signal ±%lld m": {
       "localizations": {
         "ms": {
@@ -6754,6 +7194,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Jalan mana? (pilihan)"
+          }
+        }
+      }
+    },
+    "Why didn't you follow the route?": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kenapa tak ikut laluan?"
           }
         }
       }
@@ -6974,6 +7424,56 @@
         }
       }
     },
+    "a road": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "sebatang jalan"
+          }
+        }
+      }
+    },
+    "accident": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "kemalangan"
+          }
+        }
+      }
+    },
+    "closed": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ditutup"
+          }
+        }
+      }
+    },
+    "closed (%@)": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ditutup (%@)"
+          }
+        }
+      }
+    },
+    "confirmed by %lld drivers": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "disahkan %lld pemandu"
+          }
+        }
+      }
+    },
     "driver": {
       "localizations": {
         "ms": {
@@ -7010,6 +7510,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "disunting"
+          }
+        }
+      }
+    },
+    "event": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "acara"
+          }
+        }
+      }
+    },
+    "flood": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "banjir"
           }
         }
       }
@@ -7070,6 +7590,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "km/j"
+          }
+        }
+      }
+    },
+    "roadworks": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "kerja jalan"
           }
         }
       }

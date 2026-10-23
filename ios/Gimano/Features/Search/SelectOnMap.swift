@@ -3,6 +3,8 @@ import SwiftUI
 /// Where a "Choose on map" was started from (decides what the chosen point becomes).
 enum PinPurpose: String, Equatable, Sendable {
     case destination, addStop, favorite, setHome, setWork, setOrigin
+    /// "Entrance or parking wrong": the chosen point becomes the proposed navigation point.
+    case placeEntrance
 }
 
 struct PinPickRequest: Identifiable, Equatable {

@@ -256,6 +256,7 @@ struct RoutePreviewView: View {
                 Text(error).foregroundStyle(Color.speeding).frame(maxWidth: .infinity, minHeight: 90)
                     .accessibilityIdentifier("routeError")
             } else if let r = planner.selected {
+                if !(r.issues ?? []).isEmpty { RouteIssuesBanner(route: r) }
                 routeSummary(r, planner: planner)
             }
 

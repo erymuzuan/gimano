@@ -151,6 +151,7 @@ struct RootView: View {
             SavePlaceSheet(place: p).presentationDetents([.large])
         }
         .sheet(isPresented: $model.showCrashPrompt) { CrashReportSheet() }
+        .sheet(item: $model.deviationPrompt) { d in DeviationPromptSheet(event: d).presentationDetents([.medium]) }
         .sheet(item: $model.vettingPrompt) { p in
             VettingPromptSheet(place: p).presentationDetents([.medium, .large])
         }

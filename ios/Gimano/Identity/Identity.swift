@@ -71,11 +71,12 @@ enum SignedEndpoints {
         let p = path.split(separator: "?").first.map(String.init) ?? path
         let s = p.split(separator: "/").map(String.init)
         switch (method.uppercased(), s.count) {
-        case ("POST", 1): return s[0] == "places" || s[0] == "photos" || s[0] == "reports"
+        case ("POST", 1): return s[0] == "places" || s[0] == "photos" || s[0] == "reports" || s[0] == "issues"
         case ("PATCH", 2): return s[0] == "places" || s[0] == "reviews"
         case ("DELETE", 2): return s[0] == "reviews"
         case ("POST", 3):
             return (s[0] == "places" && ["verify", "suggest-edit", "reviews"].contains(s[2])) || (s[0] == "reports" && s[2] == "votes")
+                || (s[0] == "issues" && s[2] == "votes")
         default: return false
         }
     }
