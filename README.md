@@ -1,18 +1,21 @@
-<img src="docs/brand/gimano-icon-rounded.svg" width="96" alt="Gimano app icon: a wau bulan kite">
+<img src="docs/brand/manotu/manotu-icon.svg" width="120" alt="Manotu app icon: Wau ringkas">
 
-# Gimano
+# Manotu
 
-*"Gi mano?"* (where are you going?)
+*"Ma’no tu?"* — “Where are you going?” in our local dialect, with **Ma** slightly stressed.
 
-**Open-source, community-driven navigation for Malaysia.** Gimano works the way
+Formerly Gimano. [Download Manotu](https://manotu.app/download/) · [Website](https://manotu.app/)
+
+**Open-source, community-driven navigation for Malaysia.** Manotu works the way
 drivers who use Waze already expect: search "Where to?", compare routes, drive
 with turn-by-turn voice, and report traffic, police, accidents and hazards with
 one tap. It's built entirely on open data from OpenStreetMap.
 
-> Gimano is an independent project. It isn't affiliated with or endorsed by
-> Waze or Google, and it contains no code, assets or data from them. The UX
-> research behind it is a clean-room study of observable behaviour; see
-> [docs/research/ux-study.md](docs/research/ux-study.md).
+> Manotu is an independent project. It isn't affiliated with or endorsed by
+> Waze or Google. Its navigation UX is a clean-room study of observable behaviour,
+> with no copied navigation-app assets or code; see [the UX study](docs/research/ux-study.md).
+> Google location, sign-in and integrity libraries are documented proprietary exceptions;
+> see [dependencies and licences](docs/supply-chain.md).
 
 ## Repository layout
 
@@ -36,7 +39,7 @@ one tap. It's built entirely on open data from OpenStreetMap.
 
 ## Privacy: your places stay on your phone
 
-*Gi mano pun, rahsia anda kekal milik anda.* Gimano never stores your personal data on its servers.
+*Ke mana pun anda pergi, rahsia anda kekal milik anda.* Manotu never stores your personal data on its servers.
 Home, work, favourites, recents and private places live only on your device. They are backed up to
 **your own** Google Drive, iCloud or a file, optionally end-to-end encrypted with a passphrase only you
 know. See the [privacy promise](docs/privacy-promise.md) and [how it works](docs/privacy-and-backup.md).
