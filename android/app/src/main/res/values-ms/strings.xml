@@ -600,8 +600,7 @@
     <string name="search_failed">Tidak dapat mencari sekarang. Semak sambungan anda.</string>
     <string name="photo_take">Ambil gambar</string>
     <string name="photo_choose">Pilih dari galeri</string>
-    <string name="formerly_gimano">Dahulu Gimano · Formerly Gimano</string>
-    <string name="restore_from_gimano">Pulihkan dari Gimano</string>
+    <string name="restore_from_gimano">Pulihkan dari sandaran</string>
     <string name="backup_this_phone">telefon ini</string>
     <string name="origin_unknown">Lokasi anda tidak diketahui</string>
     <string name="origin_locating">Mencari lokasi anda…</string>

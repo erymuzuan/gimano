@@ -22,7 +22,7 @@ import my.gimano.app.data.crash.CrashReporter
 import my.gimano.app.data.model.ContactDetails
 import my.gimano.app.ui.theme.Gimano
 
-/** "Gimano terhenti tadi. Hantar laporan?" on the launch after a crash (ask mode). */
+/** "Manotu terhenti tadi. Hantar laporan?" on the launch after a crash (ask mode). */
 @Composable
 fun CrashSheet(crashes: CrashReporter, records: List<CrashRecord>) {
     val c = Gimano.colors

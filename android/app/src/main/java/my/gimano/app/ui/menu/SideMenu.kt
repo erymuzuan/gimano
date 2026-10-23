@@ -35,7 +35,7 @@ import my.gimano.app.data.model.User
 import my.gimano.app.ui.common.GIcon
 import my.gimano.app.ui.theme.Gimano
 
-/** Menu (design board "Gimano menu (updated)"). */
+/** Menu (design board "Manotu menu"). */
 @Composable
 fun SideMenu(
     user: User?, inboxUnread: Int,
@@ -99,7 +99,7 @@ private fun Item(label: String, icon: ImageVector? = null, gicon: String? = null
 }
 
 
-/** "Gimano 0.2.0 (2)"; tap 7 times to copy diagnostic info (version / OS / device, nothing personal) for support. */
+/** "Manotu 0.3.1 (7)"; tap 7 times to copy diagnostic info (version / OS / device, nothing personal) for support. */
 @Composable
 private fun VersionLine() {
     val c = Gimano.colors
