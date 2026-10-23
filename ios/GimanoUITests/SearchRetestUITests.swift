@@ -9,6 +9,7 @@ final class SearchRetestUITests: XCTestCase {
         app = XCUIApplication()
         app.launchArguments = ["-GimanoDataMode", "live", "-GimanoFreshDevice", "YES", "-GimanoSkipOnboarding", "YES",
                                "-GimanoFakeLocation", loc, "-AppleLanguages", "(\(lang))", "-AppleLocale", lang == "ms" ? "ms_MY" : "en_MY"]
+        if let api = ProcessInfo.processInfo.environment["GIMANO_API"] { app.launchArguments += ["-GimanoAPIBaseURL", api] }
         app.launch()
         XCTAssertTrue(app.buttons["whereTo"].waitForExistence(timeout: 30))
     }
