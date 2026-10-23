@@ -17,7 +17,7 @@ namespace Gimano.Tests;
 /// </summary>
 public class OpenSearchIntegrationTests
 {
-    private static PlaceSearchIndex? Create(string prefix, out IOpenSearchLowLevelClient client)
+    internal static PlaceSearchIndex? Create(string prefix, out IOpenSearchLowLevelClient client)
     {
         client = null!;
         var url = Environment.GetEnvironmentVariable("GIMANO_OS_URL");

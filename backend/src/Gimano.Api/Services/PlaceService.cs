@@ -24,8 +24,10 @@ public sealed class PlaceService(GimanoDbContext db, PlaceSearchIndex index, Tim
             logger.LogWarning("OpenSearch unavailable ({Message}); falling back to Postgres search", ex.Message);
             hits = await FallbackSearchAsync(q, ct);
         }
-        return hits.Select(h => new PlaceSummary(h.Id, h.Name, h.Category, h.Address, h.Lat, h.Lng, Distance(q.Lat, q.Lng, h.Lat, h.Lng), h.Brand,
-            h.Source, PublicStatus(h.Status), h.Rating, h.ReviewCount, MediaKeys.Url(h.ThumbKey))).ToList();
+        var limit = Math.Clamp(q.Limit, 1, SearchQueryBuilder.MaxLimit);
+        return SearchResults.Dedupe(hits, h => h.Name, h => (h.Lat, h.Lng), limit)
+            .Select(h => new PlaceSummary(h.Id, h.Name, h.Category, h.Address, h.Lat, h.Lng, Distance(q.Lat, q.Lng, h.Lat, h.Lng), h.Brand,
+                h.Source, PublicStatus(h.Status), h.Rating, h.ReviewCount, MediaKeys.Url(h.ThumbKey))).ToList();
     }
 
     /// <summary>Only pending/published are part of the public contract.</summary>

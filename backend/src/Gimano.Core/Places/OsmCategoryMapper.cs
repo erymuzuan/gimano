@@ -91,6 +91,7 @@ public static class OsmCategoryMapper
             return religion is null ? null : PlaceCategory.Other;
         }
 
+        if (Tag("place") is { } place && AreaPlaceTypes.ContainsKey(place) && name.Length > 0) return PlaceCategory.Area;
         if (Tag("highway") == "rest_area" || Tag("highway") == "services") return PlaceCategory.RestArea;
         if (Tag("barrier") == "toll_booth" || Tag("highway") == "toll_gantry") return PlaceCategory.TollBooth;
         if (Tag("aeroway") is "aerodrome" or "terminal") return PlaceCategory.Airport;
@@ -107,6 +108,26 @@ public static class OsmCategoryMapper
         if (Tag("leisure") is "park" && name.Length > 0) return PlaceCategory.Tourism;
 
         return null;
+    }
+
+    /// <summary>OSM place=* values imported as searchable areas, with their base popularity.</summary>
+    public static readonly IReadOnlyDictionary<string, double> AreaPlaceTypes = new Dictionary<string, double>
+    {
+        ["city"] = 8, ["town"] = 6, ["suburb"] = 4, ["village"] = 3, ["neighbourhood"] = 2, ["quarter"] = 2,
+    };
+
+    /// <summary>Address line for an area: "City · Selangor" style ("Bandar raya, Wilayah Persekutuan").</summary>
+    public static string AreaAddress(IReadOnlyDictionary<string, string> tags, string? kindOverride = null)
+    {
+        var kind = kindOverride ?? tags.GetValueOrDefault("place") switch
+        {
+            "city" => "Bandar raya", "town" => "Bandar", "suburb" => "Kawasan", "village" => "Kampung",
+            "neighbourhood" or "quarter" => "Kejiranan",
+            "admin" => tags.GetValueOrDefault("gimano:admin_level") == "4" ? "Negeri / Wilayah" : "Daerah",
+            _ => "Kawasan",
+        };
+        var state = tags.GetValueOrDefault("is_in:state") ?? tags.GetValueOrDefault("addr:state") ?? tags.GetValueOrDefault("is_in");
+        return string.IsNullOrWhiteSpace(state) ? kind : $"{kind}, {state}";
     }
 
     /// <summary>Whether a mapped feature is worth importing (needs a name, except a few categories).</summary>
@@ -191,6 +212,16 @@ public static class OsmCategoryMapper
     /// <summary>Static popularity prior used as a search boost.</summary>
     public static double Popularity(PlaceCategory category, IReadOnlyDictionary<string, string> tags)
     {
+        if (category == PlaceCategory.Area)
+        {
+            var basePop = tags.GetValueOrDefault("place") == "admin"
+                ? (tags.GetValueOrDefault("gimano:admin_level") == "4" ? 9 : 6)
+                : AreaPlaceTypes.GetValueOrDefault(tags.GetValueOrDefault("place") ?? "", 5);
+            if (tags.TryGetValue("population", out var pop) && long.TryParse(pop.Replace(",", ""), out var n) && n > 0)
+                basePop += Math.Min(4, Math.Log10(n) - 2);
+            if (tags.ContainsKey("wikidata")) basePop += 1;
+            return Math.Round(basePop, 2);
+        }
         double p = category switch
         {
             PlaceCategory.Mall or PlaceCategory.Airport or PlaceCategory.Hospital or PlaceCategory.University => 3,

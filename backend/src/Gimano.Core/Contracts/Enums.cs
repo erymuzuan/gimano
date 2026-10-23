@@ -16,7 +16,9 @@ public enum PlaceCategory
 {
     Fuel, EvCharging, RestArea, TollBooth, Parking, Restaurant, Cafe, FastFood, Mall, Supermarket,
     Convenience, Mosque, Surau, Temple, Church, Hospital, Clinic, Pharmacy, Police, School, University,
-    Hotel, Atm, Bank, CarRepair, CarWash, Tourism, TransitStation, Airport, Government, Other
+    Hotel, Atm, Bank, CarRepair, CarWash, Tourism, TransitStation, Airport, Government, Other,
+    /// <summary>A city, town, suburb, village, neighbourhood or administrative area (searchable by name).</summary>
+    Area
 }
 
 public enum ManeuverType

@@ -159,7 +159,11 @@ received +1); these feed `User.points`/`level`.
 `fuel, ev_charging, rest_area, toll_booth, parking, restaurant, cafe, fast_food,
 mall, supermarket, convenience, mosque, surau, temple, church, hospital, clinic,
 pharmacy, police, school, university, hotel, atm, bank, car_repair, car_wash,
-tourism, transit_station, airport, government, other`
+tourism, transit_station, airport, government, other, area`
+
+`area` (search results only) is a city, town, suburb, village, neighbourhood or state/district from OSM
+(`id` `n…`/`w…`/`r…`, `address` like "Bandar raya, Wilayah Persekutuan"). It cannot be chosen for a community place.
+Clients must treat unknown categories as `other`. Search collapses results with the same name within 50 m.
 
 ## Routing
 

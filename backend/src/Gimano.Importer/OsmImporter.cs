@@ -52,13 +52,24 @@ public sealed class OsmImporter(GimanoDbContext db, NpgsqlDataSource dataSource,
             var roads = new List<RoadWay>();
             var poiWays = new List<PoiWay>();
             var waterWays = new List<(long Id, long[] Nodes)>();
+            var adminAreas = new List<(long Id, long LabelNode, Dictionary<string, string> Tags)>();
             var needed = new List<long>();
             await using (var fs = File.OpenRead(o.PbfPath))
             {
                 foreach (var g in new PBFOsmStreamSource(fs))
                 {
                     if (g.Type == OsmGeoType.Node) continue;
-                    if (g.Type == OsmGeoType.Relation) break;
+                    if (g.Type == OsmGeoType.Relation)
+                    {
+                        // Administrative areas (states, federal territories, districts) as searchable areas, placed at their
+                        // label (or admin centre) node; full boundary geometry isn't needed for search.
+                        if (o.Places && g.Tags is { Count: > 0 } && AdminArea((Relation)g) is { } a)
+                        {
+                            adminAreas.Add(a);
+                            needed.Add(a.LabelNode);
+                        }
+                        continue;
+                    }
                     var w = (Way)g;
                     if (w.Nodes is not { Length: >= 2 } || w.Tags is null || w.Tags.Count == 0) continue;
                     var tags = ToDict(w.Tags);
@@ -129,6 +140,11 @@ public sealed class OsmImporter(GimanoDbContext db, NpgsqlDataSource dataSource,
                 places.Add(ToPlace("w", w.Id, w.Category, w.Tags, pts.Average(p => p.Lat), pts.Average(p => p.Lng)));
             }
 
+            foreach (var a in adminAreas)
+                if (TryCoord(a.LabelNode, out var p))
+                    places.Add(ToPlace("r", a.Id, PlaceCategory.Area, a.Tags, p.Lat, p.Lng));
+            logger.LogInformation("Areas: {Areas} named places/admin areas", places.Count(p => p.Category == PlaceCategory.Area));
+
             if (o.DryRun)
             {
                 var segments = roads.Sum(r => Chunk(r.Nodes, TryCoord).Count());
@@ -160,7 +176,7 @@ public sealed class OsmImporter(GimanoDbContext db, NpgsqlDataSource dataSource,
         Name = Truncate(OsmCategoryMapper.DisplayName(cat, tags), 200),
         Category = cat,
         Brand = OsmCategoryMapper.Brand(tags),
-        Address = Truncate(OsmCategoryMapper.BuildAddress(tags), 300),
+        Address = Truncate(cat == PlaceCategory.Area ? OsmCategoryMapper.AreaAddress(tags) : OsmCategoryMapper.BuildAddress(tags), 300),
         Location = new GeoPoint(lat, lng).ToPoint(),
         Country = CountryResolver.Resolve(lat, lng, tags.GetValueOrDefault("addr:country")),
         Phone = tags.GetValueOrDefault("phone") ?? tags.GetValueOrDefault("contact:phone"),
@@ -172,6 +188,20 @@ public sealed class OsmImporter(GimanoDbContext db, NpgsqlDataSource dataSource,
         OsmId = id,
         Popularity = OsmCategoryMapper.Popularity(cat, tags),
     };
+
+    internal static (long Id, long LabelNode, Dictionary<string, string> Tags)? AdminArea(Relation r)
+    {
+        var tags = ToDict(r.Tags);
+        if (tags.GetValueOrDefault("boundary") != "administrative" || !tags.TryGetValue("name", out var name) || name.Length == 0) return null;
+        if (!int.TryParse(tags.GetValueOrDefault("admin_level"), out var level) || level is < 4 or > 6) return null;
+        var members = r.Members ?? [];
+        var label = members.FirstOrDefault(m => m.Type == OsmGeoType.Node && m.Role == "label")
+                    ?? members.FirstOrDefault(m => m.Type == OsmGeoType.Node && m.Role == "admin_centre");
+        if (label is null) return null;
+        tags["place"] = "admin";
+        tags["gimano:admin_level"] = level.ToString(System.Globalization.CultureInfo.InvariantCulture);
+        return (r.Id!.Value, label.Id, tags);
+    }
 
     private static string Truncate(string s, int max) => s.Length <= max ? s : s[..max];
 

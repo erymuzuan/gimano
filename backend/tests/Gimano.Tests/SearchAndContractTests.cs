@@ -20,14 +20,14 @@ public class SearchQueryBuilderTests
         Assert.Contains("name", fields);
         Assert.Contains("name._2gram", fields);
         Assert.Contains("name._3gram", fields);
-        Assert.Equal(10, body["size"]!.GetValue<int>());
+        Assert.Equal(25, body["size"]!.GetValue<int>());   // over-fetch 2×limit+5 for near-duplicate collapsing
     }
 
     [Fact]
     public void Adds_gauss_geo_decay_when_location_known()
     {
         var body = SearchQueryBuilder.Build(new SearchQuery("kfc", 3.11, 101.62));
-        var gauss = body["query"]!["function_score"]!["functions"]!.AsArray().Single(f => f!["gauss"] is not null)!["gauss"]!["location"]!;
+        var gauss = body["query"]!["function_score"]!["functions"]!.AsArray().First(f => f!["gauss"] is not null)!["gauss"]!["location"]!;
         Assert.Equal(3.11, gauss["origin"]!["lat"]!.GetValue<double>());
         Assert.Equal(101.62, gauss["origin"]!["lon"]!.GetValue<double>());
 

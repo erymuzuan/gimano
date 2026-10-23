@@ -16,6 +16,24 @@ public static class SearchQueryBuilder
     /// <summary>Base name; the effective alias is <c>OpenSearch:IndexPrefix</c> + this (e.g. "gimano-places").</summary>
     public const string IndexName = "places";
     public const int MaxLimit = 50;
+    public const double ExactNameBoost = 40;
+    public const double NamePrefixBoost = 15;
+    public const double AliasBoost = 10;
+    public const double AreaBoost = 6;
+    public const double DuplicateRadiusM = 50;
+
+    private static JsonObject Gauss(double lat, double lng, string offset, string scale, double decay, double weight) => new()
+    {
+        ["gauss"] = new JsonObject
+        {
+            ["location"] = new JsonObject
+            {
+                ["origin"] = new JsonObject { ["lat"] = lat, ["lon"] = lng },
+                ["offset"] = offset, ["scale"] = scale, ["decay"] = decay,
+            }
+        },
+        ["weight"] = weight,
+    };
 
     /// <summary>
     /// search_as_you_type (bool_prefix over name + shingles) with an exact/phrase boost,
@@ -37,7 +55,7 @@ public static class SearchQueryBuilder
                 {
                     ["query"] = text,
                     ["type"] = "bool_prefix",
-                    ["fields"] = new JsonArray("name", "name._2gram", "name._3gram", "brand^0.8", "address^0.3"),
+                    ["fields"] = new JsonArray("name", "name._2gram", "name._3gram", "brand^0.8", "aliases^0.9", "address^0.3"),
                     ["operator"] = "and",
                     ["fuzziness"] = text.Length >= 5 ? "AUTO" : "0",
                 }
@@ -60,10 +78,16 @@ public static class SearchQueryBuilder
             new JsonObject { ["bool"] = new JsonObject { ["should"] = textMatch, ["minimum_should_match"] = 1 } },
         };
 
+        // Ranking: the whole name equal to / starting with the query, an alias hit, and areas (cities, towns…) beat long names that
+        // merely contain the term somewhere (e.g. "Jabatan … Kuala Lumpur & Putrajaya" must not beat Putrajaya itself).
+        var lower = text.ToLowerInvariant();
         var should = new JsonArray
         {
+            new JsonObject { ["term"] = new JsonObject { ["name.raw"] = new JsonObject { ["value"] = lower, ["boost"] = ExactNameBoost } } },
+            new JsonObject { ["prefix"] = new JsonObject { ["name.raw"] = new JsonObject { ["value"] = lower, ["boost"] = NamePrefixBoost } } },
             new JsonObject { ["match_phrase_prefix"] = new JsonObject { ["name"] = new JsonObject { ["query"] = text, ["boost"] = 3 } } },
-            new JsonObject { ["term"] = new JsonObject { ["name.raw"] = new JsonObject { ["value"] = text.ToLowerInvariant(), ["boost"] = 5 } } },
+            new JsonObject { ["match"] = new JsonObject { ["aliases"] = new JsonObject { ["query"] = text, ["boost"] = AliasBoost } } },
+            new JsonObject { ["term"] = new JsonObject { ["category"] = new JsonObject { ["value"] = "area", ["boost"] = AreaBoost } } },
         };
         if (q.Country is null)
             should.Add(new JsonObject { ["term"] = new JsonObject { ["country"] = new JsonObject { ["value"] = "MY", ["boost"] = 0.5 } } });
@@ -86,26 +110,18 @@ public static class SearchQueryBuilder
         };
         if (q.Lat is { } lat && q.Lng is { } lng)
         {
-            functions.Add(new JsonObject
-            {
-                ["gauss"] = new JsonObject
-                {
-                    ["location"] = new JsonObject
-                    {
-                        ["origin"] = new JsonObject { ["lat"] = lat, ["lon"] = lng },
-                        ["offset"] = "1km",
-                        ["scale"] = "15km",
-                        ["decay"] = 0.4,
-                    }
-                },
-                ["weight"] = 4,
-            });
+            // Two distance terms: a broad one (the metro area matters) and a local one (among equal names, nearest first).
+            // Both are additive with popularity, so a strong name match far away still beats a weak one nearby.
+            functions.Add(Gauss(lat, lng, "500m", "20km", 0.5, 2.5));
+            functions.Add(Gauss(lat, lng, "0km", "3km", 0.5, 1.5));
         }
 
         var body = new JsonObject
         {
-            ["size"] = limit,
+            // Over-fetch so near-duplicates (same name within 50 m) can be collapsed and still fill the page.
+            ["size"] = Math.Min(MaxLimit, limit * 2 + 5),
             ["_source"] = new JsonArray("id", "name", "category", "address", "location", "brand", "country", "source", "status", "rating", "reviewCount", "thumbKey"),
+            ["track_total_hits"] = false,
             ["query"] = new JsonObject
             {
                 ["function_score"] = new JsonObject
@@ -191,6 +207,7 @@ public static class SearchQueryBuilder
                     }
                 },
                 ["brand"] = new JsonObject { ["type"] = "text", ["analyzer"] = "folded" },
+                ["aliases"] = new JsonObject { ["type"] = "text", ["analyzer"] = "folded" },
                 ["address"] = new JsonObject { ["type"] = "text", ["analyzer"] = "folded" },
                 ["category"] = new JsonObject { ["type"] = "keyword" },
                 ["country"] = new JsonObject { ["type"] = "keyword" },
@@ -211,6 +228,7 @@ public static class SearchQueryBuilder
         ["id"] = p.Id,
         ["name"] = p.Name,
         ["brand"] = p.Brand,
+        ["aliases"] = SearchAliases.For(p.Name, p.Brand),
         ["address"] = p.Address,
         ["category"] = GimanoJson.ToWire(p.Category),
         ["country"] = p.Country,
@@ -242,4 +260,23 @@ public static class SearchQueryBuilder
 
     /// <summary>Well-reviewed places rank a little higher.</summary>
     private static double Boost(PlaceAggregates? a) => a is { ReviewCount: >= 3, Rating: { } r } ? Math.Round((r - 3) * 0.5 + Math.Log10(a.ReviewCount), 2) : 0;
+}
+
+public static class SearchResults
+{
+    /// <summary>Collapses near-duplicates (same normalised name within 50 m — e.g. an OSM node and its building), keeping the better-ranked one.</summary>
+    public static List<T> Dedupe<T>(IEnumerable<T> ranked, Func<T, string> name, Func<T, (double Lat, double Lng)> at, int take)
+    {
+        var kept = new List<T>();
+        foreach (var r in ranked)
+        {
+            var n = Norm(name(r)); var p = at(r);
+            if (kept.Any(k => Norm(name(k)) == n && Geo.GeoMath.HaversineM(p.Lat, p.Lng, at(k).Lat, at(k).Lng) <= SearchQueryBuilder.DuplicateRadiusM)) continue;
+            kept.Add(r);
+            if (kept.Count == take) break;
+        }
+        return kept;
+    }
+
+    private static string Norm(string s) => string.Join(' ', s.ToLowerInvariant().Split(' ', StringSplitOptions.RemoveEmptyEntries));
 }

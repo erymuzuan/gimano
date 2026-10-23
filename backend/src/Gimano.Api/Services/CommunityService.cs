@@ -52,7 +52,7 @@ public sealed class CommunityService(GimanoDbContext db, IEventPublisher bus, Gi
 
         var place = new CommunityPlace
         {
-            Name = name, Category = req.Category ?? PlaceCategory.Other, Location = at.ToPoint(),
+            Name = name, Category = req.Category is null or PlaceCategory.Area ? PlaceCategory.Other : req.Category.Value, Location = at.ToPoint(),
             Address = req.Address?.Trim() ?? "", Description = req.Description?.Trim(), Phone = req.Phone?.Trim(),
             Website = req.Website?.Trim(), OpeningHours = req.OpeningHours?.Trim(),
             Amenities = (req.Amenities ?? []).Select(a => a.Trim()).Where(a => a.Length is > 0 and <= 40).Distinct().Take(30).ToList(),
@@ -80,7 +80,7 @@ public sealed class CommunityService(GimanoDbContext db, IEventPublisher bus, Gi
         var place = await OwnedAsync(userId, id, ct);
         if (req.Name is not null) place.Name = CheckName(req.Name);
         CheckOptional(req.Description, req.Phone, req.Website, req.OpeningHours, req.Address);
-        if (req.Category is { } c) place.Category = c;
+        if (req.Category is { } c && c != PlaceCategory.Area) place.Category = c;
         if (req.Lat is not null || req.Lng is not null)
         {
             var at = new GeoPoint(req.Lat ?? place.Location.Y, req.Lng ?? place.Location.X);
