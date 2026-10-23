@@ -23,7 +23,10 @@ public sealed class GeoLookup(GimanoDbContext db, Live.DriverSnapshotStore drive
     {
         var pt = p.ToPoint();
         var place = await db.Places.AsNoTracking()
-            .Where(x => x.Location.IsWithinDistance(pt, 40))
+            // Unnamed car parks/toilets/ATMs ("Parking") and areas don't name a picked point.
+            .Where(x => x.Location.IsWithinDistance(pt, 40)
+                        && x.Category != PlaceCategory.Parking && x.Category != PlaceCategory.Toilets && x.Category != PlaceCategory.Area
+                        && !(x.Category == PlaceCategory.Atm && x.Name == "ATM"))
             .OrderBy(x => x.Location.Distance(pt))
             .Select(x => new { x.Name, x.Address, x.Location })
             .FirstOrDefaultAsync(ct);

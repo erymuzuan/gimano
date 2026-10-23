@@ -339,7 +339,7 @@ public sealed class SearchService(PlaceSearchIndex index, AliasStore aliases, Ar
         var label = ReverseLabel(addr?.HouseNumber, street, local?.Name, town?.Name ?? addr?.City, lang);
 
         var nearby = (await places.NearbyAsync(p, null, 50, 8, viewer, ct))
-            .Where(s => s.Category != PlaceCategory.Area).Take(5).ToList();
+            .Where(s => s.Category is not (PlaceCategory.Area or PlaceCategory.Parking)).Take(5).ToList();
         var basic = await geo.ReverseAsync(p, ct);   // name/address as before (nearest place within 40 m, else street)
         var name = basic.Name == "Dropped pin" ? L10n.DroppedPin(lang) : basic.Name;
         return basic with
