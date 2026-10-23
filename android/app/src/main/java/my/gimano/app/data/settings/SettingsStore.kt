@@ -150,6 +150,13 @@ class SettingsStore(private val context: Context, private val scope: CoroutineSc
         deviationLastAsked = p[K.deviationLastAsked],
     )
 
+    /**
+     * Writes and publishes at once: callers read [current] right after a setter (demo mode → which repository answers,
+     * server URL → where the next request goes), before the DataStore collector would have caught up.
+     */
+    private suspend fun edit(block: suspend (androidx.datastore.preferences.core.MutablePreferences) -> Unit): Preferences =
+        context.dataStore.edit(block).also { _state.value = map(it) }
+
     suspend fun deviceId(): String {
         current.deviceId.takeIf { it.isNotBlank() }?.let { return it }
         val id = UUID.randomUUID().toString()
@@ -163,42 +170,42 @@ class SettingsStore(private val context: Context, private val scope: CoroutineSc
         if (displayName == null) it.remove(K.displayName) else it[K.displayName] = displayName
     }.also { _state.value = _state.value.copy(token = token, userId = userId, displayName = displayName) }
 
-    suspend fun setDisplayName(v: String) = context.dataStore.edit { it[K.displayName] = v }
-    suspend fun setDemoMode(v: Boolean) = context.dataStore.edit { it[K.demoMode] = v }
-    suspend fun setSimulateDrive(v: Boolean) = context.dataStore.edit { it[K.simulateDrive] = v }
-    suspend fun setSimulateDetour(v: Boolean) = context.dataStore.edit { it[K.simulateDetour] = v }
-    suspend fun setVoiceLang(v: String) = context.dataStore.edit { it[K.voiceLang] = v }
-    suspend fun setSoundMode(v: SoundMode) = context.dataStore.edit { it[K.soundMode] = v.name }
-    suspend fun setVehicle(v: String) = context.dataStore.edit { it[K.vehicle] = v }
-    suspend fun setApiBaseUrl(v: String) = context.dataStore.edit {
+    suspend fun setDisplayName(v: String) = edit { it[K.displayName] = v }
+    suspend fun setDemoMode(v: Boolean) = edit { it[K.demoMode] = v }
+    suspend fun setSimulateDrive(v: Boolean) = edit { it[K.simulateDrive] = v }
+    suspend fun setSimulateDetour(v: Boolean) = edit { it[K.simulateDetour] = v }
+    suspend fun setVoiceLang(v: String) = edit { it[K.voiceLang] = v }
+    suspend fun setSoundMode(v: SoundMode) = edit { it[K.soundMode] = v.name }
+    suspend fun setVehicle(v: String) = edit { it[K.vehicle] = v }
+    suspend fun setApiBaseUrl(v: String) = edit {
         it[K.apiBaseUrl] = v.trim().let { u -> if (u.isEmpty() || u.endsWith("/")) u else "$u/" }
         // A different server means a different identity.
         it.remove(K.token)
     }
-    suspend fun setMapStyleUrl(v: String) = context.dataStore.edit { it[K.mapStyleUrl] = v.trim() }
-    suspend fun setLayers(traffic: Boolean, alerts: Boolean, drivers: Boolean) = context.dataStore.edit {
+    suspend fun setMapStyleUrl(v: String) = edit { it[K.mapStyleUrl] = v.trim() }
+    suspend fun setLayers(traffic: Boolean, alerts: Boolean, drivers: Boolean) = edit {
         it[K.showTraffic] = traffic; it[K.showAlerts] = alerts; it[K.showDrivers] = drivers
     }
-    suspend fun setUse24h(v: Boolean) = context.dataStore.edit { it[K.use24h] = v }
-    suspend fun setAutoStartNav(v: Boolean) = context.dataStore.edit { it[K.autoStartNav] = v }
-    suspend fun setAutoBackup(v: Boolean) = context.dataStore.edit { it[K.autoBackup] = v }
-    suspend fun setLastBackup(at: String, bytes: Long, fingerprint: String, dest: String) = context.dataStore.edit {
+    suspend fun setUse24h(v: Boolean) = edit { it[K.use24h] = v }
+    suspend fun setAutoStartNav(v: Boolean) = edit { it[K.autoStartNav] = v }
+    suspend fun setAutoBackup(v: Boolean) = edit { it[K.autoBackup] = v }
+    suspend fun setLastBackup(at: String, bytes: Long, fingerprint: String, dest: String) = edit {
         it[K.lastBackupAt] = at; it[K.lastBackupBytes] = bytes.toString(); it[K.lastBackupFingerprint] = fingerprint; it[K.lastBackupDest] = dest
     }
-    suspend fun setLegacyMigrated() = context.dataStore.edit { it[K.legacyMigrated] = true }
-    suspend fun setPrivacyCardDismissed() = context.dataStore.edit { it[K.privacyCardDismissed] = true }
-    suspend fun setFeedbackDevice(v: Boolean) = context.dataStore.edit { it[K.feedbackDevice] = v }
-    suspend fun setTheme(v: String) = context.dataStore.edit { it[K.theme] = v }
-    suspend fun setDeviationAsked(day: String, neverAgain: Boolean) = context.dataStore.edit {
+    suspend fun setLegacyMigrated() = edit { it[K.legacyMigrated] = true }
+    suspend fun setPrivacyCardDismissed() = edit { it[K.privacyCardDismissed] = true }
+    suspend fun setFeedbackDevice(v: Boolean) = edit { it[K.feedbackDevice] = v }
+    suspend fun setTheme(v: String) = edit { it[K.theme] = v }
+    suspend fun setDeviationAsked(day: String, neverAgain: Boolean) = edit {
         it[K.deviationLastAsked] = day; if (neverAgain) it[K.deviationNeverAsk] = true
     }
     /** Local read/unread state for the inbox (kept to the last 500 ids). */
-    suspend fun markInboxRead(ids: Collection<String>) = context.dataStore.edit { p ->
+    suspend fun markInboxRead(ids: Collection<String>) = edit { p ->
         p[K.inboxRead] = ((p[K.inboxRead] ?: emptySet()) + ids).toList().takeLast(500).toSet()
     }
 
     /** Applies settings restored from a backup's `settings` table. */
-    suspend fun applyBackupMap(m: Map<String, String>) = context.dataStore.edit { p ->
+    suspend fun applyBackupMap(m: Map<String, String>) = edit { p ->
         m["voice_lang"]?.let { p[K.voiceLang] = it }
         m["sound_mode"]?.let { v -> runCatching { SoundMode.valueOf(v.uppercase()) }.getOrNull()?.let { p[K.soundMode] = it.name } }
         m["vehicle"]?.let { p[K.vehicle] = it }

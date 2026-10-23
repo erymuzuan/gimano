@@ -201,7 +201,9 @@ class NavigationController(
             voice.speak(alertPhrase(ahead.first.type, lang), lang)
         }
 
-        batcher.offer(
+        // Traffic probes are real drivers only: a simulated drive (demo, debug) or a walk/ride would feed fake or
+        // pedestrian speeds into the road-speed aggregation (docs/traffic.md) once the live server is reachable.
+        if (!fix.simulated && _state.value.mode.isMotorised) batcher.offer(
             LocationPoint(fix.point.lat, fix.point.lng, speed.toDouble(), fix.bearing?.toDouble(), fix.accuracyM?.toDouble(), Instant.ofEpochMilli(fix.timeMs).toString()),
             fix.timeMs,
         )?.let { send(it) }
@@ -275,6 +277,9 @@ class NavigationController(
 
     private fun replaceRoute(route: Route) {
         lastOnRoute = null
+        // Along-route distances restart at the driver's position on the new route: a stop card still showing must
+        // close after 100 m of driving on it (not after the old route's distance), or voice prompts stay muted.
+        stopCardAlongM = 0.0
         tracker = NavigationTracker(route)
         planner = VoicePromptPlanner(_state.value.mode.wire)
         offRoute.reset()
@@ -291,8 +296,14 @@ class NavigationController(
         val req = base.copy(origin = LatLngDto(here.lat, here.lng), waypoints = stops.map { it.toDto() }, alternatives = 0, departAt = null)
         return try {
             val r = repo.routes(req).firstOrNull() ?: return false
+            // The drive may have ended (End, notification Stop, arrival) or been replaced while the route loaded:
+            // never resurrect it.
+            val now = _state.value
+            if (!now.active || now.arrived || now.startedAt != s.startedAt) return false
             start(r, dest, req, s.simulated, stops)
             true
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            throw e
         } catch (e: Exception) {
             false
         }

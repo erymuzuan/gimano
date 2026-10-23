@@ -63,11 +63,16 @@ class LiveHub(
                 try {
                     val h = build()
                     hub = h
-                    h.start().blockingAwait()
-                    _connected.value = true
-                    backoff = 2_000L
-                    bbox?.let { h.send("Subscribe", it) }
-                    while (isActive && h.connectionState == HubConnectionState.CONNECTED) delay(1_000)
+                    try {
+                        h.start().blockingAwait()
+                        _connected.value = true
+                        backoff = 2_000L
+                        bbox?.let { h.send("Subscribe", it) }
+                        while (isActive && h.connectionState == HubConnectionState.CONNECTED) delay(1_000)
+                    } finally {
+                        // Stopped (or the server URL changed) while connecting/connected: never leave this connection open.
+                        if (!isActive) runCatching { h.stop().blockingAwait() }
+                    }
                 } catch (e: Exception) {
                     GLog.i("LiveHub", "SignalR not connected: ${e.javaClass.simpleName}")
                 }
@@ -81,7 +86,10 @@ class LiveHub(
     fun stop() {
         job?.cancel()
         job = null
-        scope.launch(Dispatchers.IO) { runCatching { hub?.stop()?.blockingAwait() } }
+        // Capture the connection now: a start() right after (new server URL) assigns a new hub that must not be the one stopped.
+        val h = hub
+        hub = null
+        if (h != null) scope.launch(Dispatchers.IO) { runCatching { h.stop().blockingAwait() } }
         _connected.value = false
     }
 

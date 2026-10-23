@@ -19,14 +19,30 @@ class IssueGate(private val repo: SwitchingRepository) {
     /** Cheap probe (a tiny bbox) at start and after the server comes back. Demo mode always has issues. */
     suspend fun probe() {
         if (repo.isDemo) { _available.value = true; return }
-        _available.value = try {
-            repo.issuesNearby(101.69, 3.14, 101.70, 3.15); true
+        val r = probeOutcome { repo.issuesNearby(101.69, 3.14, 101.70, 3.15) }
+        _available.value = r ?: false
+        probed = r != null
+    }
+
+    /**
+     * Probes again while the answer is still unknown: a start without network (no Tailscale/VPN yet, airplane mode) must not
+     * hide complaints for the whole session. A definite answer (endpoint there, or 404/405/501) is kept.
+     */
+    suspend fun reprobeIfUnknown() {
+        if (!probed && !_available.value) probe()
+    }
+
+    companion object {
+        /** true = the server answered (any status but 404/405/501), false = endpoint missing, null = unknown (no network, …). */
+        internal suspend fun probeOutcome(call: suspend () -> Unit): Boolean? = try {
+            call(); true
         } catch (e: HttpException) {
             !IssueSupport.endpointMissing(e.code())
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            throw e
         } catch (e: Exception) {
-            false
+            null
         }
-        probed = true
     }
 
     /** Runs [block] when issues are available; null when hidden or the endpoint turned out to be missing. */

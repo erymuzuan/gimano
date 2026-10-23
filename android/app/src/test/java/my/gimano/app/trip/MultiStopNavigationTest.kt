@@ -1,6 +1,7 @@
 package my.gimano.app.trip
 
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.runCurrent
@@ -97,5 +98,56 @@ class MultiStopNavigationTest {
         assertEquals(1, repo.reroutes.size)
         assertEquals("first waypoint already visited", 1, repo.reroutes.single().nextStopIndex)
         c.stop()
+    }
+
+    @Test fun stopCardClosesAfterARerouteOnceTheDriverPullsAway() = runTest {
+        val fixes = MutableSharedFlow<Fix>(extraBufferCapacity = 64)
+        // The driver leaves the stop the "wrong" way: 200 m west of it, then the reroute goes from there.
+        val off = GeoMath.offset(corner, 270.0, 200.0)
+        val newPts = (0..10).map { GeoMath.lerp(off, end, it / 10.0) }
+        val newLen = GeoMath.distanceM(off, end)
+        val rerouted = Route(
+            id = "rerouted", label = "best", durationS = 150.0, distanceM = newLen, polyline = Polyline.encode(newPts), vehicle = "car",
+            legs = listOf(Leg(listOf(Maneuver("depart", streetName = "Jalan C", distanceM = newLen, beginShapeIndex = 0, endShapeIndex = 10),
+                Maneuver("arrive", beginShapeIndex = 10, endShapeIndex = 10)), durationS = 150.0, to = LegTarget(end.lat, end.lng, "Rumah"))),
+        )
+        val repo = object : GimanoRepository by DemoRepository() {
+            override suspend fun reroute(routeId: String, req: RerouteRequest): List<Route> = listOf(rerouted)
+            override suspend fun postLocations(batch: LocationBatch) {}
+        }
+        val c = NavigationController(backgroundScope, repo, FixSource { fixes }, Speaker2(), Svc(), { SoundMode.OFF }, { Lang.EN })
+        c.start(route, dest, RouteRequest(LatLngDto(start.lat, start.lng), dest.toDto(), waypoints = listOf(stop.toDto())), simulate = false, stops = listOf(stop))
+        runCurrent()
+        var now = 1_000_000L
+        fun fix(p: GeoPoint, brg: Float) = Fix(p, 10f, brg, 5f, now.also { now += 1_000 })
+        fixes.emit(fix(GeoMath.offset(start, 0.0, 995.0), 0f)); runCurrent()
+        assertNotNull(c.state.value.arrivedAtStop)
+        repeat(3) { fixes.emit(fix(off, 270f)); runCurrent() }
+        assertEquals("rerouted", c.state.value.route?.id)
+        assertNotNull("still at the stop", c.state.value.arrivedAtStop)
+        // 300 m along the new route (the old route's stop was ~1000 m along): the driver has clearly left.
+        val brgToEnd = GeoMath.bearingDeg(off, end)
+        fixes.emit(fix(GeoMath.offset(off, brgToEnd, 300.0), brgToEnd.toFloat())); runCurrent()
+        assertNull("stop card closed, prompts resume", c.state.value.arrivedAtStop)
+        c.stop()
+    }
+
+    @Test fun addingAStopNeverRestartsADriveThatEndedMeanwhile() = runTest {
+        val fixes = MutableSharedFlow<Fix>(extraBufferCapacity = 64)
+        val gate = kotlinx.coroutines.CompletableDeferred<Unit>()
+        val repo = object : GimanoRepository by DemoRepository() {
+            override suspend fun routes(req: RouteRequest): List<Route> { gate.await(); return listOf(route) }
+            override suspend fun postLocations(batch: LocationBatch) {}
+        }
+        val c = NavigationController(backgroundScope, repo, FixSource { fixes }, Speaker2(), Svc(), { SoundMode.OFF }, { Lang.EN })
+        c.start(route, dest, RouteRequest(LatLngDto(start.lat, start.lng), dest.toDto()), simulate = false)
+        runCurrent()
+        fixes.emit(Fix(GeoMath.offset(start, 0.0, 300.0), 10f, 0f, 5f)); runCurrent()
+        val added = async { c.addStop(stop) }
+        runCurrent()
+        c.stop()   // End tapped while the new route loads
+        gate.complete(Unit); runCurrent()
+        assertFalse(added.await())
+        assertEquals(NavState(), c.state.value)
     }
 }

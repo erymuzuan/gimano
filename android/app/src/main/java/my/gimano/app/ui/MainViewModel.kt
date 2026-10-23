@@ -267,6 +267,7 @@ class MainViewModel(private val c: AppContainer) : ViewModel() {
                     c.liveHub.start(); refreshAccount()
                 }
                 boundsFlow.value?.let { loadLive(it) }
+                c.issues.reprobeIfUnknown()   // started offline: show complaints once the server answers
                 runCatching { c.feedback.retryDue() }
             }
         }
@@ -581,7 +582,8 @@ class MainViewModel(private val c: AppContainer) : ViewModel() {
 
     /** Vote proximity like place vetting: my geohash-6 cell + 100/300/1000 m; null = no fix or too far. */
     private fun voteProximity(target: GeoPoint): VerifyRequest.Proximity? {
-        val me = myFreshLocation() ?: c.lastFix ?: return null
+        // Only a fresh fix proves where the voter is (an old last-known position could be anywhere by now).
+        val me = myFreshLocation() ?: return null
         val within = my.gimano.app.core.issues.IssueSupport.voteWithinM(GeoMath.distanceM(me, target)) ?: return null
         return VerifyRequest.Proximity(my.gimano.app.core.vetting.Geohash.encode(me.lat, me.lng, 6), within)
     }
@@ -941,7 +943,7 @@ class MainViewModel(private val c: AppContainer) : ViewModel() {
                 _ui.update { it.copy(screen = Screen.Navigating) }
                 viewModelScope.launch {
                     val ok = c.navigation.addStop(p.toDestination())
-                    _events.tryEmit(UiEvent.Toast(if (ok) R.string.stop_added else R.string.stops_full))
+                    if (ok || nav.value.active) _events.tryEmit(UiEvent.Toast(if (ok) R.string.stop_added else R.string.stops_full))
                 }
             }
             SearchPurpose.PLAN_DRIVE -> {
@@ -1171,6 +1173,7 @@ class MainViewModel(private val c: AppContainer) : ViewModel() {
     /** GPS origin for the current preview: fresh fix → route; stale/none with permission → wait briefly for a new fix; else unknown. */
     private fun resolveOrigin() {
         originJob?.cancel()
+        routeJob?.cancel()   // routes for the previous origin/destination must not land in this preview
         val g = gpsFix()
         if (g is RouteOrigin.Gps.Fresh) { setPlanOrigin(g.point, OriginSource.GPS, null); return }
         if (repo.isDemo) { setPlanOrigin(here(), OriginSource.GPS, null); return }
@@ -1280,7 +1283,10 @@ class MainViewModel(private val c: AppContainer) : ViewModel() {
                 alternatives = if (plan.stops.isEmpty()) 2 else 0,
                 ignoreIssues = plan.ignoredIssues.sorted().ifEmpty { null },
             )
-            val routes = runCatching { repo.routes(req) }.getOrNull().orEmpty()
+            val got = runCatching { repo.routes(req) }
+            // Superseded (mode/avoid/stops/origin changed, or the preview closed): the newer request owns the plan.
+            (got.exceptionOrNull() as? kotlinx.coroutines.CancellationException)?.let { throw it }
+            val routes = got.getOrNull().orEmpty()
             if (routes.isEmpty()) {
                 _ui.update { it.copy(plan = it.plan?.copy(loading = false, error = true)) }
                 return@launch
@@ -1288,8 +1294,9 @@ class MainViewModel(private val c: AppContainer) : ViewModel() {
             val decoded = routes.associate { it.id to runCatching { Polyline.decode(it.polyline) }.getOrDefault(emptyList()) }
             val best = routes.firstOrNull { it.isBest } ?: routes.first()
             _ui.update {
+                if (it.plan == null) return@update it   // preview closed meanwhile: no routes, no camera jump
                 it.copy(
-                    plan = it.plan?.copy(routes = routes, decoded = decoded, selectedId = best.id, loading = false, request = req,
+                    plan = it.plan.copy(routes = routes, decoded = decoded, selectedId = best.id, loading = false, error = false, request = req,
                         countdownRunning = my.gimano.app.core.trip.AutoStart.shouldCountdown(settings.current.autoStartNav, plan.quickPick,
                             plan.originSource == OriginSource.GPS, plan.stops.isNotEmpty(), plan.departAt != null, my.gimano.app.core.net.AppForeground.foreground),
                         computedAt = Instant.now()),

@@ -2,6 +2,8 @@ package my.gimano.app.nav
 
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.emptyFlow
+import kotlinx.coroutines.flow.map
+import my.gimano.app.data.location.DriveSimulator
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.runCurrent
@@ -49,12 +51,12 @@ class NavigationControllerTest {
 
     private data class Rig(val c: NavigationController, val speaker: RecordingSpeaker, val service: RecordingService, val repo: RecordingRepo)
 
-    private fun TestScope.rig(): Rig {
+    private fun TestScope.rig(fixes: FixSource = FixSource { emptyFlow() }): Rig {
         val speaker = RecordingSpeaker()
         val service = RecordingService()
         val repo = RecordingRepo(DemoRepository(cannedDocs = { docs }))
         val c = NavigationController(
-            backgroundScope, repo, FixSource { emptyFlow() }, speaker, service,
+            backgroundScope, repo, fixes, speaker, service,
             soundMode = { SoundMode.ON }, langProvider = { Lang.EN },
         )
         return Rig(c, speaker, service, repo)
@@ -76,8 +78,7 @@ class NavigationControllerTest {
         assertFalse("service stopped", service.running)
         assertFalse("notification removed", service.notificationShown)
         assertTrue("TTS stopped", speaker.stops >= 1 && !speaker.speaking)
-        assertTrue("pings flushed", repo.batches.isNotEmpty() && repo.batches.last().points.isNotEmpty())
-        assertNotNull("flushed batch keeps the route id", repo.batches.last().routeId)
+        assertTrue("a simulated drive never sends traffic pings", repo.batches.isEmpty())
 
         // Nothing keeps driving in the background.
         val batches = repo.batches.size
@@ -133,5 +134,31 @@ class NavigationControllerTest {
         assertEquals(1, service.stops)
         c.stop()
         assertFalse(service.running)
+    }
+
+    /** Real GPS along the route: the simulator's geometry, but marked as real fixes. */
+    private fun realGps(r: Route) = FixSource {
+        DriveSimulator.drive(my.gimano.app.core.nav.NavigationTracker(r).geometry, 40.0).map { it.copy(simulated = false) }
+    }
+
+    @Test fun realDriveSendsPingsAndFlushesThemOnStop() = runTest {
+        val r = route("ss2-midvalley")
+        val (c, _, _, repo) = rig(realGps(r))
+        c.start(r, dest, null, simulate = false)
+        advanceTimeBy(60_000); runCurrent()
+        c.stop(); runCurrent()
+        assertTrue("pings sent", repo.batches.isNotEmpty() && repo.batches.last().points.isNotEmpty())
+        assertNotNull("flushed batch keeps the route id", repo.batches.last().routeId)
+    }
+
+    @Test fun walkingAndCyclingNeverFeedTrafficSpeeds() = runTest {
+        for (mode in listOf("walk", "bicycle")) {
+            val r = route("ss2-midvalley").copy(vehicle = mode)
+            val (c, _, _, repo) = rig(realGps(r))
+            c.start(r, dest, null, simulate = false)
+            advanceTimeBy(60_000); runCurrent()
+            c.stop(); runCurrent()
+            assertTrue("$mode: no pings", repo.batches.isEmpty())
+        }
     }
 }
