@@ -5,6 +5,7 @@ using Gimano.Core.Data;
 using Gimano.Core.Domain;
 using Gimano.Core.Support;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 using Npgsql;
 
 namespace Gimano.Tests;
@@ -109,9 +110,18 @@ public sealed class BackOfficePostgresTests : IAsyncLifetime
     public async Task Invites_work_once_for_their_email_and_failed_registrations_can_retry()
     {
         if (_ds is null) { Assert.Skip("GIMANO_PG_TEST not set"); return; }
-        var o = new DbContextOptionsBuilder<Gimano.BackOffice.Data.ApplicationDbContext>();
-        Gimano.BackOffice.Data.ApplicationDbContext.Configure(o, new NpgsqlConnectionStringBuilder(_admin) { Database = _dbName }.ConnectionString);
-        await using var idb = new Gimano.BackOffice.Data.ApplicationDbContext(o.Options);
+        // Built like Program.cs does: IdentityDbContext shapes its model from IdentityOptions (Stores.SchemaVersion = Version3 adds
+        // AspNetUserPasskeys). A bare `new ApplicationDbContext(options)` gets the default schema version, so its model differs
+        // from the migrations and MigrateAsync throws PendingModelChangesWarning.
+        var cs = new NpgsqlConnectionStringBuilder(_admin) { Database = _dbName }.ConnectionString;
+        await using var sp = new Microsoft.Extensions.DependencyInjection.ServiceCollection()
+            .AddLogging()
+            .AddDbContext<Gimano.BackOffice.Data.ApplicationDbContext>(o => Gimano.BackOffice.Data.ApplicationDbContext.Configure(o, cs))
+            .AddIdentityCore<Gimano.BackOffice.Data.ApplicationUser>(op => op.Stores.SchemaVersion = Microsoft.AspNetCore.Identity.IdentitySchemaVersions.Version3)
+            .AddEntityFrameworkStores<Gimano.BackOffice.Data.ApplicationDbContext>().Services
+            .BuildServiceProvider();
+        await using var scope = sp.CreateAsyncScope();
+        var idb = scope.ServiceProvider.GetRequiredService<Gimano.BackOffice.Data.ApplicationDbContext>();
         await idb.Database.MigrateAsync();
         var allow = new Gimano.BackOffice.Data.MaintainerAllowlist(new StaticOptions(new() { Maintainers = ["me@example.com"] }));
         var invites = new Gimano.BackOffice.Data.MaintainerInvites(idb, allow, _clock);
