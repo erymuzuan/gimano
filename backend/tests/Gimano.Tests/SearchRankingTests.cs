@@ -62,6 +62,17 @@ public class SearchRankingUnitTests
         Assert.Null(OsmImporter.AdminArea(r));   // no point to place it
     }
 
+    [Fact]
+    public void Admin_area_merges_into_the_same_named_place_node_nearby()
+    {
+        var city = OsmImporter.ToPlace("n", 1, PlaceCategory.Area, T("place", "city", "name", "Putrajaya"), 2.918, 101.684);
+        var admin = OsmImporter.ToPlace("r", 2, PlaceCategory.Area, T("place", "admin", "gimano:admin_level", "4", "name", "Putrajaya"), 2.938, 101.692);
+        Assert.Same(city, OsmImporter.MergeAdminInto([city], admin));
+        var other = OsmImporter.ToPlace("r", 3, PlaceCategory.Area, T("place", "admin", "gimano:admin_level", "6", "name", "Putrajaya"), 4.5, 103.4);
+        Assert.Null(OsmImporter.MergeAdminInto([city], other));
+        Assert.Equal("Kejiranan, Selangor", OsmCategoryMapper.AreaAddress(T("place", "neighbourhood", "is_in", "Semenyih;Selangor")));
+    }
+
     [Theory]
     [InlineData("McDonald's Damansara Uptown", "McDonald's", "mcd")]
     [InlineData("Mid Valley Megamall", null, "midvalley")]

@@ -127,6 +127,7 @@ public static class OsmCategoryMapper
             _ => "Kawasan",
         };
         var state = tags.GetValueOrDefault("is_in:state") ?? tags.GetValueOrDefault("addr:state") ?? tags.GetValueOrDefault("is_in");
+        state = state?.Split([';', ','], StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries).LastOrDefault();
         return string.IsNullOrWhiteSpace(state) ? kind : $"{kind}, {state}";
     }
 

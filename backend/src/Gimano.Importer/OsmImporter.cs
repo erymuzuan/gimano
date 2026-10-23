@@ -140,9 +140,16 @@ public sealed class OsmImporter(GimanoDbContext db, NpgsqlDataSource dataSource,
                 places.Add(ToPlace("w", w.Id, w.Category, w.Tags, pts.Average(p => p.Lat), pts.Average(p => p.Lng)));
             }
 
+            var areaNodes = places.Where(p => p.Category == PlaceCategory.Area).ToList();
             foreach (var a in adminAreas)
                 if (TryCoord(a.LabelNode, out var p))
-                    places.Add(ToPlace("r", a.Id, PlaceCategory.Area, a.Tags, p.Lat, p.Lng));
+                {
+                    var admin = ToPlace("r", a.Id, PlaceCategory.Area, a.Tags, p.Lat, p.Lng);
+                    // "Putrajaya" the federal territory and "Putrajaya" the city are one search result: keep the place node
+                    // (better centre) with the higher popularity of the two.
+                    if (MergeAdminInto(areaNodes, admin) is { } same) { same.Popularity = Math.Max(same.Popularity, admin.Popularity); continue; }
+                    places.Add(admin);
+                }
             logger.LogInformation("Areas: {Areas} named places/admin areas", places.Count(p => p.Category == PlaceCategory.Area));
 
             if (o.DryRun)
@@ -188,6 +195,10 @@ public sealed class OsmImporter(GimanoDbContext db, NpgsqlDataSource dataSource,
         OsmId = id,
         Popularity = OsmCategoryMapper.Popularity(cat, tags),
     };
+
+    internal static Place? MergeAdminInto(IEnumerable<Place> areaNodes, Place admin) =>
+        areaNodes.FirstOrDefault(n => string.Equals(n.Name, admin.Name, StringComparison.OrdinalIgnoreCase)
+            && GeoMath.HaversineM(n.Location.Y, n.Location.X, admin.Location.Y, admin.Location.X) <= 15_000);
 
     internal static (long Id, long LabelNode, Dictionary<string, string> Tags)? AdminArea(Relation r)
     {
