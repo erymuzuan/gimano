@@ -50,7 +50,8 @@ Exchange `gimano.events` (topic, durable).
 
 | Routing key | Producer | Consumer | Payload |
 |---|---|---|---|
-| `location.ping` | Api (`POST /api/v1/locations`) | Worker `TrafficAggregator` | `{userId, lat, lng, speedKmh, heading, ts}` |
+| `location.ping` | Api (`POST /api/v1/locations`) | Worker `LocationStreamConsumer` | **transient exchange `gimano.locations`** (see below): `[{s: sessionId, m: mood, p: [[lat,lng,speed,heading,tsMs],…]},…]` |
+| `drivers.snapshot` | Worker (every 5 s) | Api (`/live` drivers) | **transient `gimano.locations`**: `{at, drivers: Driver[]}` (≥ 3-driver cells, rounded) |
 | `report.created` | Api | Worker `AlertLifecycle`, Api SignalR fan-out | `Report` |
 | `report.voted` | Api | Worker `AlertLifecycle` | `{reportId, stillThere, userId}` |
 | `report.updated` | Api (merge / vote / thanks) | Api SignalR fan-out (`AlertUpdated`) | `Report` |
@@ -58,6 +59,25 @@ Exchange `gimano.events` (topic, durable).
 | `jam.updated` | Worker | Api SignalR fan-out | `Jam` |
 | `jam.cleared` | Worker | Api SignalR fan-out (`JamUpdated` with `level: 0`) | `Jam` |
 | `place.changed` | Importer / Api | Worker `SearchIndexer` | `{placeId}` |
+
+### Location stream (transient, lossy by design)
+
+GPS pings don't use the durable `gimano.events` exchange. They go through a separate **non-durable** topic exchange,
+`gimano.locations`:
+
+- **Api**: `POST /locations` does no database I/O. It validates the request and maps the user to a **rotating
+  pseudonymous session id**, an HMAC with a per-hour random key that exists only in memory, so the pipeline never sees
+  user ids. It then drops the batch into a bounded in-memory channel (drop-oldest) and returns `202`. One background
+  task coalesces up to 500 batches into one **transient** message: no publisher confirms, `mandatory=false`. If the
+  broker is down, pings are dropped.
+- **Queue** `gimano.locations.traffic`: non-durable, `x-message-ttl` 30 s, `x-max-length` 200k, `x-overflow: drop-head`.
+  Stale pings are worthless.
+- **Worker**: auto-ack, prefetch 2000. Each ping is snapped against an **in-memory road index**: float32
+  struct-of-arrays plus a 0.002° grid, loaded from `road_segments` at startup and reloaded when the importer replaces
+  them. The ping then goes into the in-memory 5-minute speed window. Driver dots are kept **only in memory**, keyed by
+  session id, and published every 5 s as an anonymised snapshot (≥ 3 drivers per 0.01° cell, 3 dp, heading in
+  15° steps). **No ping, position or session id is ever written to the database.** Only aggregated
+  `segment_speeds` and `jams` are.
 
 ## Traffic model
 

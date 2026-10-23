@@ -11,8 +11,9 @@ it never invents traffic.
 - The worker snaps them to OSM road segments and keeps a 5-minute rolling mean speed.
 - A segment is a **jam** when the mean is below 50 % of free-flow, with ≥ 3 distinct drivers.
   Levels 1–4 are drawn on the map and fed into route ETAs.
-- Privacy: no ping is linked to a public identity, drivers are shown only as ≥ 3-driver cells,
-  and raw pings are deleted after 24 h (only aggregated segment speeds are kept).
+- Privacy: pings carry only a rotating pseudonymous session id (per-hour key, never the user id), travel on a
+  transient queue (30 s TTL), and are processed **in memory**. Raw pings and per-driver positions are never written
+  to disk. Only aggregated segment speeds and jams are kept, and drivers are shown only as ≥ 3-driver cells.
 - Weakness: it needs drivers. It's useful on busy Klang Valley roads within weeks, but
   sparse on rural roads for a long time.
 

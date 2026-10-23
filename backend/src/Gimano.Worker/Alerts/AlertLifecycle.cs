@@ -25,7 +25,8 @@ public sealed class AlertLifecycle(RabbitMqConnection connection, IServiceScopeF
         if (routingKey == RoutingKeys.ReportCreated)
         {
             var r = message.Deserialize<ReportDto>(GimanoJson.Options)!;
-            logger.LogInformation("Report {Id} {Type}/{Subtype} at {Lat},{Lng} expires {Expires:t}", r.Id, r.Type, r.Subtype, r.Lat, r.Lng, r.ExpiresAt);
+            // Privacy rule: coordinates in logs are rounded to 2 dp at most.
+            logger.LogInformation("Report {Id} {Type}/{Subtype} near {Lat:F2},{Lng:F2} expires {Expires:t}", r.Id, r.Type, r.Subtype, r.Lat, r.Lng, r.ExpiresAt);
             return;
         }
 

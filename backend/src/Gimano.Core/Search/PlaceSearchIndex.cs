@@ -50,7 +50,7 @@ public sealed class PlaceSearchIndex(IOpenSearchLowLevelClient client, ILogger<P
         var r = await client.BulkAsync<StringResponse>(PostData.String(sb.ToString()), ctx: ct);
         if (!r.Success) throw new InvalidOperationException($"Bulk index failed: {r.DebugInformation}");
         if (r.Body.Contains("\"errors\":true", StringComparison.Ordinal))
-            logger.LogWarning("Bulk index reported item errors: {Body}", r.Body[..Math.Min(2000, r.Body.Length)]);
+            logger.LogWarning("Bulk index reported {Count} item errors", System.Text.RegularExpressions.Regex.Matches(r.Body, "\"error\":").Count);
         return n;
     }
 

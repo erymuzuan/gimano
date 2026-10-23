@@ -26,49 +26,6 @@ namespace Gimano.Core.Data.Migrations
             NpgsqlModelBuilderExtensions.HasPostgresExtension(modelBuilder, "postgis");
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
-            modelBuilder.Entity("Gimano.Core.Domain.DriverPosition", b =>
-                {
-                    b.Property<Guid>("UserId")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid")
-                        .HasColumnName("user_id");
-
-                    b.Property<double>("Heading")
-                        .HasColumnType("double precision")
-                        .HasColumnName("heading");
-
-                    b.Property<Point>("Location")
-                        .IsRequired()
-                        .HasColumnType("geography (point, 4326)")
-                        .HasColumnName("location");
-
-                    b.Property<string>("Mood")
-                        .IsRequired()
-                        .HasColumnType("text")
-                        .HasColumnName("mood");
-
-                    b.Property<double>("SpeedKmh")
-                        .HasColumnType("double precision")
-                        .HasColumnName("speed_kmh");
-
-                    b.Property<DateTimeOffset>("UpdatedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("updated_at");
-
-                    b.HasKey("UserId")
-                        .HasName("pk_driver_positions");
-
-                    b.HasIndex("Location")
-                        .HasDatabaseName("ix_driver_positions_location");
-
-                    NpgsqlIndexBuilderExtensions.HasMethod(b.HasIndex("Location"), "gist");
-
-                    b.HasIndex("UpdatedAt")
-                        .HasDatabaseName("ix_driver_positions_updated_at");
-
-                    b.ToTable("driver_positions", (string)null);
-                });
-
             modelBuilder.Entity("Gimano.Core.Domain.Feedback", b =>
                 {
                     b.Property<Guid>("Id")
@@ -121,7 +78,7 @@ namespace Gimano.Core.Data.Migrations
                         .HasColumnType("character varying(12)")
                         .HasColumnName("status");
 
-                    b.Property<Guid>("UserId")
+                    b.Property<Guid?>("UserId")
                         .HasColumnType("uuid")
                         .HasColumnName("user_id");
 
@@ -366,7 +323,7 @@ namespace Gimano.Core.Data.Migrations
                         .HasColumnType("geography (point, 4326)")
                         .HasColumnName("location");
 
-                    b.Property<Guid>("ReporterId")
+                    b.Property<Guid?>("ReporterId")
                         .HasColumnType("uuid")
                         .HasColumnName("reporter_id");
 
@@ -775,8 +732,7 @@ namespace Gimano.Core.Data.Migrations
                     b.HasOne("Gimano.Core.Domain.User", null)
                         .WithMany()
                         .HasForeignKey("UserId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired()
+                        .OnDelete(DeleteBehavior.SetNull)
                         .HasConstraintName("fk_feedback_users_user_id");
 
                     b.OwnsOne("Gimano.Core.Contracts.FeedbackContext", "Context", b1 =>
@@ -832,8 +788,7 @@ namespace Gimano.Core.Data.Migrations
                     b.HasOne("Gimano.Core.Domain.User", "Reporter")
                         .WithMany()
                         .HasForeignKey("ReporterId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired()
+                        .OnDelete(DeleteBehavior.SetNull)
                         .HasConstraintName("fk_reports_users_reporter_id");
 
                     b.Navigation("Reporter");

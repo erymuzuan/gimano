@@ -7,7 +7,7 @@ using Microsoft.EntityFrameworkCore;
 namespace Gimano.Api.Services;
 
 /// <summary>PostGIS lookups: nearest street, reverse geocoding, jams and drivers in a bbox.</summary>
-public sealed class GeoLookup(GimanoDbContext db, TimeProvider clock)
+public sealed class GeoLookup(GimanoDbContext db, Live.DriverSnapshotStore drivers, TimeProvider clock)
 {
     public async Task<string?> StreetNameAsync(GeoPoint p, CancellationToken ct, double radiusM = 50)
     {
@@ -67,27 +67,6 @@ public sealed class GeoLookup(GimanoDbContext db, TimeProvider clock)
             .ToListAsync(ct);
     }
 
-    /// <summary>Anonymised drivers: rounded to 3 dp and only for cells with ≥ 3 active drivers.</summary>
-    public async Task<IReadOnlyList<DriverDto>> DriversInBBoxAsync(BBox bbox, CancellationToken ct)
-    {
-        var poly = bbox.ToPolygon();
-        var since = clock.GetUtcNow().AddMinutes(-2);
-        var rows = await db.DriverPositions.AsNoTracking()
-            .Where(d => d.UpdatedAt > since && d.Location.Intersects(poly))
-            .Select(d => new { d.Location, d.Heading, d.Mood })
-            .Take(5000)
-            .ToListAsync(ct);
-        return Anonymise(rows.Select(r => (r.Location.Y, r.Location.X, r.Heading, r.Mood)));
-    }
-
-    internal static IReadOnlyList<DriverDto> Anonymise(IEnumerable<(double Lat, double Lng, double Heading, string Mood)> drivers, int minPerCell = 3)
-    {
-        // Cell = 0.01° (~1.1 km) so that 3 drivers per cell is meaningful; positions themselves are rounded to 3 dp.
-        return drivers
-            .GroupBy(d => (Math.Floor(d.Lat * 100), Math.Floor(d.Lng * 100)))
-            .Where(g => g.Count() >= minPerCell)
-            .SelectMany(g => g)
-            .Select(d => new DriverDto(Math.Round(d.Lat, 3), Math.Round(d.Lng, 3), Math.Round(d.Heading / 15) * 15 % 360, d.Mood))
-            .ToList();
-    }
+    /// <summary>Anonymised drivers (≥ 3 per cell, rounded) from the worker's in-memory snapshot. Nothing is read from the database.</summary>
+    public Task<IReadOnlyList<DriverDto>> DriversInBBoxAsync(BBox bbox, CancellationToken ct) => Task.FromResult(drivers.InBBox(bbox));
 }

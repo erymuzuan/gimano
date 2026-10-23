@@ -127,7 +127,7 @@ public sealed class OsmImporter(GimanoDbContext db, NpgsqlDataSource dataSource,
                     segments,
                     string.Join(", ", places.GroupBy(p => p.Category).OrderByDescending(g => g.Count()).Take(12).Select(g => $"{g.Key}={g.Count()}")));
                 foreach (var p in places.Where(p => p.Name.Contains("Petronas", StringComparison.OrdinalIgnoreCase)).Take(5))
-                    logger.LogInformation("  sample: {Id} {Name} [{Cat}] {Country} '{Address}' ({Lat:F5},{Lng:F5})", p.Id, p.Name, p.Category, p.Country, p.Address, p.Location.Y, p.Location.X);
+                    logger.LogInformation("  sample: {Id} {Name} [{Cat}] {Country} '{Address}' ({Lat:F2},{Lng:F2})", p.Id, p.Name, p.Category, p.Country, p.Address, p.Location.Y, p.Location.X);
                 return;
             }
             if (o.Roads) await WriteRoadsAsync(roads, TryCoord, ct);

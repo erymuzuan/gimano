@@ -142,7 +142,7 @@ public class ContractTests
             (3.101234, 101.601234, 92, "happy"), (3.102, 101.602, 10, "chill"), (3.103, 101.603, 200, "happy"), // same cell
             (3.201, 101.701, 0, "happy"), (3.202, 101.702, 0, "happy"),                                        // only 2
         };
-        var result = GeoLookup.Anonymise(drivers);
+        var result = Gimano.Core.Traffic.DriverCells.Anonymise(drivers);
         Assert.Equal(3, result.Count);
         Assert.Equal(3.101, result[0].Lat);
         Assert.Equal(101.601, result[0].Lng);

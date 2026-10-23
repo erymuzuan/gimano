@@ -69,6 +69,12 @@ builder.Services.AddAuthorization();
 builder.Services.AddSignalR().AddJsonProtocol(o => GimanoJson.Configure(o.PayloadSerializerOptions));
 builder.Services.AddSingleton<LiveSubscriptions>();
 builder.Services.AddHostedService<LiveFanoutConsumer>();
+builder.Services.AddSingleton<MoodCache>();
+builder.Services.AddSingleton<PingSessions>();
+builder.Services.AddSingleton<DriverSnapshotStore>();
+builder.Services.AddHostedService<DriverSnapshotConsumer>();
+builder.Services.AddSingleton<LocationStreamPublisher>();
+builder.Services.AddHostedService(sp => sp.GetRequiredService<LocationStreamPublisher>());
 
 // Health
 builder.Services.AddHealthChecks()
@@ -112,7 +118,7 @@ app.MapHealthChecks("/healthz", new HealthCheckOptions { Predicate = _ => false,
 app.MapHealthChecks("/readyz", new HealthCheckOptions { Predicate = c => c.Tags.Contains("ready"), ResponseWriter = HealthWriter.WriteAsync });
 
 var api = app.MapGroup("/api/v1");
-api.MapAuthAndMe().MapPlaces().MapRoutes().MapLive().MapFeedback();
+api.MapAuthAndMe().MapPlaces().MapRoutes().MapLive().MapFeedback().MapPrivacy();
 
 app.MapHub<LiveHub>("/hubs/live");
 app.MapGet("/", () => Results.Redirect("/scalar/v1")).ExcludeFromDescription();

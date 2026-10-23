@@ -20,7 +20,7 @@ public sealed class JwtOptions
 
 public sealed class JwtTokenService(IOptions<JwtOptions> options, TimeProvider clock)
 {
-    public string Issue(Guid userId, string displayName)
+    public string Issue(Guid userId, string displayName, string mood = "happy")
     {
         var o = options.Value;
         var now = clock.GetUtcNow().UtcDateTime;
@@ -29,6 +29,7 @@ public sealed class JwtTokenService(IOptions<JwtOptions> options, TimeProvider c
             [
                 new Claim(JwtRegisteredClaimNames.Sub, userId.ToString()),
                 new Claim(JwtRegisteredClaimNames.Name, displayName),
+                new Claim(Live.MoodCache.Claim, mood),
                 new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString("N")),
             ],
             notBefore: now.AddMinutes(-1),

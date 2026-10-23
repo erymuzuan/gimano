@@ -17,7 +17,7 @@ public sealed class ReportService(GimanoDbContext db, IEventPublisher bus, GeoLo
     {
         var now = clock.GetUtcNow();
         var loc = new GeoPoint(req.Lat, req.Lng);
-        var user = await db.Users.FirstAsync(u => u.Id == userId, ct);
+        var user = await db.Users.FirstOrDefaultAsync(u => u.Id == userId, ct) ?? throw new UnauthorizedAccessException("This account was deleted.");
 
         // Duplicate suppression: same type within 150 m along the same heading.
         var pt = loc.ToPoint();
@@ -70,7 +70,7 @@ public sealed class ReportService(GimanoDbContext db, IEventPublisher bus, GeoLo
         if (report.Status != ReportStatus.Active || report.ExpiresAt <= now)
             throw new ConflictException("Report has already expired.");
 
-        var voter = await db.Users.FirstAsync(u => u.Id == userId, ct);
+        var voter = await db.Users.FirstOrDefaultAsync(u => u.Id == userId, ct) ?? throw new UnauthorizedAccessException("This account was deleted.");
         var existing = await db.ReportVotes.FindAsync([reportId, userId], ct);
         if (existing is not null)
         {

@@ -33,7 +33,8 @@ public sealed class ValhallaClient(HttpClient http, ILogger<ValhallaClient> logg
             var err = ValhallaMapper.ParseError(body);
             if (resp.StatusCode is HttpStatusCode.BadRequest or HttpStatusCode.NotFound && err is not null)
                 throw new NoRouteException(err.Value.Message);
-            logger.LogWarning("Valhalla returned {Status}: {Body}", (int)resp.StatusCode, body.Length > 500 ? body[..500] : body);
+            // Never log the body: Valhalla errors can echo request locations (privacy rule).
+            logger.LogWarning("Valhalla returned {Status} (error_code {Code})", (int)resp.StatusCode, err?.Code);
             throw new RoutingUnavailableException($"Routing engine returned HTTP {(int)resp.StatusCode}.");
         }
     }

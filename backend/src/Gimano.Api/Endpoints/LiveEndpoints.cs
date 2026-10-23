@@ -5,6 +5,7 @@ using Gimano.Core.Contracts;
 using Gimano.Core.Data;
 using Gimano.Core.Geo;
 using Gimano.Core.Messaging;
+using Gimano.Api.Live;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.EntityFrameworkCore;
 
@@ -65,24 +66,32 @@ public static class LiveEndpoints
         return TypedResults.NoContent();
     }
 
-    private static async Task<Results<Accepted, ValidationProblem>> Locations(
-        LocationBatch batch, HttpContext http, GimanoDbContext db, IEventPublisher bus, TimeProvider clock, CancellationToken ct)
+    /// <summary>Hot path: no DB, no awaits on the broker — validate, hand off to the stream publisher, 202.</summary>
+    private static Results<Accepted, ValidationProblem> Locations(
+        LocationBatch batch, HttpContext http, LocationStreamPublisher stream, MoodCache moods, PingSessions sessions, TimeProvider clock)
     {
         if (batch.Points is not { Count: > 0 }) return Validation.Problem("points", "points is required.");
         if (batch.Points.Count > MaxPointsPerBatch) return Validation.Problem("points", $"At most {MaxPointsPerBatch} points per request.");
         if (batch.Points.Any(p => !Validation.ValidLatLng(p.Lat, p.Lng))) return Validation.Problem("points", "Invalid coordinates.");
 
         var uid = http.User.RequiredUserId();
-        var mood = await db.Users.Where(u => u.Id == uid).Select(u => u.Mood).FirstOrDefaultAsync(ct) ?? "happy";
-        var now = clock.GetUtcNow();
-        foreach (var p in batch.Points.OrderBy(p => p.Ts ?? now))
+        var samples = ToSamples(batch.Points, clock.GetUtcNow());
+        if (samples.Length > 0) stream.Enqueue(new LocationBatchMessage(sessions.For(uid), moods.Get(uid, http.User), samples));
+        return TypedResults.Accepted((string?)null);
+    }
+
+    /// <summary>Drops inaccurate fixes (&gt; 50 m), clamps timestamps to [now − 10 min, now + 1 min], orders by time.</summary>
+    internal static LocationSample[] ToSamples(IReadOnlyList<LocationPoint> points, DateTimeOffset now)
+    {
+        var list = new List<LocationSample>(points.Count);
+        foreach (var p in points)
         {
-            // Inaccurate fixes pollute the traffic model.
             if (p.AccuracyM is > 50) continue;
             var ts = p.Ts is { } t && t <= now.AddMinutes(1) && t > now.AddMinutes(-10) ? t : now;
-            await bus.PublishAsync(RoutingKeys.LocationPing,
-                new LocationPingEvent(uid, p.Lat, p.Lng, Math.Max(0, p.SpeedKmh ?? 0), p.Heading ?? -1, ts, mood), ct);
+            list.Add(new LocationSample(p.Lat, p.Lng, (float)Math.Max(0, p.SpeedKmh ?? 0),
+                p.Heading is >= 0 and <= 360 ? (float)p.Heading.Value : -1f, ts.ToUnixTimeMilliseconds()));
         }
-        return TypedResults.Accepted((string?)null);
+        list.Sort((a, b) => a.TsUnixMs.CompareTo(b.TsUnixMs));
+        return [.. list];
     }
 }

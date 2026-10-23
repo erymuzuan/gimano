@@ -13,7 +13,7 @@ namespace Gimano.Api.Services;
 
 public sealed class RouteService(
     ValhallaClient valhalla, ReportService reports, GeoLookup geo, GimanoDbContext db,
-    IMemoryCache cache, TimeProvider clock, ILogger<RouteService> logger)
+    IMemoryCache cache, TimeProvider clock)
 {
     private static readonly TimeSpan CacheFor = TimeSpan.FromHours(3);
 
@@ -53,11 +53,7 @@ public sealed class RouteService(
         var routes = RouteDecorator.Decorate(candidates, activeReports, jams, () => Guid.CreateVersion7().ToString("N"), vehicle, plazas, tariffs);
         foreach (var r in routes) cache.Set(CacheKey(r.Id), cacheAs ?? req, CacheFor);
 
-        if (userId is { } uid && originHeading is null)
-        {
-            try { await RecordRecentAsync(uid, req.Destination, ct); }
-            catch (Exception ex) { logger.LogWarning(ex, "Could not record recent destination"); }
-        }
+        // Privacy rule: destinations/recents are never recorded server-side (they live on the device).
         return routes;
     }
 
@@ -108,36 +104,6 @@ public sealed class RouteService(
             finally { gate.Release(); }
         });
         return (await Task.WhenAll(tasks)).Where(s => s is not null).Cast<DepartureSlot>().ToList();
-    }
-
-    private async Task RecordRecentAsync(Guid userId, LatLng dest, CancellationToken ct)
-    {
-        string name, address;
-        var point = new GeoPoint(dest.Lat, dest.Lng);
-        Place? place = dest.PlaceId is null ? null : await db.Places.AsNoTracking().FirstOrDefaultAsync(p => p.Id == dest.PlaceId, ct);
-        if (place is not null) (name, address) = (place.Name, place.Address);
-        else
-        {
-            var rev = await geo.ReverseAsync(point, ct);
-            (name, address) = (rev.Name, rev.Address);
-        }
-
-        var pt = point.ToPoint();
-        var existing = await db.Recents
-            .Where(r => r.UserId == userId && (dest.PlaceId != null ? r.PlaceId == dest.PlaceId : r.Location.IsWithinDistance(pt, 30)))
-            .FirstOrDefaultAsync(ct);
-        var now = clock.GetUtcNow();
-        if (existing is not null) existing.LastUsedAt = now;
-        else db.Recents.Add(new RecentDestination { UserId = userId, Name = name, Address = address, Location = pt, PlaceId = dest.PlaceId, LastUsedAt = now });
-        await db.SaveChangesAsync(ct);
-
-        // Keep only the last 20.
-        var stale = await db.Recents.Where(r => r.UserId == userId).OrderByDescending(r => r.LastUsedAt).Skip(20).ToListAsync(ct);
-        if (stale.Count > 0)
-        {
-            db.Recents.RemoveRange(stale);
-            await db.SaveChangesAsync(ct);
-        }
     }
 
     private static string CacheKey(string id) => "route:" + id;

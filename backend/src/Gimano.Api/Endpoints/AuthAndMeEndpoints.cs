@@ -24,17 +24,21 @@ public static class AuthAndMeEndpoints
         var me = api.MapGroup("/me").WithTags("Me").RequireAuthorization();
         me.MapGet("", GetMe);
         me.MapPatch("", PatchMe);
-        me.MapGet("/places", GetPlaces);
-        me.MapPut("/places/{kind}", PutHomeOrWork);
-        me.MapPost("/places", AddFavourite);
-        me.MapPatch("/places/{id:guid}", PatchPlace);
-        me.MapDelete("/places/{id:guid}", DeletePlace);
-        me.MapGet("/recents", GetRecents);
+
+        // Deprecated (privacy rule: personal data lives on the device). Kept for the one-time migration only.
+        var legacy = me.MapGroup("").WithTags("Me (deprecated)").AddEndpointFilter<LegacySavedPlacesFilter>()
+            .AddOpenApiOperationTransformer((op, _, _) => { op.Deprecated = true; return Task.CompletedTask; });
+        legacy.MapGet("/places", GetPlaces);
+        legacy.MapPut("/places/{kind}", PutHomeOrWork);
+        legacy.MapPost("/places", AddFavourite);
+        legacy.MapPatch("/places/{id:guid}", PatchPlace);
+        legacy.MapDelete("/places/{id:guid}", DeletePlace);
+        legacy.MapGet("/recents", GetRecents);
         return api;
     }
 
     private static async Task<Results<Ok<DeviceAuthResponse>, ValidationProblem>> DeviceAuth(
-        DeviceAuthRequest req, GimanoDbContext db, JwtTokenService jwt, TimeProvider clock, CancellationToken ct)
+        DeviceAuthRequest req, GimanoDbContext db, JwtTokenService jwt, Live.MoodCache moods, TimeProvider clock, CancellationToken ct)
     {
         if (string.IsNullOrWhiteSpace(req.DeviceId) || req.DeviceId.Length > 200)
             return Validation.Problem("deviceId", "deviceId is required (max 200 chars).");
@@ -54,7 +58,8 @@ public static class AuthAndMeEndpoints
         user.LastSeenAt = clock.GetUtcNow();
         if (!string.IsNullOrWhiteSpace(req.Locale)) user.Locale = req.Locale;
         await db.SaveChangesAsync(ct);
-        return TypedResults.Ok(new DeviceAuthResponse(jwt.Issue(user.Id, user.DisplayName), user.Id, user.DisplayName));
+        moods.Set(user.Id, user.Mood);
+        return TypedResults.Ok(new DeviceAuthResponse(jwt.Issue(user.Id, user.DisplayName, user.Mood), user.Id, user.DisplayName));
     }
 
     private static async Task<Results<Ok<UserDto>, NotFound>> GetMe(HttpContext http, GimanoDbContext db, CancellationToken ct)
@@ -64,7 +69,7 @@ public static class AuthAndMeEndpoints
     }
 
     private static async Task<Results<Ok<UserDto>, NotFound, ValidationProblem>> PatchMe(
-        PatchMeRequest req, HttpContext http, GimanoDbContext db, CancellationToken ct)
+        PatchMeRequest req, HttpContext http, GimanoDbContext db, Live.MoodCache moods, CancellationToken ct)
     {
         var user = await db.Users.FirstOrDefaultAsync(u => u.Id == http.User.RequiredUserId(), ct);
         if (user is null) return TypedResults.NotFound();
@@ -78,6 +83,7 @@ public static class AuthAndMeEndpoints
         {
             if (!Moods.Contains(mood)) return Validation.Problem("mood", $"mood must be one of: {string.Join(", ", Moods)}.");
             user.Mood = mood;
+            moods.Set(user.Id, mood);
         }
         if (req.Vehicle is { } v) user.Vehicle = v;
         if (!string.IsNullOrWhiteSpace(req.Locale)) user.Locale = req.Locale;

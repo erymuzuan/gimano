@@ -10,7 +10,12 @@ builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddGimanoData(builder.Configuration).AddGimanoSearch(builder.Configuration).AddGimanoMessaging(builder.Configuration);
 
 builder.Services.AddSingleton<SpeedWindow>();
-builder.Services.AddHostedService<TrafficAggregator>();
+builder.Services.AddSingleton<TrafficMetrics>();
+builder.Services.AddSingleton<DriverStore>();
+builder.Services.AddSingleton<RoadIndexHolder>();
+builder.Services.AddHostedService(sp => sp.GetRequiredService<RoadIndexHolder>());
+builder.Services.AddHostedService<LocationStreamConsumer>();
+builder.Services.AddHostedService<DriverSnapshotPublisher>();
 builder.Services.AddHostedService<JamPublisher>();
 builder.Services.AddHostedService<AlertLifecycle>();
 builder.Services.AddHostedService<AlertExpirySweeper>();

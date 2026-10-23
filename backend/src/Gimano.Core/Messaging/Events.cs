@@ -18,7 +18,6 @@ public static class RoutingKeys
     public const string FeedbackCreated = "feedback.created";
 }
 
-public sealed record LocationPingEvent(Guid UserId, double Lat, double Lng, double SpeedKmh, double Heading, DateTimeOffset Ts, string? Mood = null);
 public sealed record ReportVotedEvent(Guid ReportId, bool StillThere, Guid UserId);
 public sealed record ReportExpiredEvent(Guid ReportId);
 public sealed record JamClearedEvent(Guid JamId);

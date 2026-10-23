@@ -16,7 +16,6 @@ public sealed class GimanoDbContext(DbContextOptions<GimanoDbContext> options) :
     public DbSet<RoadSegment> RoadSegments => Set<RoadSegment>();
     public DbSet<SegmentSpeed> SegmentSpeeds => Set<SegmentSpeed>();
     public DbSet<Jam> Jams => Set<Jam>();
-    public DbSet<DriverPosition> DriverPositions => Set<DriverPosition>();
     public DbSet<Feedback> Feedback => Set<Feedback>();
     public DbSet<TollRate> TollRates => Set<TollRate>();
 
@@ -79,7 +78,7 @@ public sealed class GimanoDbContext(DbContextOptions<GimanoDbContext> options) :
             e.Property(x => x.Version).IsRowVersion();
             e.HasIndex(x => x.Location).HasMethod("gist");
             e.HasIndex(x => new { x.Status, x.ExpiresAt });
-            e.HasOne(x => x.Reporter).WithMany().HasForeignKey(x => x.ReporterId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(x => x.Reporter).WithMany().HasForeignKey(x => x.ReporterId).OnDelete(DeleteBehavior.SetNull);
         });
 
         b.Entity<ReportVote>(e =>
@@ -122,7 +121,7 @@ public sealed class GimanoDbContext(DbContextOptions<GimanoDbContext> options) :
             e.Property(x => x.ExternalUrl).HasMaxLength(300);
             e.OwnsOne(x => x.Context, o => o.ToJson());
             e.HasIndex(x => new { x.UserId, x.CreatedAt });
-            e.HasOne<User>().WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne<User>().WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.SetNull);
         });
 
         b.Entity<TollRate>(e =>
@@ -131,14 +130,6 @@ public sealed class GimanoDbContext(DbContextOptions<GimanoDbContext> options) :
             e.Property(x => x.Class0Myr).HasPrecision(8, 2);
             e.Property(x => x.Class1Myr).HasPrecision(8, 2);
             e.HasIndex(x => x.MatchedPlaceIds).HasMethod("gin");
-        });
-
-        b.Entity<DriverPosition>(e =>
-        {
-            e.HasKey(x => x.UserId);
-            e.Property(x => x.Location).HasColumnType("geography (point, 4326)");
-            e.HasIndex(x => x.Location).HasMethod("gist");
-            e.HasIndex(x => x.UpdatedAt);
         });
     }
 }

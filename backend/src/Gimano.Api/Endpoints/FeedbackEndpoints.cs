@@ -46,6 +46,7 @@ public static class FeedbackEndpoints
         }
 
         var uid = http.User.RequiredUserId();
+        if (!await db.Users.AnyAsync(u => u.Id == uid, ct)) throw new UnauthorizedAccessException("This account was deleted.");
         var now = clock.GetUtcNow();
         var recent = await db.Feedback.CountAsync(f => f.UserId == uid && f.CreatedAt > now.AddHours(-1), ct);
         if (recent >= MaxPerHour)
@@ -58,7 +59,7 @@ public static class FeedbackEndpoints
         var fb = new Feedback
         {
             UserId = uid, Category = req.Category, Message = req.Message.Trim(), Rating = req.Rating, Screen = req.Screen,
-            Context = req.Context, Screenshot = screenshot, ScreenshotContentType = contentType, CreatedAt = now,
+            Context = Scrub(req.Context), Screenshot = screenshot, ScreenshotContentType = contentType, CreatedAt = now,
         };
         db.Feedback.Add(fb);
         await db.SaveChangesAsync(ct);
@@ -73,6 +74,16 @@ public static class FeedbackEndpoints
             .Select(f => new FeedbackSummary(f.Id, f.Category, f.Message, f.Status, f.CreatedAt)).ToListAsync(ct);
         return TypedResults.Ok(rows);
     }
+
+    /// <summary>
+    /// Privacy rule: location only at ≈ 1 km (2 dp). The app sends context only when "Include diagnostics" is ticked;
+    /// nothing in it identifies the device.
+    /// </summary>
+    internal static FeedbackContext? Scrub(FeedbackContext? c) => c is null ? null : c with
+    {
+        Lat = c.Lat is { } lat ? Math.Round(lat, 2) : null,
+        Lng = c.Lng is { } lng ? Math.Round(lng, 2) : null,
+    };
 
     internal static ValidationProblem? Validate(CreateFeedbackRequest req)
     {

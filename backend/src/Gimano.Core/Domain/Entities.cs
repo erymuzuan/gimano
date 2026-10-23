@@ -93,7 +93,8 @@ public sealed class Report
     public double? Heading { get; set; }
     public string? Street { get; set; }
     public string? Comment { get; set; }
-    public Guid ReporterId { get; set; }
+    /// <summary>Null once the reporter deleted their account (the report stays, anonymised).</summary>
+    public Guid? ReporterId { get; set; }
     public User? Reporter { get; set; }
     public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;
     public DateTimeOffset ExpiresAt { get; set; }
@@ -163,21 +164,11 @@ public sealed class Jam
         Geo.Polyline.Encode(Geo.GeoMath.FromLineString(Geom)), Street, UpdatedAt);
 }
 
-/// <summary>Last known position of an active driver (used for anonymised driver dots).</summary>
-public sealed class DriverPosition
-{
-    public Guid UserId { get; set; }
-    public required Point Location { get; set; }
-    public double Heading { get; set; }
-    public double SpeedKmh { get; set; }
-    public string Mood { get; set; } = "happy";
-    public DateTimeOffset UpdatedAt { get; set; }
-}
-
 public sealed class Feedback
 {
     public Guid Id { get; set; } = Guid.CreateVersion7();
-    public Guid UserId { get; set; }
+    /// <summary>Only for rate limiting and "My feedback"; null once the account is deleted.</summary>
+    public Guid? UserId { get; set; }
     public FeedbackCategory Category { get; set; }
     public required string Message { get; set; }
     public int? Rating { get; set; }
