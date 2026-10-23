@@ -40,7 +40,7 @@ import java.time.ZoneId
 import java.time.ZonedDateTime
 
 @Composable
-fun GimanoRoot(vm: MainViewModel, onMic: () -> Unit, onExit: () -> Unit, onRequestPrecise: () -> Unit = {}) {
+fun GimanoRoot(vm: MainViewModel, onMic: () -> Unit, onExit: () -> Unit, onRequestPrecise: () -> Unit = {}, onRequestLocation: () -> Unit = {}) {
     val container = (LocalContext.current.applicationContext as my.gimano.app.GimanoApp).container
     val fvm: my.gimano.app.ui.feedback.FeedbackViewModel = androidx.lifecycle.viewmodel.compose.viewModel(factory = my.gimano.app.ui.feedback.FeedbackViewModel.Factory(container))
     val bvm: my.gimano.app.ui.backup.BackupViewModel = androidx.lifecycle.viewmodel.compose.viewModel(factory = my.gimano.app.ui.backup.BackupViewModel.Factory(container))
@@ -220,7 +220,7 @@ fun GimanoRoot(vm: MainViewModel, onMic: () -> Unit, onExit: () -> Unit, onReque
                     MapTopControls(ui, settings, vm, vm.isDemo || fallback, showMenu = false, onMenu = {})
                     ui.place?.let { PlaceCard(it, vm, cvm, settings.apiBaseUrl, Modifier.align(Alignment.BottomCenter)) }
                 }
-                Screen.RoutePreview -> ui.plan?.let { RoutePreviewOverlay(it, settings, vm, handle) }
+                Screen.RoutePreview -> ui.plan?.let { RoutePreviewOverlay(it, settings, vm, handle, onRequestLocation) }
                 Screen.Navigating -> NavigationOverlay(nav, ui, settings, vm)
                 is Screen.Search -> SearchScreen(ui, screen.purpose, vm, onMic)
                 Screen.Settings -> SettingsScreen(settings, vm, fallback, ui.user?.displayName, onBackup = { vm.open(Screen.Backup) }, onMyFeedback = { vm.open(Screen.MyFeedback) }, onTheme = { vm.open(Screen.Theme) }, onAccount = { vm.open(Screen.Account) }, onAbout = { vm.open(Screen.About) })

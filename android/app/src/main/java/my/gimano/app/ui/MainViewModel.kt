@@ -18,6 +18,8 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.coroutines.sync.withLock
 import my.gimano.app.AppContainer
 import my.gimano.app.R
@@ -29,6 +31,8 @@ import my.gimano.app.core.geo.GeoPoint
 import my.gimano.app.core.geo.Polyline
 import my.gimano.app.core.trip.StopList
 import my.gimano.app.core.trip.TravelMode
+import my.gimano.app.core.trip.OriginSource
+import my.gimano.app.core.trip.RouteOrigin
 import my.gimano.app.data.live.LiveEvent
 import my.gimano.app.data.local.Favorites
 import my.gimano.app.data.local.LegacyMigration
@@ -42,7 +46,7 @@ import my.gimano.app.ui.map.VisibleBounds
 import java.time.Instant
 import java.time.ZoneId
 
-enum class SearchPurpose { NAVIGATE, SET_HOME, SET_WORK, ADD_STOP, ADD_STOP_PREVIEW, ADD_FAVORITE, PLAN_DRIVE }
+enum class SearchPurpose { NAVIGATE, SET_HOME, SET_WORK, ADD_STOP, ADD_STOP_PREVIEW, ADD_FAVORITE, PLAN_DRIVE, SET_ORIGIN }
 
 sealed interface Screen {
     data object Home : Screen
@@ -77,7 +81,13 @@ data class PlaceSel(
 
 data class RoutePlan(
     val destination: NavDestination,
-    val origin: GeoPoint,
+    /** Null while the user's location is unknown (never the map centre): no routes are computed. */
+    val origin: GeoPoint?,
+    val originSource: my.gimano.app.core.trip.OriginSource = my.gimano.app.core.trip.OriginSource.GPS,
+    /** Name of a start the user chose (search or map). */
+    val originName: String? = null,
+    /** Origin within 50 m of the first target: "Anda sudah di sini", nothing to route. */
+    val alreadyHere: Boolean = false,
     val stops: List<NavDestination> = emptyList(),
     val routes: List<Route> = emptyList(),
     val decoded: Map<String, List<GeoPoint>> = emptyMap(),
@@ -323,6 +333,7 @@ class MainViewModel(private val c: AppContainer) : ViewModel() {
         c.lastFix = f.point
         c.lastFixAccuracyM = f.accuracyM?.toInt()
         _ui.update { it.copy(myLocation = f) }
+        if (_ui.value.plan?.originSource == OriginSource.UNKNOWN && _ui.value.screen == Screen.RoutePreview) resolveOrigin()
         maybeAskNearby(f, prev)
         if (!centeredOnce) {
             centeredOnce = true
@@ -621,7 +632,8 @@ class MainViewModel(private val c: AppContainer) : ViewModel() {
         val g = GeoPoint(p.lat, p.lng)
         _ui.update { it.copy(screen = Screen.PinActions, pin = PinSel(p), place = null, following = false, camera = CameraCommand.MoveTo(g, 16.5)) }
         viewModelScope.launch {
-            val me = here()
+            val me = (gpsFix() as? RouteOrigin.Gps.Fresh)?.point ?: return@launch   // no ETA from the map centre
+            if (RouteOrigin.sameSpot(me, g)) return@launch
             val r = runCatching {
                 repo.routes(RouteRequest(LatLngDto(me.lat, me.lng), LatLngDto(g.lat, g.lng), vehicle = settings.current.vehicle, alternatives = 0))
             }.getOrNull()?.firstOrNull()
@@ -697,6 +709,10 @@ class MainViewModel(private val c: AppContainer) : ViewModel() {
             SearchPurpose.PLAN_DRIVE -> {
                 _ui.update { it.copy(screen = Screen.Planned) }
                 _events.tryEmit(UiEvent.PlanDrive(p.toPoint(), null, emptyList(), settings.current.vehicle))
+            }
+            SearchPurpose.SET_ORIGIN -> {
+                _ui.update { it.copy(screen = Screen.RoutePreview) }
+                setPlanOrigin(GeoPoint(p.lat, p.lng), OriginSource.CHOSEN, p.name)
             }
             SearchPurpose.ADD_STOP_PREVIEW -> {
                 val plan = _ui.value.plan
@@ -882,15 +898,70 @@ class MainViewModel(private val c: AppContainer) : ViewModel() {
     // --- Route planning ---------------------------------------------------------------------
 
     fun routeTo(dest: NavDestination, stops: List<NavDestination> = emptyList()) {
-        val origin = here()
         val st = settings.current
         val prev = _ui.value.plan
-        val plan = RoutePlan(destination = dest, origin = origin, stops = stops, mode = TravelMode.from(st.vehicle), avoid = prev?.avoid ?: AvoidOptions())
+        val plan = RoutePlan(destination = dest, origin = null, originSource = OriginSource.LOCATING, stops = stops,
+            mode = TravelMode.from(st.vehicle), avoid = prev?.avoid ?: AvoidOptions(), loading = false)
         GLog.d("VM", "route preview, ${stops.size} stops")
         _ui.update { it.copy(screen = Screen.RoutePreview, plan = plan, following = false, selectedAlertId = null) }
         viewModelScope.launch { local.recordRecent(dest.name, dest.address, dest.point.lat, dest.point.lng, dest.placeId) }
-        fetchRoutes(plan)
+        resolveOrigin()
     }
+
+    /** The user's own position for routing: a fix no older than 2 min, else null. Never the camera centre. */
+    private fun gpsFix(nowMs: Long = System.currentTimeMillis()): RouteOrigin.Gps {
+        val f = nav.value.fix ?: _ui.value.myLocation
+        if (f != null && f.simulated && !repo.isDemo) return RouteOrigin.Gps.None
+        return RouteOrigin.classify(f?.point, f?.timeMs, nowMs)
+    }
+
+    private var originJob: Job? = null
+
+    /** GPS origin for the current preview: fresh fix → route; stale/none with permission → wait briefly for a new fix; else unknown. */
+    private fun resolveOrigin() {
+        originJob?.cancel()
+        val g = gpsFix()
+        if (g is RouteOrigin.Gps.Fresh) { setPlanOrigin(g.point, OriginSource.GPS, null); return }
+        if (repo.isDemo) { setPlanOrigin(here(), OriginSource.GPS, null); return }
+        if (!c.locations.hasPermission()) { markOriginUnknown(); return }
+        _ui.update { s -> s.copy(plan = s.plan?.copy(origin = null, originSource = OriginSource.LOCATING, loading = false, routes = emptyList())) }
+        originJob = viewModelScope.launch {
+            val fresh = withTimeoutOrNull(8_000) {
+                _ui.first { gpsFix() is RouteOrigin.Gps.Fresh }
+                (gpsFix() as RouteOrigin.Gps.Fresh).point
+            }
+            if (_ui.value.plan?.originSource != OriginSource.LOCATING) return@launch
+            if (fresh != null) setPlanOrigin(fresh, OriginSource.GPS, null) else markOriginUnknown()
+        }
+    }
+
+    private fun markOriginUnknown() = _ui.update { s ->
+        s.copy(plan = s.plan?.copy(origin = null, originSource = OriginSource.UNKNOWN, loading = false, error = false, routes = emptyList(), countdownRunning = false))
+    }
+
+    private fun setPlanOrigin(p: GeoPoint, source: OriginSource, name: String?) {
+        originJob?.cancel()
+        val plan = _ui.value.plan ?: return
+        val first = plan.stops.firstOrNull()?.point ?: plan.destination.point
+        val updated = plan.copy(origin = p, originSource = source, originName = name, alreadyHere = RouteOrigin.sameSpot(p, first))
+        if (updated.alreadyHere) {
+            _ui.update { it.copy(plan = updated.copy(loading = false, error = false, routes = emptyList(), countdownRunning = false)) }
+            return
+        }
+        fetchRoutes(updated)
+    }
+
+    /** Route preview with no usable location: "Benarkan lokasi" came back granted → try again. */
+    fun retryOrigin() { if (_ui.value.plan != null) resolveOrigin() }
+
+    /** "Pilih titik mula pada peta". */
+    fun chooseOriginOnMap() {
+        val plan = _ui.value.plan ?: return
+        openPickOnMap(SearchPurpose.SET_ORIGIN, start = plan.origin ?: plan.destination.point)
+    }
+
+    /** Search a start place. */
+    fun chooseOriginBySearch() = openSearch(SearchPurpose.SET_ORIGIN)
 
     fun routeToPlace() {
         val p = _ui.value.place?.summary ?: return
@@ -904,10 +975,20 @@ class MainViewModel(private val c: AppContainer) : ViewModel() {
 
     private fun fetchRoutes(plan: RoutePlan) {
         routeJob?.cancel()
-        _ui.update { it.copy(plan = plan.copy(loading = true, error = false, countdownRunning = false)) }
+        val origin = plan.origin
+        val first = plan.stops.firstOrNull()?.point ?: plan.destination.point
+        if (origin == null || plan.originSource == OriginSource.UNKNOWN || plan.originSource == OriginSource.LOCATING) {
+            _ui.update { it.copy(plan = plan.copy(loading = false, routes = emptyList(), countdownRunning = false)) }
+            return
+        }
+        if (RouteOrigin.sameSpot(origin, first)) {   // never route a 0 m trip
+            _ui.update { it.copy(plan = plan.copy(alreadyHere = true, loading = false, error = false, routes = emptyList(), countdownRunning = false)) }
+            return
+        }
+        _ui.update { it.copy(plan = plan.copy(alreadyHere = false, loading = true, error = false, countdownRunning = false)) }
         routeJob = viewModelScope.launch {
             val req = RouteRequest(
-                origin = LatLngDto(plan.origin.lat, plan.origin.lng),
+                origin = LatLngDto(origin.lat, origin.lng),
                 destination = plan.destination.toDto(),
                 waypoints = plan.stops.map { it.toDto() },
                 vehicle = plan.mode.wire,
@@ -926,7 +1007,7 @@ class MainViewModel(private val c: AppContainer) : ViewModel() {
                 it.copy(
                     plan = it.plan?.copy(routes = routes, decoded = decoded, selectedId = best.id, loading = false, request = req,
                         countdownRunning = plan.departAt == null && plan.stops.isEmpty(), computedAt = Instant.now()),
-                    camera = CameraCommand.Fit(decoded.values.flatten() + plan.origin + plan.destination.point, topDp = 170, bottomDp = 430),
+                    camera = CameraCommand.Fit(decoded.values.flatten() + origin + plan.destination.point, topDp = 170, bottomDp = 430),
                 )
             }
         }
@@ -980,8 +1061,9 @@ class MainViewModel(private val c: AppContainer) : ViewModel() {
         cancelCountdown()
         val plan = _ui.value.plan ?: return
         viewModelScope.launch {
+            val o = plan.origin ?: return@launch
             val slots = runCatching {
-                repo.departureTimes(plan.origin.lat, plan.origin.lng, plan.destination.point.lat, plan.destination.point.lng, plan.mode.wire)
+                repo.departureTimes(o.lat, o.lng, plan.destination.point.lat, plan.destination.point.lng, plan.mode.wire)
             }.getOrDefault(emptyList())
             _ui.update { it.copy(departureSlots = slots) }
         }
@@ -1123,7 +1205,7 @@ class MainViewModel(private val c: AppContainer) : ViewModel() {
             else -> when (s.screen) {
                 is Screen.Search -> when ((s.screen as Screen.Search).purpose) {
                     SearchPurpose.ADD_STOP -> _ui.update { it.copy(screen = Screen.Navigating) }
-                    SearchPurpose.ADD_STOP_PREVIEW -> _ui.update { it.copy(screen = Screen.RoutePreview) }
+                    SearchPurpose.ADD_STOP_PREVIEW, SearchPurpose.SET_ORIGIN -> _ui.update { it.copy(screen = Screen.RoutePreview) }
                     else -> goHome()
                 }
                 Screen.PlaceCard -> goHome()

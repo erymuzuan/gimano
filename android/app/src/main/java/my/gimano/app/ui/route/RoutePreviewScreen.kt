@@ -35,6 +35,7 @@ import androidx.compose.ui.unit.sp
 import my.gimano.app.R
 import my.gimano.app.core.format.Formatters
 import my.gimano.app.core.nav.RouteGeometry
+import my.gimano.app.core.trip.OriginSource
 import my.gimano.app.core.trip.RouteLegs
 import my.gimano.app.core.trip.TollBadge
 import my.gimano.app.core.trip.TravelMode
@@ -61,7 +62,7 @@ import kotlin.math.roundToInt
 private const val COUNTDOWN_MS = 10_000
 
 @Composable
-fun RoutePreviewOverlay(plan: RoutePlan, settings: AppSettings, vm: MainViewModel, handle: MapHandle) {
+fun RoutePreviewOverlay(plan: RoutePlan, settings: AppSettings, vm: MainViewModel, handle: MapHandle, onRequestLocation: () -> Unit = {}) {
     val c = Gimano.colors
     val lang = currentLang()
     Box(Modifier.fillMaxSize()) {
@@ -92,6 +93,14 @@ fun RoutePreviewOverlay(plan: RoutePlan, settings: AppSettings, vm: MainViewMode
                 Spacer(Modifier.height(14.dp))
                 val r = plan.selected
                 when {
+                    plan.originSource == OriginSource.LOCATING -> {
+                        LinearProgressIndicator(Modifier.fillMaxWidth().height(3.dp), color = c.brand, trackColor = c.surfaceAlt)
+                        Text(stringResource(R.string.origin_locating), Modifier.padding(vertical = 22.dp), color = c.textMuted, fontSize = 17.sp)
+                    }
+                    plan.originSource == OriginSource.UNKNOWN -> OriginChoices(
+                        stringResource(R.string.origin_unknown), stringResource(R.string.origin_unknown_body), vm, onRequestLocation,
+                    )
+                    plan.alreadyHere -> OriginChoices(stringResource(R.string.already_here), stringResource(R.string.already_here_body), vm, null)
                     plan.loading -> {
                         LinearProgressIndicator(Modifier.fillMaxWidth().height(3.dp), color = c.brand, trackColor = c.surfaceAlt)
                         Text(stringResource(R.string.loading_routes), Modifier.padding(vertical = 22.dp), color = c.textMuted, fontSize = 17.sp)
@@ -109,6 +118,26 @@ fun RoutePreviewOverlay(plan: RoutePlan, settings: AppSettings, vm: MainViewMode
                     GoNowButton(plan, Modifier.weight(1f), onGo = vm::startNavigation)
                 }
             }
+        }
+    }
+}
+
+/** No usable start: say so (never "Your location"), and offer location, a point on the map or a searched start. */
+@Composable
+private fun OriginChoices(title: String, body: String, vm: MainViewModel, onRequestLocation: (() -> Unit)?) {
+    val c = Gimano.colors
+    Column(Modifier.fillMaxWidth().padding(bottom = 4.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text(title, fontSize = 20.sp, fontWeight = FontWeight.Black, color = c.text)
+        Text(body, fontSize = 15.sp, color = c.textMuted)
+        if (onRequestLocation != null) Button(onClick = onRequestLocation, modifier = Modifier.fillMaxWidth().height(52.dp), shape = RoundedCornerShape(Radius.md),
+            colors = ButtonDefaults.buttonColors(containerColor = c.brand)) {
+            Icon(Icons.Filled.MyLocation, null); Spacer(Modifier.width(8.dp)); Text(stringResource(R.string.allow_location), fontWeight = FontWeight.ExtraBold, fontSize = 16.sp)
+        }
+        OutlinedButton(onClick = vm::chooseOriginOnMap, modifier = Modifier.fillMaxWidth().height(52.dp), shape = RoundedCornerShape(Radius.md)) {
+            Icon(Icons.Filled.Place, null); Spacer(Modifier.width(8.dp)); Text(stringResource(R.string.choose_start_on_map), fontWeight = FontWeight.ExtraBold, fontSize = 16.sp)
+        }
+        OutlinedButton(onClick = vm::chooseOriginBySearch, modifier = Modifier.fillMaxWidth().height(52.dp), shape = RoundedCornerShape(Radius.md)) {
+            Icon(Icons.Filled.Search, null); Spacer(Modifier.width(8.dp)); Text(stringResource(R.string.search_start), fontWeight = FontWeight.ExtraBold, fontSize = 16.sp)
         }
     }
 }
@@ -160,10 +189,18 @@ private fun StopsPanel(plan: RoutePlan, settings: AppSettings, vm: MainViewModel
     var dragDy by remember { mutableFloatStateOf(0f) }
 
     Column(modifier) {
-        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.height(30.dp)) {
-            Box(Modifier.size(10.dp).clip(CircleShape).background(c.brand))
+        // The start row: "Your location" ONLY for a recent GPS fix; a chosen start shows its name; tap to change.
+        val (label, colour) = when (plan.originSource) {
+            OriginSource.GPS -> stringResource(R.string.your_location) to c.textMuted
+            OriginSource.CHOSEN -> (plan.originName ?: stringResource(R.string.pin_on_map)) to c.text
+            OriginSource.LOCATING -> stringResource(R.string.origin_locating) to c.textMuted
+            OriginSource.UNKNOWN -> stringResource(R.string.origin_unknown) to c.speeding
+        }
+        val changeStart = stringResource(R.string.change_start)
+        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.height(30.dp).clickable(onClickLabel = changeStart, onClick = vm::chooseOriginBySearch)) {
+            Box(Modifier.size(10.dp).clip(CircleShape).background(if (plan.originSource == OriginSource.UNKNOWN) c.speeding else c.brand))
             Spacer(Modifier.width(12.dp))
-            Text(stringResource(R.string.your_location), fontSize = 15.sp, color = c.textMuted, fontWeight = FontWeight.SemiBold)
+            Text(label, fontSize = 15.sp, color = colour, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
         plan.stops.forEachIndexed { i, s ->
             val offset = if (dragging == i) dragDy.roundToInt() else 0

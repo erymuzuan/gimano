@@ -603,4 +603,13 @@
     <string name="formerly_gimano">Dahulu Gimano · Formerly Gimano</string>
     <string name="restore_from_gimano">Pulihkan dari Gimano</string>
     <string name="backup_this_phone">telefon ini</string>
+    <string name="origin_unknown">Lokasi anda tidak diketahui</string>
+    <string name="origin_locating">Mencari lokasi anda…</string>
+    <string name="origin_unknown_body">Manotu tidak tahu di mana anda, jadi laluan tidak dapat dikira. Hidupkan lokasi, atau pilih titik mula anda.</string>
+    <string name="allow_location">Benarkan lokasi</string>
+    <string name="choose_start_on_map">Pilih titik mula pada peta</string>
+    <string name="search_start">Cari tempat mula</string>
+    <string name="already_here">Anda sudah di sini</string>
+    <string name="already_here_body">Titik mula anda kurang 50 m dari destinasi. Pilih titik mula lain jika anda merancang lebih awal.</string>
+    <string name="change_start">Tukar titik mula</string>
 </resources>

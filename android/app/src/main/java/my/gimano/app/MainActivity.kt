@@ -79,6 +79,14 @@ class MainActivity : AppCompatActivity() {
                     vm.onLocationPermission(res.values.any { it } || ContextCompat.checkSelfPermission(this@MainActivity, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED)
                     vm.onPreciseAnswered()
                 }
+                // Route preview "Benarkan lokasi": ask again; if Android won't show the dialog any more, open app settings.
+                val locLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { res ->
+                    val granted = res.values.any { it }
+                    vm.onLocationPermission(granted)
+                    if (granted) vm.retryOrigin()
+                    else if (!shouldShowRequestPermissionRationale(Manifest.permission.ACCESS_FINE_LOCATION) && !shouldShowRequestPermissionRationale(Manifest.permission.ACCESS_COARSE_LOCATION))
+                        runCatching { startActivity(Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS, android.net.Uri.fromParts("package", packageName, null))) }
+                }
                 val owner = androidx.lifecycle.compose.LocalLifecycleOwner.current
                 androidx.compose.runtime.DisposableEffect(owner) {
                     val obs = androidx.lifecycle.LifecycleEventObserver { _, e -> if (e == androidx.lifecycle.Lifecycle.Event.ON_RESUME) vm.refreshPrecision() }
@@ -113,6 +121,7 @@ class MainActivity : AppCompatActivity() {
                         runCatching { micLauncher.launch(i) }
                     },
                     onRequestPrecise = { preciseLauncher.launch(arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION)) },
+                    onRequestLocation = { locLauncher.launch(arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION)) },
                     onExit = {
                         (application as GimanoApp).container.navigation.stop()
                         finishAndRemoveTask()
