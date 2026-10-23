@@ -313,7 +313,8 @@ public class OpenSearchIntegrationFindingPlacesTests
             await Expect("12 Jalan SS2/24", (r, i) => i.Kind == "address" && r[0].Id == "ad-n900", "the house address");
             await Expect("Jalan SS2/24", (r, i) => i.Kind == "street" && r[0].Id == "st-1", "the street, not 2/25");
             await Expect("47300", (r, i) => i.Kind == "postcode" && r[0].Id == "pc-47300", "the postcode area");
-            await Expect("Putrajaya", (r, _) => r[0].Id == "a1" && r.FindIndex(h => h.Id == "g1") is -1 or > 2, "Putrajaya first, not the long government name");
+            await Expect("Putrajaya", (r, _) => r[0].Id == "a1" && r.FindIndex(h => h.Id == "g4") < r.FindIndex(h => h.Id == "g1"),
+                "Putrajaya first; a name starting with Putrajaya above the long government name 8 km away");
             await Expect("KLCC", (r, _) => r[0].Id == "k1", "Suria KLCC first");
             await Expect("Cyberjaya", (r, _) => r[0].Id == "a2", "Cyberjaya");
             await Expect("Shah Alam", (r, _) => r[0].Id == "a3", "Shah Alam");
