@@ -26,7 +26,14 @@ xcodebuild build -project Gimano.xcodeproj -scheme Gimano -destination 'generic/
 xcrun devicectl device install app --device <UDID> <DerivedData>/Build/Products/Debug-iphoneos/Gimano.app
 ```
 
-Bundle id `my.gimano.app`, team `98KY9PMPX3`, automatic signing.
+Bundle id `my.gimano.app`, automatic signing. Your Apple Developer Team ID is kept out of git:
+
+```bash
+cp Config/Local.xcconfig.example Config/Local.xcconfig   # git-ignored
+# then set DEVELOPMENT_TEAM = <your team id>  (security find-identity -v -p codesigning)
+```
+
+`Config/Signing.xcconfig` (committed) includes it via `#include? "Local.xcconfig"`.
 
 ## Configuration
 

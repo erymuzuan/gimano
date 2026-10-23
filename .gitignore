@@ -55,3 +55,6 @@ xcuserdata/
 Pods/
 .build/
 .swiftpm/xcode/
+
+# iOS local signing (Apple Developer Team ID)
+ios/Config/Local.xcconfig

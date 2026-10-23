@@ -72,6 +72,7 @@
 		2E8135A9B3B01C9F1BAC02CD /* Localizable.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = Localizable.xcstrings; sourceTree = "<group>"; };
 		2F9DFAA9B3D3726BC81365AE /* GimanoMapView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GimanoMapView.swift; sourceTree = "<group>"; };
 		3F56F9F5C1405379C126E611 /* SideMenu.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SideMenu.swift; sourceTree = "<group>"; };
+		4ADC685465E98343D7295EC3 /* Signing.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Signing.xcconfig; sourceTree = "<group>"; };
 		4CB027DE8A1892B964BDE866 /* GimanoIcon.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GimanoIcon.swift; sourceTree = "<group>"; };
 		4D9A99725AFCF5CA1B28EB82 /* Models.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Models.swift; sourceTree = "<group>"; };
 		5916B174831C704E0FDA2144 /* ReportCatalog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReportCatalog.swift; sourceTree = "<group>"; };
@@ -217,6 +218,14 @@
 			path = Search;
 			sourceTree = "<group>";
 		};
+		5A544A0C1A7811B763F059C2 /* Config */ = {
+			isa = PBXGroup;
+			children = (
+				4ADC685465E98343D7295EC3 /* Signing.xcconfig */,
+			);
+			path = Config;
+			sourceTree = "<group>";
+		};
 		5B3D04CFBE0642FAADD143B9 /* Route */ = {
 			isa = PBXGroup;
 			children = (
@@ -253,6 +262,7 @@
 		97CD2F31BB35B58717C381DE = {
 			isa = PBXGroup;
 			children = (
+				5A544A0C1A7811B763F059C2 /* Config */,
 				C5EEA278D8858CF14C25E45E /* Gimano */,
 				46AECC791B06F03216440F3A /* GimanoTests */,
 				3DB90E94562F917DF52BA46A /* Products */,
@@ -379,11 +389,11 @@
 				LastUpgradeCheck = 1430;
 				TargetAttributes = {
 					3C510A7951FA84252C95BEB3 = {
-						DevelopmentTeam = 98KY9PMPX3;
+						DevelopmentTeam = "";
 						ProvisioningStyle = Automatic;
 					};
 					D984370A6FF58891719E4DD9 = {
-						DevelopmentTeam = 98KY9PMPX3;
+						DevelopmentTeam = "";
 						ProvisioningStyle = Automatic;
 					};
 				};
@@ -527,6 +537,7 @@
 		};
 		5F53A1F8186E29A3974F385D /* Debug */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 4ADC685465E98343D7295EC3 /* Signing.xcconfig */;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				CLANG_ANALYZER_NONNULL = YES;
@@ -562,7 +573,6 @@
 				COPY_PHASE_STRIP = NO;
 				CURRENT_PROJECT_VERSION = 1;
 				DEBUG_INFORMATION_FORMAT = dwarf;
-				DEVELOPMENT_TEAM = 98KY9PMPX3;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
 				ENABLE_USER_SCRIPT_SANDBOXING = YES;
@@ -635,6 +645,7 @@
 		};
 		DF1CE305BA8196C3BA09F501 /* Release */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 4ADC685465E98343D7295EC3 /* Signing.xcconfig */;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				CLANG_ANALYZER_NONNULL = YES;
@@ -670,7 +681,6 @@
 				COPY_PHASE_STRIP = NO;
 				CURRENT_PROJECT_VERSION = 1;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
-				DEVELOPMENT_TEAM = 98KY9PMPX3;
 				ENABLE_NS_ASSERTIONS = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_USER_SCRIPT_SANDBOXING = YES;

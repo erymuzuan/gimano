@@ -1,0 +1,5 @@
+// Code signing for Gimano. Committed; contains no personal values.
+// Put your own Apple Developer Team ID in Config/Local.xcconfig (git-ignored):
+//   cp Config/Local.xcconfig.example Config/Local.xcconfig
+DEVELOPMENT_TEAM =
+#include? "Local.xcconfig"
