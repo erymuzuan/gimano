@@ -59,6 +59,10 @@ sealed interface Screen {
     data object Inbox : Screen
     data object Theme : Screen
     data object Account : Screen
+    /** "Pilih pada peta" (canvas CariPeta): pin fixed at the centre, the map moves underneath. */
+    data class PickOnMap(val purpose: SearchPurpose = SearchPurpose.NAVIGATE) : Screen
+    /** What a dropped/chosen pin can become (canvas CariPin). */
+    data object PinActions : Screen
     data object About : Screen
     data object Licences : Screen
 }
@@ -134,11 +138,40 @@ data class UiState(
     val precision: my.gimano.app.core.location.LocationPrecision = my.gimano.app.core.location.LocationPrecision.PRECISE,
     /** Show the "Navigasi perlukan lokasi tepat" explainer; [PreciseAsk.beforeNav] = start the drive afterwards. */
     val askPrecise: PreciseAsk? = null,
+    val correctedQuery: String? = null,
+    val suggestions: List<SearchSuggestion> = emptyList(),
+    /** "cari 'x' sahaja": the user turned the spelling correction off for this query. */
+    val exactSearch: Boolean = false,
+    val resultSort: my.gimano.app.core.search.ResultSort = my.gimano.app.core.search.ResultSort.NEAREST,
+    val pick: PickState? = null,
+    val pin: PinSel? = null,
+    /** "Nak namakan tempat ini?" after arriving at an unnamed pin (once). */
+    val namePin: NavDestination? = null,
     /** Nearby pending community place to confirm (shown only while parked; see VerifyPromptGate). */
     val vetPrompt: PlaceSummary? = null,
 )
 
 data class PreciseAsk(val beforeNav: Boolean)
+
+/** State of "Pilih pada peta" while the user moves the map. */
+data class PickState(
+    val center: GeoPoint,
+    /** Address of the point under the pin (GET /geocode/reverse after the map settles). */
+    val label: String? = null,
+    val area: String? = null,
+    /** Full reverse-geocoded address, used as the chosen point's address. */
+    val address: String? = null,
+    /** "Adakah ini FamilyMart (40 m)?": a known place within 50 m of the pin. */
+    val nearPoi: PlaceSummary? = null,
+    val loading: Boolean = false,
+    /** Where back goes. */
+    val returnTo: Screen = Screen.Home,
+    /** Favourite being placed ("pin at the gate"), when picking for the favourite sheet. */
+    val favoriteDraft: FavoriteDraft? = null,
+)
+
+/** A pin and its actions: Navigasi ke sini · Simpan · Tambah tempat · Kongsi. */
+data class PinSel(val place: PlaceSummary, val etaS: Double? = null, val routeM: Double? = null)
 
 sealed interface UiEvent {
     data class Toast(@StringRes val res: Int) : UiEvent
@@ -203,6 +236,12 @@ class MainViewModel(private val c: AppContainer) : ViewModel() {
         viewModelScope.launch { c.liveHub.events.collect(::onLiveEvent) }
         viewModelScope.launch {
             c.navigation.state.collect { s ->
+                // Arrived at an unnamed pin → "Nak namakan tempat ini?" once.
+                val pd = pinDestination
+                if (s.arrived && pd != null && s.destination != null && GeoMath.distanceM(pd, s.destination.point) < 30) {
+                    pinDestination = null
+                    _ui.update { it.copy(namePin = s.destination) }
+                }
                 val p = s.progress
                 // Follow the puck even before there is route progress (poor fixes), so it never sits off-screen.
                 val target = s.puck ?: p?.snapped
@@ -362,6 +401,7 @@ class MainViewModel(private val c: AppContainer) : ViewModel() {
     // --- Live map ---------------------------------------------------------------------------
 
     fun onCameraIdle(b: VisibleBounds) {
+        if (_ui.value.screen is Screen.PickOnMap) onPickMoved(b.center)
         boundsFlow.value = b
     }
 
@@ -431,12 +471,13 @@ class MainViewModel(private val c: AppContainer) : ViewModel() {
     // --- Search -----------------------------------------------------------------------------
 
     fun openSearch(purpose: SearchPurpose = SearchPurpose.NAVIGATE, initial: String = "") {
-        _ui.update { it.copy(screen = Screen.Search(purpose), query = initial, results = emptyList(), localHits = emptyList(), activeCategory = null, searchedOnce = false) }
+        _ui.update { it.copy(screen = Screen.Search(purpose), query = initial, results = emptyList(), localHits = emptyList(), activeCategory = null, searchedOnce = false,
+            correctedQuery = null, suggestions = emptyList(), exactSearch = false) }
         queryFlow.value = initial
     }
 
     fun onQuery(q: String) {
-        _ui.update { it.copy(query = q, activeCategory = null) }
+        _ui.update { it.copy(query = q, activeCategory = null, exactSearch = false) }
         queryFlow.value = q
     }
 
@@ -449,8 +490,11 @@ class MainViewModel(private val c: AppContainer) : ViewModel() {
         val me = here()
         // Local favourites and private places are matched on the device and shown first.
         val localHits = runCatching { local.search(q, me) }.getOrDefault(emptyList())
-        val res = runCatching { repo.search(q, me.lat, me.lng, 12) }.getOrDefault(emptyList())
-        if (_ui.value.query == q) _ui.update { it.copy(results = res.withDistanceFrom(me), localHits = localHits, searching = false, searchedOnce = true) }
+        val full = runCatching { repo.searchFull(q, me.lat, me.lng, 20, exact = _ui.value.exactSearch) }.getOrDefault(SearchResponse())
+        if (_ui.value.query == q) _ui.update {
+            it.copy(results = full.results.withDistanceFrom(me), localHits = localHits, searching = false, searchedOnce = true,
+                correctedQuery = full.correctedQuery?.takeIf { c -> !c.equals(q.trim(), ignoreCase = true) }, suggestions = full.suggestions)
+        }
     }
 
     /** Quick category chips (GET /search/nearby). Surau also includes mosques and vice versa. */
@@ -466,6 +510,144 @@ class MainViewModel(private val c: AppContainer) : ViewModel() {
         }
     }
 
+    /** "cari 'x' sahaja": search the literal text, without the server's spelling fix. */
+    fun searchExact() {
+        val q = _ui.value.query
+        _ui.update { it.copy(exactSearch = true, correctedQuery = null) }
+        viewModelScope.launch { runSearch(q) }
+    }
+
+    fun setResultSort(s: my.gimano.app.core.search.ResultSort) = _ui.update { it.copy(resultSort = s) }
+
+    /** A "Mungkin anda maksudkan" chip: a place goes straight to it; otherwise search the suggested text/category. */
+    fun pickSuggestion(s: SearchSuggestion) {
+        when {
+            s.lat != null && s.lng != null -> pickResult(PlaceSummary(s.placeId ?: "pin:${s.lat},${s.lng}", s.label, s.category ?: "other", "", s.lat, s.lng,
+                GeoMath.distanceM(here(), GeoPoint(s.lat, s.lng))))
+            s.category != null && s.query == null -> searchCategory(s.category)
+            else -> onQuery(s.query ?: s.label)
+        }
+    }
+
+    // --- Pilih pada peta (select on map) ------------------------------------------------------
+
+    private var pickJob: Job? = null
+
+    /**
+     * Opens the map picker. Starts at [start], else the searched area (first results), else the user's location.
+     * [purpose] decides what "Pilih titik ini" does (same as choosing a search result for that purpose).
+     */
+    fun openPickOnMap(purpose: SearchPurpose = (_ui.value.screen as? Screen.Search)?.purpose ?: SearchPurpose.NAVIGATE,
+                      start: GeoPoint? = null, favorite: FavoriteDraft? = null) {
+        val s = _ui.value
+        val at = start ?: s.results.firstOrNull()?.let { GeoPoint(it.lat, it.lng) } ?: here()
+        _ui.update {
+            it.copy(screen = Screen.PickOnMap(purpose), following = false, favoriteSheet = null,
+                pick = PickState(at, returnTo = s.screen, favoriteDraft = favorite), camera = CameraCommand.Reset2D(at, 17.5))
+        }
+        onPickMoved(at)
+    }
+
+    /** Camera settled while picking: look up the address under the pin after ~400 ms of stillness. */
+    fun onPickMoved(center: GeoPoint) {
+        if (_ui.value.screen !is Screen.PickOnMap) return
+        _ui.update { it.copy(pick = it.pick?.copy(center = center, loading = true)) }
+        pickJob?.cancel()
+        pickJob = viewModelScope.launch {
+            delay(400)
+            val r = runCatching { repo.reverse(center.lat, center.lng) }.getOrNull()
+            val poi = r?.let { rv ->
+                rv.nearby.mapNotNull { p -> GeoMath.distanceM(center, GeoPoint(p.lat, p.lng)).takeIf { it <= 50 }?.let { p.copy(distanceM = it) } }.minByOrNull { it.distanceM ?: 0.0 }
+                    ?: GeoMath.distanceM(center, GeoPoint(rv.lat, rv.lng)).takeIf { it <= 50 && rv.name.isNotBlank() && !rv.address.startsWith(rv.name) }
+                        ?.let { d -> PlaceSummary("pin:${rv.lat},${rv.lng}", rv.name, "other", rv.address, rv.lat, rv.lng, d) }
+            }
+            _ui.update {
+                it.copy(pick = it.pick?.copy(loading = false, nearPoi = poi, address = r?.address?.takeIf { a -> a.isNotBlank() },
+                    label = r?.address?.substringBefore(",")?.takeIf { a -> a.isNotBlank() }?.let { a -> c.app.getString(R.string.pick_near, a) },
+                    area = r?.address?.substringAfter(", ", "")?.takeIf { a -> a.isNotBlank() }))
+            }
+        }
+    }
+
+    /** "Adakah ini …?": snap the pin to that place. */
+    fun pickPoi() {
+        val p = _ui.value.pick?.nearPoi ?: return
+        _ui.update { it.copy(camera = CameraCommand.Reset2D(GeoPoint(p.lat, p.lng), 18.0)) }
+    }
+
+    /** "Pilih titik ini". */
+    fun finishPick() {
+        val s = _ui.value
+        val pk = s.pick ?: return
+        val purpose = (s.screen as? Screen.PickOnMap)?.purpose ?: SearchPurpose.NAVIGATE
+        val poi = pk.nearPoi?.takeIf { GeoMath.distanceM(pk.center, GeoPoint(it.lat, it.lng)) <= 10 }
+        val p = poi ?: PlaceSummary(
+            "pin:${pk.center.lat},${pk.center.lng}", pk.label ?: c.app.getString(R.string.pin_on_map), "other",
+            pk.address ?: "", pk.center.lat, pk.center.lng, GeoMath.distanceM(here(), pk.center),
+        )
+        pk.favoriteDraft?.let { d ->
+            // Favourite placed precisely ("pin at the gate"): back to the sheet with the new point.
+            _ui.update { it.copy(pick = null, screen = pk.returnTo, favoriteSheet = d.copy(place = p.copy(name = d.place?.name ?: p.name))) }
+            return
+        }
+        _ui.update { it.copy(pick = null) }
+        pickResultFor(purpose, p, fromMap = true)
+    }
+
+    // --- Pin actions (canvas CariPin) -----------------------------------------------------------
+
+    fun showPin(p: PlaceSummary) {
+        val g = GeoPoint(p.lat, p.lng)
+        _ui.update { it.copy(screen = Screen.PinActions, pin = PinSel(p), place = null, following = false, camera = CameraCommand.MoveTo(g, 16.5)) }
+        viewModelScope.launch {
+            val me = here()
+            val r = runCatching {
+                repo.routes(RouteRequest(LatLngDto(me.lat, me.lng), LatLngDto(g.lat, g.lng), vehicle = settings.current.vehicle, alternatives = 0))
+            }.getOrNull()?.firstOrNull()
+            _ui.update { s -> if (s.pin?.place?.id == p.id) s.copy(pin = s.pin.copy(etaS = r?.durationS, routeM = r?.distanceM)) else s }
+        }
+    }
+
+    private var pinDestination: GeoPoint? = null
+
+    fun pinNavigate() {
+        val p = _ui.value.pin?.place ?: return
+        pinDestination = GeoPoint(p.lat, p.lng)
+        routeTo(p.toDestination())
+    }
+
+    /** Simpan: a favourite on this phone only. */
+    fun pinSave() {
+        val p = _ui.value.pin?.place ?: return
+        _ui.update { it.copy(favoriteSheet = FavoriteDraft(p, label = "", icon = "star")) }
+    }
+
+    /** Tambah tempat: the existing add-place flow at this point ("Untuk saya" or public is asked there). */
+    fun pinAddPlace() {
+        val p = _ui.value.pin?.place ?: return
+        _events.tryEmit(UiEvent.AddPlace(GeoPoint(p.lat, p.lng), ""))
+    }
+
+    /** Kongsi: plain coordinates + a geo: and an OpenStreetMap link. No account, no Gimano server. */
+    fun pinShare() {
+        val p = _ui.value.pin?.place ?: return
+        val ll = String.format(java.util.Locale.US, "%.6f,%.6f", p.lat, p.lng)
+        val text = listOfNotNull(p.name.takeIf { !it.startsWith("pin:") }, p.address.takeIf { it.isNotBlank() && it != p.name }, ll,
+            "geo:$ll?q=$ll", "https://www.openstreetmap.org/?mlat=${ll.substringBefore(',')}&mlon=${ll.substringAfter(',')}#map=18/${ll.replace(',', '/')}").joinToString("\n")
+        _events.tryEmit(UiEvent.Share(text))
+    }
+
+    /** "Nak namakan tempat ini?" → saved as a favourite on the phone. */
+    fun nameArrivedPin(name: String?) {
+        val d = _ui.value.namePin ?: return
+        _ui.update { it.copy(namePin = null) }
+        if (name.isNullOrBlank()) return
+        viewModelScope.launch {
+            runCatching { local.addFavorite(Favorites.normalizeLabel(name).ifEmpty { name.take(Favorites.MAX_LABEL) }, "star", d.point.lat, d.point.lng, d.address, null) }
+            _events.tryEmit(UiEvent.Toast(R.string.favorite_saved))
+        }
+    }
+
     private fun List<PlaceSummary>.withDistanceFrom(me: GeoPoint) =
         map { if (it.distanceM == null) it.copy(distanceM = GeoMath.distanceM(me, GeoPoint(it.lat, it.lng))) else it }
 
@@ -473,9 +655,11 @@ class MainViewModel(private val c: AppContainer) : ViewModel() {
         pickResult(PlaceSummary(if (h.kind == "private") h.id else (h.placeId ?: "pin:${h.lat},${h.lng}"), h.name, "other", h.address, h.lat, h.lng, GeoMath.distanceM(here(), GeoPoint(h.lat, h.lng))))
     }
 
-    fun pickResult(p: PlaceSummary) {
-        when ((_ui.value.screen as? Screen.Search)?.purpose ?: SearchPurpose.NAVIGATE) {
-            SearchPurpose.NAVIGATE -> showPlace(p)
+    fun pickResult(p: PlaceSummary) = pickResultFor((_ui.value.screen as? Screen.Search)?.purpose ?: SearchPurpose.NAVIGATE, p)
+
+    private fun pickResultFor(purpose: SearchPurpose, p: PlaceSummary, fromMap: Boolean = false) {
+        when (purpose) {
+            SearchPurpose.NAVIGATE -> if (fromMap || p.id.startsWith("pin:")) showPin(p) else showPlace(p)
             SearchPurpose.SET_HOME -> setHomeWork("home", p, R.string.home_set)
             SearchPurpose.SET_WORK -> setHomeWork("work", p, R.string.work_set)
             SearchPurpose.ADD_FAVORITE -> {
@@ -591,11 +775,14 @@ class MainViewModel(private val c: AppContainer) : ViewModel() {
         }
     }
 
+    /** Long-press on the home map → straight to the pin and its actions (canvas CariRules). */
     fun dropPin(g: GeoPoint) {
-        if (_ui.value.screen != Screen.Home && _ui.value.screen != Screen.PlaceCard) return
+        if (_ui.value.screen != Screen.Home && _ui.value.screen != Screen.PlaceCard && _ui.value.screen != Screen.PinActions) return
+        showPin(PlaceSummary("pin:${g.lat},${g.lng}", c.app.getString(R.string.pin_on_map), "other", "", g.lat, g.lng, GeoMath.distanceM(here(), g)))
         viewModelScope.launch {
-            val r = runCatching { repo.reverse(g.lat, g.lng) }.getOrNull()
-            showPlace(PlaceSummary("pin:${g.lat},${g.lng}", r?.name ?: String.format(java.util.Locale.US, "%.5f, %.5f", g.lat, g.lng), "other", r?.address ?: "", g.lat, g.lng, GeoMath.distanceM(here(), g)))
+            val r = runCatching { repo.reverse(g.lat, g.lng) }.getOrNull() ?: return@launch
+            val label = r.address.substringBefore(",").takeIf { it.isNotBlank() }?.let { c.app.getString(R.string.pick_near, it) }
+            _ui.update { s -> if (s.pin?.place?.id == "pin:${g.lat},${g.lng}") s.copy(pin = s.pin.copy(place = s.pin.place.copy(name = label ?: s.pin.place.name, address = r.address))) else s }
         }
     }
 
@@ -915,6 +1102,11 @@ class MainViewModel(private val c: AppContainer) : ViewModel() {
                     else -> goHome()
                 }
                 Screen.PlaceCard -> goHome()
+                is Screen.PickOnMap -> {
+                    val pk = s.pick
+                    _ui.update { it.copy(pick = null, screen = pk?.returnTo ?: Screen.Home, favoriteSheet = pk?.favoriteDraft) }
+                }
+                Screen.PinActions -> { _ui.update { it.copy(pin = null) }; goHome() }
                 Screen.RoutePreview -> if (s.place != null) _ui.update { it.copy(screen = Screen.PlaceCard, plan = null) } else _ui.update { it.copy(screen = Screen.Home, plan = null) }
                 Screen.Settings -> goHome()
                 Screen.Backup, Screen.MyFeedback, Screen.Account, Screen.About -> _ui.update { it.copy(screen = Screen.Settings) }

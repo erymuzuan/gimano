@@ -6,6 +6,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Place
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material3.*
@@ -88,6 +89,13 @@ fun FavoriteSheet(d: FavoriteDraft, vm: MainViewModel) {
                 }
             }
             Spacer(Modifier.height(12.dp))
+            // "Pin at the gate": place the favourite precisely on the map.
+            d.place?.let { pl ->
+                TextButton(onClick = { vm.openPickOnMap(start = my.gimano.app.core.geo.GeoPoint(pl.lat, pl.lng), favorite = d) }, Modifier.fillMaxWidth()) {
+                    Icon(androidx.compose.material.icons.Icons.Filled.Place, null); Spacer(Modifier.width(8.dp))
+                    Text(stringResource(R.string.pick_adjust), fontWeight = FontWeight.ExtraBold)
+                }
+            }
             Button(
                 onClick = vm::saveFavorite, enabled = d.kind == "favorite",
                 modifier = Modifier.fillMaxWidth().height(56.dp), shape = RoundedCornerShape(Radius.md),

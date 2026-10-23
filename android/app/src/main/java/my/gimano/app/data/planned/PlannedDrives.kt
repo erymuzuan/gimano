@@ -136,20 +136,21 @@ class PlannedDrives(
 
     fun notify(d: PlannedDrive, arrive: Instant, leave: Instant) {
         val nm = context.getSystemService(NotificationManager::class.java)
-        if (nm.getNotificationChannel(CHANNEL) == null) nm.createNotificationChannel(NotificationChannel(CHANNEL, context.getString(R.string.planned_drives), NotificationManager.IMPORTANCE_HIGH))
+        if (nm.getNotificationChannel(CHANNEL) == null) nm.createNotificationChannel(NotificationChannel(CHANNEL, my.gimano.app.core.format.AppLocale.wrap(context).getString(R.string.planned_drives), NotificationManager.IMPORTANCE_HIGH))
         if (Build.VERSION.SDK_INT >= 33 && ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) return
         val z = ZoneId.systemDefault()
         val l = lang()
         val leaveS = Formatters.clock(leave.atZone(z), use24h(), l)
         val arriveS = Formatters.clock(arrive.atZone(z), use24h(), l)
-        val text = context.getString(R.string.planned_notify, leaveS, arriveS, d.name.ifBlank { d.destination.name })
+        val lc = my.gimano.app.core.format.AppLocale.wrap(context)
+        val text = lc.getString(R.string.planned_notify, leaveS, arriveS, d.name.ifBlank { d.destination.name })
         val open = PendingIntent.getActivity(
             context, d.id.hashCode(),
             Intent(context, MainActivity::class.java).putExtra(EXTRA_ID, d.id).addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP),
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
         )
         nm.notify(d.id.hashCode(), NotificationCompat.Builder(context, CHANNEL).setSmallIcon(R.drawable.ic_stat_gimano)
-            .setContentTitle(context.getString(R.string.planned_notify_title)).setContentText(text)
+            .setContentTitle(lc.getString(R.string.planned_notify_title)).setContentText(text)
             .setStyle(NotificationCompat.BigTextStyle().bigText(text)).setAutoCancel(true).setContentIntent(open).build())
     }
 

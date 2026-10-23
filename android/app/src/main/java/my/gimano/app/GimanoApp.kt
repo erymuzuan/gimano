@@ -44,7 +44,7 @@ class AppContainer(val app: Application) {
         my.gimano.app.core.identity.Ed25519(LazySodiumAndroid(SodiumAndroid())),
         bip39 = { my.gimano.app.core.identity.Bip39(app.assets.open("bip39-english.txt").bufferedReader().readLines().filter { it.isNotBlank() }) },
     )
-    val remote = RemoteRepository(settings, identity)
+    val remote = RemoteRepository(settings, identity, acceptLanguage = { my.gimano.app.data.remote.ApiFactory.acceptLanguage(lang() == Lang.MS) })
     val repo = SwitchingRepository(
         settings, remote,
         DemoRepository(

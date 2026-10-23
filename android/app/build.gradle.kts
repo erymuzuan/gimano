@@ -107,6 +107,11 @@ android {
     }
 
     buildTypes {
+        debug {
+            // Installs next to the released app (my.gimano.app) so dev testing never wipes a user's install.
+            applicationIdSuffix = ".dev"
+            versionNameSuffix = "-dev"
+        }
         release {
             isMinifyEnabled = true
             isShrinkResources = true
