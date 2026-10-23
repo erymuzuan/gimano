@@ -36,7 +36,7 @@ one tap. It's built entirely on open data from OpenStreetMap.
 
 ## Privacy: your places stay on your phone
 
-*Gi mano pun, rahsia kamu kekal milik kamu.* Gimano never stores your personal data on its servers.
+*Gi mano pun, rahsia anda kekal milik anda.* Gimano never stores your personal data on its servers.
 Home, work, favourites, recents and private places live only on your device. They are backed up to
 **your own** Google Drive, iCloud or a file, optionally end-to-end encrypted with a passphrase only you
 know. See the [privacy promise](docs/privacy-promise.md) and [how it works](docs/privacy-and-backup.md).

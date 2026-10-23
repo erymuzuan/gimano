@@ -7,15 +7,15 @@ the product does.
 
 ## Tagline
 
-- **BM:** *Gi mano pun, rahsia kamu kekal milik kamu.*
+- **BM:** *Gi mano pun, rahsia anda kekal milik anda.*
 - **EN:** *Wherever you're going, it stays your business.*
 
 ## Short version (app store / onboarding card)
 
 **BM**
-> Rumah, tempat kerja, kampung, rumah mertua: semua tempat kegemaran kamu disimpan dalam telefon
-> kamu sahaja. Gimano tidak menyimpan data peribadi kamu di pelayan kami. Sandaran pergi terus ke
-> Google Drive atau iCloud **kamu sendiri**, dan boleh dikunci dengan kata laluan yang hanya kamu tahu.
+> Rumah, tempat kerja, kampung, rumah mertua: semua tempat kegemaran anda disimpan dalam telefon
+> anda sahaja. Gimano tidak menyimpan data peribadi anda di pelayan kami. Sandaran pergi terus ke
+> Google Drive atau iCloud **anda sendiri**, dan boleh dikunci dengan kata laluan yang hanya anda tahu.
 
 **EN**
 > Home, work, kampung, your in-laws' house: your places live on your phone, not on our servers.
@@ -26,14 +26,14 @@ the product does.
 
 1. **Your places stay on your phone.** Favourites, recents, private places and planned drives are
    stored on your device only.
-   *Tempat kegemaran, sejarah carian dan tempat peribadi disimpan dalam telefon kamu sahaja.*
+   *Tempat kegemaran, sejarah carian dan tempat peribadi disimpan dalam telefon anda sahaja.*
 2. **Your backup, your cloud.** Back up to your own Google Drive, iCloud or a file. We never see it.
-   *Sandaran ke Google Drive, iCloud atau fail kamu sendiri. Kami tidak dapat melihatnya.*
+   *Sandaran ke Google Drive, iCloud atau fail anda sendiri. Kami tidak dapat melihatnya.*
 3. **Lock it with your own key.** Optional end-to-end encryption with a passphrase only you know.
-   *Kunci sandaran dengan kata laluan yang hanya kamu tahu.*
+   *Kunci sandaran dengan kata laluan yang hanya anda tahu.*
 4. **Traffic help without tracking you.** While you navigate, your phone shares anonymous speed
    points that are turned into road speeds within minutes. We don't keep your trips.
-   *Data kelajuan tanpa nama digunakan untuk trafik. Perjalanan kamu tidak disimpan.*
+   *Data kelajuan tanpa nama digunakan untuk trafik. Perjalanan anda tidak disimpan.*
 5. **No ads, no trackers, open source.** Gimano is MIT-licensed. Anyone can check the code on
    GitHub.
    *Tiada iklan, tiada penjejak, kod sumber terbuka.*
@@ -44,7 +44,7 @@ Only what you choose to share with everyone: road reports, public places, review
 and feedback. You can delete your account at any time; your public contributions are then
 anonymised.
 
-*Kami hanya menyimpan apa yang kamu kongsi secara terbuka: laporan jalan, tempat awam, ulasan,
+*Kami hanya menyimpan apa yang anda kongsi secara terbuka: laporan jalan, tempat awam, ulasan,
 gambar dan maklum balas.*
 
 ## Usage notes for marketing
