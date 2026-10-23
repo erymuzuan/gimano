@@ -210,6 +210,16 @@ struct AddPlaceFlow: View {
         ("wifi", "Wi-Fi"), ("ev_charging", "EV charging"), ("cards", "Cards"), ("touch_n_go", "Touch 'n Go"),
     ]
 
+    /// Localized amenity name for any key (place card and the editor share it).
+    static func amenityLabel(_ key: String) -> Text {
+        let extra: [String: LocalizedStringKey] = [
+            "air_conditioning": "Air conditioning", "card_payment": "Cards", "ewallet": "E-wallet",
+            "compressed_air": "Air pump", "outdoor_seating": "Outdoor seating", "takeaway": "Takeaway", "delivery": "Delivery",
+        ]
+        if let k = amenityOptions.first(where: { $0.0 == key })?.1 ?? extra[key] { return Text(k) }
+        return Text(verbatim: key.replacingOccurrences(of: "_", with: " ").capitalized)
+    }
+
     var body: some View {
         NavigationStack {
             Group {
@@ -491,7 +501,7 @@ struct OpeningHoursEditor: View {
                     Button {
                         if on { if selected.count > 1 { selected.remove(d) } } else { selected.insert(d) }
                     } label: {
-                        Text(d.osm)
+                        Text(verbatim: d.shortName)
                             .font(Tokens.Font.label)
                             .frame(maxWidth: .infinity, minHeight: 40)
                             .foregroundStyle(on ? Color.brandOn : Color.brandInk)

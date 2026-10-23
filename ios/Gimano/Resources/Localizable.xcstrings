@@ -89,7 +89,7 @@
         "ms": {
           "stringUnit": {
             "state": "translated",
-            "value": "%1$@ · %2$@ dari kamu"
+            "value": "%1$@ · %2$@ dari anda"
           }
         }
       }
@@ -248,7 +248,7 @@
         "ms": {
           "stringUnit": {
             "state": "translated",
-            "value": "24 perkataan yang mencipta semula kunci nama samaran kamu. Tulis dan simpan secara peribadi: sesiapa yang memilikinya boleh menandatangani sebagai kamu. Tidak perlu jika kamu membuat sandaran."
+            "value": "24 perkataan yang mencipta semula kunci nama samaran anda. Tulis dan simpan secara peribadi: sesiapa yang memilikinya boleh menandatangani sebagai anda. Tidak perlu jika anda membuat sandaran."
           }
         }
       }
@@ -308,7 +308,7 @@
         "ms": {
           "stringUnit": {
             "state": "translated",
-            "value": "Perihal"
+            "value": "Tentang"
           }
         }
       }
@@ -423,6 +423,26 @@
         }
       }
     },
+    "Air conditioning": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Penyaman udara"
+          }
+        }
+      }
+    },
+    "Air pump": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pam angin"
+          }
+        }
+      }
+    },
     "Alerts only": {
       "localizations": {
         "ms": {
@@ -508,7 +528,7 @@
         "ms": {
           "stringUnit": {
             "state": "translated",
-            "value": "Versi app, versi iOS, model, saiz skrin, bahasa, tema"
+            "value": "Versi aplikasi, versi iOS, model, saiz skrin, bahasa, tema"
           }
         }
       }
@@ -518,7 +538,7 @@
         "ms": {
           "stringUnit": {
             "state": "translated",
-            "value": "Rangka kerja Apple yang sebahagian daripada iOS, dan Google Sign-In hanya jika kamu memilih sandaran Google Drive. Tiada satu pun menerima kegemaran, tempat atau perjalanan kamu, kecuali sandaran iCloud kamu sendiri."
+            "value": "Rangka kerja Apple yang sebahagian daripada iOS, dan Google Sign-In hanya jika anda memilih sandaran Google Drive. Tiada satu pun menerima kegemaran, tempat atau perjalanan anda, kecuali sandaran iCloud anda sendiri."
           }
         }
       }
@@ -798,7 +818,7 @@
         "ms": {
           "stringUnit": {
             "state": "translated",
-            "value": "Sandaran disimpan dalam awan atau fail kamu sendiri. Tambah kata laluan untuk menyulitkannya hujung ke hujung."
+            "value": "Sandaran disimpan dalam awan atau fail anda sendiri. Tambah frasa laluan untuk menyulitkannya hujung ke hujung."
           }
         }
       }
@@ -838,7 +858,7 @@
         "ms": {
           "stringUnit": {
             "state": "translated",
-            "value": "Condong ke kiri"
+            "value": "Kekal ke kiri"
           }
         }
       }
@@ -848,7 +868,7 @@
         "ms": {
           "stringUnit": {
             "state": "translated",
-            "value": "Condong ke kiri ke %@"
+            "value": "Kekal ke kiri ke %@"
           }
         }
       }
@@ -858,7 +878,7 @@
         "ms": {
           "stringUnit": {
             "state": "translated",
-            "value": "Condong ke kanan"
+            "value": "Kekal ke kanan"
           }
         }
       }
@@ -868,7 +888,7 @@
         "ms": {
           "stringUnit": {
             "state": "translated",
-            "value": "Condong ke kanan ke %@"
+            "value": "Kekal ke kanan ke %@"
           }
         }
       }
@@ -1208,7 +1228,7 @@
         "ms": {
           "stringUnit": {
             "state": "translated",
-            "value": "Penutupan jalan"
+            "value": "Jalan ditutup"
           }
         }
       }
@@ -1368,7 +1388,7 @@
         "ms": {
           "stringUnit": {
             "state": "translated",
-            "value": "Diagnostik ranap dan tergantung dihantar kepada app; dihantar ke kami hanya jika kamu bersetuju."
+            "value": "Diagnostik ranap dan tergantung dihantar kepada aplikasi; dihantar ke kami hanya jika anda bersetuju."
           }
         }
       }
@@ -1438,7 +1458,7 @@
         "ms": {
           "stringUnit": {
             "state": "translated",
-            "value": "Padam"
+            "value": "Padam hubungan"
           }
         }
       }
@@ -1458,7 +1478,7 @@
         "ms": {
           "stringUnit": {
             "state": "translated",
-            "value": "Padam tempat ini daripada telefon kamu?"
+            "value": "Padam tempat ini daripada telefon anda?"
           }
         }
       }
@@ -1469,6 +1489,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Memadam tempat dalam telefon ini dahulu, kemudian memulihkan sandaran."
+          }
+        }
+      }
+    },
+    "Delivery": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Penghantaran"
           }
         }
       }
@@ -1688,7 +1718,17 @@
         "ms": {
           "stringUnit": {
             "state": "translated",
-            "value": "Pin dijatuhkan"
+            "value": "Pin diletakkan"
+          }
+        }
+      }
+    },
+    "E-wallet": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "E-dompet"
           }
         }
       }
@@ -1758,7 +1798,7 @@
         "ms": {
           "stringUnit": {
             "state": "translated",
-            "value": "Sunting ulasan kamu"
+            "value": "Sunting ulasan anda"
           }
         }
       }
@@ -1798,7 +1838,7 @@
         "ms": {
           "stringUnit": {
             "state": "translated",
-            "value": "Disulitkan hujung ke hujung. Gimano tidak pernah menyimpan kata laluan kamu: jika hilang, sandaran ini tidak dapat dipulihkan."
+            "value": "Disulitkan hujung ke hujung. Gimano tidak pernah menyimpan frasa laluan anda: jika hilang, sandaran ini tidak dapat dipulihkan."
           }
         }
       }
@@ -1808,7 +1848,7 @@
         "ms": {
           "stringUnit": {
             "state": "translated",
-            "value": "Disulitkan hujung ke hujung: hanya orang yang ada pautan boleh melihat kedudukan kamu. Pelayan Gimano tidak dapat membacanya."
+            "value": "Disulitkan hujung ke hujung: hanya orang yang ada pautan boleh melihat kedudukan anda. Pelayan Gimano tidak dapat membacanya."
           }
         }
       }
@@ -2091,7 +2131,7 @@
         "ms": {
           "stringUnit": {
             "state": "translated",
-            "value": "Gimano tidak pernah tahu siapa kamu. Sumbangan awam kamu dikreditkan kepada nama samaran rawak ini, yang hanya telefon dan sandaran kamu boleh tandatangani."
+            "value": "Gimano tidak pernah tahu siapa anda. Sumbangan awam anda dikreditkan kepada nama samaran rawak ini, yang hanya telefon dan sandaran anda boleh tandatangani."
           }
         }
       }
@@ -2176,6 +2216,16 @@
         }
       }
     },
+    "Gym": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gim"
+          }
+        }
+      }
+    },
     "Hazard": {
       "localizations": {
         "ms": {
@@ -2212,6 +2262,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Mula bergerak di %@"
+          }
+        }
+      }
+    },
+    "Heart": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hati"
           }
         }
       }
@@ -2281,7 +2341,7 @@
         "ms": {
           "stringUnit": {
             "state": "translated",
-            "value": "Tersembunyi"
+            "value": "Disembunyikan"
           }
         }
       }
@@ -2311,7 +2371,7 @@
         "ms": {
           "stringUnit": {
             "state": "translated",
-            "value": "Sembunyi apa yang dihantar"
+            "value": "Sembunyikan butiran"
           }
         }
       }
@@ -2331,7 +2391,7 @@
         "ms": {
           "stringUnit": {
             "state": "translated",
-            "value": "Rumah, tempat kerja, kampung, rumah mertua: semua tempat kegemaran kamu disimpan dalam telefon kamu sahaja. Gimano tidak menyimpan data peribadi kamu di pelayan kami. Sandaran pergi terus ke Google Drive atau iCloud kamu sendiri, dan boleh dikunci dengan kata laluan yang hanya kamu tahu."
+            "value": "Rumah, tempat kerja, kampung, rumah mertua: semua tempat kegemaran anda disimpan dalam telefon anda sahaja. Gimano tidak menyimpan data peribadi anda di pelayan kami. Sandaran pergi terus ke Google Drive atau iCloud anda sendiri, dan boleh dikunci dengan frasa laluan yang hanya anda tahu."
           }
         }
       }
@@ -2431,7 +2491,7 @@
         "ms": {
           "stringUnit": {
             "state": "translated",
-            "value": "Peti masuk belum tersedia di pelayan. Berita tentang sumbangan awam kamu akan dipaparkan di sini."
+            "value": "Peti masuk belum tersedia di pelayan. Berita tentang sumbangan awam anda akan dipaparkan di sini."
           }
         }
       }
@@ -2511,7 +2571,7 @@
         "ms": {
           "stringUnit": {
             "state": "translated",
-            "value": "Ia membantu kami membaikinya. Lokasi, e-mel, nombor telefon, token dan laluan fail dibuang dalam telefon kamu dahulu. Tiada kegemaran, laluan, carian atau tangkapan skrin."
+            "value": "Ia membantu kami membaikinya. Lokasi, e-mel, nombor telefon, token dan laluan fail dibuang dalam telefon anda dahulu. Tiada kegemaran, laluan, carian atau tangkapan skrin."
           }
         }
       }
@@ -2521,7 +2581,7 @@
         "ms": {
           "stringUnit": {
             "state": "translated",
-            "value": "Ada, tapi pin di tempat yang salah"
+            "value": "Pin di lokasi salah"
           }
         }
       }
@@ -2552,6 +2612,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Untuk saya sahaja: disimpan dalam telefon ini sahaja"
+          }
+        }
+      }
+    },
+    "Kampung": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kampung"
           }
         }
       }
@@ -2871,7 +2941,7 @@
         "ms": {
           "stringUnit": {
             "state": "translated",
-            "value": "Kunci dengan kata laluan"
+            "value": "Kunci dengan frasa laluan"
           }
         }
       }
@@ -3011,7 +3081,7 @@
         "ms": {
           "stringUnit": {
             "state": "translated",
-            "value": "Bergabung"
+            "value": "Masuk ke lorong"
           }
         }
       }
@@ -3021,7 +3091,7 @@
         "ms": {
           "stringUnit": {
             "state": "translated",
-            "value": "Bergabung ke %@"
+            "value": "Gabung ke %@"
           }
         }
       }
@@ -3271,7 +3341,7 @@
         "ms": {
           "stringUnit": {
             "state": "translated",
-            "value": "Berita tentang tempat yang kamu tambah, ulasan dan laporan yang kamu kongsi akan dipaparkan di sini."
+            "value": "Berita tentang tempat yang anda tambah, ulasan dan laporan yang anda kongsi akan dipaparkan di sini."
           }
         }
       }
@@ -3281,7 +3351,7 @@
         "ms": {
           "stringUnit": {
             "state": "translated",
-            "value": "Berita tentang sumbangan kamu: tempat, ulasan, laporan dan maklum balas."
+            "value": "Berita tentang sumbangan anda: tempat, ulasan, laporan dan maklum balas."
           }
         }
       }
@@ -3571,7 +3641,7 @@
         "ms": {
           "stringUnit": {
             "state": "translated",
-            "value": "Melalui Wi-Fi semasa mengecas, hanya jika ada perubahan. Sandaran automatik tidak dikunci dengan kata laluan kerana Gimano tidak pernah menyimpan kata laluan kamu."
+            "value": "Melalui Wi-Fi semasa mengecas, hanya jika ada perubahan. Sandaran automatik tidak dikunci dengan frasa laluan kerana Gimano tidak pernah menyimpan frasa laluan anda."
           }
         }
       }
@@ -3601,7 +3671,7 @@
         "ms": {
           "stringUnit": {
             "state": "translated",
-            "value": "Hanya ditanya bila kamu berhenti dan berada dalam 1 km. Telefon menyemak jarak; lokasi kamu tidak disimpan."
+            "value": "Hanya ditanya bila anda berhenti dan berada dalam 1 km. Telefon menyemak jarak; lokasi anda tidak disimpan."
           }
         }
       }
@@ -3611,7 +3681,7 @@
         "ms": {
           "stringUnit": {
             "state": "translated",
-            "value": "Hanya jika kamu memilih sandaran Google Drive: log masuk ke Drive kamu sendiri."
+            "value": "Hanya jika anda memilih sandaran Google Drive: log masuk ke Drive anda sendiri."
           }
         }
       }
@@ -3621,7 +3691,7 @@
         "ms": {
           "stringUnit": {
             "state": "translated",
-            "value": "Hanya jika kamu memilih sandaran iCloud: sandaran pergi ke iCloud kamu sendiri."
+            "value": "Hanya jika anda memilih sandaran iCloud: sandaran pergi ke iCloud anda sendiri."
           }
         }
       }
@@ -3631,7 +3701,7 @@
         "ms": {
           "stringUnit": {
             "state": "translated",
-            "value": "Hanya jika kamu mahu kami menghubungi kamu tentang laporan ini. Disulitkan, digunakan untuk laporan ini sahaja, dipadam secara automatik dalam 90 hari (atau bila-bila masa dari Maklum balas saya). Tidak sekali-kali dikaitkan dengan nama samaran kamu."
+            "value": "Hanya jika anda mahu kami menghubungi anda tentang laporan ini. Disulitkan, digunakan untuk laporan ini sahaja, dipadam secara automatik dalam 90 hari (atau bila-bila masa dari Maklum balas saya). Tidak sekali-kali dikaitkan dengan nama samaran anda."
           }
         }
       }
@@ -3696,6 +3766,16 @@
         }
       }
     },
+    "Outdoor seating": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tempat duduk luar"
+          }
+        }
+      }
+    },
     "Parking": {
       "localizations": {
         "ms": {
@@ -3711,7 +3791,7 @@
         "ms": {
           "stringUnit": {
             "state": "translated",
-            "value": "Kata laluan"
+            "value": "Frasa laluan"
           }
         }
       }
@@ -3721,7 +3801,7 @@
         "ms": {
           "stringUnit": {
             "state": "translated",
-            "value": "Kata laluan (8+ aksara)"
+            "value": "Frasa laluan (8+ aksara)"
           }
         }
       }
@@ -3821,7 +3901,7 @@
         "ms": {
           "stringUnit": {
             "state": "translated",
-            "value": "Tempat yang kamu semak"
+            "value": "Tempat yang anda semak"
           }
         }
       }
@@ -3861,7 +3941,7 @@
         "ms": {
           "stringUnit": {
             "state": "translated",
-            "value": "Rancang perjalanan ini (peringatan)"
+            "value": "Rancang perjalanan ini"
           }
         }
       }
@@ -3951,7 +4031,7 @@
         "ms": {
           "stringUnit": {
             "state": "translated",
-            "value": "Kurang"
+            "value": "Kurang memuaskan"
           }
         }
       }
@@ -4012,6 +4092,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Membuktikan undian datang dari iPhone tulen. Tiada ID peranti disimpan."
+          }
+        }
+      }
+    },
+    "Published": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Diterbitkan"
           }
         }
       }
@@ -4141,7 +4231,7 @@
         "ms": {
           "stringUnit": {
             "state": "translated",
-            "value": "Muat semula trafik & laporan"
+            "value": "Segarkan trafik & laporan"
           }
         }
       }
@@ -4171,7 +4261,7 @@
         "ms": {
           "stringUnit": {
             "state": "translated",
-            "value": "Ulang kata laluan"
+            "value": "Ulang frasa laluan"
           }
         }
       }
@@ -4251,7 +4341,7 @@
         "ms": {
           "stringUnit": {
             "state": "translated",
-            "value": "Pulihkan dari kod pemulihan"
+            "value": "Guna kod pemulihan"
           }
         }
       }
@@ -4381,7 +4471,7 @@
         "ms": {
           "stringUnit": {
             "state": "translated",
-            "value": "Dibundarkan kepada kira-kira 1 km dalam telefon kamu"
+            "value": "Dibundarkan kepada kira-kira 1 km dalam telefon anda"
           }
         }
       }
@@ -4412,6 +4502,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Laluan oleh Valhalla. Jubin oleh OpenFreeMap. Tiada iklan, tiada penjejak."
+          }
+        }
+      }
+    },
+    "Rumah Mertua": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rumah Mertua"
           }
         }
       }
@@ -4501,7 +4601,7 @@
         "ms": {
           "stringUnit": {
             "state": "translated",
-            "value": "Disimpan dalam telefon ini sahaja. Peringatan “Bertolak sebelum” dihantar dari telefon kamu."
+            "value": "Disimpan dalam telefon ini sahaja. Peringatan “Bertolak sebelum” dihantar dari telefon anda."
           }
         }
       }
@@ -4511,7 +4611,7 @@
         "ms": {
           "stringUnit": {
             "state": "translated",
-            "value": "Disimpan dalam telefon ini sahaja (dan dalam sandaran kamu sendiri). Tidak pernah dihantar ke Gimano."
+            "value": "Disimpan dalam telefon ini sahaja (dan dalam sandaran anda sendiri). Tidak pernah dihantar ke Gimano."
           }
         }
       }
@@ -4581,7 +4681,7 @@
         "ms": {
           "stringUnit": {
             "state": "translated",
-            "value": "Lihat apa yang dihantar"
+            "value": "Lihat butiran"
           }
         }
       }
@@ -4821,7 +4921,7 @@
         "ms": {
           "stringUnit": {
             "state": "translated",
-            "value": "Perkongsian tempat belum tersedia di pelayan. Simpan untuk kamu sahaja buat masa ini."
+            "value": "Perkongsian tempat belum tersedia di pelayan. Simpan untuk anda sahaja buat masa ini."
           }
         }
       }
@@ -4911,7 +5011,7 @@
         "ms": {
           "stringUnit": {
             "state": "translated",
-            "value": "Tunjuk kod pemulihan kamu"
+            "value": "Tunjuk kod pemulihan anda"
           }
         }
       }
@@ -5116,6 +5216,16 @@
         }
       }
     },
+    "Star": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bintang"
+          }
+        }
+      }
+    },
     "Start cycling": {
       "localizations": {
         "ms": {
@@ -5201,7 +5311,7 @@
         "ms": {
           "stringUnit": {
             "state": "translated",
-            "value": "Kenderaan berhenti"
+            "value": "Berhenti"
           }
         }
       }
@@ -5221,7 +5331,7 @@
         "ms": {
           "stringUnit": {
             "state": "translated",
-            "value": "Disimpan dalam telefon ini dan sandaran kamu sendiri sahaja."
+            "value": "Disimpan dalam telefon ini dan sandaran anda sendiri sahaja."
           }
         }
       }
@@ -5316,6 +5426,16 @@
         }
       }
     },
+    "Takeaway": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bungkus"
+          }
+        }
+      }
+    },
     "Tap a star": {
       "localizations": {
         "ms": {
@@ -5341,7 +5461,7 @@
         "ms": {
           "stringUnit": {
             "state": "translated",
-            "value": "Ceritakan pengalaman kamu"
+            "value": "Ceritakan pengalaman anda"
           }
         }
       }
@@ -5421,7 +5541,7 @@
         "ms": {
           "stringUnit": {
             "state": "translated",
-            "value": "Terima kasih atas ulasan kamu!"
+            "value": "Terima kasih atas ulasan anda!"
           }
         }
       }
@@ -5461,7 +5581,7 @@
         "ms": {
           "stringUnit": {
             "state": "translated",
-            "value": "Terima kasih! Laporan dihantar"
+            "value": "Terima kasih! Laporan ranap dihantar"
           }
         }
       }
@@ -5511,7 +5631,7 @@
         "ms": {
           "stringUnit": {
             "state": "translated",
-            "value": "Terima kasih! Cadangan kamu telah dihantar."
+            "value": "Terima kasih! Cadangan anda telah dihantar."
           }
         }
       }
@@ -5591,7 +5711,7 @@
         "ms": {
           "stringUnit": {
             "state": "translated",
-            "value": "Sandaran ini dilindungi dengan kata laluan."
+            "value": "Sandaran ini dilindungi dengan frasa laluan."
           }
         }
       }
@@ -5621,7 +5741,7 @@
         "ms": {
           "stringUnit": {
             "state": "translated",
-            "value": "Ini sudah nama samaran kamu."
+            "value": "Ini sudah nama samaran anda."
           }
         }
       }
@@ -5671,7 +5791,7 @@
         "ms": {
           "stringUnit": {
             "state": "translated",
-            "value": "Tandakan untuk bersetuju kami boleh menghubungi kamu tentang laporan ini."
+            "value": "Tandakan untuk bersetuju kami boleh menghubungi anda tentang laporan ini."
           }
         }
       }
@@ -5901,7 +6021,7 @@
         "ms": {
           "stringUnit": {
             "state": "translated",
-            "value": "Sehingga kamu tiba · tamat selewat-lewatnya %@"
+            "value": "Sehingga anda tiba · tamat selewat-lewatnya %@"
           }
         }
       }
@@ -5921,7 +6041,7 @@
         "ms": {
           "stringUnit": {
             "state": "translated",
-            "value": "Belum disahkan · %1$lld daripada %2$lld"
+            "value": "Belum disahkan · %1$lld/%2$lld"
           }
         }
       }
@@ -5941,7 +6061,7 @@
         "ms": {
           "stringUnit": {
             "state": "translated",
-            "value": "Kemas kini app untuk menandatangani sumbangan kamu"
+            "value": "Kemas kini aplikasi untuk menandatangani sumbangan anda"
           }
         }
       }
@@ -6161,7 +6281,7 @@
         "ms": {
           "stringUnit": {
             "state": "translated",
-            "value": "Bagaimana pengalaman kamu? (pilihan)"
+            "value": "Bagaimana pengalaman anda? (pilihan)"
           }
         }
       }
@@ -6251,7 +6371,7 @@
         "ms": {
           "stringUnit": {
             "state": "translated",
-            "value": "Tanpa kata laluan, sandaran ini turut menyimpan kunci nama samaran kamu tanpa disulitkan dalam storan kamu sendiri. Sesiapa yang ada fail itu boleh menandatangani sebagai kamu."
+            "value": "Tanpa frasa laluan, sandaran ini turut menyimpan kunci nama samaran anda tanpa disulitkan dalam storan anda sendiri. Sesiapa yang ada fail itu boleh menandatangani sebagai anda."
           }
         }
       }
@@ -6311,7 +6431,7 @@
         "ms": {
           "stringUnit": {
             "state": "translated",
-            "value": "Kata laluan salah."
+            "value": "Frasa laluan salah."
           }
         }
       }
@@ -6391,7 +6511,7 @@
         "ms": {
           "stringUnit": {
             "state": "translated",
-            "value": "Tempat kamu kekal dalam telefon kamu"
+            "value": "Tempat anda kekal dalam telefon ini"
           }
         }
       }
@@ -6401,7 +6521,7 @@
         "ms": {
           "stringUnit": {
             "state": "translated",
-            "value": "Tempat kamu kekal dalam telefon. Sandaran pergi terus ke storan kamu sendiri; Gimano tidak dapat membacanya."
+            "value": "Tempat anda kekal dalam telefon. Sandaran pergi terus ke storan anda sendiri; Gimano tidak dapat membacanya."
           }
         }
       }
@@ -6411,7 +6531,7 @@
         "ms": {
           "stringUnit": {
             "state": "translated",
-            "value": "Kedudukan kamu, dalam telefon. Dihantar hanya sebagai isyarat tanpa nama semasa navigasi."
+            "value": "Kedudukan anda, dalam telefon. Dihantar hanya sebagai isyarat tanpa nama semasa navigasi."
           }
         }
       }
@@ -6421,7 +6541,7 @@
         "ms": {
           "stringUnit": {
             "state": "translated",
-            "value": "Nama samaran kamu"
+            "value": "Nama samaran anda"
           }
         }
       }

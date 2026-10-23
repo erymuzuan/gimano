@@ -8,6 +8,13 @@ struct OpeningHours: Equatable, Sendable {
         var id: Int { rawValue }
         var osm: String { ["Mo", "Tu", "We", "Th", "Fr", "Sa", "Su"][rawValue] }
         static func < (a: Day, b: Day) -> Bool { a.rawValue < b.rawValue }
+        /// "Mon" / "Isn" in the app language (Monday-first index → Sunday-first symbols).
+        var shortName: String {
+            var cal = Calendar(identifier: .gregorian)
+            cal.locale = Locale.current
+            let symbols = cal.shortStandaloneWeekdaySymbols
+            return symbols.indices.contains((rawValue + 1) % 7) ? symbols[(rawValue + 1) % 7] : osm
+        }
         init?(osm: String) {
             guard let i = ["Mo", "Tu", "We", "Th", "Fr", "Sa", "Su"].firstIndex(of: osm) else { return nil }
             self = Day(rawValue: i)!

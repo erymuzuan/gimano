@@ -108,7 +108,7 @@ struct IconPicker: View {
                         .selectableTile(selection == i, radius: 16)
                 }
                 .buttonStyle(.plain)
-                .accessibilityLabel(Text(i.rawValue))
+                .accessibilityLabel(Text(i.title))
                 .accessibilityIdentifier("icon.\(i.rawValue)")
             }
         }
@@ -277,6 +277,26 @@ struct FavoritesRow: View {
                 }
                 .padding(.horizontal, Tokens.Space.gutter)
             }
+        }
+    }
+}
+
+extension FavoriteIcon {
+    /// VoiceOver name (Kampung / Rumah Mertua stay in Malay in both languages).
+    var title: LocalizedStringKey {
+        switch self {
+        case .home: "Home"
+        case .work: "Work"
+        case .kampung: "Kampung"
+        case .mertua: "Rumah Mertua"
+        case .star: "Star"
+        case .heart: "Heart"
+        case .school: "School"
+        case .surau: "Surau"
+        case .food: "Food"
+        case .gym: "Gym"
+        case .shop: "Shop"
+        case .hospital: "Hospital"
         }
     }
 }

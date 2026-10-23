@@ -247,7 +247,7 @@ struct PlaceCardView: View {
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 6) {
                     ForEach(amenities, id: \.self) { a in
-                        Text(a.replacingOccurrences(of: "_", with: " ").capitalized)
+                        AddPlaceFlow.amenityLabel(a)
                             .font(.system(size: 12, weight: .medium))
                             .padding(.horizontal, 10).padding(.vertical, 5)
                             .background(Color.surfaceAlt, in: Capsule())

@@ -175,7 +175,7 @@ struct PlannedDriveEditor: View {
                             Button {
                                 if on { repeatDays.remove(d) } else { repeatDays.insert(d) }
                             } label: {
-                                Text(d.osm).font(Tokens.Font.label)
+                                Text(verbatim: d.shortName).font(Tokens.Font.label)
                                     .frame(maxWidth: .infinity, minHeight: 40)
                                     .foregroundStyle(on ? Color.brandOn : Color.brandInk)
                                     .background(on ? Color.brand : Color.brandMist, in: RoundedRectangle(cornerRadius: 12, style: .continuous))

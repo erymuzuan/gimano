@@ -469,7 +469,7 @@ struct MyContributionsView: View {
             Text(name).font(Tokens.Font.bodyBold).foregroundStyle(Color.textPrimary)
             Spacer()
             if let status {
-                Text(status == .pending ? "Unverified" : status == .published ? "Published" : status.rawValue.capitalized)
+                Text(status.badgeTitle)
                     .font(Tokens.Font.small).foregroundStyle(.white)
                     .padding(.horizontal, 8).padding(.vertical, 3)
                     .background(status == .published ? Color.brand : Color(uiColor: Tokens.Palette.traffic2), in: Capsule())
@@ -488,6 +488,18 @@ enum StarWord {
         case 4: "Good"
         case 5: "Excellent!"
         default: "Tap a star"
+        }
+    }
+}
+
+extension PlaceStatus {
+    /// Localized badge text (a `String` would bypass the catalog).
+    var badgeTitle: LocalizedStringKey {
+        switch self {
+        case .pending: "Unverified"
+        case .published: "Published"
+        case .closed: "Closed"
+        case .hidden: "Hidden"
         }
     }
 }

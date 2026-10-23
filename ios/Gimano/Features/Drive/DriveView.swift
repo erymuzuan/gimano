@@ -443,7 +443,7 @@ struct DriveAlternativesSheet: View {
                         HStack {
                             VStack(alignment: .leading) {
                                 Text(r.summary).font(Tokens.Font.bodyBold).lineLimit(1)
-                                Text(r.trafficDescription ?? "").font(Tokens.Font.caption).foregroundStyle(Color.textMuted)
+                                Text(LocalizedStringKey(r.trafficDescription ?? "")).font(Tokens.Font.caption).foregroundStyle(Color.textMuted)
                             }
                             Spacer()
                             VStack(alignment: .trailing) {
