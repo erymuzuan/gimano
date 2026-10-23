@@ -48,6 +48,13 @@ fun SettingsScreen(s: AppSettings, vm: MainViewModel, fallback: Boolean, display
             NavRow(stringResource(R.string.my_feedback), onMyFeedback)
             TextSetting(stringResource(R.string.display_name), displayName ?: s.displayName ?: "", onApply = vm::setDisplayName)
 
+            Section(stringResource(R.string.theme))
+            Choice(
+                listOf("light" to stringResource(R.string.theme_light), "dark" to stringResource(R.string.theme_dark),
+                    "system" to stringResource(R.string.theme_system), "auto" to stringResource(R.string.theme_auto)),
+                s.theme,
+            ) { vm.setTheme(it) }
+
             Section(stringResource(R.string.language))
             val appLocales = AppCompatDelegate.getApplicationLocales()
             val current = if (appLocales.isEmpty) "" else appLocales[0]?.language ?: ""
@@ -98,9 +105,10 @@ private fun Section(t: String) {
 }
 
 @Composable
+@OptIn(ExperimentalLayoutApi::class)
 private fun Choice(options: List<Pair<String, String>>, selected: String, onSelect: (String) -> Unit) {
     val c = Gimano.colors
-    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
         options.forEach { (k, label) ->
             FilterChip(
                 selected = k == selected, onClick = { onSelect(k) }, label = { Text(label, fontSize = 14.sp) },

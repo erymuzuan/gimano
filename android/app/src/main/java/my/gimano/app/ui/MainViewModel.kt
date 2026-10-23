@@ -775,6 +775,10 @@ class MainViewModel(private val c: AppContainer) : ViewModel() {
         settings.setDisplayName(v)
         runCatching { repo.updateMe(UpdateMeRequest(displayName = v)) }.onSuccess { u -> _ui.update { it.copy(user = u) } }
     }
+    fun setTheme(v: String) = viewModelScope.launch {
+        settings.setTheme(v)
+        local.putSetting("theme", v)   // also in the shared settings table (travels with backups)
+    }
     fun dismissPrivacyCard() = viewModelScope.launch { settings.setPrivacyCardDismissed() }
 
     fun toast(@StringRes r: Int) = _events.tryEmit(UiEvent.Toast(r))
