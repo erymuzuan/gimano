@@ -18,7 +18,7 @@ public sealed class GitHubFeedbackOptions
 
 /// <summary>Optional: opens a GitHub issue per feedback item (off unless Feedback:GitHubRepo and Feedback:GitHubToken are set).</summary>
 public sealed class GitHubFeedbackSink(
-    RabbitMqConnection connection, IServiceScopeFactory scopes, IHttpClientFactory http,
+    RabbitMqConnection connection, IServiceScopeFactory scopes, IHttpClientFactory http, IEventPublisher bus,
     Microsoft.Extensions.Options.IOptions<GitHubFeedbackOptions> options, ILogger<GitHubFeedbackSink> logger)
     : RabbitConsumer<FeedbackCreatedEvent>(connection, logger)
 {
@@ -53,6 +53,7 @@ public sealed class GitHubFeedbackSink(
         fb.ExternalUrl = created?.HtmlUrl;
         fb.Status = Core.Contracts.FeedbackStatus.Triaged;
         await db.SaveChangesAsync(ct);
+        await bus.PublishAsync(RoutingKeys.FeedbackStatusChanged, new FeedbackStatusEvent(fb.Id, fb.Status), ct);
         logger.LogInformation("Feedback {Id} → {Url}", fb.Id, fb.ExternalUrl);
     }
 

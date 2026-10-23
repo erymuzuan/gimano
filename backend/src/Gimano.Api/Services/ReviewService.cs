@@ -90,6 +90,9 @@ public sealed class ReviewService(GimanoDbContext db, IEventPublisher bus, TimeP
             db.ReviewHelpfuls.Add(new ReviewHelpful { ReviewId = id, UserId = userId });
             review.HelpfulCount++;
             if (review.User is not null) review.User.Points += CommunityRules.Points.HelpfulReceived;
+            await db.SaveChangesAsync(ct);
+            await bus.PublishAsync(RoutingKeys.ReviewHelpful, new ReviewHelpfulEvent(id), ct);
+            return;
         }
         else
         {

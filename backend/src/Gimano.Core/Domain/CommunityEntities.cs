@@ -119,3 +119,32 @@ public sealed class WaterArea
     public long OsmWayId { get; set; }
     public required Polygon Geom { get; set; }
 }
+
+/// <summary>A notification about the user's own public contributions (privacy rule: nothing private). Kept 90 days.</summary>
+public sealed class InboxItem
+{
+    public Guid Id { get; set; } = Guid.CreateVersion7();
+    public Guid UserId { get; set; }
+    public InboxKind Kind { get; set; }
+    public required string Title { get; set; }
+    public string Body { get; set; } = "";
+    public string? RefType { get; set; }
+    public string? RefId { get; set; }
+    /// <summary>Daily aggregation key, e.g. "report_thanked:2026-10-23" ("24 drivers thanked you").</summary>
+    public string? AggregateKey { get; set; }
+    public int Count { get; set; } = 1;
+    public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;
+}
+
+/// <summary>Broadcast to everyone (inserted by operators; see docs/api.md "Inbox").</summary>
+public sealed class Announcement
+{
+    public Guid Id { get; set; } = Guid.CreateVersion7();
+    public required string Title { get; set; }
+    public string Body { get; set; } = "";
+    public string? TitleMs { get; set; }
+    public string? BodyMs { get; set; }
+    public string? Url { get; set; }
+    public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;
+    public DateTimeOffset? ExpiresAt { get; set; }
+}

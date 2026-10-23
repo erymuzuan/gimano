@@ -17,6 +17,11 @@ public static class RoutingKeys
     public const string PlaceChanged = "place.changed";
     public const string FeedbackCreated = "feedback.created";
     public const string PhotoUploaded = "photo.uploaded";
+    public const string ReportThanked = "report.thanked";
+    public const string ReviewHelpful = "review.helpful";
+    public const string PlaceVerified = "place.verified";
+    public const string SuggestionApplied = "suggestion.applied";
+    public const string FeedbackStatusChanged = "feedback.status";
 }
 
 public sealed record ReportVotedEvent(Guid ReportId, bool StillThere, Guid UserId);
@@ -27,3 +32,9 @@ public sealed record PlaceChangedEvent(string PlaceId);
 public sealed record FeedbackCreatedEvent(Guid FeedbackId, FeedbackCategory Category, DateTimeOffset CreatedAt);
 
 public sealed record PhotoUploadedEvent(Guid PhotoId);
+
+public sealed record ReportThankedEvent(Guid ReportId);
+public sealed record ReviewHelpfulEvent(Guid ReviewId);
+public sealed record PlaceVerifiedEvent(string PlaceId, PlaceStatus Status);
+public sealed record SuggestionAppliedEvent(Guid SuggestionId);
+public sealed record FeedbackStatusEvent(Guid FeedbackId, FeedbackStatus Status);

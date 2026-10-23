@@ -27,6 +27,8 @@ public sealed class GimanoDbContext(DbContextOptions<GimanoDbContext> options) :
     public DbSet<Photo> Photos => Set<Photo>();
     public DbSet<PhotoFlag> PhotoFlags => Set<PhotoFlag>();
     public DbSet<WaterArea> WaterAreas => Set<WaterArea>();
+    public DbSet<InboxItem> InboxItems => Set<InboxItem>();
+    public DbSet<Announcement> Announcements => Set<Announcement>();
 
     protected override void OnModelCreating(ModelBuilder b)
     {
@@ -212,6 +214,31 @@ public sealed class GimanoDbContext(DbContextOptions<GimanoDbContext> options) :
             e.Property(x => x.Reason).HasConversion<string>().HasMaxLength(24);
             e.HasOne<Photo>().WithMany().HasForeignKey(x => x.PhotoId).OnDelete(DeleteBehavior.Cascade);
             e.HasOne<User>().WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        b.Entity<InboxItem>(e =>
+        {
+            e.ToTable("inbox_items");
+            e.Property(x => x.Kind).HasConversion<string>().HasMaxLength(20);
+            e.Property(x => x.Title).HasMaxLength(200);
+            e.Property(x => x.Body).HasMaxLength(1000);
+            e.Property(x => x.RefType).HasMaxLength(20);
+            e.Property(x => x.RefId).HasMaxLength(64);
+            e.Property(x => x.AggregateKey).HasMaxLength(80);
+            e.HasIndex(x => new { x.UserId, x.Id });
+            e.HasIndex(x => new { x.UserId, x.AggregateKey }).IsUnique().HasFilter("aggregate_key IS NOT NULL");
+            e.HasIndex(x => x.CreatedAt);
+            e.HasOne<User>().WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        b.Entity<Announcement>(e =>
+        {
+            e.Property(x => x.Title).HasMaxLength(200);
+            e.Property(x => x.TitleMs).HasMaxLength(200);
+            e.Property(x => x.Body).HasMaxLength(2000);
+            e.Property(x => x.BodyMs).HasMaxLength(2000);
+            e.Property(x => x.Url).HasMaxLength(300);
+            e.HasIndex(x => x.CreatedAt);
         });
 
         b.Entity<WaterArea>(e =>

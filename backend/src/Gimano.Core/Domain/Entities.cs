@@ -17,6 +17,8 @@ public sealed class User
     public double Reputation { get; set; } = 1.0;
     public DateTimeOffset JoinedAt { get; set; } = DateTimeOffset.UtcNow;
     public DateTimeOffset LastSeenAt { get; set; } = DateTimeOffset.UtcNow;
+    /// <summary>Inbox items created at or before this instant are read.</summary>
+    public DateTimeOffset? InboxReadUpTo { get; set; }
 
     public int Level => Points switch { < 100 => 1, < 500 => 2, < 2_000 => 3, < 10_000 => 4, < 50_000 => 5, _ => 6 };
 

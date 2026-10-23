@@ -23,6 +23,8 @@ builder.Services.AddHostedService<AlertExpirySweeper>();
 builder.Services.AddHostedService<SearchIndexer>();
 builder.Services.AddGimanoMedia(builder.Configuration);
 builder.Services.AddHostedService<Gimano.Worker.Photos.PhotoProcessor>();
+builder.Services.AddHostedService<Gimano.Worker.Inbox.InboxGenerator>();
+builder.Services.AddHostedService<Gimano.Worker.Inbox.InboxRetention>();
 
 builder.Services.Configure<GitHubFeedbackOptions>(builder.Configuration.GetSection(GitHubFeedbackOptions.Section));
 if (builder.Configuration.GetSection(GitHubFeedbackOptions.Section).Get<GitHubFeedbackOptions>() is { Enabled: true })

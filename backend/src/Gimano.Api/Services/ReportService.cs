@@ -125,6 +125,7 @@ public sealed class ReportService(GimanoDbContext db, IEventPublisher bus, GeoLo
         if (report.Reporter is not null && report.ReporterId != userId) report.Reporter.Points += AlertRules.Points.Thanked;
         await db.SaveChangesAsync(ct);
         await bus.PublishAsync(RoutingKeys.ReportUpdated, report.ToDto(), ct);
+        if (report.ReporterId != userId) await bus.PublishAsync(RoutingKeys.ReportThanked, new ReportThankedEvent(reportId), ct);
     }
 
     public async Task<IReadOnlyList<ReportDto>> ActiveInBBoxAsync(BBox bbox, CancellationToken ct)

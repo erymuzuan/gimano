@@ -141,7 +141,7 @@ app.MapHealthChecks("/healthz", new HealthCheckOptions { Predicate = _ => false,
 app.MapHealthChecks("/readyz", new HealthCheckOptions { Predicate = c => c.Tags.Contains("ready"), ResponseWriter = HealthWriter.WriteAsync });
 
 var api = app.MapGroup("/api/v1");
-api.MapAuthAndMe().MapPlaces().MapRoutes().MapLive().MapFeedback().MapPrivacy().MapCommunity().MapShares();
+api.MapAuthAndMe().MapPlaces().MapRoutes().MapLive().MapFeedback().MapPrivacy().MapCommunity().MapShares().MapInbox();
 app.MapMedia();
 
 app.MapHub<LiveHub>("/hubs/live");

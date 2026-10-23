@@ -47,3 +47,5 @@ public enum ReviewSort { Recent, Helpful }
 public enum FlagReason { Spam, Offensive, OffTopic, ConflictOfInterest, Other }
 
 public enum PhotoStatus { Processing, Published, Rejected }
+
+public enum InboxKind { PlacePublished, PlaceRejected, ReportThanked, ReviewHelpful, EditAccepted, FeedbackStatus, Announcement }

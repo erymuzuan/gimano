@@ -26,6 +26,57 @@ namespace Gimano.Core.Data.Migrations
             NpgsqlModelBuilderExtensions.HasPostgresExtension(modelBuilder, "postgis");
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
+            modelBuilder.Entity("Gimano.Core.Domain.Announcement", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<string>("Body")
+                        .IsRequired()
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)")
+                        .HasColumnName("body");
+
+                    b.Property<string>("BodyMs")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)")
+                        .HasColumnName("body_ms");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<DateTimeOffset?>("ExpiresAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("expires_at");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("title");
+
+                    b.Property<string>("TitleMs")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("title_ms");
+
+                    b.Property<string>("Url")
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)")
+                        .HasColumnName("url");
+
+                    b.HasKey("Id")
+                        .HasName("pk_announcements");
+
+                    b.HasIndex("CreatedAt")
+                        .HasDatabaseName("ix_announcements_created_at");
+
+                    b.ToTable("announcements", (string)null);
+                });
+
             modelBuilder.Entity("Gimano.Core.Domain.CommunityPlace", b =>
                 {
                     b.Property<string>("Id")
@@ -192,6 +243,75 @@ namespace Gimano.Core.Data.Migrations
                         .HasDatabaseName("ix_feedback_user_id_created_at");
 
                     b.ToTable("feedback", (string)null);
+                });
+
+            modelBuilder.Entity("Gimano.Core.Domain.InboxItem", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<string>("AggregateKey")
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)")
+                        .HasColumnName("aggregate_key");
+
+                    b.Property<string>("Body")
+                        .IsRequired()
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)")
+                        .HasColumnName("body");
+
+                    b.Property<int>("Count")
+                        .HasColumnType("integer")
+                        .HasColumnName("count");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("kind");
+
+                    b.Property<string>("RefId")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("ref_id");
+
+                    b.Property<string>("RefType")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("ref_type");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("title");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("user_id");
+
+                    b.HasKey("Id")
+                        .HasName("pk_inbox_items");
+
+                    b.HasIndex("CreatedAt")
+                        .HasDatabaseName("ix_inbox_items_created_at");
+
+                    b.HasIndex("UserId", "AggregateKey")
+                        .IsUnique()
+                        .HasDatabaseName("ix_inbox_items_user_id_aggregate_key")
+                        .HasFilter("aggregate_key IS NOT NULL");
+
+                    b.HasIndex("UserId", "Id")
+                        .HasDatabaseName("ix_inbox_items_user_id_id");
+
+                    b.ToTable("inbox_items", (string)null);
                 });
 
             modelBuilder.Entity("Gimano.Core.Domain.Jam", b =>
@@ -1074,6 +1194,10 @@ namespace Gimano.Core.Data.Migrations
                         .HasColumnType("character varying(40)")
                         .HasColumnName("display_name");
 
+                    b.Property<DateTimeOffset?>("InboxReadUpTo")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("inbox_read_up_to");
+
                     b.Property<DateTimeOffset>("JoinedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("joined_at");
@@ -1208,6 +1332,16 @@ namespace Gimano.Core.Data.Migrations
                         });
 
                     b.Navigation("Context");
+                });
+
+            modelBuilder.Entity("Gimano.Core.Domain.InboxItem", b =>
+                {
+                    b.HasOne("Gimano.Core.Domain.User", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_inbox_items_users_user_id");
                 });
 
             modelBuilder.Entity("Gimano.Core.Domain.Photo", b =>

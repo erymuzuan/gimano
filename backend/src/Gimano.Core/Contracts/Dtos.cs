@@ -159,3 +159,13 @@ public sealed record CreateFeedbackRequest(
 public sealed record FeedbackCreatedResponse(Guid Id, DateTimeOffset CreatedAt);
 
 public sealed record FeedbackSummary(Guid Id, FeedbackCategory Category, string Message, FeedbackStatus Status, DateTimeOffset CreatedAt);
+
+// ---- Inbox (public contributions only) ----------------------------------------------------
+
+public sealed record InboxItemDto(
+    Guid Id, InboxKind Kind, string Title, string Body, string? RefType, string? RefId, DateTimeOffset CreatedAt,
+    bool Read, int Count = 1);
+
+public sealed record InboxPage(IReadOnlyList<InboxItemDto> Items, string? Next, int Unread);
+
+public sealed record InboxReadRequest(DateTimeOffset UpTo);

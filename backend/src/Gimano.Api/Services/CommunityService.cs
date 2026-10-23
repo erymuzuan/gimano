@@ -122,6 +122,7 @@ public sealed class CommunityService(GimanoDbContext db, IEventPublisher bus, Ti
             place.Owner.Points += CommunityRules.Points.PlacePublished;
         await db.SaveChangesAsync(ct);
         await bus.PublishAsync(RoutingKeys.PlaceChanged, new PlaceChangedEvent(id), ct);
+        if (place.Status != before) await bus.PublishAsync(RoutingKeys.PlaceVerified, new PlaceVerifiedEvent(id, place.Status), ct);
         return Dto(place);
     }
 
