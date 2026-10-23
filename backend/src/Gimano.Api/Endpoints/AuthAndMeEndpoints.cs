@@ -27,6 +27,7 @@ public static class AuthAndMeEndpoints
         me.MapGet("/places", GetPlaces);
         me.MapPut("/places/{kind}", PutHomeOrWork);
         me.MapPost("/places", AddFavourite);
+        me.MapPatch("/places/{id:guid}", PatchPlace);
         me.MapDelete("/places/{id:guid}", DeletePlace);
         me.MapGet("/recents", GetRecents);
         return api;
@@ -84,13 +85,20 @@ public static class AuthAndMeEndpoints
         return TypedResults.Ok(user.ToDto());
     }
 
+    public const int MaxFavourites = 50;
+    public const int MaxFavouriteNameLength = 40;
+
     private static async Task<Ok<List<SavedPlaceDto>>> GetPlaces(HttpContext http, GimanoDbContext db, CancellationToken ct)
     {
         var uid = http.User.RequiredUserId();
-        var rows = await db.SavedPlaces.AsNoTracking().Where(p => p.UserId == uid)
-            .OrderBy(p => p.Kind).ThenBy(p => p.CreatedAt).ToListAsync(ct);
-        return TypedResults.Ok(rows.Select(p => p.ToDto()).ToList());
+        var rows = await db.SavedPlaces.AsNoTracking().Where(p => p.UserId == uid).ToListAsync(ct);
+        return TypedResults.Ok(Ordered(rows).Select(p => p.ToDto()).ToList());
     }
+
+    /// <summary>Home, work first; then favourites by sortOrder (ties: oldest first).</summary>
+    internal static IEnumerable<SavedPlace> Ordered(IEnumerable<SavedPlace> places) =>
+        places.OrderBy(p => p.Kind switch { SavedPlaceKind.Home => 0, SavedPlaceKind.Work => 1, _ => 2 })
+            .ThenBy(p => p.SortOrder).ThenBy(p => p.CreatedAt);
 
     private static async Task<Results<Ok<SavedPlaceDto>, ValidationProblem>> PutHomeOrWork(
         string kind, SavePlaceRequest req, HttpContext http, GimanoDbContext db, CancellationToken ct)
@@ -118,14 +126,60 @@ public static class AuthAndMeEndpoints
         SavePlaceRequest req, HttpContext http, GimanoDbContext db, CancellationToken ct)
     {
         if (Validation.SavedPlace(req) is { } problem) return problem;
+        if (Validation.FavouriteName(req.Name) is { } nameProblem) return nameProblem;
+        var uid = http.User.RequiredUserId();
+        var favourites = await db.SavedPlaces.Where(p => p.UserId == uid && p.Kind == SavedPlaceKind.Favorite)
+            .Select(p => p.SortOrder).ToListAsync(ct);
+        if (favourites.Count >= MaxFavourites)
+            return Validation.Problem("favorites", $"At most {MaxFavourites} favourites; delete one first.");
         var place = new SavedPlace
         {
-            UserId = http.User.RequiredUserId(), Kind = SavedPlaceKind.Favorite, Name = req.Name.Trim(),
+            UserId = uid, Kind = SavedPlaceKind.Favorite, Name = req.Name.Trim(), Icon = req.Icon ?? FavoriteIcon.Star,
             Location = new GeoPoint(req.Lat, req.Lng).ToPoint(), Address = req.Address ?? "", PlaceId = req.PlaceId,
+            SortOrder = favourites.Count == 0 ? 0 : favourites.Max() + 1,
         };
         db.SavedPlaces.Add(place);
         await db.SaveChangesAsync(ct);
         return TypedResults.Created($"/api/v1/me/places/{place.Id}", place.ToDto());
+    }
+
+    private static async Task<Results<Ok<SavedPlaceDto>, NotFound, ValidationProblem>> PatchPlace(
+        Guid id, PatchPlaceRequest req, HttpContext http, GimanoDbContext db, CancellationToken ct)
+    {
+        var uid = http.User.RequiredUserId();
+        var place = await db.SavedPlaces.FirstOrDefaultAsync(p => p.Id == id && p.UserId == uid, ct);
+        if (place is null) return TypedResults.NotFound();
+
+        if (req.Name is not null)
+        {
+            var problem = place.Kind == SavedPlaceKind.Favorite
+                ? Validation.FavouriteName(req.Name)
+                : string.IsNullOrWhiteSpace(req.Name) || req.Name.Length > 200 ? Validation.Problem("name", "name is required (max 200 chars).") : null;
+            if (problem is not null) return problem;
+            place.Name = req.Name.Trim();
+        }
+        if (req.Icon is { } icon)
+        {
+            if (place.Kind != SavedPlaceKind.Favorite && icon != place.EffectiveIcon)
+                return Validation.Problem("icon", "Home and work always use the home/work icon.");
+            place.Icon = icon;
+        }
+        if (req.Lat is not null || req.Lng is not null)
+        {
+            var lat = req.Lat ?? place.Location.Y;
+            var lng = req.Lng ?? place.Location.X;
+            if (Validation.LatLng(lat, lng) is { } p) return p;
+            place.Location = new GeoPoint(lat, lng).ToPoint();
+            place.PlaceId = null; // moved: no longer the same POI
+        }
+        if (req.Address is not null) place.Address = req.Address;
+        if (req.SortOrder is { } order)
+        {
+            if (order is < 0 or > 10_000) return Validation.Problem("sortOrder", "sortOrder must be 0–10000.");
+            place.SortOrder = order;
+        }
+        await db.SaveChangesAsync(ct);
+        return TypedResults.Ok(place.ToDto());
     }
 
     private static async Task<Results<NoContent, NotFound>> DeletePlace(Guid id, HttpContext http, GimanoDbContext db, CancellationToken ct)

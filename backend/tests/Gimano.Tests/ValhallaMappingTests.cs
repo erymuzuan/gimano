@@ -3,6 +3,7 @@ using System.Text.Json.Nodes;
 using Gimano.Core.Contracts;
 using Gimano.Core.Geo;
 using Gimano.Core.Routing;
+using Gimano.Core.Tolls;
 using Gimano.Core.Traffic;
 
 namespace Gimano.Tests;
@@ -174,6 +175,8 @@ public class ValhallaMappingTests
         Assert.Equal("Via E11 Lebuhraya Damansara–Puchong", r.Summary);
     }
 
+    private static RouteLeg Leg(IReadOnlyList<ManeuverDto> maneuvers) => new(0, 0, new LegEnd(0, 0, null), maneuvers);
+
     private static ManeuverDto M(string? street, string? roadRef, double len, int begin) =>
         new(ManeuverType.Straight, "", street, null, roadRef, len, len / 20, begin, begin + 1, null, null);
 
@@ -181,7 +184,7 @@ public class ValhallaMappingTests
     public void Summary_has_no_stray_federal_route_number()
     {
         // Shape of the real SS2 → Mid Valley route: E23 dominant, then a federal route "2" leg.
-        var legs = new[] { new RouteLeg(
+        var legs = new[] { Leg(
         [
             M("Jalan SS 2/53", null, 300, 0),
             M("Lebuhraya Damansara–Puchong", "E11", 1033, 1),
@@ -199,7 +202,7 @@ public class ValhallaMappingTests
     [Fact]
     public void Summary_includes_a_second_road_only_when_it_is_substantial_and_shows_federal_refs_as_FT()
     {
-        var legs = new[] { new RouteLeg([M("Lebuhraya Persekutuan", "2", 5000, 0), M("Lebuhraya Damansara–Puchong", "E11", 4000, 1)]) };
+        var legs = new[] { Leg([M("Lebuhraya Persekutuan", "2", 5000, 0), M("Lebuhraya Damansara–Puchong", "E11", 4000, 1)]) };
         Assert.Equal("Via FT2 Lebuhraya Persekutuan, E11 Lebuhraya Damansara–Puchong", ValhallaMapper.Summarize(legs));
         Assert.Equal("FT2", ValhallaMapper.DisplayRef("2"));
         Assert.Equal("FT2", ValhallaMapper.DisplayRef("FT 2"));
@@ -211,11 +214,11 @@ public class ValhallaMappingTests
     {
         var candidates = ValhallaMapper.MapResponse(SampleResponse(withAlternate: false));
         var noTollFlag = candidates[0] with { HasTolls = false };
-        var plazaOnRoute = new GeoPoint(3.12801, 101.62299);   // ~1 m from vertex 2
-        var plazaNearby = new GeoPoint(3.1300, 101.6260);      // a few hundred metres away
+        var plazaOnRoute = new TollPlaza("n1", "Plaza Tol Damansara", 3.12801, 101.62299);   // ~1 m from vertex 2
+        var plazaNearby = new TollPlaza("n2", "Plaza Tol Jauh", 3.1300, 101.6260);           // a few hundred metres away
 
-        Assert.True(RouteDecorator.Decorate([noTollFlag], [], [], () => "a", [plazaOnRoute])[0].HasTolls);
-        Assert.False(RouteDecorator.Decorate([noTollFlag], [], [], () => "a", [plazaNearby])[0].HasTolls);
+        Assert.True(RouteDecorator.Decorate([noTollFlag], [], [], () => "a", Vehicle.Car, [plazaOnRoute])[0].HasTolls);
+        Assert.False(RouteDecorator.Decorate([noTollFlag], [], [], () => "a", Vehicle.Car, [plazaNearby])[0].HasTolls);
         Assert.False(RouteDecorator.Decorate([noTollFlag], [], [], () => "a")[0].HasTolls);
     }
 
@@ -258,7 +261,7 @@ public class ValhallaMappingTests
         var body = ValhallaMapper.BuildRouteRequest(req);
         Assert.Null(body["alternates"]);
         Assert.Equal(3, body["locations"]!.AsArray().Count);
-        Assert.Equal("through", body["locations"]![1]!["type"]!.GetValue<string>());
+        Assert.Equal("break", body["locations"]![1]!["type"]!.GetValue<string>()); // each stop is its own leg
         Assert.Equal("auto", body["costing"]!.GetValue<string>());
     }
 

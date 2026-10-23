@@ -17,6 +17,8 @@ public sealed class GimanoDbContext(DbContextOptions<GimanoDbContext> options) :
     public DbSet<SegmentSpeed> SegmentSpeeds => Set<SegmentSpeed>();
     public DbSet<Jam> Jams => Set<Jam>();
     public DbSet<DriverPosition> DriverPositions => Set<DriverPosition>();
+    public DbSet<Feedback> Feedback => Set<Feedback>();
+    public DbSet<TollRate> TollRates => Set<TollRate>();
 
     protected override void OnModelCreating(ModelBuilder b)
     {
@@ -38,6 +40,8 @@ public sealed class GimanoDbContext(DbContextOptions<GimanoDbContext> options) :
         b.Entity<SavedPlace>(e =>
         {
             e.Property(x => x.Kind).HasConversion<string>().HasMaxLength(10);
+            e.Property(x => x.Icon).HasConversion<string>().HasMaxLength(12);
+            e.Ignore(x => x.EffectiveIcon);
             e.Property(x => x.Location).HasColumnType("geography (point, 4326)");
             e.HasIndex(x => new { x.UserId, x.Kind });
             e.HasOne<User>().WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Cascade);
@@ -105,6 +109,28 @@ public sealed class GimanoDbContext(DbContextOptions<GimanoDbContext> options) :
             e.Property(x => x.Geom).HasColumnType("geography (linestring, 4326)");
             e.HasIndex(x => x.Geom).HasMethod("gist");
             e.HasIndex(x => x.AnchorSegmentId);
+        });
+
+        b.Entity<Feedback>(e =>
+        {
+            e.ToTable("feedback");
+            e.Property(x => x.Category).HasConversion<string>().HasMaxLength(12);
+            e.Property(x => x.Screen).HasConversion<string>().HasMaxLength(16);
+            e.Property(x => x.Status).HasConversion<string>().HasMaxLength(12);
+            e.Property(x => x.Message).HasMaxLength(2000);
+            e.Property(x => x.ScreenshotContentType).HasMaxLength(20);
+            e.Property(x => x.ExternalUrl).HasMaxLength(300);
+            e.OwnsOne(x => x.Context, o => o.ToJson());
+            e.HasIndex(x => new { x.UserId, x.CreatedAt });
+            e.HasOne<User>().WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        b.Entity<TollRate>(e =>
+        {
+            e.Property(x => x.System).HasConversion<string>().HasMaxLength(12);
+            e.Property(x => x.Class0Myr).HasPrecision(8, 2);
+            e.Property(x => x.Class1Myr).HasPrecision(8, 2);
+            e.HasIndex(x => x.MatchedPlaceIds).HasMethod("gin");
         });
 
         b.Entity<DriverPosition>(e =>

@@ -107,6 +107,8 @@ services:
       Urls: "http://+:8080"
       Valhalla__Url: "http://valhalla:8002"
       Jwt__SigningKey: ${JWT_SIGNING_KEY:?Set JWT_SIGNING_KEY (>= 32 chars) in deploy/.env}
+      # Feedback screenshots are base64 (≤ 1.5 MB decoded ≈ 2 MB JSON).
+      Kestrel__Limits__MaxRequestBodySize: "4194304"
     ports: ["${API_PORT:-5080}:8080"]
     depends_on:
       postgis: { condition: service_healthy }
@@ -120,12 +122,17 @@ services:
       dockerfile: deploy/Dockerfile.worker
     image: gimano/worker:dev
     restart: unless-stopped
-    environment: *dotnet-env
+    environment:
+      <<: *dotnet-env
+      # Optional GitHub-issue sink for feedback (off unless both are set).
+      Feedback__GitHubRepo: ${FEEDBACK_GITHUB_REPO:-}
+      Feedback__GitHubToken: ${FEEDBACK_GITHUB_TOKEN:-}
     depends_on:
       api: { condition: service_started }   # the API applies EF migrations on start
       rabbitmq: { condition: service_healthy }
 
   # One-shot OSM → Postgres/OpenSearch import:  docker compose --profile tools run --rm importer
+  # Toll tariffs only (after editing data/tolls/my-toll-rates.csv):  ... run --rm importer --tolls-only
   importer:
     profiles: ["tools"]
     build:
@@ -135,7 +142,8 @@ services:
     environment:
       <<: *dotnet-env
       GIMANO_PBF: /data/osm/malaysia-singapore-brunei-latest.osm.pbf
-    volumes: ["../data/osm:/data/osm"]
+      GIMANO_TOLLS: /data/tolls/my-toll-rates.csv
+    volumes: ["../data/osm:/data/osm", "../data/tolls:/data/tolls"]
     depends_on:
       postgis: { condition: service_healthy }
       opensearch: { condition: service_healthy }

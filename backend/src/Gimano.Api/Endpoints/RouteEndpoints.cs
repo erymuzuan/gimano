@@ -24,6 +24,7 @@ public static class RouteEndpoints
         if (Validation.LatLng(req.Origin.Lat, req.Origin.Lng, "origin.") is { } p1) return p1;
         if (Validation.LatLng(req.Destination.Lat, req.Destination.Lng, "destination.") is { } p2) return p2;
         if (req.Waypoints is { Count: > 5 }) return Validation.Problem("waypoints", "At most 5 waypoints.");
+        if (req.Waypoints?.Any(w => w is null || w.Name is { Length: > 100 }) == true) return Validation.Problem("waypoints", "Waypoint names are max 100 chars.");
         if (req.Waypoints?.Any(w => !Validation.ValidLatLng(w.Lat, w.Lng)) == true) return Validation.Problem("waypoints", "Invalid waypoint.");
         if (req.Alternatives is < 0 or > 3) return Validation.Problem("alternatives", "alternatives must be 0–3.");
 
@@ -35,6 +36,7 @@ public static class RouteEndpoints
         string id, RerouteRequest req, HttpContext http, RouteService svc, CancellationToken ct)
     {
         if (Validation.LatLng(req.Lat, req.Lng) is { } p) return p;
+        if (req.NextStopIndex is < 0 or > 5) return Validation.Problem("nextStopIndex", "nextStopIndex must be 0–5.");
         return TypedResults.Ok(new RoutesResponse(await svc.RerouteAsync(id, req, http.User.UserId(), ct)));
     }
 
@@ -45,7 +47,9 @@ public static class RouteEndpoints
         if (Validation.LatLng(originLat, originLng, "origin") is { } p1) return p1;
         if (Validation.LatLng(destLat, destLng, "dest") is { } p2) return p2;
         if (!RouteService.TryParseDate(date, out var d)) return Validation.Problem("date", "date must be yyyy-MM-dd.");
-        var v = GimanoJson.TryParseWire<Vehicle>(vehicle, out var parsed) ? parsed : Vehicle.Car;
+        var v = Vehicle.Car;
+        if (!string.IsNullOrEmpty(vehicle) && !GimanoJson.TryParseWire(vehicle, out v))
+            return Validation.Problem("vehicle", "vehicle must be car, motorcycle, bicycle or walk.");
         var slots = await svc.DepartureTimesAsync(new GeoPoint(originLat, originLng), new GeoPoint(destLat, destLng), d, v, ct);
         return TypedResults.Ok(new DepartureTimesResponse(slots));
     }

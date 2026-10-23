@@ -15,6 +15,7 @@ public static class RoutingKeys
     public const string JamUpdated = "jam.updated";
     public const string JamCleared = "jam.cleared";
     public const string PlaceChanged = "place.changed";
+    public const string FeedbackCreated = "feedback.created";
 }
 
 public sealed record LocationPingEvent(Guid UserId, double Lat, double Lng, double SpeedKmh, double Heading, DateTimeOffset Ts, string? Mood = null);
@@ -22,3 +23,5 @@ public sealed record ReportVotedEvent(Guid ReportId, bool StillThere, Guid UserI
 public sealed record ReportExpiredEvent(Guid ReportId);
 public sealed record JamClearedEvent(Guid JamId);
 public sealed record PlaceChangedEvent(string PlaceId);
+/// <summary>Deliberately carries no user/device identifiers or screenshot; consumers load the row by id.</summary>
+public sealed record FeedbackCreatedEvent(Guid FeedbackId, FeedbackCategory Category, DateTimeOffset CreatedAt);

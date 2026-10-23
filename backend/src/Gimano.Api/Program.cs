@@ -112,7 +112,7 @@ app.MapHealthChecks("/healthz", new HealthCheckOptions { Predicate = _ => false,
 app.MapHealthChecks("/readyz", new HealthCheckOptions { Predicate = c => c.Tags.Contains("ready"), ResponseWriter = HealthWriter.WriteAsync });
 
 var api = app.MapGroup("/api/v1");
-api.MapAuthAndMe().MapPlaces().MapRoutes().MapLive();
+api.MapAuthAndMe().MapPlaces().MapRoutes().MapLive().MapFeedback();
 
 app.MapHub<LiveHub>("/hubs/live");
 app.MapGet("/", () => Results.Redirect("/scalar/v1")).ExcludeFromDescription();

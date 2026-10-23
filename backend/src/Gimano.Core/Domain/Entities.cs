@@ -32,9 +32,19 @@ public sealed class SavedPlace
     public required Point Location { get; set; }
     public string Address { get; set; } = "";
     public string? PlaceId { get; set; }
+    public FavoriteIcon Icon { get; set; } = FavoriteIcon.Star;
+    public int SortOrder { get; set; }
     public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;
 
-    public SavedPlaceDto ToDto() => new(Id, Kind, Name, Location.Y, Location.X, Address, PlaceId);
+    /// <summary>Home and work always carry their own icon.</summary>
+    public FavoriteIcon EffectiveIcon => Kind switch
+    {
+        SavedPlaceKind.Home => FavoriteIcon.Home,
+        SavedPlaceKind.Work => FavoriteIcon.Work,
+        _ => Icon,
+    };
+
+    public SavedPlaceDto ToDto() => new(Id, Kind, Name, EffectiveIcon, Location.Y, Location.X, Address, PlaceId, SortOrder);
 }
 
 public sealed class RecentDestination
@@ -162,4 +172,42 @@ public sealed class DriverPosition
     public double SpeedKmh { get; set; }
     public string Mood { get; set; } = "happy";
     public DateTimeOffset UpdatedAt { get; set; }
+}
+
+public sealed class Feedback
+{
+    public Guid Id { get; set; } = Guid.CreateVersion7();
+    public Guid UserId { get; set; }
+    public FeedbackCategory Category { get; set; }
+    public required string Message { get; set; }
+    public int? Rating { get; set; }
+    public FeedbackScreen? Screen { get; set; }
+    /// <summary>Diagnostics as sent by the app (stored as jsonb).</summary>
+    public FeedbackContext? Context { get; set; }
+    public byte[]? Screenshot { get; set; }
+    public string? ScreenshotContentType { get; set; }
+    public FeedbackStatus Status { get; set; } = FeedbackStatus.Received;
+    public string? ExternalUrl { get; set; }
+    public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;
+
+    public FeedbackSummary ToSummary() => new(Id, Category, Message, Status, CreatedAt);
+}
+
+/// <summary>A row of data/tolls/my-toll-rates.csv, matched to OSM toll plaza place ids by the importer.</summary>
+public sealed class TollRate
+{
+    public int Id { get; set; }
+    public string? PlazaOsmId { get; set; }
+    public required string Name { get; set; }
+    public string? Highway { get; set; }
+    public double? Lat { get; set; }
+    public double? Lng { get; set; }
+    public TollSystem System { get; set; }
+    public string? EntryPlaza { get; set; }
+    public decimal? Class0Myr { get; set; }
+    public decimal? Class1Myr { get; set; }
+    public DateOnly? EffectiveDate { get; set; }
+    public string? SourceUrl { get; set; }
+    public string? Notes { get; set; }
+    public List<string> MatchedPlaceIds { get; set; } = [];
 }

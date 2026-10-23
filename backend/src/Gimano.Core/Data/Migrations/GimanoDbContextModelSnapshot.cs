@@ -69,6 +69,71 @@ namespace Gimano.Core.Data.Migrations
                     b.ToTable("driver_positions", (string)null);
                 });
 
+            modelBuilder.Entity("Gimano.Core.Domain.Feedback", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<string>("Category")
+                        .IsRequired()
+                        .HasMaxLength(12)
+                        .HasColumnType("character varying(12)")
+                        .HasColumnName("category");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("ExternalUrl")
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)")
+                        .HasColumnName("external_url");
+
+                    b.Property<string>("Message")
+                        .IsRequired()
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)")
+                        .HasColumnName("message");
+
+                    b.Property<int?>("Rating")
+                        .HasColumnType("integer")
+                        .HasColumnName("rating");
+
+                    b.Property<string>("Screen")
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)")
+                        .HasColumnName("screen");
+
+                    b.Property<byte[]>("Screenshot")
+                        .HasColumnType("bytea")
+                        .HasColumnName("screenshot");
+
+                    b.Property<string>("ScreenshotContentType")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("screenshot_content_type");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(12)
+                        .HasColumnType("character varying(12)")
+                        .HasColumnName("status");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("user_id");
+
+                    b.HasKey("Id")
+                        .HasName("pk_feedback");
+
+                    b.HasIndex("UserId", "CreatedAt")
+                        .HasDatabaseName("ix_feedback_user_id_created_at");
+
+                    b.ToTable("feedback", (string)null);
+                });
+
             modelBuilder.Entity("Gimano.Core.Domain.Jam", b =>
                 {
                     b.Property<Guid>("Id")
@@ -473,6 +538,12 @@ namespace Gimano.Core.Data.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("created_at");
 
+                    b.Property<string>("Icon")
+                        .IsRequired()
+                        .HasMaxLength(12)
+                        .HasColumnType("character varying(12)")
+                        .HasColumnName("icon");
+
                     b.Property<string>("Kind")
                         .IsRequired()
                         .HasMaxLength(10)
@@ -492,6 +563,10 @@ namespace Gimano.Core.Data.Migrations
                     b.Property<string>("PlaceId")
                         .HasColumnType("text")
                         .HasColumnName("place_id");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("integer")
+                        .HasColumnName("sort_order");
 
                     b.Property<Guid>("UserId")
                         .HasColumnType("uuid")
@@ -546,6 +621,84 @@ namespace Gimano.Core.Data.Migrations
                         .HasDatabaseName("ix_segment_speeds_updated_at");
 
                     b.ToTable("segment_speeds", (string)null);
+                });
+
+            modelBuilder.Entity("Gimano.Core.Domain.TollRate", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasColumnName("id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<decimal?>("Class0Myr")
+                        .HasPrecision(8, 2)
+                        .HasColumnType("numeric(8,2)")
+                        .HasColumnName("class0myr");
+
+                    b.Property<decimal?>("Class1Myr")
+                        .HasPrecision(8, 2)
+                        .HasColumnType("numeric(8,2)")
+                        .HasColumnName("class1myr");
+
+                    b.Property<DateOnly?>("EffectiveDate")
+                        .HasColumnType("date")
+                        .HasColumnName("effective_date");
+
+                    b.Property<string>("EntryPlaza")
+                        .HasColumnType("text")
+                        .HasColumnName("entry_plaza");
+
+                    b.Property<string>("Highway")
+                        .HasColumnType("text")
+                        .HasColumnName("highway");
+
+                    b.Property<double?>("Lat")
+                        .HasColumnType("double precision")
+                        .HasColumnName("lat");
+
+                    b.Property<double?>("Lng")
+                        .HasColumnType("double precision")
+                        .HasColumnName("lng");
+
+                    b.PrimitiveCollection<List<string>>("MatchedPlaceIds")
+                        .IsRequired()
+                        .HasColumnType("text[]")
+                        .HasColumnName("matched_place_ids");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("name");
+
+                    b.Property<string>("Notes")
+                        .HasColumnType("text")
+                        .HasColumnName("notes");
+
+                    b.Property<string>("PlazaOsmId")
+                        .HasColumnType("text")
+                        .HasColumnName("plaza_osm_id");
+
+                    b.Property<string>("SourceUrl")
+                        .HasColumnType("text")
+                        .HasColumnName("source_url");
+
+                    b.Property<string>("System")
+                        .IsRequired()
+                        .HasMaxLength(12)
+                        .HasColumnType("character varying(12)")
+                        .HasColumnName("system");
+
+                    b.HasKey("Id")
+                        .HasName("pk_toll_rates");
+
+                    b.HasIndex("MatchedPlaceIds")
+                        .HasDatabaseName("ix_toll_rates_matched_place_ids");
+
+                    NpgsqlIndexBuilderExtensions.HasMethod(b.HasIndex("MatchedPlaceIds"), "gin");
+
+                    b.ToTable("toll_rates", (string)null);
                 });
 
             modelBuilder.Entity("Gimano.Core.Domain.User", b =>
@@ -615,6 +768,53 @@ namespace Gimano.Core.Data.Migrations
                         .HasDatabaseName("ix_users_device_id");
 
                     b.ToTable("users", (string)null);
+                });
+
+            modelBuilder.Entity("Gimano.Core.Domain.Feedback", b =>
+                {
+                    b.HasOne("Gimano.Core.Domain.User", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_feedback_users_user_id");
+
+                    b.OwnsOne("Gimano.Core.Contracts.FeedbackContext", "Context", b1 =>
+                        {
+                            b1.Property<Guid>("FeedbackId");
+
+                            b1.Property<string>("AppVersion");
+
+                            b1.Property<string>("DeviceModel");
+
+                            b1.Property<double?>("Lat");
+
+                            b1.Property<double?>("Lng");
+
+                            b1.Property<string>("Locale");
+
+                            b1.Property<string>("OsVersion");
+
+                            b1.Property<string>("PlaceId");
+
+                            b1.Property<string>("Platform");
+
+                            b1.Property<string>("RouteId");
+
+                            b1.HasKey("FeedbackId");
+
+                            b1.ToTable("feedback");
+
+                            b1
+                                .ToJson("context")
+                                .HasColumnType("jsonb");
+
+                            b1.WithOwner()
+                                .HasForeignKey("FeedbackId")
+                                .HasConstraintName("fk_feedback_feedback_id");
+                        });
+
+                    b.Navigation("Context");
                 });
 
             modelBuilder.Entity("Gimano.Core.Domain.RecentDestination", b =>

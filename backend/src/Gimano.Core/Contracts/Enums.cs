@@ -4,7 +4,7 @@ namespace Gimano.Core.Contracts;
 
 public enum Platform { Android, Ios }
 
-public enum Vehicle { Car, Motorcycle }
+public enum Vehicle { Car, Motorcycle, Bicycle, Walk }
 
 public enum SavedPlaceKind { Home, Work, Favorite }
 
@@ -24,3 +24,13 @@ public enum ManeuverType
     Depart, Arrive, Straight, SlightLeft, Left, SharpLeft, SlightRight, Right, SharpRight, UturnLeft, UturnRight,
     RoundaboutEnter, RoundaboutExit, Merge, RampLeft, RampRight, ExitLeft, ExitRight, KeepLeft, KeepRight, Ferry
 }
+
+public enum FavoriteIcon { Home, Work, Kampung, Mertua, Star, Heart, School, Surau, Food, Gym, Shop, Hospital }
+
+public enum TollSystem { Open, ClosedEntry, ClosedExit }
+
+public enum FeedbackCategory { Bug, Idea, MapData, Route, Search, Other }
+
+public enum FeedbackScreen { Home, Search, Place, RoutePreview, Navigation, Report, Settings, Other }
+
+public enum FeedbackStatus { Received, Triaged, Planned, Done, WontFix }

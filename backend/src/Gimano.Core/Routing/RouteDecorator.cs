@@ -1,5 +1,6 @@
 using Gimano.Core.Contracts;
 using Gimano.Core.Geo;
+using Gimano.Core.Tolls;
 using Gimano.Core.Traffic;
 
 namespace Gimano.Core.Routing;
@@ -16,8 +17,13 @@ public static class RouteDecorator
         IReadOnlyList<ReportDto> activeReports,
         IReadOnlyList<JamLine> jams,
         Func<string> newId,
-        IReadOnlyList<GeoPoint>? tollBooths = null)
+        Vehicle vehicle = Vehicle.Car,
+        IReadOnlyList<TollPlaza>? tollPlazas = null,
+        IReadOnlyList<TollTariff>? tariffs = null)
     {
+        // Live traffic only affects motor vehicles.
+        var motorised = ValhallaMapper.IsMotorised(vehicle);
+        if (!motorised) jams = [];
         var scored = candidates.Select(c =>
         {
             var levels = TrafficOverlay.LevelsPerVertex(c.Points, jams);
@@ -33,6 +39,7 @@ public static class RouteDecorator
         {
             var (c, segments, trafficDuration) = scored[i];
             var bbox = BBox.Of(c.Points);
+            var tolls = TollCalculator.Compute(c.Points, tollPlazas ?? [], tariffs ?? [], vehicle);
             result.Add(new RouteDto(
                 Id: newId(),
                 Label: i == 0 ? RouteLabel.Best : RouteLabel.Alternative,
@@ -40,9 +47,12 @@ public static class RouteDecorator
                 DistanceM: c.DistanceM,
                 TrafficDurationS: trafficDuration,
                 Summary: c.Summary,
-                TrafficDescription: TrafficOverlay.Describe(c.DurationS, trafficDuration, jams.Count > 0),
-                HasTolls: c.HasTolls || PassesTollBooth(c.Points, tollBooths ?? []),
-                TollEstimateMyr: null,
+                TrafficDescription: motorised ? TrafficOverlay.Describe(c.DurationS, trafficDuration, jams.Count > 0) : "Typical traffic",
+                Vehicle: vehicle,
+                HasTolls: motorised && (c.HasTolls || tolls.Tolls.Count > 0),
+                TollEstimateMyr: tolls.EstimateMyr,
+                TollFareComplete: tolls.FareComplete,
+                Tolls: tolls.Tolls,
                 Polyline: c.Polyline,
                 Bbox: bbox.ToArray(),
                 Legs: c.Legs,

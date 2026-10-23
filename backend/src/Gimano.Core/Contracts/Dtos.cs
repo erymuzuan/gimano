@@ -10,8 +10,9 @@ public sealed record PatchMeRequest(string? DisplayName, string? Mood, Vehicle? 
 
 // ---- Saved places ---------------------------------------------------------
 
-public sealed record SavedPlaceDto(Guid Id, SavedPlaceKind Kind, string Name, double Lat, double Lng, string Address, string? PlaceId);
-public sealed record SavePlaceRequest(string Name, double Lat, double Lng, string? Address, string? PlaceId);
+public sealed record SavedPlaceDto(Guid Id, SavedPlaceKind Kind, string Name, FavoriteIcon Icon, double Lat, double Lng, string Address, string? PlaceId, int SortOrder);
+public sealed record SavePlaceRequest(string Name, double Lat, double Lng, string? Address, string? PlaceId, FavoriteIcon? Icon = null);
+public sealed record PatchPlaceRequest(string? Name, FavoriteIcon? Icon, double? Lat, double? Lng, string? Address, int? SortOrder);
 public sealed record RecentDto(Guid Id, string Name, string Address, double Lat, double Lng, string? PlaceId, DateTimeOffset LastUsedAt);
 
 // ---- Search & places ------------------------------------------------------
@@ -28,24 +29,31 @@ public sealed record ReverseGeocodeResponse(string Name, string Address, double 
 
 // ---- Routing --------------------------------------------------------------
 
-public sealed record LatLng(double Lat, double Lng, string? PlaceId = null);
+/// <summary>A route point. Waypoints may carry a display <c>Name</c> (used for the leg's <c>to.name</c>).</summary>
+public sealed record LatLng(double Lat, double Lng, string? PlaceId = null, string? Name = null);
 public sealed record AvoidOptions(bool Tolls = false, bool Highways = false, bool Ferries = false);
 
 public sealed record RouteRequest(
     LatLng Origin, LatLng Destination, IReadOnlyList<LatLng>? Waypoints, Vehicle? Vehicle,
     AvoidOptions? Avoid, DateTimeOffset? DepartAt, int? Alternatives);
 
-public sealed record RerouteRequest(double Lat, double Lng, double? Heading);
+/// <summary><c>NextStopIndex</c>: index into the original waypoints of the next stop not yet reached (default 0).</summary>
+public sealed record RerouteRequest(double Lat, double Lng, double? Heading, int? NextStopIndex = null);
 
 public sealed record RoutesResponse(IReadOnlyList<RouteDto> Routes);
 
 public sealed record RouteDto(
     string Id, RouteLabel Label, double DurationS, double DistanceM, double TrafficDurationS,
-    string Summary, string TrafficDescription, bool HasTolls, decimal? TollEstimateMyr,
+    string Summary, string TrafficDescription, Vehicle Vehicle,
+    bool HasTolls, decimal? TollEstimateMyr, bool TollFareComplete, IReadOnlyList<TollOnRoute> Tolls,
     string Polyline, double[] Bbox, IReadOnlyList<RouteLeg> Legs,
     IReadOnlyList<TrafficSegment> TrafficSegments, IReadOnlyList<AlertOnRoute> Alerts);
 
-public sealed record RouteLeg(IReadOnlyList<ManeuverDto> Maneuvers);
+public sealed record RouteLeg(double DurationS, double DistanceM, LegEnd To, IReadOnlyList<ManeuverDto> Maneuvers);
+
+public sealed record LegEnd(double Lat, double Lng, string? Name);
+
+public sealed record TollOnRoute(string PlazaId, string Name, string? Highway, double Lat, double Lng, decimal? FareMyr, TollSystem System, string? Source);
 
 public sealed record ManeuverDto(
     ManeuverType Type, string Instruction, string? StreetName, string? ExitNumber, string? RoadRef,
@@ -92,3 +100,16 @@ public sealed record LiveResponse(IReadOnlyList<ReportDto> Alerts, IReadOnlyList
 
 public sealed record LocationPoint(double Lat, double Lng, double? SpeedKmh, double? Heading, double? AccuracyM, DateTimeOffset? Ts);
 public sealed record LocationBatch(string? RouteId, IReadOnlyList<LocationPoint> Points);
+
+// ---- Feedback ---------------------------------------------------------------
+
+public sealed record FeedbackContext(
+    string? AppVersion, string? Platform, string? OsVersion, string? DeviceModel, string? Locale,
+    double? Lat, double? Lng, string? RouteId, string? PlaceId);
+
+public sealed record CreateFeedbackRequest(
+    FeedbackCategory Category, string Message, int? Rating, FeedbackScreen? Screen, FeedbackContext? Context, string? Screenshot);
+
+public sealed record FeedbackCreatedResponse(Guid Id, DateTimeOffset CreatedAt);
+
+public sealed record FeedbackSummary(Guid Id, FeedbackCategory Category, string Message, FeedbackStatus Status, DateTimeOffset CreatedAt);

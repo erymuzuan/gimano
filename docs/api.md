@@ -171,7 +171,9 @@ car/motorcycle only (empty for bicycle/walk). Walking/cycling instructions use t
 `Maneuver` shape.
 
 **Multi-stop:** each waypoint becomes a leg: `legs.length == waypoints.length + 1`. Reroute keeps the
-**remaining** stops (the client sends `nextStopIndex`).
+**remaining** stops (the client sends `nextStopIndex`). `nextStopIndex` always indexes the waypoints of the
+**original** `POST /routes` request (also after earlier reroutes); omitted = 0. Each leg's `to.name` echoes the
+waypoint/destination `name` from the request.
 
 **Tolls & fares:** OSM has toll plazas but no tariffs. `tolls` lists every toll plaza the route
 passes, in order, with the class-appropriate fare from Gimano's curated tariff table
@@ -179,7 +181,9 @@ passes, in order, with the class-appropriate fare from Gimano's curated tariff t
 `tollEstimateMyr` is the sum **only when every plaza has a known fare** (`tollFareComplete: true`);
 otherwise it is the sum of the known fares and `tollFareComplete: false`, and the app shows "from RM x".
 Closed-system expressways (PLUS E1/E2 etc.) charge entry→exit pairs and are priced only
-where the pair is in the table. Vehicle class: car = class 1, motorcycle = class 0. Most Malaysian
+where the pair is in the table. On a priced pair the entry plaza is listed with `system: "closed_entry"`, `fareMyr: 0`
+and the pair fare is on the exit plaza (`closed_exit`). Plazas with no tariff row are listed with
+`system: "open"` and no `fareMyr`. `tollEstimateMyr` is `null` when no fare on the route is known. Vehicle class: car = class 1, motorcycle = class 0. Most Malaysian
 tolls are free for class 0, but fares are taken from the table, not assumed. Bicycle and walk routes always have `tolls: []`.
 
 ```

@@ -13,6 +13,11 @@ internal static class Validation
     public static ValidationProblem? LatLng(double lat, double lng, string prefix = "")
         => ValidLatLng(lat, lng) ? null : Problem(prefix + "lat", "lat/lng must be valid WGS84 coordinates.");
 
+    public static ValidationProblem? FavouriteName(string? name) =>
+        string.IsNullOrWhiteSpace(name) || name.Trim().Length > AuthAndMeEndpoints.MaxFavouriteNameLength
+            ? Problem("name", $"name is required (max {AuthAndMeEndpoints.MaxFavouriteNameLength} chars).")
+            : null;
+
     public static ValidationProblem? SavedPlace(SavePlaceRequest req)
     {
         if (string.IsNullOrWhiteSpace(req.Name) || req.Name.Length > 200) return Problem("name", "name is required (max 200 chars).");

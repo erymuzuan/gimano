@@ -21,22 +21,34 @@ public static partial class ValhallaMapper
 
     public static JsonObject BuildRouteRequest(RouteRequest req, double? originHeading = null, string language = "en-US")
     {
+        // Every waypoint is a stop ("break") so that it becomes its own leg.
         var locations = new JsonArray { Location(req.Origin, originHeading) };
-        foreach (var w in req.Waypoints ?? []) locations.Add(Location(w, null, "through"));
+        foreach (var w in req.Waypoints ?? []) locations.Add(Location(w, null));
         locations.Add(Location(req.Destination, null));
 
         var vehicle = req.Vehicle ?? Vehicle.Car;
-        var costing = vehicle == Vehicle.Motorcycle ? "motorcycle" : "auto";
-        var avoid = req.Avoid ?? new AvoidOptions();
-        var opts = new JsonObject
+        var costing = Costing(vehicle);
+        JsonObject opts;
+        if (IsMotorised(vehicle))
         {
-            ["use_tolls"] = avoid.Tolls ? 0.0 : 0.5,
-            ["use_highways"] = avoid.Highways ? 0.0 : (vehicle == Vehicle.Motorcycle ? 0.8 : 1.0),
-            ["use_ferry"] = avoid.Ferries ? 0.0 : 0.5,
-        };
-        // Malaysian OSM tolls are mostly mapped as barrier=toll_booth nodes, not toll=yes ways, so Valhalla's
-        // use_tolls alone barely changes anything: also penalise passing a toll booth.
-        if (avoid.Tolls) opts["toll_booth_penalty"] = TollBoothPenaltyS;
+            var avoid = req.Avoid ?? new AvoidOptions();
+            opts = new JsonObject
+            {
+                ["use_tolls"] = avoid.Tolls ? 0.0 : 0.5,
+                ["use_highways"] = avoid.Highways ? 0.0 : (vehicle == Vehicle.Motorcycle ? 0.8 : 1.0),
+                ["use_ferry"] = avoid.Ferries ? 0.0 : 0.5,
+            };
+            // Malaysian OSM tolls are mostly mapped as barrier=toll_booth nodes, not toll=yes ways, so Valhalla's
+            // use_tolls alone barely changes anything: also penalise passing a toll booth.
+            if (avoid.Tolls) opts["toll_booth_penalty"] = TollBoothPenaltyS;
+        }
+        else
+        {
+            // avoid.* doesn't apply: bicycle and pedestrian costings never use expressways or tolls.
+            opts = vehicle == Vehicle.Bicycle
+                ? new JsonObject { ["bicycle_type"] = "hybrid", ["use_roads"] = 0.5 }
+                : new JsonObject();
+        }
 
         var body = new JsonObject
         {
@@ -56,6 +68,18 @@ public static partial class ValhallaMapper
         return body;
     }
 
+    /// <summary>car→auto, motorcycle→motorcycle, bicycle→bicycle, walk→pedestrian.</summary>
+    public static string Costing(Vehicle v) => v switch
+    {
+        Vehicle.Motorcycle => "motorcycle",
+        Vehicle.Bicycle => "bicycle",
+        Vehicle.Walk => "pedestrian",
+        _ => "auto",
+    };
+
+    /// <summary>Live traffic, tolls and avoid.* apply to car/motorcycle only.</summary>
+    public static bool IsMotorised(Vehicle v) => v is Vehicle.Car or Vehicle.Motorcycle;
+
     public static string ToValhallaLocal(DateTimeOffset t) =>
         TimeZoneInfo.ConvertTime(t, MalaysiaTime).ToString("yyyy-MM-dd'T'HH:mm", CultureInfo.InvariantCulture);
 
@@ -73,17 +97,18 @@ public static partial class ValhallaMapper
     // ---- Response ---------------------------------------------------------
 
     /// <summary>Maps the primary trip and all alternates of a Valhalla /route response.</summary>
-    public static IReadOnlyList<RouteCandidate> MapResponse(JsonNode response)
+    /// <param name="stops">The requested stops after the origin (waypoints…, destination), used for each leg's <c>to</c>.</param>
+    public static IReadOnlyList<RouteCandidate> MapResponse(JsonNode response, IReadOnlyList<LatLng>? stops = null)
     {
         var list = new List<RouteCandidate>();
-        if (response["trip"] is { } trip) list.Add(MapTrip(trip));
+        if (response["trip"] is { } trip) list.Add(MapTrip(trip, stops));
         if (response["alternates"] is JsonArray alts)
             foreach (var a in alts)
-                if (a?["trip"] is { } t) list.Add(MapTrip(t));
+                if (a?["trip"] is { } t) list.Add(MapTrip(t, stops));
         return list;
     }
 
-    public static RouteCandidate MapTrip(JsonNode trip)
+    public static RouteCandidate MapTrip(JsonNode trip, IReadOnlyList<LatLng>? stops = null)
     {
         var lengthFactor = (trip["units"]?.GetValue<string>() ?? "kilometers") switch
         {
@@ -96,8 +121,10 @@ public static partial class ValhallaMapper
         var legsNode = trip["legs"]?.AsArray() ?? [];
         var hasTolls = trip["summary"]?["has_toll"]?.GetValue<bool>() ?? false;
 
-        foreach (var leg in legsNode)
+        var tripLocations = trip["locations"]?.AsArray();
+        for (var legIndex = 0; legIndex < legsNode.Count; legIndex++)
         {
+            var leg = legsNode[legIndex];
             var shape = Polyline.Decode(leg!["shape"]?.GetValue<string>());
             // Consecutive legs share their joining vertex; drop the duplicate.
             var offset = allPoints.Count == 0 ? 0 : allPoints.Count - 1;
@@ -110,7 +137,11 @@ public static partial class ValhallaMapper
                 hasTolls |= m["toll"]?.GetValue<bool>() ?? false;
                 maneuvers.Add(MapManeuver(m, offset, lengthFactor));
             }
-            legs.Add(new RouteLeg(maneuvers));
+            var ls = leg["summary"];
+            var legDuration = ls?["time"]?.GetValue<double>() ?? maneuvers.Sum(m => m.DurationS);
+            var legDistance = (ls?["length"]?.GetValue<double>() * lengthFactor) ?? maneuvers.Sum(m => m.DistanceM);
+            legs.Add(new RouteLeg(Math.Round(legDuration, 1), Math.Round(legDistance, 1),
+                LegEndpoint(legIndex, shape, tripLocations, stops), maneuvers));
         }
 
         var s = trip["summary"];
@@ -120,6 +151,20 @@ public static partial class ValhallaMapper
         return new RouteCandidate(
             Math.Round(duration, 1), Math.Round(distance, 1), hasTolls,
             Polyline.Encode(allPoints), allPoints, legs, Summarize(legs));
+    }
+
+    /// <summary>The requested stop when known (keeps the user's name), else Valhalla's location, else the leg's last vertex.</summary>
+    private static LegEnd LegEndpoint(int legIndex, IReadOnlyList<GeoPoint> shape, JsonArray? tripLocations, IReadOnlyList<LatLng>? stops)
+    {
+        if (stops is not null && legIndex < stops.Count)
+        {
+            var s = stops[legIndex];
+            return new LegEnd(s.Lat, s.Lng, s.Name);
+        }
+        if (tripLocations is not null && legIndex + 1 < tripLocations.Count && tripLocations[legIndex + 1] is { } loc)
+            return new LegEnd(loc["lat"]!.GetValue<double>(), loc["lon"]!.GetValue<double>(), loc["name"]?.GetValue<string>());
+        var last = shape.Count > 0 ? shape[^1] : default;
+        return new LegEnd(last.Lat, last.Lng, null);
     }
 
     public static ManeuverDto MapManeuver(JsonNode m, int shapeOffset = 0, double lengthFactor = 1000)
