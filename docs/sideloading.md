@@ -1,0 +1,50 @@
+# Direct downloads and AltStore Classic
+
+Public downloads: https://www.bukitbunga.com/gimano/download/
+AltStore source: https://www.bukitbunga.com/gimano/altstore.json
+GitHub releases: https://github.com/erymuzuan/gimano/releases
+
+## Android
+
+Publish a **release-key-signed** APK, never a debug APK. Keep the signing key unchanged so upgrades preserve
+local data. The v0.1.0 APK already published remains unchanged. SHA-256 certificate fingerprint:
+`b9baddcd63b3d74b8a374cb93df3278579ba4faeae121c35827d377e210bbec9`.
+Users need Android 8+. Allow installation for the browser/Files app when requested; it can be disabled after installing.
+Export a backup before removing a differently signed development build.
+
+## iPhone
+
+The IPA is an arm64 Release build, iOS 17+, for re-signing with AltStore Classic or Sideloadly.
+It is **not** an App Store, TestFlight, enterprise, or pre-provisioned Ad Hoc installer.
+AltStore Classic works worldwide; the user signs with their own Apple account. Free signing requires
+refreshing within seven days and allows three active apps (AltStore counts as one).
+Initial AltStore setup requires a Mac or Windows computer running AltServer.
+
+Build with `ios/scripts/sideload.sh` from the repository root. Xcode must be installed.
+The build explicitly disables iCloud and Google OAuth configuration. File backups remain available.
+Do not bundle personal provisioning profiles, Apple credentials, or a company signing identity.
+Use a separate TestFlight/App Store build for capabilities bound to the developer team.
+
+The source feed lists the exact version/build, minimum OS, byte length and privacy usage strings from the IPA.
+Regenerate it after changing any binary; upload immutable versioned assets before updating the feed.
+Free accounts cannot use every Apple entitlement: keep the sideload build free of iCloud, push and app-group requirements.
+
+## Release integrity and provenance
+
+Publish checksums alongside binaries. When a release is built from an uncommitted source snapshot, attach
+that exact source snapshot and explicitly identify it in the release notes; never imply the release tag
+alone reproduces it. Exclude all ignored configuration, signing files, build products and credentials.
+The initial iOS sideload snapshot also updates the feedback contract test from `context` to `location`.
+
+## Website deployment
+
+Use the Gimano-only folder and additive deployment described in AGENTS.md. Serve `altstore.json` as JSON.
+Keep the source URL stable; preserve older version entries when adding new releases.
+The download page must disclose signing renewal, backup limitations and whether a TestFlight link exists.
+Do not present a successful compiler run as a successful AltStore installation on a phone.
+
+## TestFlight ownership
+
+Gimano must be registered under Erymuzuan Mustapa's individual Apple Developer membership, **not STAFY**.
+Verify the team in App Store Connect and signing settings before creating identifiers or uploading.
+Enrollment, agreement acceptance and payment do not by themselves confirm membership activation.

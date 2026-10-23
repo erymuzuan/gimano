@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Muat turun Gimano untuk Android · Download Gimano</title>
-<meta name="description" content="Muat turun Gimano 0.1.0 untuk Android (APK). Download the Gimano Android app: open source, no ads, your places stay on your phone.">
+<title>Muat turun Gimano · Android &amp; iPhone</title>
+<meta name="description" content="Muat turun Gimano 0.1.0 untuk Android (APK) dan iPhone (IPA). Download Gimano: open source, no ads, your places stay on your phone.">
 <meta name="theme-color" content="#0047AB">
 <link rel="icon" href="../logo.png">
 <link rel="preload" href="../fonts/nunito-variable.ttf" as="font" type="font/ttf" crossorigin>
@@ -91,15 +91,15 @@ footer{display:flex;flex-wrap:wrap;gap:16px 28px;padding-top:28px;padding-bottom
 <main id="kandungan">
   <div class="wrap hero">
     <div class="hero-text">
-      <span class="pill">Android · versi 0.1.0</span>
-      <h1>Muat turun Gimano untuk Android.</h1>
-      <p class="lede">Percuma, tanpa iklan, sumber terbuka. <span class="en">Free, no ads, open source. Download the Android app directly from us.</span></p>
+      <span class="pill">Android &amp; iPhone · versi 0.1.0</span>
+      <h1>Muat turun Gimano.</h1>
+      <p class="lede">Percuma, tanpa iklan, sumber terbuka. <span class="en">Free, no ads, open source. Get the Android APK or sideload the iPhone IPA.</span></p>
       <div class="actions">
-        <a id="apk-link" class="btn btn-primary" href="gimano-0.1.0.apk" download type="application/vnd.android.package-archive">
+        <a id="apk-link" class="btn btn-primary" href="https://github.com/erymuzuan/gimano/releases/download/v0.1.0/gimano-0.1.0.apk" download type="application/vnd.android.package-archive">
           <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"></path></svg>
           Muat turun APK · Download
         </a>
-        <a class="btn btn-ghost" href="https://github.com/erymuzuan/gimano/releases/tag/v0.1.0">GitHub Release v0.1.0 →</a>
+        <a class="btn btn-ghost" href="#iphone">iPhone IPA · AltStore ↓</a>
       </div>
       <div class="meta" aria-label="Butiran fail · File details">
         <span>gimano-0.1.0.apk</span>
@@ -191,12 +191,18 @@ footer{display:flex;flex-wrap:wrap;gap:16px 28px;padding-top:28px;padding-bottom
   </section>
 
   <section class="wrap" aria-labelledby="iphone">
-    <span class="eyebrow">IPHONE</span>
-    <h2 id="iphone">iPhone: segera · coming soon</h2>
-    <div class="card soon">
-      <p style="flex:1 1 300px;min-width:0">Versi iPhone sedang disiapkan dan akan tersedia di App Store. Ikuti perkembangannya di GitHub. <span class="en">The iPhone version is coming soon to the App Store. Follow progress on GitHub.</span></p>
-      <a class="btn btn-ghost" href="https://github.com/erymuzuan/gimano/releases">Semua keluaran · All releases →</a>
+    <span class="eyebrow">IPHONE · iOS 17+</span>
+    <h2 id="iphone">Pasang melalui AltStore · Sideload Gimano</h2>
+    <div class="actions"><a class="btn btn-primary" href="https://github.com/erymuzuan/gimano/releases/download/v0.1.0/gimano-0.1.0.ipa">↓ Muat turun IPA · Download IPA</a><a class="btn btn-ghost" href="../altstore.json">AltStore source JSON</a></div>
+    <p>Gimano 0.1.0 for iPhone is available as a sideload preview. The IPA must be signed for your Apple account using AltStore Classic or Sideloadly; opening it in Safari alone does not install it.</p>
+    <div class="grid">
+      <div class="card"><span class="num">1</span><h3>Pasang AltStore Classic</h3><p>Use a Mac or Windows computer to install AltServer and AltStore Classic on your iPhone. Follow the official <a href="https://faq.altstore.io/altstore-classic/how-to-install-altstore-macos">Mac</a> or <a href="https://faq.altstore.io/altstore-classic/how-to-install-altstore-windows">Windows</a> guide. Enable Developer Mode and trust your developer profile if iOS requests it.</p></div>
+      <div class="card"><span class="num">2</span><h3>Tambah sumber Gimano</h3><p>In AltStore, open Sources → + and paste this URL. Add the source, then install Gimano.</p><pre>https://www.bukitbunga.com/gimano/altstore.json</pre><p>Alternatively, import the IPA through My Apps → +, or use <a href="https://sideloadly.io/">Sideloadly</a>.</p></div>
+      <div class="card"><span class="num">3</span><h3>Refresh setiap tujuh hari</h3><p>Free Apple accounts need a refresh within seven days using AltServer, and allow three active sideloaded apps including AltStore. Refresh an expired app rather than deleting it and losing its local data.</p></div>
     </div>
+    <p class="note"><b>Sandaran · Backups:</b> iCloud and Google Drive sign-in are disabled in this re-signed iPhone build. File backup and restore work; save the exported file to your own storage through Files. Export a backup before switching Apple accounts or installation methods.</p>
+    <p>TestFlight is being set up under our individual developer account. No TestFlight invitation is available yet. These are early preview builds; unavailable live services may show labelled demo data.</p>
+    <p><a href="https://github.com/erymuzuan/gimano/releases/download/v0.1.0/SHA256SUMS.txt">SHA-256 checksums</a> · <a href="https://github.com/erymuzuan/gimano/releases/download/v0.1.0/gimano-ios-0.1.0-source.zip">Exact iOS build source</a> · <a href="https://github.com/erymuzuan/gimano/releases/tag/v0.1.0">Release notes</a></p>
   </section>
 </main>
 

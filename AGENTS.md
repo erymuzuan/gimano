@@ -135,3 +135,9 @@ must be rejected in review.
 - No secrets in the repo: `deploy/.env` and `.env*` are git-ignored; JWT key is set per host.
 - OSM data © OpenStreetMap contributors (ODbL) — keep attribution visible in every map view.
 - Clean-room: no third-party navigation app assets/code/copy (see `docs/research/ux-study.md`).
+
+## Public mobile distribution
+
+- APK/IPA and AltStore instructions: `docs/sideloading.md`.
+- Gimano TestFlight and App Store ownership must use Erymuzuan Mustapa's **individual** Apple Developer team, never STAFY COMPANY LIMITED. Verify the selected team before any identifier, signing or upload operation.
+- AltStore builds have no team-bound iCloud/Google configuration; publish the limitation and retain file backup/restore. Never distribute personal provisioning profiles.
