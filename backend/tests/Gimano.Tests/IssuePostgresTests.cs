@@ -186,6 +186,37 @@ public sealed class PostgresIntegrationIssueTests : IAsyncLifetime
         Assert.Null(await IssueLedger.EvaluateAsync(fresh, issue, clock.Now, default));   // before: confirmed on the withdrawn Emas vote
     }
 
+    // (Crash grouping lives here because this class owns the throwaway PostGIS database.)
+    [Fact]
+    public async Task Crash_groups_count_concurrent_reports_exactly_and_reopen_when_closed()
+    {
+        if (_ds is null) { Assert.Skip("GIMANO_PG_TEST not set"); return; }
+        static CrashReport Report(string sig) => new() { Signature = sig, Exception = "NullPointerException", Kind = CrashKind.Crash, CreatedAt = T0 };
+
+        // Ten phones hit the same new crash at once: one creates the group, the rest bump it (no lost counts, no 500).
+        await Task.WhenAll(Enumerable.Range(0, 10).Select(async _ =>
+        {
+            await using var db = NewDb();
+            await Gimano.Api.Endpoints.CrashEndpoints.RecordAsync(db, Report("sig-race"), "NullPointerException", T0, _ => { }, default);
+        }));
+        await using (var check = NewDb())
+        {
+            Assert.Equal(10, (await check.CrashGroups.FirstAsync(g => g.Signature == "sig-race")).Count);
+            Assert.Equal(10, await check.CrashReports.CountAsync(r => r.Signature == "sig-race"));
+        }
+
+        // A group marked done that crashes again reopens.
+        await using (var db = NewDb())
+        {
+            db.CrashGroups.Add(new CrashGroup { Signature = "sig-done", Exception = "X", Count = 4, FirstSeen = T0, LastSeen = T0, Status = CrashGroupStatus.Done, ClosedAt = T0 });
+            await db.SaveChangesAsync();
+            await Gimano.Api.Endpoints.CrashEndpoints.RecordAsync(db, Report("sig-done"), "X", T0.AddDays(1), _ => { }, default);
+        }
+        await using var after = NewDb();
+        var g = await after.CrashGroups.FirstAsync(x => x.Signature == "sig-done");
+        Assert.Equal((5, CrashGroupStatus.Open, (DateTimeOffset?)null, T0.AddDays(1)), (g.Count, g.Status, g.ClosedAt, g.LastSeen));
+    }
+
     [Fact]
     public async Task Votes_need_proximity_and_new_accounts_weigh_nothing()
     {

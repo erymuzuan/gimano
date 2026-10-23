@@ -44,26 +44,45 @@ public static class CrashEndpoints
             Screen = req.Screen?.Length > 32 ? req.Screen[..32] : req.Screen, UptimeS = req.UptimeS, Device = req.Device,
             OccurredAt = req.OccurredAt is { } o && o <= now.AddMinutes(5) ? o : now, CreatedAt = now,
         };
-        var group = await db.CrashGroups.FirstOrDefaultAsync(g => g.Signature == signature, ct);
-        if (group is null) db.CrashGroups.Add(group = new CrashGroup { Signature = signature, Exception = exception, FirstSeen = now });
-        group.Count++;
-        group.LastSeen = now;
-        // A closed group that crashes again reopens (its contact retention restarts from the new report).
-        if (group.Status != CrashGroupStatus.Open) { group.Status = CrashGroupStatus.Open; group.ClosedAt = null; }
-        db.CrashReports.Add(report);
-        FeedbackEndpoints.StoreContact(db, crypto, ContactSubject.Crash, report.Id, req.Contact, now, log);
-        try { await db.SaveChangesAsync(ct); }
-        catch (DbUpdateException) when (group.Count == 1)
-        {
-            // Another request created the same group concurrently: retry as an increment.
-            db.ChangeTracker.Clear();
-            var g = await db.CrashGroups.FirstAsync(x => x.Signature == signature, ct);
-            g.Count++; g.LastSeen = now;
-            db.CrashReports.Add(report);
-            FeedbackEndpoints.StoreContact(db, crypto, ContactSubject.Crash, report.Id, req.Contact, now, log);
-            await db.SaveChangesAsync(ct);
-        }
+        await RecordAsync(db, report, exception, now, d => FeedbackEndpoints.StoreContact(d, crypto, ContactSubject.Crash, report.Id, req.Contact, now, log), ct);
         return TypedResults.Created($"/api/v1/crash-reports/{report.Id}", new CrashReportCreated(report.Id, signature));
+    }
+
+    /// <summary>
+    /// Saves a crash report into its group. An existing group is bumped with one atomic UPDATE (count + 1, last seen, and a
+    /// closed group reopens, restarting its contact retention), so concurrent reports never lose a count. A new group is
+    /// inserted with count 1; if another request inserted it first (unique signature), this one falls back to the bump.
+    /// </summary>
+    internal static async Task RecordAsync(GimanoDbContext db, CrashReport report, string exception, DateTimeOffset now,
+        Action<GimanoDbContext> addContact, CancellationToken ct)
+    {
+        var signature = report.Signature;
+        Task<int> BumpAsync() => db.CrashGroups.Where(g => g.Signature == signature).ExecuteUpdateAsync(s => s
+            .SetProperty(g => g.Count, g => g.Count + 1)
+            .SetProperty(g => g.LastSeen, now)
+            .SetProperty(g => g.Status, CrashGroupStatus.Open)
+            .SetProperty(g => g.ClosedAt, (DateTimeOffset?)null), ct);
+
+        if (await BumpAsync() == 0)
+        {
+            db.CrashGroups.Add(new CrashGroup { Signature = signature, Exception = exception, FirstSeen = now, LastSeen = now, Count = 1 });
+            db.CrashReports.Add(report);
+            addContact(db);
+            try
+            {
+                await db.SaveChangesAsync(ct);
+                return;
+            }
+            catch (DbUpdateException ex) when (ex.InnerException is Npgsql.PostgresException { SqlState: Npgsql.PostgresErrorCodes.UniqueViolation })
+            {
+                // Another request created the same group concurrently: count this one as a bump of that group.
+                db.ChangeTracker.Clear();
+                await BumpAsync();
+            }
+        }
+        db.CrashReports.Add(report);
+        addContact(db);
+        await db.SaveChangesAsync(ct);
     }
 
     internal static ValidationProblem? Validate(CrashReportRequest req)
