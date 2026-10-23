@@ -286,6 +286,13 @@ final class LocalStore: Sendable {
         try dbQueue.read { db in try String.fetchOne(db, sql: "SELECT value FROM settings WHERE key = ?", arguments: [key]) }
     }
 
+    /// Removes settings tied to the server identity (my review ids, my places, inbox read mark).
+    func clearIdentitySettings() throws {
+        try dbQueue.write { db in
+            try db.execute(sql: "DELETE FROM settings WHERE key LIKE 'review.%' OR key IN ('ownPlaces', 'inbox.readUpTo')")
+        }
+    }
+
     func setSetting(_ key: String, _ value: String?) throws {
         try dbQueue.write { db in
             if let value {

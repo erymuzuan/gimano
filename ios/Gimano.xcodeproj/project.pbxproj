@@ -71,6 +71,7 @@
 		CCB345D1D908EA86AA8B12B6 /* AppConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5C8E36DD818ECCF42E477DD0 /* AppConfig.swift */; };
 		CCD925FC6D043A60C16E6801 /* DemoRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC5F97752F0253FCE0E79086 /* DemoRepository.swift */; };
 		CCD9E85A1637E79A1835B199 /* GRDB in Frameworks */ = {isa = PBXBuildFile; productRef = 60F512D77F4925A4ED311CFB /* GRDB */; };
+		CD7DC3409E227B4A874AA1EB /* InboxTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FCB4A8EBDBFD3D3E30CD851F /* InboxTests.swift */; };
 		D71A61684F5EE427B13F87DF /* StorageTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4B2CFC11755024221550485E /* StorageTests.swift */; };
 		E1A7FA641ADA806D4FDD6A47 /* LiveHubClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 048F3F93B703ED18CCF2F483 /* LiveHubClient.swift */; };
 		E35D07FA087E065992A7004A /* libwebp in Frameworks */ = {isa = PBXBuildFile; productRef = C2C539BD2F351FB1D670A2CA /* libwebp */; };
@@ -174,6 +175,7 @@
 		F05911F984BB3D0A8BDFE891 /* PlaceCardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaceCardView.swift; sourceTree = "<group>"; };
 		F6C8B1343BB36DDAC8D6166E /* Formatters.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Formatters.swift; sourceTree = "<group>"; };
 		FBED0F8FE579F3B5F1450975 /* Polyline.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Polyline.swift; sourceTree = "<group>"; };
+		FCB4A8EBDBFD3D3E30CD851F /* InboxTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InboxTests.swift; sourceTree = "<group>"; };
 		FEBDD7794BF35380C8835FD5 /* Keychain.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Keychain.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -316,6 +318,7 @@
 			isa = PBXGroup;
 			children = (
 				D54728F5506AB4817C165892 /* FormatterTests.swift */,
+				FCB4A8EBDBFD3D3E30CD851F /* InboxTests.swift */,
 				D028E26C9546B7B894417E36 /* NavigationTests.swift */,
 				290AD2E4977FFEDB651E4762 /* PlannedDriveTests.swift */,
 				E3820150BB82A2510C4945B2 /* PolylineTests.swift */,
@@ -621,6 +624,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				6CBFA0B419583CF5ACDF5082 /* FormatterTests.swift in Sources */,
+				CD7DC3409E227B4A874AA1EB /* InboxTests.swift in Sources */,
 				A5EEC9BEAC5DEBA6083B81A3 /* NavigationTests.swift in Sources */,
 				534C137ABCED2AB78A8DF771 /* PlannedDriveTests.swift in Sources */,
 				26661DE9BEC534AA68B52D83 /* PolylineTests.swift in Sources */,

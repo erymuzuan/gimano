@@ -179,8 +179,9 @@ struct CommunityDemoTests {
             let existing = try JSON.makeDecoder().decode(Place.self, from: body)
             #expect(existing.id == p.id)
         }
-        var v = p
-        for _ in 0..<3 { v = try await repo.verifyPlace(id: p.id, VerifyPlaceRequest(exists: true, correctLocation: true)) }
+        await #expect(throws: APIError.self) { try await repo.verifyPlace(id: p.id, VerifyPlaceRequest(exists: true)) } // own place
+        try await repo.simulateOtherDriversVerify(placeId: p.id, count: 3)
+        let v = try await repo.place(id: p.id, near: nil)
         #expect(v.status == .published && v.verifiedCount == 3)
         #expect(try await repo.myContributions().map(\.id) == [p.id])
         let found = try await repo.search(query: "pak mat", near: LatLng(lat: 3.16, lng: 101.70), category: nil, limit: 5)
@@ -193,10 +194,10 @@ struct CommunityDemoTests {
         let img = UIGraphicsImageRenderer(size: CGSize(width: 800, height: 600)).image { c in UIColor.green.setFill(); c.fill(CGRect(x: 0, y: 0, width: 800, height: 600)) }
         let jpeg = try #require(ImageProcessing.uploadJPEG(img))
         let photo = try await repo.uploadPhoto(jpeg, placeId: "demo:klcc", caption: nil) { _ in }
-        #expect(photo.url.hasSuffix(".webp"))
+        #expect(photo.url?.hasSuffix(".webp") == true)
         #expect(photo.status == .processing)
         let review = try await repo.createReview(placeId: "demo:klcc", NewReview(rating: 5, text: "Sedap!", photoIds: [photo.id]))
-        #expect(review.photos?.first?.url.hasSuffix(".webp") == true)
+        #expect(review.photos?.first?.url?.hasSuffix(".webp") == true)
         await #expect(throws: APIError.self) { try await repo.createReview(placeId: "demo:klcc", NewReview(rating: 3)) }
         try await repo.toggleHelpful(reviewId: review.id)
         #expect(try await repo.reviews(placeId: "demo:klcc", sort: .helpful, cursor: nil).reviews.first?.helpfulCount == 1)
@@ -217,7 +218,31 @@ struct CommunityDemoTests {
                     "caption":null,"uploadedBy":{"displayName":"Aina"},"createdAt":"2026-10-23T01:00:00Z"}]}
         """
         let p = try JSON.makeDecoder().decode(Place.self, from: Data(json.utf8))
-        #expect(p.summary.isCommunity && p.status == .pending && p.photos?.first?.url.hasSuffix(".webp") == true)
+        #expect(p.summary.isCommunity && p.status == .pending && p.photos?.first?.url?.hasSuffix(".webp") == true)
+    }
+
+    @Test("409 duplicate: the existing place is read from the problem body (live shape)")
+    func duplicateBody() {
+        let json = #"{"type":"x","title":"Similar place nearby","status":409,"detail":"A similar place already exists nearby: Kedai Runcit Probe.","existing":{"id":"c01","name":"Kedai Runcit Probe","category":"convenience","address":"Near Balai Polis","lat":3.1526,"lng":101.7037,"distanceM":0,"brand":null,"source":"community","status":"pending","rating":null,"reviewCount":0,"thumbnailUrl":null},"traceId":"t"}"#
+        let e = DuplicatePlace.existing(in: Data(json.utf8))
+        #expect(e?.id == "c01" && e?.name == "Kedai Runcit Probe")
+        #expect(DuplicatePlace.existing(in: Data("{}".utf8)) == nil)
+    }
+
+    @Test("Root-relative /media URLs resolve against the API host; absolute ones are kept")
+    @MainActor
+    func mediaURL() {
+        let base = URL(string: "http://100.101.150.9:5080/api/v1/")!
+        #expect(MediaURL.resolve("/media/abc.webp", apiBase: base)?.absoluteString == "http://100.101.150.9:5080/media/abc.webp")
+        #expect(MediaURL.resolve("https://cdn.example/x.webp", apiBase: base)?.absoluteString == "https://cdn.example/x.webp")
+        #expect(MediaURL.resolve(nil, apiBase: base) == nil)
+    }
+
+    @Test("A photo still processing on the server has no URL yet (live API shape)")
+    func processingPhoto() throws {
+        let json = #"{"id":"p1","url":null,"thumbUrl":null,"width":1024,"height":1024,"caption":null,"uploadedBy":{"displayName":"Gajah 4370"},"createdAt":"2026-10-23T03:18:35.0826639+00:00","status":"processing"}"#
+        let photo = try JSON.makeDecoder().decode(Photo.self, from: Data(json.utf8))
+        #expect(photo.url == nil && photo.status == .processing && photo.createdAt != nil)
     }
 }
 

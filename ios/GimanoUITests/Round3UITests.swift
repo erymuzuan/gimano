@@ -8,7 +8,7 @@ final class Round3UITests: XCTestCase {
     func launch(fresh: Bool = true) {
         app = XCUIApplication()
         app.launchArguments = [
-            "-GimanoDataMode", "demo",
+            "-GimanoDataMode", ProcessInfo.processInfo.environment["GIMANO_DATA_MODE"] ?? "demo",
             "-GimanoFreshDevice", fresh ? "YES" : "NO",
             "-GimanoSkipOnboarding", "YES",
             "-GimanoFakeLocation", "3.152613,101.703718",
@@ -95,21 +95,22 @@ final class Round3UITests: XCTestCase {
     }
 
     func test_m_PublicPlace() {
-        addPlace(name: "Kedai Runcit UITest", category: "convenience", visibility: "visibilityPublic")
+        // Unique per run: the live server rejects a similar name within 100 m (409).
+        // (trigram similarity >= 0.6 within 100 m), so use an unrelated random name.
+        let name = "Warung " + String(UUID().uuidString.replacingOccurrences(of: "-", with: "").prefix(10))
+        addPlace(name: name, category: "convenience", visibility: "visibilityPublic")
         wait(app.descendants(matching: .any)["badgeCommunity"], 30)
         XCTAssertTrue(app.descendants(matching: .any)["badgeUnverified"].exists)
         sleep(1)
         shot("m-public-place-card")
-        app.swipeUp()
-        if app.buttons["verifyYes"].exists {
-            app.buttons["verifyYes"].tap()
-            wait(app.descendants(matching: .any)["verifyThanks"])
-            shot("m-verified")
-        }
+        // The owner can't verify their own place; other drivers do (3 confirmations).
+        XCTAssertFalse(app.buttons["verifyYes"].exists, "owners must not see the verify buttons")
+        wait(app.descendants(matching: .any)["awaitingVerification"])
+        shot("m-awaiting-verification")
         goHome()
         wait(app.buttons["menuButton"]).tap()
         wait(app.buttons["menuContributions"]).tap()
-        wait(app.buttons["contribution.Kedai Runcit UITest"])
+        wait(app.buttons["contribution.\(name)"])
         shot("m-my-contributions")
     }
 
@@ -132,8 +133,9 @@ final class Round3UITests: XCTestCase {
         for _ in 0..<4 where !row.isHittable { app.swipeUp() }
         sleep(2)
         shot("n-review-posted")
-        let photo = app.buttons.matching(identifier: "placePhoto").firstMatch
-        wait(photo)
+        wait(app.buttons.matching(identifier: "placePhoto").firstMatch)
+        let all = app.buttons.matching(identifier: "placePhoto").allElementsBoundByIndex
+        let photo = all.first { $0.isHittable } ?? all[0]
         let url = (photo.value as? String) ?? ""
         XCTAssertTrue(url.hasSuffix(".webp"), "photo URL should end in .webp: \(url)")
         photo.tap()

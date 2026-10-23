@@ -176,7 +176,7 @@ struct AddPlaceFlow: View {
     @State private var photos: [PickedPhoto] = []
     @State private var saving = false
     @State private var uploadProgress: Double?
-    @State private var duplicate: Place?
+    @State private var duplicate: PlaceSummary?
     @State private var error: String?
 
     init(start: LatLng) {
@@ -215,7 +215,7 @@ struct AddPlaceFlow: View {
         }
         .alert("Is it this one?", isPresented: Binding(get: { duplicate != nil }, set: { if !$0 { duplicate = nil } })) {
             Button("Yes, open it") {
-                if let d = duplicate { dismiss(); model.openPlace(d.summary) }
+                if let d = duplicate { dismiss(); model.openPlace(d) }
             }
             Button("No, go back", role: .cancel) { step = .details }
         } message: {
@@ -403,6 +403,7 @@ struct AddPlaceFlow: View {
                            openingHours: hoursEnabled ? opt(hours.osm) : nil, amenities: amenities.sorted())
         do {
             let place = try await model.repo.createPlace(new)
+            model.rememberOwnPlace(place.id)
             if !photos.isEmpty {
                 uploadProgress = 0
                 for (i, p) in photos.enumerated() {
@@ -416,7 +417,7 @@ struct AddPlaceFlow: View {
             model.showToast(String(localized: "Thanks! Other drivers will help verify it."))
             model.openPlace(place.summary)
         } catch APIError.conflict(let body) {
-            duplicate = try? JSON.makeDecoder().decode(Place.self, from: body)
+            duplicate = DuplicatePlace.existing(in: body)
             if duplicate == nil { error = String(localized: "This place may already exist.") }
         } catch let e as APIError where e.isServerSideGap {
             error = String(localized: "Sharing places isn't available on the server yet. Save it just for you for now.")
@@ -540,5 +541,16 @@ struct OpeningHoursEditor: View {
             }), displayedComponents: .hourAndMinute)
             .labelsHidden()
             .environment(\.locale, Locale(identifier: "en_GB")) // 24 h
+    }
+}
+
+/// 409 from `POST /places`: a problem+json with the similar place under `existing` ("Is it this one?").
+enum DuplicatePlace {
+    private struct Problem: Decodable { var existing: PlaceSummary? }
+
+    static func existing(in body: Data) -> PlaceSummary? {
+        let d = JSON.makeDecoder()
+        if let p = try? d.decode(Problem.self, from: body), let e = p.existing { return e }
+        return (try? d.decode(Place.self, from: body))?.summary
     }
 }

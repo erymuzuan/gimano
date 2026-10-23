@@ -196,7 +196,19 @@ actor DemoRepository: GimanoRepository {
     }
 
     func verifyPlace(id: String, _ v: VerifyPlaceRequest) async throws -> Place {
-        guard let i = community.firstIndex(where: { $0.id == id }) else { return try await place(id: id, near: nil) }
+        if myPlaceIds.contains(id) {
+            throw APIError.http(status: 403, problem: ProblemDetails(title: "Forbidden", status: 403, detail: "You can't verify your own place."))
+        }
+        return try confirm(id: id, v)
+    }
+
+    /// Demo only: other drivers confirming a place (the owner can't).
+    func simulateOtherDriversVerify(placeId: String, count: Int) throws {
+        for _ in 0..<count { _ = try confirm(id: placeId, VerifyPlaceRequest(exists: true, correctLocation: true)) }
+    }
+
+    private func confirm(id: String, _ v: VerifyPlaceRequest) throws -> Place {
+        guard let i = community.firstIndex(where: { $0.id == id }) else { throw APIError.http(status: 404, problem: nil) }
         if v.exists && v.correctLocation != false {
             community[i].verifiedCount = (community[i].verifiedCount ?? 0) + 1
             if (community[i].verifiedCount ?? 0) >= 3 { community[i].status = .published }
@@ -295,6 +307,32 @@ actor DemoRepository: GimanoRepository {
     }
 
     func flagPhoto(id: String, reason: FlagReason) async throws {}
+
+    // MARK: inbox (demo: derived from the demo user's own contributions)
+
+    private var inboxReadUpTo: Date = .distantPast
+
+    func inbox(cursor: String?) async throws -> InboxPage {
+        var items: [InboxItem] = [InboxItem(id: "demo-ann-1", kind: .announcement, title: "Selamat datang ke Gimano!",
+                                            body: "Laporkan trafik dan tambah tempat untuk membantu pemandu lain.",
+                                            refType: "url", refId: "https://www.bukitbunga.com/gimano", createdAt: Date(timeIntervalSince1970: 1_792_000_000),
+                                            read: nil, count: nil)]
+        for p in community where myPlaceIds.contains(p.id) && p.status == .published {
+            items.append(InboxItem(id: "demo-pub-\(p.id)", kind: .placePublished, title: "\(p.name) is now on the map",
+                                   body: "\(p.verifiedCount ?? 3) drivers confirmed it.", refType: "place", refId: p.id,
+                                   createdAt: .now.addingTimeInterval(-60), read: nil, count: nil))
+        }
+        let helpfulMine = reviewsByPlace.values.flatMap { $0 }.filter { $0.author.displayName == user.displayName }.map(\.helpfulCount).reduce(0, +)
+        if helpfulMine > 0 {
+            items.append(InboxItem(id: "demo-helpful", kind: .reviewHelpful, title: "\(helpfulMine) drivers found your review helpful",
+                                   body: nil, refType: nil, refId: nil, createdAt: .now.addingTimeInterval(-30), read: nil, count: helpfulMine))
+        }
+        items.sort { $0.createdAt > $1.createdAt }
+        for i in items.indices { items[i].read = items[i].createdAt <= inboxReadUpTo }
+        return InboxPage(items: items, next: nil, unread: items.filter { $0.read != true }.count)
+    }
+
+    func markInboxRead(upTo: Date) async throws { inboxReadUpTo = max(inboxReadUpTo, upTo) }
 
     // MARK: shares (demo relay: keeps only the latest ciphertext, like the server)
 

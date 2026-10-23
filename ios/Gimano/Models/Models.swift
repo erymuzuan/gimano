@@ -362,7 +362,8 @@ enum PhotoStatus: String, Codable, Sendable {
 
 struct Photo: Codable, Sendable, Hashable, Identifiable {
     var id: String
-    var url: String
+    /// Null while the server is still processing the upload (status "processing").
+    var url: String?
     var thumbUrl: String?
     var width: Int?
     var height: Int?
@@ -862,4 +863,64 @@ struct FeedbackSummary: Codable, Sendable, Hashable, Identifiable {
     var message: String
     var status: FeedbackStatus
     var createdAt: Date
+}
+
+// MARK: - Inbox (news about the user's public contributions only)
+
+enum InboxKind: String, Codable, Sendable {
+    case placePublished = "place_published"
+    case placeRejected = "place_rejected"
+    case reportThanked = "report_thanked"
+    case reviewHelpful = "review_helpful"
+    case editAccepted = "edit_accepted"
+    case feedbackStatus = "feedback_status"
+    case announcement
+    case unknown
+
+    init(from decoder: any Decoder) throws {
+        let raw = try decoder.singleValueContainer().decode(String.self)
+        self = InboxKind(rawValue: raw) ?? .unknown
+    }
+}
+
+struct InboxItem: Codable, Sendable, Hashable, Identifiable {
+    var id: String
+    var kind: InboxKind
+    var title: String
+    var body: String?
+    var refType: String?
+    var refId: String?
+    var createdAt: Date
+    var read: Bool?
+    var count: Int?
+}
+
+struct InboxPage: Codable, Sendable {
+    var items: [InboxItem]
+    var next: String?
+    var unread: Int?
+}
+
+struct InboxReadRequest: Codable, Sendable { var upTo: Date }
+
+/// Unread = newer than both the server's read flag and the local read mark (local state keeps the badge right
+/// offline and before the server endpoint exists).
+enum InboxReadState {
+    static func unreadCount(_ items: [InboxItem], localReadUpTo: Date?) -> Int {
+        items.filter { item in
+            if item.read == true { return false }
+            if let mark = localReadUpTo, item.createdAt <= mark { return false }
+            return true
+        }.count
+    }
+}
+
+/// Photo URLs from the server may be root-relative (`/media/{key}.webp`); resolve them against the API host.
+@MainActor
+enum MediaURL {
+    static func resolve(_ raw: String?, apiBase: URL = AppConfig().apiBaseURL) -> URL? {
+        guard let raw, !raw.isEmpty else { return nil }
+        if let u = URL(string: raw), u.scheme != nil { return u }
+        return URL(string: raw, relativeTo: apiBase)?.absoluteURL
+    }
 }

@@ -173,6 +173,12 @@ struct ReviewsSection: View {
     private func reload() async {
         reviews = (try? await model.repo.reviews(placeId: summary.id, sort: .recent, cursor: nil).reviews) ?? []
         loaded = true
+        // Photos are re-encoded to WebP on the server: poll briefly until they're published.
+        for _ in 0..<6 where reviews.contains(where: { r in (r.photos ?? []).contains { $0.url == nil || $0.status == .processing } }) {
+            try? await Task.sleep(for: .seconds(2))
+            if Task.isCancelled { return }
+            reviews = (try? await model.repo.reviews(placeId: summary.id, sort: .recent, cursor: nil).reviews) ?? reviews
+        }
     }
 }
 
@@ -208,9 +214,10 @@ struct ReviewRow: View {
             }
             if let t = review.text, !t.isEmpty { Text(t).font(Tokens.Font.body) }
             if let photos = review.photos, !photos.isEmpty {
-                let urls = photos.compactMap { URL(string: $0.url) }
-                PhotoStrip(thumbs: photos.compactMap { URL(string: $0.thumbUrl ?? $0.url) }) { i in viewer = PhotoViewerItem(urls: urls, index: i) }
-                ForEach(photos.filter { $0.status == .processing }) { _ in
+                let ready = photos.filter { $0.url != nil }
+                let urls = ready.compactMap { MediaURL.resolve($0.url) }
+                PhotoStrip(thumbs: ready.compactMap { MediaURL.resolve($0.thumbUrl ?? $0.url) }) { i in viewer = PhotoViewerItem(urls: urls, index: i) }
+                ForEach(photos.filter { $0.status == .processing || $0.url == nil }) { _ in
                     Label("Photo processing…", systemImage: "hourglass").font(Tokens.Font.small).foregroundStyle(Color.textMuted)
                         .accessibilityIdentifier("photoProcessing")
                 }
@@ -379,6 +386,11 @@ struct WriteReviewSheet: View {
             dismiss()
         } catch let e as APIError where e.isServerSideGap {
             error = String(localized: "Reviews aren't available on the server yet.")
+        } catch APIError.http(status: 403, _) where existing != nil {
+            // Not ours any more (e.g. a different device identity): forget it so the next save writes a new review.
+            try? model.store.setSetting("review.\(placeId)", nil)
+            await onDone()
+            error = String(localized: "Only the author can change this review.")
         } catch {
             self.error = error.localizedDescription
         }

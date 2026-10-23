@@ -36,7 +36,7 @@ struct SideMenu: View {
                 actionRow("Add a place", icon: "mappin.and.ellipse", id: "menuAddPlace") { model.showMenu = false; model.addPlaceStart = model.position }
                 actionRow("My contributions", icon: "person.crop.rectangle.stack.fill", id: "menuContributions") { model.showMenu = false; model.menuSheet = .contributions }
                 row("Planned drives", icon: "calendar", .planned)
-                row("Inbox", icon: "tray.fill", .inbox)
+                inboxRow
                 row("Settings", icon: "gearshape.fill", .settings)
                 actionRow("Add feedback", icon: "bubble.left.and.text.bubble.right.fill", id: "menuAddFeedback") {
                     model.showMenu = false
@@ -65,6 +65,29 @@ struct SideMenu: View {
             .frame(maxHeight: .infinity)
             .background(Color.surface.ignoresSafeArea())
         }
+    }
+
+    private var inboxRow: some View {
+        Button { onSelect(.inbox) } label: {
+            HStack(spacing: 16) {
+                Image(systemName: "tray.fill").frame(width: 24).foregroundStyle(Color.textMuted)
+                Text("Inbox").font(Tokens.Font.body)
+                Spacer()
+                if model.inboxUnread > 0 {
+                    Text("\(model.inboxUnread)")
+                        .font(Tokens.Font.nunito(13, .black))
+                        .foregroundStyle(Color.reportOn)
+                        .padding(.horizontal, 8).padding(.vertical, 3)
+                        .background(Color.report, in: Capsule())
+                        .accessibilityIdentifier("inboxBadge")
+                }
+            }
+            .padding(.horizontal, 20)
+            .frame(height: 54)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityIdentifier("menuInbox")
     }
 
     private func actionRow(_ title: LocalizedStringKey, icon: String, id: String, action: @escaping () -> Void) -> some View {
@@ -107,9 +130,7 @@ struct MenuDestinationView: View {
                 switch destination {
                 case .profile: ProfileView()
                 case .planned: PlannedDrivesView()
-                case .inbox:
-                    ContentUnavailableView("Inbox is empty", systemImage: "tray",
-                                           description: Text("Thanks from other drivers and report updates will appear here."))
+                case .inbox: InboxView()
                 case .settings: SettingsView()
                 case .help: HelpView()
                 case .debug: DebugSettingsView()
@@ -278,5 +299,82 @@ struct ThemePicker: View {
             }
         }
         .listRowBackground(Color.clear)
+    }
+}
+
+/// Menu → Inbox: news about your public contributions + announcements.
+struct InboxView: View {
+    @Environment(AppModel.self) private var model
+    @Environment(\.openURL) private var openURL
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        List {
+            if model.inboxItems.isEmpty {
+                ContentUnavailableView("Inbox is empty", systemImage: "tray",
+                                       description: Text(model.inboxAvailable
+                                                         ? "News about places you added, reviews and reports you shared will appear here."
+                                                         : "Inbox isn't available on the server yet. News about your public contributions will appear here."))
+                    .accessibilityIdentifier("inboxEmpty")
+            }
+            ForEach(model.inboxItems) { item in
+                Button { open(item) } label: {
+                    HStack(alignment: .top, spacing: 12) {
+                        GimanoIcon(icon: item.kind.icon, size: 26)
+                            .frame(width: 44, height: 44)
+                            .background(Color.brandMist, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text(item.title).font(Tokens.Font.bodyBold).foregroundStyle(Color.textPrimary)
+                            if let b = item.body { Text(b).font(Tokens.Font.caption).foregroundStyle(Color.textMuted) }
+                            Text(item.createdAt.formatted(.relative(presentation: .named))).font(Tokens.Font.small).foregroundStyle(Color.textMuted)
+                        }
+                        Spacer()
+                        if item.read != true {
+                            Circle().fill(Color.report).frame(width: 10, height: 10).accessibilityLabel(Text("Unread"))
+                        }
+                    }
+                }
+                .accessibilityIdentifier("inboxItem")
+            }
+        }
+        .navigationTitle("Inbox")
+        .refreshable { await model.refreshInbox() }
+        .task {
+            await model.refreshInbox()
+            // Let the unread dots show briefly, then mark as read.
+            try? await Task.sleep(for: .seconds(2))
+            model.markInboxRead()
+        }
+    }
+
+    private func open(_ item: InboxItem) {
+        switch item.refType {
+        case "place":
+            if let id = item.refId {
+                dismiss()
+                model.openPlace(PlaceSummary(id: id, name: item.title, category: .other, address: "", lat: model.position.lat, lng: model.position.lng))
+            }
+        case "url":
+            if let s = item.refId, let url = URL(string: s) { openURL(url) }
+        case "feedback":
+            dismiss()
+            model.menuSheet = .myFeedback
+        default:
+            break
+        }
+    }
+}
+
+extension InboxKind {
+    var icon: GIcon {
+        switch self {
+        case .placePublished: .map
+        case .placeRejected: .close
+        case .reportThanked: .heart
+        case .reviewHelpful: .star
+        case .editAccepted: .addStop
+        case .feedbackStatus: .feedback
+        case .announcement, .unknown: .logo
+        }
     }
 }

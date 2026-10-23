@@ -82,6 +82,12 @@ final class AppModel {
     private(set) var nextLeaveBy: [String: Date] = [:]
     /// Planned-drive editor (new or existing).
     var editingDrive: PlannedDrive?
+    /// Inbox: news about the user's public contributions (server) + local read mark.
+    private(set) var inboxItems: [InboxItem] = []
+    private(set) var inboxAvailable = true
+    var inboxUnread: Int {
+        InboxReadState.unreadCount(inboxItems, localReadUpTo: LocalStore.date(try? store.setting("inbox.readUpTo")))
+    }
     /// Active "Share my drive" (end-to-end encrypted live ETA).
     private(set) var driveShare: DriveShareSession?
     var showShareSheet = false
@@ -180,6 +186,7 @@ final class AppModel {
             try? store.replaceOutbox(kind: "feedback", items: [])
             try? store.setSetting(LegacyDataMigration.doneKey, nil)
             try? store.setSetting("theme", nil)
+            try? store.clearIdentitySettings()
         }
         if d.bool(forKey: "GimanoSkipOnboarding") { d.set(true, forKey: "onboarding.done") }
     }
@@ -278,6 +285,38 @@ final class AppModel {
         reloadLocal()
         await flushFeedback()
         await rescheduleAllPlannedDrives()
+        await refreshInbox()
+    }
+
+    func refreshInbox() async {
+        do {
+            inboxItems = try await repo.inbox(cursor: nil).items
+            inboxAvailable = true
+        } catch {
+            inboxAvailable = false
+        }
+    }
+
+    /// Opening the inbox marks everything shown as read (locally, and on the server when available).
+    func markInboxRead() {
+        guard let newest = inboxItems.map(\.createdAt).max() else { return }
+        try? store.setSetting("inbox.readUpTo", LocalStore.timestamp(newest))
+        inboxItems = inboxItems.map { var i = $0; i.read = true; return i }
+        Task { try? await repo.markInboxRead(upTo: newest) }
+    }
+
+    // MARK: own contributions
+
+    /// Ids of community places added from this device (owners can't verify their own place).
+    var ownPlaceIds: Set<String> {
+        let raw = (try? store.setting("ownPlaces")) ?? nil
+        return Set((raw.flatMap { try? JSONDecoder().decode([String].self, from: Data($0.utf8)) }) ?? [])
+    }
+
+    func rememberOwnPlace(_ id: String) {
+        var ids = ownPlaceIds
+        ids.insert(id)
+        if let d = try? JSONEncoder().encode(Array(ids)) { try? store.setSetting("ownPlaces", String(decoding: d, as: UTF8.self)) }
     }
 
     // MARK: share my drive

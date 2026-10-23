@@ -51,6 +51,10 @@ protocol GimanoRepository: Sendable {
     func deletePhoto(id: String) async throws
     func flagPhoto(id: String, reason: FlagReason) async throws
 
+    // Inbox
+    func inbox(cursor: String?) async throws -> InboxPage
+    func markInboxRead(upTo: Date) async throws
+
     // Share my drive (server relays ciphertext only)
     func createShare(_ r: ShareCreateRequest) async throws -> ShareCreated
     func putShare(id: String, writeToken: String, _ blob: ShareBlob) async throws
@@ -302,6 +306,15 @@ final class LiveRepository: GimanoRepository {
         try await authed { try await self.client.send("POST", "shares", body: r) }
     }
 
+    func inbox(cursor: String?) async throws -> InboxPage {
+        let q = cursor.map { [URLQueryItem(name: "cursor", value: $0)] } ?? []
+        return try await authed { try await self.client.get("me/inbox", query: q) }
+    }
+
+    func markInboxRead(upTo: Date) async throws {
+        try await authed { try await self.client.sendNoContent("POST", "me/inbox/read", body: InboxReadRequest(upTo: upTo)) }
+    }
+
     func putShare(id: String, writeToken: String, _ blob: ShareBlob) async throws {
         try await client.sendNoContent("PUT", "shares/\(id)", body: blob, authorization: "Share \(writeToken)")
     }
@@ -442,6 +455,14 @@ final class FallbackRepository: GimanoRepository {
     }
     func flagPhoto(id: String, reason: FlagReason) async throws {
         try await run(gapFallback: false, { try await $0.flagPhoto(id: id, reason: reason) }, demoOp: { try await $0.flagPhoto(id: id, reason: reason) })
+    }
+
+    /// No demo items in auto mode: an inbox must only show real news about the user's contributions.
+    func inbox(cursor: String?) async throws -> InboxPage {
+        try await run(gapFallback: false, { try await $0.inbox(cursor: cursor) }, demoOp: { _ in InboxPage(items: [], next: nil, unread: 0) })
+    }
+    func markInboxRead(upTo: Date) async throws {
+        try await run(gapFallback: false, { try await $0.markInboxRead(upTo: upTo) }, demoOp: { _ in })
     }
 
     func createShare(_ r: ShareCreateRequest) async throws -> ShareCreated {

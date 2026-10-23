@@ -132,4 +132,21 @@ final class Round4UITests: XCTestCase {
         XCTAssertFalse(app.buttons["sharingChip"].exists)
         shot("q-sharing-stopped")
     }
+
+    func test_t_Inbox() {
+        wait(app.buttons["menuButton"]).tap()
+        let inbox = wait(app.buttons["menuInbox"])
+        shot("t-menu-inbox-badge")
+        inbox.tap()
+        let list = app.descendants(matching: .any).matching(identifier: "inboxItem").firstMatch
+        let empty = app.descendants(matching: .any)["inboxEmpty"]
+        XCTAssertTrue(list.waitForExistence(timeout: 15) || empty.exists)
+        shot("t-inbox")
+        sleep(3)
+        app.buttons["Done"].firstMatch.tap()
+        wait(app.buttons["menuButton"]).tap()
+        sleep(1)
+        XCTAssertFalse(app.descendants(matching: .any)["inboxBadge"].exists, "opening the inbox marks it read")
+        shot("t-menu-after-read")
+    }
 }

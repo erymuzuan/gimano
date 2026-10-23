@@ -172,7 +172,12 @@ struct PlaceCardView: View {
                 }
             }
         }
-        if isCommunity && status == .pending {
+        if isCommunity && status == .pending && model.ownPlaceIds.contains(summary.id) {
+            Label("Waiting for other drivers to confirm (\(place?.verifiedCount ?? 0)/3)", systemImage: "hourglass")
+                .font(Tokens.Font.caption)
+                .foregroundStyle(Color.textMuted)
+                .accessibilityIdentifier("awaitingVerification")
+        } else if isCommunity && status == .pending {
             VStack(alignment: .leading, spacing: 10) {
                 Text("Is this place here?").font(Tokens.Font.bodyBold)
                 if verifyDone {
@@ -209,8 +214,9 @@ struct PlaceCardView: View {
 
     @ViewBuilder private var photosStrip: some View {
         let urls: [URL] = privatePlace.map { p in p.photoFiles.map { model.store.photoURL($0) } }
-            ?? (place?.photos ?? []).compactMap { URL(string: $0.url) }
-        let thumbs: [URL] = privatePlace.map { _ in urls } ?? (place?.photos ?? []).compactMap { URL(string: $0.thumbUrl ?? $0.url) }
+            ?? (place?.photos ?? []).compactMap { MediaURL.resolve($0.url) }
+        let thumbs: [URL] = privatePlace.map { _ in urls }
+            ?? (place?.photos ?? []).filter { $0.url != nil }.compactMap { MediaURL.resolve($0.thumbUrl ?? $0.url) }
         if !urls.isEmpty {
             PhotoStrip(thumbs: thumbs) { i in viewer = PhotoViewerItem(urls: urls, index: i) }
         }

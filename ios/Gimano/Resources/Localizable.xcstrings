@@ -1836,6 +1836,16 @@
         }
       }
     },
+    "Inbox isn't available on the server yet. News about your public contributions will appear here.": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Peti masuk belum tersedia di pelayan. Berita tentang sumbangan awam kamu akan dipaparkan di sini."
+          }
+        }
+      }
+    },
     "Include diagnostics": {
       "localizations": {
         "ms": {
@@ -2436,6 +2446,16 @@
         }
       }
     },
+    "News about places you added, reviews and reports you shared will appear here.": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Berita tentang tempat yang kamu tambah, ulasan dan laporan yang kamu kongsi akan dipaparkan di sini."
+          }
+        }
+      }
+    },
     "Next": {
       "localizations": {
         "ms": {
@@ -2652,6 +2672,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Dalam talian"
+          }
+        }
+      }
+    },
+    "Only the author can change this review.": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hanya penulis boleh mengubah ulasan ini."
           }
         }
       }
@@ -4386,6 +4416,16 @@
         }
       }
     },
+    "Unread": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Belum dibaca"
+          }
+        }
+      }
+    },
     "Unsupported backup format %lld.": {
       "localizations": {
         "ms": {
@@ -4502,6 +4542,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Carian suara"
+          }
+        }
+      }
+    },
+    "Waiting for other drivers to confirm (%lld/3)": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Menunggu pemandu lain mengesahkan (%lld/3)"
           }
         }
       }
