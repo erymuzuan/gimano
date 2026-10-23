@@ -177,6 +177,17 @@
     <string name="sc_food">Makan</string>
     <string name="sc_fuel">Minyak</string>
     <string name="sc_parking">Parkir</string>
+    <string name="sc_atm">ATM</string>
+    <string name="sc_shop">Kedai</string>
+    <string name="sc_more">Lagi</string>
+    <string name="categories">Kategori</string>
+    <string name="recents_empty">Belum ada tempat terkini. Ia kekal dalam telefon ini.</string>
+    <string name="home_sheet">Panel carian</string>
+    <string name="home_sheet_peek">diciutkan. Leret ke atas untuk terkini.</string>
+    <string name="home_sheet_half">separuh terbuka, terkini dipaparkan. Leret ke atas untuk tempat disimpan dan kategori.</string>
+    <string name="home_sheet_full">terbuka penuh. Leret ke bawah atau ketik peta untuk ciutkan.</string>
+    <string name="home_sheet_expand">Kembangkan</string>
+    <string name="home_sheet_collapse">Ciutkan</string>
     <string name="rs_traffic">Sesak</string>
     <string name="rs_police">Polis</string>
     <string name="rs_accident">Nahas</string>

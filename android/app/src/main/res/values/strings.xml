@@ -178,6 +178,17 @@
     <string name="sc_food">Food</string>
     <string name="sc_fuel">Fuel</string>
     <string name="sc_parking">Parking</string>
+    <string name="sc_atm">ATM</string>
+    <string name="sc_shop">Shop</string>
+    <string name="sc_more">More</string>
+    <string name="categories">Categories</string>
+    <string name="recents_empty">No recent places yet. They stay on this phone.</string>
+    <string name="home_sheet">Search panel</string>
+    <string name="home_sheet_peek">collapsed. Swipe up for recent places.</string>
+    <string name="home_sheet_half">half open, recent places shown. Swipe up for saved places and categories.</string>
+    <string name="home_sheet_full">fully open. Swipe down or tap the map to collapse.</string>
+    <string name="home_sheet_expand">Expand</string>
+    <string name="home_sheet_collapse">Collapse</string>
     <string name="rs_traffic">Jam</string>
     <string name="rs_police">Police</string>
     <string name="rs_accident">Crash</string>

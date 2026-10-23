@@ -165,6 +165,50 @@ fun ShortcutTile(icon: String, label: String, modifier: Modifier = Modifier, onL
     }
 }
 
+/** Chip colours: Home/Work (cobalt mist), saved places (gold) and categories (pale). */
+enum class ChipTone { PLACE, SAVED, CATEGORY }
+
+/**
+ * Home-panel pill chip: 44 dp tall (grows with very large text), 26 dp flat two-tone icon, 13 sp label weight 700.
+ * Long-press (Home/Work/favourites) edits the place.
+ */
+@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
+@Composable
+fun PillChip(icon: String, label: String, tone: ChipTone, modifier: Modifier = Modifier, onLongClick: (() -> Unit)? = null, onLongClickLabel: String? = null, onClick: () -> Unit) {
+    val c = Gimano.colors
+    val (bg, fg) = when (tone) {
+        ChipTone.PLACE -> c.brandMist to c.brandInk
+        ChipTone.SAVED -> if (c.isDark) Color(0xFF3A2E12) to Color(0xFFFFD98A) else Color(0xFFFFF1CC) to Color(0xFF7A5200)
+        ChipTone.CATEGORY -> (if (c.isDark) c.surfaceAlt else c.background) to c.textMuted
+    }
+    Row(
+        modifier.heightIn(min = 44.dp).clip(RoundedCornerShape(Radius.pill)).background(bg)
+            .combinedClickable(onClick = onClick, onLongClick = onLongClick, onLongClickLabel = onLongClickLabel)
+            .padding(start = 10.dp, end = 14.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        TwoToneIcon(icon, null, size = 26.dp, palette = if (tone == ChipTone.SAVED) TwoTonePalette.GOLD else TwoTonePalette.COBALT)
+        Spacer(Modifier.width(6.dp))
+        Text(label, color = fg, fontSize = 13.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+    }
+}
+
+/** Category tile of the full home panel: 76 dp, 32 dp two-tone icon, 11 sp label weight 700. */
+@Composable
+fun CategoryTile(icon: String, label: String, modifier: Modifier = Modifier, onClick: () -> Unit) {
+    val c = Gimano.colors
+    Column(
+        modifier.heightIn(min = 76.dp).clip(RoundedCornerShape(16.dp)).background(if (c.isDark) c.surfaceAlt else c.background)
+            .clickable(onClick = onClick).padding(vertical = 6.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center,
+    ) {
+        TwoToneIcon(icon, null, size = 32.dp)
+        Spacer(Modifier.height(4.dp))
+        Text(label, color = if (c.isDark) c.textMuted else Color(0xFF4E5D78), fontSize = 11.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis, textAlign = TextAlign.Center)
+    }
+}
+
 @Composable
 fun Attribution(modifier: Modifier = Modifier) {
     Text(

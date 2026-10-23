@@ -425,6 +425,12 @@ class MainViewModel(private val c: AppContainer) : ViewModel() {
     val homeSheetDp: kotlinx.coroutines.flow.StateFlow<Int> = _homeSheetDp
     fun setHomeSheetDp(dp: Int) { _homeSheetDp.value = dp }
 
+    /** Home panel state: Peek by default, and again after a drive ends or the app comes back. */
+    private val _homeSheet = kotlinx.coroutines.flow.MutableStateFlow(my.gimano.app.ui.home.HomeSheetState.PEEK)
+    val homeSheet: kotlinx.coroutines.flow.StateFlow<my.gimano.app.ui.home.HomeSheetState> = _homeSheet
+    fun setHomeSheet(s: my.gimano.app.ui.home.HomeSheetState) { _homeSheet.value = s }
+    fun collapseHomeSheet() = setHomeSheet(my.gimano.app.ui.home.HomeSheetState.PEEK)
+
     private var lastPanMs: Long? = null
     private var followResumeJob: Job? = null
 
@@ -516,7 +522,7 @@ class MainViewModel(private val c: AppContainer) : ViewModel() {
     private val lifecycleObserver: androidx.lifecycle.LifecycleEventObserver =
         androidx.lifecycle.LifecycleEventObserver { _, e ->
             when (e) {
-                androidx.lifecycle.Lifecycle.Event.ON_STOP -> cancelCountdown()
+                androidx.lifecycle.Lifecycle.Event.ON_STOP -> { cancelCountdown(); collapseHomeSheet() }
                 androidx.lifecycle.Lifecycle.Event.ON_START -> if (repo.fallbackActive.value && !settings.current.demoMode) viewModelScope.launch {
                     if (repo.probeRemote()) { c.liveHub.start(); refreshAccount() }
                 }
@@ -1422,6 +1428,7 @@ class MainViewModel(private val c: AppContainer) : ViewModel() {
 
     fun stopNavigation() {
         c.navigation.stop()
+        collapseHomeSheet()
         viewModelScope.launch { c.share.stop() }
         _ui.update { it.copy(screen = Screen.Home, plan = null, navExpanded = false, confirmStop = false, passengerPrompt = false, following = true, camera = CameraCommand.Reset2D(here(), 15.0)) }
     }

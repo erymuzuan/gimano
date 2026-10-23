@@ -200,7 +200,7 @@ fun GimanoRoot(vm: MainViewModel, onMic: () -> Unit, onExit: () -> Unit, onReque
                 bottomInsetDp = if (screen == Screen.Home) homeSheetDp else 0,
                 modifier = Modifier.fillMaxSize(),
                 onCameraIdle = vm::onCameraIdle,
-                onMapClick = { if (screen == Screen.Home) vm.selectAlert(null) },
+                onMapClick = { if (screen == Screen.Home) { vm.selectAlert(null); vm.collapseHomeSheet() } },
                 onMapLongClick = vm::dropPin,
                 onAlertClick = { id -> if (screen == Screen.Home || screen == Screen.PlaceCard) { vm.goHome(); vm.selectAlert(id) } },
                 onRouteClick = { id -> if (screen == Screen.RoutePreview) vm.selectRoute(id) },
@@ -208,7 +208,7 @@ fun GimanoRoot(vm: MainViewModel, onMic: () -> Unit, onExit: () -> Unit, onReque
             )
             when (screen) {
                 Screen.Home -> {
-                    MapTopControls(ui, settings, vm, vm.isDemo || fallback, showMenu = true, onMenu = { scope.launch { drawer.open() } })
+                    MapTopControls(ui, settings, vm, vm.isDemo || fallback, showMenu = true, onMenu = { scope.launch { drawer.open() } }, showRecenter = false)
                     HomeOverlay(ui, settings, vm, onMic)
                 }
                 is Screen.PickOnMap -> ui.pick?.let { my.gimano.app.ui.pick.PickOnMapOverlay(it, vm, (ui.screen as Screen.PickOnMap).purpose) }

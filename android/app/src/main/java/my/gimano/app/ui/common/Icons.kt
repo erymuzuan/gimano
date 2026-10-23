@@ -9,6 +9,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.PathFillType
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
@@ -40,6 +41,40 @@ object Duotone {
             }.build()
         }
     }
+}
+
+/**
+ * Flat two-tone icons of the home panel (docs/icons/manotu-twotone-icons.json → TwoToneIconPaths):
+ * the base shape in a pale tint, the detail (even-odd) in the ink. No strokes.
+ */
+object TwoTone {
+    private val cache = HashMap<String, ImageVector>()
+
+    fun vector(name: String, base: Color, detail: Color): ImageVector {
+        val key = "$name|${base.value}|${detail.value}"
+        return cache.getOrPut(key) {
+            val p = TwoToneIconPaths.all[name] ?: TwoToneIconPaths.all.getValue("more")
+            ImageVector.Builder(name = "tt_$name", defaultWidth = 24.dp, defaultHeight = 24.dp, viewportWidth = 24f, viewportHeight = 24f).apply {
+                addPath(addPathNodes(p.base), fill = SolidColor(base))
+                addPath(addPathNodes(p.detail), fill = SolidColor(detail), fillAlpha = p.detailAlpha, pathFillType = PathFillType.EvenOdd)
+            }.build()
+        }
+    }
+}
+
+/** Pale cobalt (base) + cobalt (detail), or gold for saved places. */
+enum class TwoTonePalette { COBALT, GOLD }
+
+/** Draws a flat two-tone icon in the given palette for the current theme. */
+@Composable
+fun TwoToneIcon(name: String, contentDescription: String?, modifier: Modifier = Modifier, size: Dp = 26.dp, palette: TwoTonePalette = TwoTonePalette.COBALT) {
+    val c = Gimano.colors
+    val (base, detail) = when (palette) {
+        TwoTonePalette.COBALT -> c.brandTint to c.brand
+        TwoTonePalette.GOLD -> if (c.isDark) Color(0xFFB8902E) to Color(0xFF3D2A00) else Color(0xFFFFD466) to Color(0xFF7A5200)
+    }
+    val v = remember(name, base, detail) { TwoTone.vector(name, base, detail) }
+    Image(rememberVectorPainter(v), contentDescription, modifier.size(size))
 }
 
 /** Draws a Gimano duotone icon. Defaults to the cobalt ink/tint of the current theme. */

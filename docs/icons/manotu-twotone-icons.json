@@ -1,0 +1,20 @@
+{
+  "name": "Manotu flat two-tone icons (home panel)",
+  "license": "MIT (original work for Manotu)",
+  "grid": 24,
+  "style": "flat two-tone, no strokes: 'base' filled with the pale tint (#8FB0E8), 'detail' filled even-odd with the ink (#0047AB) at 'detailAlpha' (default 1). Saved places use the gold palette (#FFD466 / #7A5200).",
+  "icons": {
+    "home": { "base": "M3 11 12 3l9 8v10H3z", "detail": "M10 15h4v6h-4z" },
+    "work": { "base": "M3 8h18v12H3z", "detail": "M9 4h6v4h-2V6h-2v2H9zM3 12h18v2H3z" },
+    "star": { "base": "m12 2 3 6.3 6.9.9-5 4.8 1.2 6.8L12 17.6l-6.1 3.2L7.1 14l-5-4.8 6.9-.9z", "detail": "M12 7.5 13.6 11l3.6.4-2.6 2.5.6 3.6L12 15.8l-3.2 1.7.6-3.6-2.6-2.5 3.6-.4z", "detailAlpha": 0.35 },
+    "fuel": { "base": "M4 3h10v18H4z", "detail": "M6 5h6v5H6zM14 8h2l3 3v7a1.5 1.5 0 0 1-3 0v-4h-2v-2h4v-2.2L15.2 10H14z" },
+    "food": { "base": "M4 8h12v6a5 5 0 0 1-5 5H9a5 5 0 0 1-5-5z", "detail": "M16 9h2a3 3 0 0 1 0 6h-2v-2h2a1 1 0 0 0 0-2h-2zM3 20h14v1.5H3z" },
+    "surau": { "base": "M5 21v-8a7 7 0 0 1 14 0v8z", "detail": "M11.25 2h1.5v4h-1.5zM10 17a2 2 0 0 1 4 0v4h-4z" },
+    "parking": { "base": "M4 3h16a1 1 0 0 1 1 1v16a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z", "detail": "M9 7h4a3.5 3.5 0 0 1 0 7h-2v3H9zm2 2v3h2a1.5 1.5 0 0 0 0-3z" },
+    "ev": { "base": "M12 2a10 10 0 1 1 0 20 10 10 0 0 1 0-20z", "detail": "M13 5 7 13h4l-1 6 6-8h-4z" },
+    "atm": { "base": "M2 6h20v12H2z", "detail": "M2 9h20v2H2zM5 14h5v2H5z" },
+    "shop": { "base": "M5 6h16l-2 8H7z", "detail": "M2 3h3l3 13h11v2H6.4L3.4 5H2zM8 20a1.5 1.5 0 1 0 3 0 1.5 1.5 0 0 0-3 0zM16 20a1.5 1.5 0 1 0 3 0 1.5 1.5 0 0 0-3 0z" },
+    "more": { "base": "M12 2a10 10 0 1 1 0 20 10 10 0 0 1 0-20z", "detail": "M11 7h2v4h4v2h-4v4h-2v-4H7v-2h4z" },
+    "recent": { "base": "M12 2a10 10 0 1 1 0 20 10 10 0 0 1 0-20z", "detail": "M11 6h2v5.4l3.8 2.2-1 1.7-4.8-2.8z" }
+  }
+}
