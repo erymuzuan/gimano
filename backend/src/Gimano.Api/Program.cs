@@ -42,6 +42,15 @@ builder.Services.AddGimanoMedia(config);
 
 // Auth: anonymous device JWTs (HS256)
 builder.Services.Configure<JwtOptions>(config.GetSection(JwtOptions.Section));
+if (string.IsNullOrEmpty(config["Jwt:SigningKey"]))
+{
+    // No key is ever committed. In Development an ephemeral random key is used (tokens die on restart);
+    // everywhere else Jwt__SigningKey must be provided.
+    if (!builder.Environment.IsDevelopment())
+        throw new InvalidOperationException("Jwt:SigningKey is not configured (set Jwt__SigningKey, >= 32 chars).");
+    var devKey = Convert.ToBase64String(System.Security.Cryptography.RandomNumberGenerator.GetBytes(48));
+    builder.Services.PostConfigure<JwtOptions>(o => o.SigningKey = devKey);
+}
 builder.Services.AddSingleton<JwtTokenService>();
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme).AddJwtBearer();
 builder.Services.AddOptions<JwtBearerOptions>(JwtBearerDefaults.AuthenticationScheme)

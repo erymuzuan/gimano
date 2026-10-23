@@ -1,0 +1,15 @@
+# GitGuardian (ggshield) configuration.
+# Only the known false positives are ignored, by exact match. Never ignore whole paths.
+version: 2
+secret:
+  ignored_matches:
+    # Backup-format label (an algorithm identifier, not a secret): docs/privacy-and-backup.md
+    - name: backup encryption format label
+      match: passphrase-argon2id-xchacha20poly1305
+    # Throwaway passphrases used only by unit tests of the on-device backup encryption
+    - name: iOS backup unit-test passphrase
+      match: kampung-2026!
+    - name: Android backup unit-test passphrase
+      match: passphrase!
+    - name: Android backup unit-test passphrase (Malay)
+      match: kunci rahsia saya

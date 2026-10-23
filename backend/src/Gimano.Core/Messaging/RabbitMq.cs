@@ -13,8 +13,9 @@ public sealed class RabbitMqOptions
     public const string Section = "RabbitMq";
     public string Host { get; set; } = "localhost";
     public int Port { get; set; } = 5672;
-    public string User { get; set; } = "guest";
-    public string Password { get; set; } = "guest";
+    public string User { get; set; } = "gimano";
+    /// <summary>Required; supplied via env (<c>RabbitMq__Password</c>) or user-secrets — never committed.</summary>
+    public string Password { get; set; } = "";
     public string VirtualHost { get; set; } = "/";
 }
 

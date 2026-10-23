@@ -11,7 +11,11 @@ public static class ServiceCollectionExtensions
 {
     public static IServiceCollection AddGimanoData(this IServiceCollection services, IConfiguration config)
     {
-        var cs = config.GetConnectionString(GimanoDb.ConnectionStringName) ?? GimanoDb.DefaultConnectionString;
+        var cs = config.GetConnectionString(GimanoDb.ConnectionStringName)
+                 ?? throw new InvalidOperationException("ConnectionStrings:Postgres is not configured (set ConnectionStrings__Postgres).");
+        // The password is never committed: it comes from ConnectionStrings__Postgres, user-secrets, or Postgres:Password.
+        if (config["Postgres:Password"] is { Length: > 0 } pw && !cs.Contains("Password=", StringComparison.OrdinalIgnoreCase))
+            cs = new Npgsql.NpgsqlConnectionStringBuilder(cs) { Password = pw }.ConnectionString;
         var ds = GimanoDb.BuildDataSource(cs);
         services.AddSingleton(ds);
         services.AddDbContext<GimanoDbContext>(o => GimanoDb.Configure(o, ds));

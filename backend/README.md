@@ -21,7 +21,7 @@ backend/
 From the repo root:
 
 ```bash
-cp deploy/.env.example deploy/.env        # set JWT_SIGNING_KEY (>= 32 chars)
+cp deploy/.env.example deploy/.env        # replace every CHANGE_ME (openssl rand -base64 32)
 docker compose -f deploy/docker-compose.yml up -d --build
 data/download-osm.sh                       # ~250 MB Geofabrik extract → data/osm/
 docker compose -f deploy/docker-compose.yml --profile tools run --rm importer   # ~2–5 min
@@ -31,10 +31,10 @@ curl http://localhost:5080/readyz
 | Service | Host port (default) | Notes |
 |---|---|---|
 | api | 5080 | `/api/v1`, `/hubs/live`, `/healthz`, `/readyz`, `/openapi/v1.json`, `/scalar/v1` |
-| postgis | 5433 | PostgreSQL 17 + PostGIS 3.5, db/user/password `gimano` |
-| opensearch | 9210 | 2.x single node, security plugin disabled (dev only) |
-| rabbitmq | 5673 / 15673 | AMQP / management UI, user `gimano` |
-| valhalla | 8002 | builds routing tiles from the Geofabrik extract on first start (10–30 min) |
+| postgis | 127.0.0.1:5433 | PostgreSQL 17 + PostGIS 3.5, db/user `gimano`, password from `deploy/.env` |
+| opensearch | 127.0.0.1:9210 | 2.x single node, security plugin disabled (dev only, never published) |
+| rabbitmq | 127.0.0.1:5673 / 15673 | AMQP / management UI, user `gimano`, password from `deploy/.env` |
+| valhalla | 127.0.0.1:8002 | builds routing tiles from the Geofabrik extract on first start (10–30 min) |
 | worker | – | consumes `gimano.events` |
 
 All ports are overridable in `deploy/.env`. Until Valhalla has finished building tiles,
@@ -42,20 +42,30 @@ All ports are overridable in `deploy/.env`. Until Valhalla has finished building
 
 ## Run the .NET apps locally against the stack
 
-The `appsettings.json` defaults point at the compose host ports on `localhost`
-(Postgres 5433, OpenSearch 9210, RabbitMQ 5673, Valhalla 8002). To use a remote Docker host
-(e.g. WS556, see [`AGENTS.md`](../AGENTS.md)) override with environment variables:
+No credentials are committed. `appsettings.json` has connection strings **without** passwords, pointing at the
+compose host ports on `localhost` (Postgres 5433, OpenSearch 9210, RabbitMQ 5673, Valhalla 8002). The infrastructure
+ports are bound to 127.0.0.1, so run the apps on the Docker host, or tunnel to it. Supply secrets with
+`dotnet user-secrets` (stored outside the repo) or with environment variables, using the same values as `deploy/.env`:
 
 ```bash
-export ConnectionStrings__Postgres="Host=100.101.150.9;Port=5433;Database=gimano;Username=gimano;Password=gimano"
-export OpenSearch__Url=http://100.101.150.9:9210 RabbitMq__Host=100.101.150.9 Valhalla__Url=http://100.101.150.9:8002
-
 cd backend
-dotnet run --project src/Gimano.Api          # http://0.0.0.0:5080 (Development JWT key from appsettings.Development.json)
+for p in src/Gimano.Api src/Gimano.Worker src/Gimano.Importer; do
+  dotnet user-secrets --project $p set "Postgres:Password" "<POSTGRES_PASSWORD from deploy/.env>"
+  dotnet user-secrets --project $p set "RabbitMq:Password" "<RABBITMQ_PASSWORD from deploy/.env>"
+done
+dotnet user-secrets --project src/Gimano.Api set "Jwt:SigningKey" "$(openssl rand -base64 48)"   # optional in Development
+
+dotnet run --project src/Gimano.Api          # http://0.0.0.0:5080
 dotnet run --project src/Gimano.Worker
-data/import.sh                               # (from repo root) runs the importer with the local SDK
 dotnet run --project src/Gimano.Importer -- --dry-run   # parse the extract only, no DB needed (~30 s)
 ```
+
+Or use environment variables: `Postgres__Password`, `RabbitMq__Password`, `Jwt__SigningKey`, or a full
+`ConnectionStrings__Postgres`. In Development, if no JWT key is set, the API generates an ephemeral one
+(tokens stop working after a restart). In any other environment it refuses to start without one.
+
+`dotnet ef` reads the design-time connection string from `GIMANO_PG`:
+`export GIMANO_PG="Host=localhost;Port=5433;Database=gimano;Username=gimano;Password=$POSTGRES_PASSWORD"`.
 
 The API applies EF Core migrations on start (`Database:MigrateOnStartup`, default `true`); the importer does too.
 
@@ -71,11 +81,11 @@ dotnet test            # Microsoft.Testing.Platform (configured in global.json)
 
 | Key | Default | |
 |---|---|---|
-| `ConnectionStrings:Postgres` | `Host=localhost;Port=5433;…` | |
+| `ConnectionStrings:Postgres` | `Host=localhost;Port=5433;…` (no password) | password via `Postgres:Password` or the full string from env |
 | `OpenSearch:Url` | `http://localhost:9210` | optional `OpenSearch:User` / `Password` |
-| `RabbitMq:Host/Port/User/Password` | `localhost` / `5673` / `gimano` / `gimano` | |
+| `RabbitMq:Host/Port/User/Password` | `localhost` / `5673` / `gimano` / *(none — secret)* | |
 | `Valhalla:Url` | `http://localhost:8002` | |
-| `Jwt:SigningKey` | *(none; dev key in appsettings.Development.json)* | ≥ 32 chars, **required in Production** |
+| `Jwt:SigningKey` | *(none; ephemeral random key in Development)* | ≥ 32 chars, **required outside Development** |
 | `Jwt:Issuer` / `Jwt:Audience` / `Jwt:LifetimeDays` | `gimano` / `gimano-app` / `365` | |
 | `Urls` | `http://0.0.0.0:5080` | bound on all interfaces so phones on the LAN/Tailscale can connect |
 

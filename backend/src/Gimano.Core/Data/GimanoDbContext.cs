@@ -233,7 +233,8 @@ public sealed class GimanoDbContext(DbContextOptions<GimanoDbContext> options) :
 public static class GimanoDb
 {
     public const string ConnectionStringName = "Postgres";
-    public const string DefaultConnectionString = "Host=localhost;Port=5432;Database=gimano;Username=gimano;Password=gimano";
+    /// <summary>Environment variable with the full connection string for design-time tools (<c>dotnet ef</c>).</summary>
+    public const string DesignTimeEnvVar = "GIMANO_PG";
 
     public static NpgsqlDataSource BuildDataSource(string connectionString)
     {
@@ -257,7 +258,10 @@ public sealed class DesignTimeFactory : IDesignTimeDbContextFactory<GimanoDbCont
 {
     public GimanoDbContext CreateDbContext(string[] args)
     {
-        var cs = Environment.GetEnvironmentVariable("ConnectionStrings__Postgres") ?? GimanoDb.DefaultConnectionString;
+        var cs = Environment.GetEnvironmentVariable(GimanoDb.DesignTimeEnvVar)
+                 ?? Environment.GetEnvironmentVariable("ConnectionStrings__Postgres")
+                 ?? throw new InvalidOperationException(
+                     $"Set {GimanoDb.DesignTimeEnvVar} to a PostgreSQL connection string (e.g. Host=localhost;Port=5433;Database=gimano;Username=gimano;Password=…) for dotnet ef.");
         var o = new DbContextOptionsBuilder<GimanoDbContext>();
         GimanoDb.Configure(o, GimanoDb.BuildDataSource(cs));
         return new GimanoDbContext(o.Options);

@@ -208,7 +208,7 @@ public class ReviewRuleTests
         var id = Guid.CreateVersion7();
         var c = CommunityRules.EncodeCursor(7, id);
         Assert.DoesNotContain("=", c);
-        Assert.Equal(["7", id.ToString()], CommunityRules.DecodeCursor(c));
+        Assert.Equal(["7", id.ToString()], CommunityRules.DecodeCursor(c)!);
         Assert.Null(CommunityRules.DecodeCursor("%%%"));
         Assert.Null(CommunityRules.DecodeCursor(null));
     }
