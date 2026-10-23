@@ -76,7 +76,8 @@ fun BackupScreen(vm: BackupViewModel, onBack: () -> Unit) {
             Spacer(Modifier.height(14.dp))
             val last = s.lastBackupAt
             Text(
-                if (last != null) stringResource(R.string.last_backup, my.gimano.app.core.format.Formatters.localStamp(last), "%.1f KB".format(s.lastBackupBytes / 1024.0), s.lastBackupDest ?: "")
+                if (last != null) stringResource(R.string.last_backup, my.gimano.app.core.format.Formatters.localStamp(last), "%.1f KB".format(s.lastBackupBytes / 1024.0),
+                    when (s.lastBackupDest) { "drive" -> "Google Drive"; "file" -> stringResource(R.string.backup_dest_file); else -> s.lastBackupDest ?: "" })
                 else stringResource(R.string.no_backup_yet),
                 color = c.textMuted, fontSize = 14.sp,
             )

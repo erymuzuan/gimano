@@ -42,7 +42,10 @@ fun AboutScreen(c: AppContainer, live: Boolean, onBack: () -> Unit, onLicences: 
     val scope = rememberCoroutineScope()
     val u by c.updater.ui.collectAsState()
     fun open(url: String) = runCatching { ctx.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url))) }
-    val host = runCatching { Uri.parse(c.settings.current.apiBaseUrl).host }.getOrNull() ?: "—"
+    // The public server is just "Manotu" (its host name is infrastructure); other servers (dev) show their host.
+    val url = c.settings.current.apiBaseUrl
+    val host = if (my.gimano.app.core.format.ServerLabel.isPublic(url, my.gimano.app.BuildConfig.API_BASE_URL, my.gimano.app.BuildConfig.DEBUG)) stringResource(R.string.app_name)
+        else runCatching { Uri.parse(url).host }.getOrNull() ?: "—"
     Column(Modifier.fillMaxSize().background(col.background).windowInsetsPadding(WindowInsets.statusBars)) {
         Row(Modifier.fillMaxWidth().padding(4.dp), verticalAlignment = Alignment.CenterVertically) {
             IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, stringResource(R.string.back), tint = col.text) }

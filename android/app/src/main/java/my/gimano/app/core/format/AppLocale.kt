@@ -18,3 +18,9 @@ object AppLocale {
         return base.createConfigurationContext(cfg)
     }
 }
+
+object ServerLabel {
+    /** Release builds talking to their built-in server show the app's name instead of a host name. */
+    fun isPublic(current: String, builtIn: String, debug: Boolean): Boolean =
+        !debug && current.trimEnd('/') == builtIn.trimEnd('/')
+}
