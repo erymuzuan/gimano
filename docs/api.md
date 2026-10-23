@@ -17,7 +17,7 @@ POST /auth/device            {deviceId, platform:"android"|"ios", locale}
   → 200 {token, userId, displayName}
 
 GET  /me                     → User
-PATCH /me                    {displayName?, mood?, vehicle?:"car"|"motorcycle", locale?}
+PATCH /me                    {displayName?, mood?, vehicle?:"car"|"motorcycle"|"bicycle"|"walk", locale?}
 ```
 
 `User = {id, displayName, mood, vehicle, points, level, joinedAt}`
@@ -25,14 +25,20 @@ PATCH /me                    {displayName?, mood?, vehicle?:"car"|"motorcycle", 
 ## Saved places
 
 ```
-GET    /me/places            → SavedPlace[]
+GET    /me/places            → SavedPlace[]   (home, work first; then favourites by sortOrder)
 PUT    /me/places/{kind}     kind = home|work      body: {name, lat, lng, address, placeId?}
-POST   /me/places            body: {name, lat, lng, address, placeId?}   (favourite)
+POST   /me/places            body: {name, icon?, lat, lng, address, placeId?}   (favourite)
+PATCH  /me/places/{id}       body: {name?, icon?, lat?, lng?, address?, sortOrder?}
 DELETE /me/places/{id}
 GET    /me/recents           → Recent[]   (last 20 destinations)
 ```
 
-`SavedPlace = {id, kind:"home"|"work"|"favorite", name, lat, lng, address, placeId?}`
+`SavedPlace = {id, kind:"home"|"work"|"favorite", name, icon, lat, lng, address, placeId?, sortOrder}`
+
+Favourites carry a user-chosen label (`name`, max 40 chars, e.g. "Kampung", "Rumah Mertua",
+"Sekolah Aina") and an `icon` from the shared set:
+`home, work, kampung, mertua, star, heart, school, surau, food, gym, shop, hospital`
+(default `star`). Home/work always have icon `home`/`work`. Max 50 favourites per user.
 `Recent = {id, name, address, lat, lng, placeId?, lastUsedAt}`
 
 ## Search & places
@@ -67,8 +73,8 @@ POST /routes
 {
   "origin":      {"lat":3.13,"lng":101.62},
   "destination": {"lat":3.12,"lng":101.61, "placeId":"..."},
-  "waypoints":   [],
-  "vehicle":     "car" | "motorcycle",
+  "waypoints":   [{"lat":3.14,"lng":101.69,"name":"Kedai Mak","placeId":null}],   // 0–5 intermediate stops, in order
+  "vehicle":     "car" | "motorcycle" | "bicycle" | "walk",
   "avoid":       {"tolls":false,"highways":false,"ferries":false},
   "departAt":    null,        // ISO time for "Leave later"
   "alternatives": 2
@@ -80,7 +86,24 @@ POST /routes
 
 Routes are cached server-side for 3 h so that `/routes/{id}/reroute` can reuse the
 original destination/vehicle/avoid options (404 when the id is unknown or expired).
-`tollEstimateMyr` is currently always `null` (no toll tariff data yet).
+
+**Travel modes** map to Valhalla costings: `car`→`auto`, `motorcycle`→`motorcycle`,
+`bicycle`→`bicycle`, `walk`→`pedestrian`. `avoid.*` applies to car/motorcycle only; bicycle and
+walk never use expressways or tolls. Live-traffic re-scoring and `trafficSegments` apply to
+car/motorcycle only (empty for bicycle/walk). Walking/cycling instructions use the same
+`Maneuver` shape.
+
+**Multi-stop:** each waypoint becomes a leg: `legs.length == waypoints.length + 1`. Reroute keeps the
+**remaining** stops (the client sends `nextStopIndex`).
+
+**Tolls & fares:** OSM has toll plazas but no tariffs. `tolls` lists every toll plaza the route
+passes, in order, with the class-appropriate fare from Gimano's curated tariff table
+(`data/tolls/my-toll-rates.csv`, every row cites its public source and effective date).
+`tollEstimateMyr` is the sum **only when every plaza has a known fare** (`tollFareComplete: true`);
+otherwise it is the sum of the known fares and `tollFareComplete: false`, and the app shows "from RM x".
+Closed-system expressways (PLUS E1/E2 etc.) charge entry→exit pairs and are priced only
+where the pair is in the table. Vehicle class: car = class 1, motorcycle = class 0. Most Malaysian
+tolls are free for class 0, but fares are taken from the table, not assumed. Bicycle and walk routes always have `tolls: []`.
 
 ```
 Route = {
@@ -88,10 +111,12 @@ Route = {
   durationS, distanceM, trafficDurationS,
   summary: "Via E11 LDP, Exit 1107 SS2 Petaling Jaya",
   trafficDescription: "Typical traffic" | "Heavier than usual" | "Light traffic",
-  hasTolls: bool, tollEstimateMyr?: number,
+  vehicle: "car"|"motorcycle"|"bicycle"|"walk",
+  hasTolls: bool, tollEstimateMyr?: number, tollFareComplete: bool,
+  tolls: [{plazaId, name, highway?, lat, lng, fareMyr?: number, system: "open"|"closed_entry"|"closed_exit", source?}],
   polyline,                         // encoded, precision 6
   bbox: [minLng,minLat,maxLng,maxLat],
-  legs: [{ maneuvers: Maneuver[] }],
+  legs: [{ durationS, distanceM, to: {lat, lng, name?}, maneuvers: Maneuver[] }],
   trafficSegments: [{fromIndex, toIndex, level:0..4}],   // indexes into decoded polyline
   alerts: AlertOnRoute[]
 }
@@ -106,7 +131,7 @@ AlertOnRoute = Report + {distanceAlongRouteM}
 ```
 
 ```
-POST /routes/{id}/reroute   {lat, lng, heading}   → {routes: Route[]}
+POST /routes/{id}/reroute   {lat, lng, heading, nextStopIndex?}   → {routes: Route[]}
 GET  /routes/departure-times?originLat=&originLng=&destLat=&destLng=&date=&vehicle=
   → {slots:[{departAt, durationS}]}         // "Find the best time to leave"
   // date = yyyy-MM-dd (Malaysia time, default today); one slot per hour 06:00–22:00 MYT;
@@ -161,6 +186,32 @@ subtypes:
   weather: heavy_rain | fog | flood | haze
   animal:  on_road | on_shoulder
 ```
+
+## Feedback
+
+Every screen's menu has **Add feedback**. Anonymous users can send feedback too, with their device token.
+
+```
+POST /feedback
+{ "category": "bug" | "idea" | "map_data" | "route" | "search" | "other",
+  "message": "Jalan ini sudah ditutup sejak minggu lepas",   // 1–2000 chars, required
+  "rating": 4,                       // optional 1–5
+  "screen": "navigation",            // where it was opened: home|search|place|route_preview|navigation|report|settings|other
+  "context": {                       // filled automatically by the app, user can untick "include diagnostics"
+    "appVersion": "0.1.0 (1)", "platform": "android"|"ios", "osVersion": "16", "deviceModel": "SM-S921B",
+    "locale": "ms", "lat": 3.118, "lng": 101.619, "routeId": "...", "placeId": "..."
+  },
+  "screenshot": "<base64 PNG/JPEG, optional, ≤ 1.5 MB decoded>" }
+→ 201 {id, createdAt}
+→ 400 problem+json (validation), 413 (screenshot too big), 429 (more than 10 per hour per user)
+
+GET  /me/feedback            → FeedbackSummary[]   ({id, category, message, status, createdAt})
+```
+
+`status ∈ received, triaged, planned, done, wont_fix`. The backend stores feedback in Postgres
+(screenshot as bytea, max 1.5 MB), publishes `feedback.created` on RabbitMQ, and can
+optionally open a GitHub issue (`Feedback:GitHubRepo` + token configured; off by default; the
+issue body never includes the device id or a precise location, which is rounded to 2 dp).
 
 ## Location pings
 
