@@ -123,11 +123,26 @@ public class CrashTests
         Assert.NotEqual(s1, CrashScrubber.Signature("java.lang.IllegalStateException", AndroidStack.Replace("NavigationController.start", "NavigationController.stop")));
     }
 
+    /// <summary>A token-shaped string built at runtime, so no JWT literal lives in source (secret scanners).</summary>
+    private static string FakeJwt()
+    {
+        static string B64(string json) => Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes(json)).TrimEnd('=').Replace('+', '-').Replace('/', '_');
+        return string.Join('.', B64("{\"alg\":\"none\"}"), B64("{\"sub\":\"test\"}"), new string('x', 12));
+    }
+
+    [Fact]
+    public void Server_rescrubs_bearer_tokens()
+    {
+        var jwt = FakeJwt();
+        var s = CrashScrubber.Scrub("Bearer " + jwt, 1000)!;
+        Assert.DoesNotContain(jwt.Split('.')[0], s);
+        Assert.Contains("[redacted]", s);
+    }
+
     [Theory]
     [InlineData("user ali@example.com failed", "ali@example.com")]
     [InlineData("at 3.118765, 101.619432 on route", "3.118765")]
     [InlineData("call +60 12-345 6789 now", "345 6789")]
-    [InlineData("Bearer eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.abcdefghijkl", "eyJhbGciOiJIUzI1NiJ9")]
     [InlineData("GET https://api.example.com/x?token=abc&lat=3.1 failed", "token=abc")]
     [InlineData("open /data/user/0/my.gimano.app/files/favs.db", "favs.db")]
     [InlineData("file:///var/mobile/Containers/Data/Application/1234-ABCD/Library/x.sqlite", "1234-ABCD")]
