@@ -122,7 +122,7 @@ public class SearchRankingUnitTests
 /// The fixture reproduces the reported bug: from Petaling Jaya, "Putrajaya" returned a long government name containing
 /// the word (8 km away) and POIs, never Putrajaya itself.
 /// </summary>
-public class SearchRankingIntegrationTests
+public class OpenSearchIntegrationRankingTests
 {
     private const double PjLat = 3.1478, PjLng = 101.6153;
 
