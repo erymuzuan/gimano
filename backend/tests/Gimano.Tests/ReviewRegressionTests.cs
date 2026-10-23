@@ -1,6 +1,10 @@
 using System.Security.Claims;
 using System.Text;
 using Gimano.Api.Identity;
+using Gimano.Api.Services;
+using Gimano.Core.Contracts;
+using Gimano.Core.Domain;
+using Gimano.Core.Geo;
 using Gimano.Core.Identity;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Caching.Memory;
@@ -72,5 +76,30 @@ public class SignatureReplayRegressionTests
         var wins = 0;
         Parallel.For(0, 64, _ => { if (replay.TryAdd("k")) Interlocked.Increment(ref wins); });
         Assert.Equal(1, wins);
+    }
+}
+
+public class IssueDirectoryExpiryRegressionTests
+{
+    private static readonly DateTimeOffset Now = new(2026, 10, 23, 10, 0, 0, TimeSpan.Zero);
+
+    [Fact]
+    public void Issues_past_expiry_are_not_routed_around_or_badged_before_the_worker_sweeps_them()
+    {
+        var line = new List<GeoPoint> { new(3.1000, 101.6000), new(3.1010, 101.6000) };
+        var lines = new Dictionary<(long, int), IReadOnlyList<GeoPoint>> { [(7, 0)] = line, [(8, 0)] = line };
+        var at = new GeoPoint(3.1005, 101.6).ToPoint();
+        // An accident closure (2 h) that ended a minute ago, still "confirmed" in the database until the next 15-minute sweep.
+        var expired = new Issue { Kind = IssueKind.RoadClosedTemp, State = IssueState.Confirmed, WayId = 7, Seq = 0, Location = at, ExpiresAt = Now.AddMinutes(-1) };
+        var live = new Issue { Kind = IssueKind.RoadClosedTemp, State = IssueState.Confirmed, WayId = 8, Seq = 0, Location = at, ExpiresAt = Now.AddHours(1) };
+        var placeTemp = new Issue { Kind = IssueKind.PlaceClosedTemp, State = IssueState.Suspected, PlaceId = "n1", Location = at,
+            ExpiresAt = Now.AddSeconds(-30), Payload = new() { ["until"] = "2026-10-22" } };
+
+        var s = IssueDirectory.Compose([expired, live, placeTemp], lines, Now);
+
+        Assert.Equal([live.Id], s.Exclusions.Select(e => e.Issue.Id));
+        Assert.DoesNotContain(s.Warnings, w => w.Issue.Id == expired.Id);
+        Assert.False(s.IsClosedNow("n1"));
+        Assert.False(s.PlaceBadges.ContainsKey("n1"));
     }
 }

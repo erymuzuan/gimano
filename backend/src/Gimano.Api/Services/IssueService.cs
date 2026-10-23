@@ -218,7 +218,10 @@ public sealed class IssueService(GimanoDbContext db, IEventPublisher bus, IssueD
     public async Task<IReadOnlyList<IssueDto>> NearbyAsync(BBox bbox, IReadOnlyCollection<IssueKind>? kinds, Guid? viewer, string lang, CancellationToken ct)
     {
         var poly = bbox.ToPolygon();
-        var q = db.Issues.AsNoTracking().Where(i => (i.State == IssueState.Suspected || i.State == IssueState.Confirmed) && i.Location.Intersects(poly));
+        var now = clock.GetUtcNow();
+        // Past expiresAt but not yet swept by the worker (every 15 min): not shown, so nobody is asked "Masih ditutup?" about it.
+        var q = db.Issues.AsNoTracking().Where(i => (i.State == IssueState.Suspected || i.State == IssueState.Confirmed)
+            && (i.ExpiresAt == null || i.ExpiresAt > now) && i.Location.Intersects(poly));
         if (kinds is { Count: > 0 }) q = q.Where(i => kinds.Contains(i.Kind));
         var rows = await q.OrderByDescending(i => i.LastEvidenceAt).Take(200).ToListAsync(ct);
         var ids = rows.Select(r => r.Id).ToList();
@@ -432,13 +435,26 @@ public sealed class IssueDirectory(IServiceScopeFactory scopes, TimeProvider clo
     {
         await using var scope = scopes.CreateAsyncScope();
         var db = scope.ServiceProvider.GetRequiredService<GimanoDbContext>();
-        var open = await db.Issues.AsNoTracking().Where(i => i.State == IssueState.Suspected || i.State == IssueState.Confirmed).ToListAsync(ct);
+        var now = clock.GetUtcNow();
+        var open = await db.Issues.AsNoTracking().Where(i => (i.State == IssueState.Suspected || i.State == IssueState.Confirmed)
+            && (i.ExpiresAt == null || i.ExpiresAt > now)).ToListAsync(ct);
 
-        var road = open.Where(i => IssueRules.IsRoad(i.Kind) && i.WayId is not null).ToList();
-        var ways = road.Select(i => i.WayId!.Value).Distinct().ToList();
+        var ways = open.Where(i => IssueRules.IsRoad(i.Kind) && i.WayId is not null).Select(i => i.WayId!.Value).Distinct().ToList();
         var segs = ways.Count == 0 ? [] : await db.RoadSegments.AsNoTracking().Where(s => ways.Contains(s.OsmWayId))
             .Select(s => new { s.OsmWayId, s.Seq, s.Geom }).ToListAsync(ct);
         var lines = segs.ToDictionary(s => (s.OsmWayId, s.Seq), s => (IReadOnlyList<GeoPoint>)GeoMath.FromLineString(s.Geom));
+        return Compose(open, lines, now);
+    }
+
+    /// <summary>
+    /// Builds the snapshot from open issues. Issues past <c>expiresAt</c> are left out even while still open in the database:
+    /// the worker only sweeps every 15 minutes, and an expired closure must not keep being routed around (nor an expired
+    /// place_closed_temp keep a place "closed now").
+    /// </summary>
+    internal static Snapshot Compose(IReadOnlyList<Issue> openIssues, IReadOnlyDictionary<(long, int), IReadOnlyList<GeoPoint>> lines, DateTimeOffset now)
+    {
+        var open = openIssues.Where(i => i.State is IssueState.Suspected or IssueState.Confirmed && (i.ExpiresAt is not { } e || e > now)).ToList();
+        var road = open.Where(i => IssueRules.IsRoad(i.Kind) && i.WayId is not null).ToList();
 
         RoadIssue Road(Issue i)
         {
@@ -461,7 +477,7 @@ public sealed class IssueDirectory(IServiceScopeFactory scopes, TimeProvider clo
             .GroupBy(i => i.PlaceId!).ToDictionary(g => g.Key, g => g.OrderByDescending(i => i.ConfirmedAt).First().Payload["openingHours"]);
         var closedNow = place.Where(i => i.Kind == IssueKind.PlaceClosedTemp || (i.Kind == IssueKind.PlaceClosedPerm && i.State == IssueState.Confirmed))
             .Select(i => i.PlaceId!).ToHashSet();
-        return new Snapshot(exclusions, warnings, badges, closed, nav, hours, clock.GetUtcNow(), closedNow);
+        return new Snapshot(exclusions, warnings, badges, closed, nav, hours, now, closedNow);
     }
 
     public static PlaceBadge? Badge(Snapshot s, string placeId, string lang)
