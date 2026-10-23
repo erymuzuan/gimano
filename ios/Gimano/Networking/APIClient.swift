@@ -127,7 +127,11 @@ actor APIClient {
     func url(_ path: String, query: [URLQueryItem] = []) -> URL {
         let relative = path.hasPrefix("/") ? String(path.dropFirst()) : path
         var c = URLComponents(url: baseURL.appendingPathComponent(relative), resolvingAgainstBaseURL: false)!
-        if !query.isEmpty { c.queryItems = query }
+        if !query.isEmpty {
+            c.queryItems = query
+            // Foundation leaves "+" as-is, which servers read as a space ("6PH57VP3+PR" → "6PH57VP3 PR").
+            c.percentEncodedQuery = c.percentEncodedQuery?.replacingOccurrences(of: "+", with: "%2B")
+        }
         return c.url!
     }
 

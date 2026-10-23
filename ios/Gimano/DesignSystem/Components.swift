@@ -183,6 +183,11 @@ extension PlaceCategory {
         case .transitStation: "tram"
         case .airport: "airplane"
         case .government: "building.2"
+        case .toilets: "toilet"
+        case .street: "road.lanes"
+        case .address: "house"
+        case .postcode: "envelope"
+        case .point: "mappin.circle"
         default: "mappin"
         }
     }

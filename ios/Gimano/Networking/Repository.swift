@@ -253,7 +253,8 @@ final class LiveRepository: GimanoRepository {
         q.append(URLQueryItem(name: "sort", value: sort == .nearest ? "nearest" : "relevance"))
         let query = q
         let res: SearchResponse = try await authed { try await self.client.get("search", query: query) }
-        return SearchOutcome(results: res.results, correctedQuery: res.correctedQuery, suggestions: res.suggestions ?? [])
+        return SearchOutcome(results: res.results, correctedQuery: res.correctedQuery, suggestions: res.suggestions ?? [],
+                             noMatch: res.noMatch ?? false, interpretation: res.interpretation)
     }
 
     // MARK: routing

@@ -6,7 +6,7 @@ import Testing
 struct SearchLogicTests {
     private func p(_ id: String, _ name: String, _ d: Double, brand: String? = nil, chain: String? = nil, open: Bool? = nil) -> PlaceSummary {
         PlaceSummary(id: id, name: name, category: .convenience, address: "", lat: 3.1, lng: 101.6, distanceM: d, brand: brand,
-                     chainGroup: chain, openNow: open)
+                     chainGroup: chain.map { ChainGroup(key: $0.lowercased(), name: $0, countNearby: 12) }, openNow: open)
     }
 
     @Test("Branches of a chain fold into one group, nearest first, where its best member ranked")
@@ -42,10 +42,14 @@ struct SearchLogicTests {
 
     @Test("Search response decodes the spelling fix, suggestions and chain fields; older servers still decode")
     func decode() throws {
-        let new = #"{"results":[{"id":"n1","name":"FamilyMart","category":"convenience","address":"Jalan SS2/64","lat":3.1,"lng":101.6,"distanceM":1400,"brand":"FamilyMart","chainGroup":"FamilyMart","openNow":true,"source":"osm","status":null,"rating":null,"reviewCount":0,"thumbnailUrl":null}],"correctedQuery":"FamilyMart","suggestions":[{"label":"Kedai runcit berdekatan","category":"convenience","count":6}]}"#
+        let new = #"{"results":[{"id":"n1","name":"FamilyMart","category":"convenience","address":"Jalan SS2/64","lat":3.1,"lng":101.6,"distanceM":1400,"brand":"FamilyMart","chainGroup":{"key":"familymart","name":"FamilyMart","countNearby":12},"openNow":true,"source":"osm","status":null,"rating":null,"reviewCount":0,"thumbnailUrl":null}],"correctedQuery":"FamilyMart","suggestions":[{"label":"Kedai runcit berdekatan","category":"convenience","count":6}]}"#
         let r = try JSON.makeDecoder().decode(SearchResponse.self, from: Data(new.utf8))
-        #expect(r.correctedQuery == "FamilyMart" && r.results[0].chainGroup == "FamilyMart" && r.results[0].openNow == true)
+        #expect(r.correctedQuery == "FamilyMart" && r.results[0].chainGroup?.countNearby == 12 && r.results[0].openNow == true)
+        #expect(SearchLogic.chainCount(r.results) == 12)
         #expect(r.suggestions?.first?.category == .convenience && r.suggestions?.first?.count == 6)
+        let only = #"{"results":[{"id":"st-1","name":"Jalan SS 2/24","category":"street","address":"Petaling Jaya","lat":3.1,"lng":101.6},{"id":"pt-3.1,101.6","name":"3.1, 101.6","category":"point","address":"Near Jalan SS 2/24","lat":3.1,"lng":101.6}],"noMatch":false,"interpretation":{"kind":"street","normalized":"jalan ss2 24"}}"#
+        let so = try JSON.makeDecoder().decode(SearchResponse.self, from: Data(only.utf8))
+        #expect(so.results.allSatisfy(\.isSearchOnly) && so.interpretation?.kind == "street" && so.noMatch == false)
         let old = #"{"results":[]}"#
         let o = try JSON.makeDecoder().decode(SearchResponse.self, from: Data(old.utf8))
         #expect(o.correctedQuery == nil && o.suggestions == nil)
@@ -61,5 +65,13 @@ struct SearchLogicTests {
         #expect(SearchLogic.initials("7-Eleven") == "7E")
         #expect(SearchLogic.initials("Petronas") == "PE")
         #expect(SearchLogic.initials("kedai mak") == "KM")
+    }
+
+    @Test("A \"+\" in a query value is sent as %2B (Plus Codes), and the signature covers that exact target")
+    func plusEncoding() async {
+        let client = APIClient(baseURL: URL(string: "http://h/api/v1/")!, token: nil)
+        let url = await client.url("search", query: [URLQueryItem(name: "q", value: "6PH57VP3+PR"), URLQueryItem(name: "q2", value: "a b")])
+        #expect(url.absoluteString == "http://h/api/v1/search?q=6PH57VP3%2BPR&q2=a%20b")
+        #expect(Canonical.pathAndQuery(of: url) == "/api/v1/search?q=6PH57VP3%2BPR&q2=a%20b")
     }
 }

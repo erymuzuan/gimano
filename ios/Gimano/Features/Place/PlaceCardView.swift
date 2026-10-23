@@ -169,8 +169,8 @@ struct PlaceCardView: View {
                 if isCommunity { badge("Community", icon: .map, id: "badgeCommunity") }
                 if isCommunity && status == .pending {
                     badge("Unverified", icon: .hazard, id: "badgeUnverified")
-                    VettingBadge(confirmed: verifyResult.map { Int($0.confirmationsWeighted) } ?? place?.verifiedCount ?? 0,
-                                 required: verifyResult.map { Int($0.required) } ?? 3)
+                    VettingBadge(confirmed: verifyResult.map { Int($0.confirmationsWeighted) } ?? place?.confirmationsWeighted.map { Int($0) } ?? place?.verifiedCount ?? 0,
+                                 required: verifyResult.map { Int($0.required) } ?? place?.required.map { Int($0) } ?? 3)
                 }
                 if let n = place?.verifiedCount, n > 0 {
                     Text("Confirmed by \(n)").font(Tokens.Font.small).foregroundStyle(Color.textMuted)

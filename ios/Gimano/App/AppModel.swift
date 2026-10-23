@@ -297,9 +297,12 @@ final class AppModel {
         if vettingTask == nil { startVettingTicker() }
         #if DEBUG
         // `-GimanoVetNow YES` (demo): a pending place by someone else 250 m away, and the prompt right away.
-        if UserDefaults.standard.bool(forKey: "GimanoVetNow"), let demo = repo as? DemoRepository {
-            let p = LatLng(lat: position.lat + 0.0018, lng: position.lng + 0.0012)
-            _ = await demo.seedPendingPlace(name: "Gerai Nasi Kerabu Mek Na", at: p)
+        if UserDefaults.standard.bool(forKey: "GimanoVetNow") {
+            if let demo = repo as? DemoRepository {
+                let p = LatLng(lat: position.lat + 0.0018, lng: position.lng + 0.0012)
+                _ = await demo.seedPendingPlace(name: "Gerai Nasi Kerabu Mek Na", at: p)
+            }
+            // Live: ask about a real pending place nearby (another pseudonym's) right away.
             await considerVettingPrompt(force: true)
         }
         #endif
@@ -803,7 +806,7 @@ final class AppModel {
 
     /// "Add a stop" from search: appends to the trip being previewed, or to the active drive.
     func addStop(_ p: PlaceSummary) {
-        let stop = TripStop(name: p.name, location: p.location, placeId: p.id.hasPrefix("pin:") ? nil : p.id)
+        let stop = TripStop(name: p.name, location: p.location, placeId: p.id.hasPrefix("pin:") || p.isSearchOnly ? nil : p.id)
         if let nav = navigation {
             var remaining = Array(nav.stops.dropFirst(nav.stopTracker.nextStopIndex))
             guard StopPlanner.add(stop, to: &remaining) else {
@@ -842,7 +845,7 @@ final class AppModel {
     // MARK: saved places (on device)
 
     func setSaved(kind: SavedPlaceKind, place p: PlaceSummary, label: String? = nil, icon: FavoriteIcon? = nil) {
-        let placeId = p.id.hasPrefix("pin:") || p.id.hasPrefix("local:") ? nil : p.id
+        let placeId = p.id.hasPrefix("pin:") || p.id.hasPrefix("local:") || p.isSearchOnly ? nil : p.id
         do {
             switch kind {
             case .home, .work:
@@ -1036,7 +1039,9 @@ final class AppModel {
         let candidates = list.filter { !voted.contains($0.id) && !ownPlaceIds.contains($0.id) && Proximity.claim(me: me, place: $0.location) != nil }
             .sorted { Geo.distance(me, $0.location) < Geo.distance(me, $1.location) }
         guard let nearest = candidates.first else { return }
-        let detail = (try? await repo.place(id: nearest.id, near: me)) ?? Place(summary: nearest)
+        var detail = (try? await repo.place(id: nearest.id, near: me)) ?? Place(summary: nearest)
+        detail.confirmationsWeighted = detail.confirmationsWeighted ?? nearest.confirmationsWeighted
+        detail.required = detail.required ?? nearest.required
         vettingGate.didPrompt(at: now)
         UserDefaults.standard.set(now, forKey: "vetting.lastPromptAt")
         vettingPrompt = detail

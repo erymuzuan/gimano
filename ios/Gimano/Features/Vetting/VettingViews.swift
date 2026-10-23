@@ -66,7 +66,8 @@ struct VettingPromptSheet: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            VettingBadge(confirmed: place.verifiedCount ?? 0, required: 3)
+            VettingBadge(confirmed: place.confirmationsWeighted.map { Int($0) } ?? place.verifiedCount ?? 0,
+                         required: place.required.map { Int($0) } ?? 3)
             HStack(spacing: 12) {
                 GimanoIcon(icon: place.category.tileIcon, size: 40)
                     .frame(width: 76, height: 76)

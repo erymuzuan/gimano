@@ -16,6 +16,8 @@ struct PickedPoint: Identifiable, Hashable, Sendable {
     let id = UUID()
     var location: LatLng
     var address: String?
+    /// Ready-made line from the server ("Near 18, Jalan SS 2/24, …"); shown as-is.
+    var label: String?
     var placeName: String?
     var placeId: String?
 
@@ -138,8 +140,13 @@ struct SelectOnMapView: View {
         .padding(.top, 4)
     }
 
-    /// Street address for the label; a POI name returned by older servers counts as "nearby".
+    /// Street address for saving; a POI name returned by older servers counts as "nearby".
     private var addressText: String? { info?.address?.isEmpty == false ? info?.address : nil }
+    /// What the card shows: the server's `label` ("Dekat 18, Jalan SS 2/24, …"), else "Near <address>".
+    private var labelText: String? {
+        if let l = info?.label, !l.isEmpty { return l }
+        return addressText.map { String(localized: "Near \($0)") }
+    }
 
     /// The nearest known place within 50 m: `nearby[0]`, or (older servers) the reverse name when its point is that close.
     private var nearby: (id: String?, name: String, location: LatLng, distanceM: Double)? {
@@ -158,7 +165,7 @@ struct SelectOnMapView: View {
     private var bottomCard: some View {
         VStack(alignment: .leading, spacing: 10) {
             Capsule().fill(Color.outline).frame(width: 40, height: 5).frame(maxWidth: .infinity)
-            Text(addressText.map { String(localized: "Near \($0)") } ?? (looking ? String(localized: "Finding the address…") : String(localized: "Point on map")))
+            Text(labelText ?? (looking ? String(localized: "Finding the address…") : String(localized: "Point on map")))
                 .font(Tokens.Font.nunito(18, .black))
                 .lineLimit(2)
                 .accessibilityIdentifier("selectAddress")
@@ -166,7 +173,7 @@ struct SelectOnMapView: View {
                 .font(Tokens.Font.caption).foregroundStyle(Color.textMuted)
             if let n = nearby {
                 Button {
-                    finish(PickedPoint(location: n.location, address: addressText, placeName: n.name, placeId: n.id))
+                    finish(PickedPoint(location: n.location, address: addressText, label: labelText, placeName: n.name, placeId: n.id))
                 } label: {
                     Text("Is this \(n.name) (\(Int(n.distanceM.rounded())) m)?")
                         .font(Tokens.Font.nunito(13, .black)).foregroundStyle(Color.brandInk)
@@ -177,7 +184,7 @@ struct SelectOnMapView: View {
                 .accessibilityIdentifier("selectIsThis")
             }
             Button("Choose this point") {
-                finish(PickedPoint(location: center, address: addressText))
+                finish(PickedPoint(location: center, address: addressText, label: labelText))
             }
             .buttonStyle(PrimaryButtonStyle())
             .accessibilityIdentifier("selectChoose")
@@ -208,7 +215,7 @@ struct PinActionsSheet: View {
                 Text(ManeuverFormatter.distance(Geo.distance(model.position, point.location)))
                     .font(Tokens.Font.label).foregroundStyle(Color.textMuted)
             }
-            Text(point.address.map { String(localized: "Near \($0)") } ?? String(format: "%.5f, %.5f", point.location.lat, point.location.lng))
+            Text(point.label ?? point.address.map { String(localized: "Near \($0)") } ?? String(format: "%.5f, %.5f", point.location.lat, point.location.lng))
                 .font(Tokens.Font.caption).foregroundStyle(Color.textMuted)
                 .accessibilityIdentifier("pinAddressLine")
             Button {
@@ -229,8 +236,11 @@ struct PinActionsSheet: View {
         }
         .padding(Tokens.Space.gutter)
         .task {
-            guard point.address == nil else { return }
-            if let rg = try? await model.repo.reverseGeocode(point.location) { point.address = rg.address ?? rg.name }
+            guard point.address == nil && point.label == nil else { return }
+            if let rg = try? await model.repo.reverseGeocode(point.location) {
+                point.address = rg.address ?? rg.name
+                point.label = rg.label
+            }
         }
     }
 

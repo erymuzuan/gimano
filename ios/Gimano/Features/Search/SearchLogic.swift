@@ -19,10 +19,20 @@ enum ResultSection: Identifiable, Equatable, Sendable {
 }
 
 enum SearchLogic {
-    /// Chain key: the server's `chainGroup`, else the brand.
+    /// Chain key: the server's `chainGroup.key`, else the brand.
     static func chainKey(_ p: PlaceSummary) -> String? {
-        let k = (p.chainGroup ?? p.brand)?.trimmingCharacters(in: .whitespaces)
+        let k = (p.chainGroup?.key ?? p.brand)?.trimmingCharacters(in: .whitespaces)
         return k?.isEmpty == false ? k : nil
+    }
+
+    /// Display name for a chain group.
+    static func chainName(_ places: [PlaceSummary]) -> String {
+        places.first?.chainGroup?.name ?? places.first?.brand ?? places.first?.name ?? ""
+    }
+
+    /// "12 nearby" from the server (outlets within 10 km) when known, else the rows shown.
+    static func chainCount(_ places: [PlaceSummary]) -> Int {
+        places.compactMap { $0.chainGroup?.countNearby }.max() ?? places.count
     }
 
     /// Sorts/filters, then folds branches of the same chain (≥ 2) into one group placed where its best member was.
@@ -42,7 +52,7 @@ enum SearchLogic {
                 guard emitted.insert(key.lowercased()).inserted else { continue }
                 let branches = list.filter { chainKey($0)?.lowercased() == key.lowercased() }
                     .sorted { ($0.distanceM ?? .infinity) < ($1.distanceM ?? .infinity) }
-                out.append(.chain(name: key, places: branches))
+                out.append(.chain(name: chainName(branches), places: branches))
             } else {
                 out.append(.place(p))
             }

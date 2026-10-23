@@ -50,6 +50,7 @@ struct SearchView: View {
                             Image(systemName: "xmark.circle.fill").foregroundStyle(Color.textMuted)
                         }
                         .accessibilityLabel(Text("Clear"))
+                        .accessibilityIdentifier("searchClear")
                     }
                 }
                 .padding(.horizontal, 16)
@@ -121,7 +122,7 @@ struct SearchView: View {
                             case .place(let r):
                                 resultRow(r)
                             case .chain(let name, let places):
-                                chainHeader(name: name, count: places.count)
+                                chainHeader(name: name, count: SearchLogic.chainCount(places))
                                 if expanded.contains(name.lowercased()) {
                                     ForEach(places) { resultRow($0, indent: true) }
                                 }
@@ -313,7 +314,10 @@ struct SearchView: View {
     }
 
     private func suggestionLabel(_ sg: SearchSuggestion) -> String {
-        if !sg.label.isEmpty { return sg.label }
+        if !sg.label.isEmpty {
+            // Category suggestions carry how many are within 5 km: "Kedai runcit · 20".
+            return sg.count.map { "\(sg.label) · \($0)" } ?? sg.label
+        }
         if let c = sg.category {
             let name = String(localized: AddPlaceCategories.title(c))
             return sg.count.map { String(localized: "\(name) nearby · \($0)") } ?? String(localized: "\(name) nearby")
@@ -426,7 +430,12 @@ struct SearchView: View {
         focused = false
         switch purpose {
         case .destination:
-            model.openPlace(p)
+            // Streets, addresses, postcodes and coordinates have no place page: go straight to the pin actions.
+            if p.isSearchOnly {
+                model.pinActions = PickedPoint(location: p.location, address: p.address.isEmpty ? nil : p.address, placeName: p.name)
+            } else {
+                model.openPlace(p)
+            }
         case .addStop:
             model.addStop(p)
         case .setHome:

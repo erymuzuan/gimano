@@ -94,6 +94,7 @@
 		E307B225E1E8F4388EDAB245 /* VettingViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8719815DF8C7658CF6818127 /* VettingViews.swift */; };
 		E35D07FA087E065992A7004A /* libwebp in Frameworks */ = {isa = PBXBuildFile; productRef = C2C539BD2F351FB1D670A2CA /* libwebp */; };
 		E4BF9C18B9A5AF2FED0AA349 /* RoutePreviewView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 92B6ACBA56FD62A3A279DC94 /* RoutePreviewView.swift */; };
+		ED7BA0000490D551E66F5DFD /* SearchQueriesUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 56F7DF9A6F75182021A6A671 /* SearchQueriesUITests.swift */; };
 		F030E3E4C727AB6F6551C32A /* ShareDrive.swift in Sources */ = {isa = PBXBuildFile; fileRef = 41614307C95440C6622D1E8C /* ShareDrive.swift */; };
 		F43F46EFEA44DC04DAF89F39 /* DriveBackupUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B87558CFB1FF80DBC5A662E7 /* DriveBackupUITests.swift */; };
 		F8B876ABC27695B2A7EA31B0 /* LocationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = CBC90672622F0ABA4D89CFEA /* LocationService.swift */; };
@@ -149,6 +150,7 @@
 		4CB027DE8A1892B964BDE866 /* GimanoIcon.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GimanoIcon.swift; sourceTree = "<group>"; };
 		4D9A99725AFCF5CA1B28EB82 /* Models.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Models.swift; sourceTree = "<group>"; };
 		4F93249E570D3CB483EE564A /* Round2Tests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Round2Tests.swift; sourceTree = "<group>"; };
+		56F7DF9A6F75182021A6A671 /* SearchQueriesUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SearchQueriesUITests.swift; sourceTree = "<group>"; };
 		5916B174831C704E0FDA2144 /* ReportCatalog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReportCatalog.swift; sourceTree = "<group>"; };
 		5940B87EF1A5B5D7B27DFFFA /* LiveMapStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiveMapStore.swift; sourceTree = "<group>"; };
 		5960D200AFAFCFB933F4A293 /* FindingPlacesUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FindingPlacesUITests.swift; sourceTree = "<group>"; };
@@ -282,6 +284,7 @@
 				D0238A1CD728A2F2D9CBDD03 /* ProdUserUITests.swift */,
 				6FBA37416C29B4B20D878BFB /* Round3UITests.swift */,
 				C5F669B6DCBAC9CDBDA48CAF /* Round4UITests.swift */,
+				56F7DF9A6F75182021A6A671 /* SearchQueriesUITests.swift */,
 				3B4338B4089BA06ED2E5A9CC /* VettingUITests.swift */,
 			);
 			path = GimanoUITests;
@@ -788,6 +791,7 @@
 				658D6AEB5A770EBA24F9DEDA /* ProdUserUITests.swift in Sources */,
 				4F902BD3BD1138DEEAA5AB4E /* Round3UITests.swift in Sources */,
 				2CE151E5AF12C91658656725 /* Round4UITests.swift in Sources */,
+				ED7BA0000490D551E66F5DFD /* SearchQueriesUITests.swift in Sources */,
 				B6E2C6BFF61567EF072392D5 /* VettingUITests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

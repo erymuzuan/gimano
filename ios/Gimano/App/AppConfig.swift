@@ -62,8 +62,11 @@ final class AppConfig {
         #endif
     }
 
+    /// Launch-argument server (tests); not persisted.
+    private var launchAPIBaseURL: String?
+
     var apiBaseURL: URL {
-        let raw = apiBaseURLOverride.trimmingCharacters(in: .whitespaces).isEmpty ? bundleAPIBaseURL : apiBaseURLOverride
+        let raw = launchAPIBaseURL ?? (apiBaseURLOverride.trimmingCharacters(in: .whitespaces).isEmpty ? bundleAPIBaseURL : apiBaseURLOverride)
         var s = raw.trimmingCharacters(in: .whitespaces)
         if !s.hasSuffix("/") { s += "/" }
         return URL(string: s) ?? URL(string: Self.fallbackAPIBaseURL)!
@@ -100,8 +103,13 @@ final class AppConfig {
     private func applyLaunchArguments() {
         if let m = defaults.string(forKey: "GimanoDataMode"), let mode = DataMode(rawValue: m) { dataMode = mode }
         if defaults.object(forKey: "GimanoSimulateDrive") != nil { simulateDrive = defaults.bool(forKey: "GimanoSimulateDrive") }
-        // `-GimanoAPIBaseURL https://…/api/v1/` (UI tests against another server, e.g. production).
-        if let u = defaults.string(forKey: "GimanoAPIBaseURL"), !u.isEmpty { apiBaseURLOverride = u }
+        // `-GimanoAPIBaseURL https://…/api/v1/` (UI tests against another server, e.g. production): this run only,
+        // never saved. `-GimanoFreshDevice YES` also forgets a saved developer override.
+        if defaults.bool(forKey: "GimanoFreshDevice") {
+            defaults.removeObject(forKey: Keys.api)
+            apiBaseURLOverride = ""
+        }
+        if let u = defaults.string(forKey: "GimanoAPIBaseURL"), !u.isEmpty { launchAPIBaseURL = u }
     }
 
     private enum Keys {

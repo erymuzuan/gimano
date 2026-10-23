@@ -248,11 +248,33 @@ enum PlaceCategory: String, Codable, Sendable, CaseIterable {
     case carWash = "car_wash"
     case tourism
     case transitStation = "transit_station"
-    case airport, government, other
+    case airport, government, toilets
+    /// Search-only kinds (ids st-/ad-/pc-/pt-): not openable as places, routed by lat/lng.
+    case street, address, postcode, point
+    case other
 
     init(from decoder: any Decoder) throws {
         let raw = try decoder.singleValueContainer().decode(String.self)
         self = PlaceCategory(rawValue: raw) ?? .other
+    }
+
+    var isSearchOnly: Bool { [.street, .address, .postcode, .point].contains(self) }
+}
+
+/// `chainGroup: {key, name, countNearby}` (outlets of the same chain within 10 km).
+struct ChainGroup: Codable, Sendable, Hashable {
+    var key: String
+    var name: String
+    var countNearby: Int?
+
+    init(key: String, name: String, countNearby: Int? = nil) { self.key = key; self.name = name; self.countNearby = countNearby }
+
+    /// Also accepts a plain string (early servers).
+    init(from decoder: any Decoder) throws {
+        if let s = try? decoder.singleValueContainer().decode(String.self) { self.init(key: s.lowercased(), name: s); return }
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        self.init(key: try c.decode(String.self, forKey: .key), name: try c.decode(String.self, forKey: .name),
+                  countNearby: try c.decodeIfPresent(Int.self, forKey: .countNearby))
     }
 }
 
@@ -291,14 +313,14 @@ struct PlaceSummary: Codable, Sendable, Identifiable, Hashable {
     var reviewCount: Int?
     var thumbnailUrl: String?
     /// Same chain (e.g. all FamilyMart branches) for grouping results; falls back to `brand`.
-    var chainGroup: String?
+    var chainGroup: ChainGroup?
     var openNow: Bool?
     var confirmationsWeighted: Double?
     var required: Double?
 
     init(id: String, name: String, category: PlaceCategory, address: String, lat: Double, lng: Double, distanceM: Double? = nil,
          brand: String? = nil, source: PlaceSource? = nil, status: PlaceStatus? = nil, rating: Double? = nil,
-         reviewCount: Int? = nil, thumbnailUrl: String? = nil, chainGroup: String? = nil, openNow: Bool? = nil) {
+         reviewCount: Int? = nil, thumbnailUrl: String? = nil, chainGroup: ChainGroup? = nil, openNow: Bool? = nil) {
         self.id = id; self.name = name; self.category = category; self.address = address; self.lat = lat; self.lng = lng
         self.distanceM = distanceM; self.brand = brand; self.source = source; self.status = status; self.rating = rating
         self.reviewCount = reviewCount; self.thumbnailUrl = thumbnailUrl; self.chainGroup = chainGroup; self.openNow = openNow
@@ -306,6 +328,10 @@ struct PlaceSummary: Codable, Sendable, Identifiable, Hashable {
 
     var location: LatLng { LatLng(lat: lat, lng: lng) }
     var isCommunity: Bool { source == .community }
+    /// Streets, addresses, postcodes and points from search: no place page, route by lat/lng.
+    var isSearchOnly: Bool {
+        category.isSearchOnly || ["st-", "ad-", "pc-", "pt-"].contains { id.hasPrefix($0) }
+    }
     var isPrivate: Bool { source == .private || id.hasPrefix(PrivatePlace.idPrefix) }
 }
 
@@ -315,6 +341,16 @@ struct SearchResponse: Codable, Sendable {
     var correctedQuery: String?
     /// "Did you mean" for few/no results: a category nearby, a similar name, etc.
     var suggestions: [SearchSuggestion]?
+    var noMatch: Bool?
+    var interpretation: SearchInterpretation?
+}
+
+/// How the server read the query (informational).
+struct SearchInterpretation: Codable, Sendable, Hashable {
+    var kind: String
+    var normalized: String?
+    var categories: [String]?
+    var area: String?
 }
 
 struct SearchSuggestion: Codable, Sendable, Hashable, Identifiable {
@@ -336,6 +372,8 @@ struct SearchOutcome: Sendable {
     var results: [PlaceSummary]
     var correctedQuery: String?
     var suggestions: [SearchSuggestion]
+    var noMatch = false
+    var interpretation: SearchInterpretation?
 }
 
 struct Place: Codable, Sendable, Identifiable, Hashable {
@@ -364,6 +402,8 @@ struct Place: Codable, Sendable, Identifiable, Hashable {
     var addedBy: PersonRef?
     var verifiedCount: Int?
     var photos: [Photo]?
+    var confirmationsWeighted: Double?
+    var required: Double?
 
     var summary: PlaceSummary {
         PlaceSummary(id: id, name: name, category: category, address: address, lat: lat, lng: lng, distanceM: distanceM, brand: brand,
@@ -519,6 +559,13 @@ struct RatingSummary: Equatable, Sendable {
 struct ReverseGeocode: Codable, Sendable {
     var name: String?
     var address: String?
+    /// Ready-made line in the request language: "Dekat 18, Jalan SS 2/24, SS2, Petaling Jaya" / "Near …".
+    var label: String?
+    var houseNumber: String?
+    var street: String?
+    var area: String?
+    var city: String?
+    var postcode: String?
     var lat: Double
     var lng: Double
     /// Known places within 50 m ("Is this …?"), nearest first.
