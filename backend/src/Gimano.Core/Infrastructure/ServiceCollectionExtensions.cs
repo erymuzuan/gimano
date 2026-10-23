@@ -38,7 +38,7 @@ public static class ServiceCollectionExtensions
                 settings = settings.ServerCertificateValidationCallback(CertificateValidations.AllowAll);
             return new OpenSearchLowLevelClient(settings);
         });
-        services.AddSingleton(new OpenSearchIndexOptions(config["OpenSearch:IndexPrefix"] ?? ""));
+        services.AddSingleton(new OpenSearchIndexOptions(config["OpenSearch:IndexPrefix"] ?? "", config.GetValue("OpenSearch:Replicas", 1)));
         services.AddSingleton<PlaceSearchIndex>();
         return services;
     }

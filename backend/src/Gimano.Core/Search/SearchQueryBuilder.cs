@@ -27,7 +27,9 @@ public static class SearchQueryBuilder
         var limit = Math.Clamp(q.Limit, 1, MaxLimit);
         var text = q.Q.Trim();
 
-        var must = new JsonArray
+        // Prefix matching for as-you-type, OR a fuzzy full-word match so typos in the last/only word still hit
+        // (bool_prefix never applies fuzziness to its final prefix term).
+        var textMatch = new JsonArray
         {
             new JsonObject
             {
@@ -39,7 +41,23 @@ public static class SearchQueryBuilder
                     ["operator"] = "and",
                     ["fuzziness"] = text.Length >= 5 ? "AUTO" : "0",
                 }
-            }
+            },
+        };
+        if (text.Length >= 5)
+            textMatch.Add(new JsonObject
+            {
+                ["multi_match"] = new JsonObject
+                {
+                    ["query"] = text,
+                    ["fields"] = new JsonArray("name^0.8", "brand^0.6"),
+                    ["operator"] = "and",
+                    ["fuzziness"] = "AUTO",
+                    ["prefix_length"] = 1,
+                }
+            });
+        var must = new JsonArray
+        {
+            new JsonObject { ["bool"] = new JsonObject { ["should"] = textMatch, ["minimum_should_match"] = 1 } },
         };
 
         var should = new JsonArray
@@ -130,12 +148,13 @@ public static class SearchQueryBuilder
     }
 
     /// <summary>Index definition: search_as_you_type on name, geo_point location.</summary>
-    public static JsonObject IndexDefinition() => new()
+    /// <param name="replicas">0 on single-node clusters (otherwise the index stays yellow); OpenSearch:Replicas.</param>
+    public static JsonObject IndexDefinition(int replicas = 0) => new()
     {
         ["settings"] = new JsonObject
         {
             ["number_of_shards"] = 1,
-            ["number_of_replicas"] = 0,
+            ["number_of_replicas"] = replicas,
             ["analysis"] = new JsonObject
             {
                 ["normalizer"] = new JsonObject

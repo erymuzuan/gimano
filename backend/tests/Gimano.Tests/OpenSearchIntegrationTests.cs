@@ -30,6 +30,7 @@ public class OpenSearchIntegrationTests
             ["OpenSearch:AllowInvalidCertificate"] = Environment.GetEnvironmentVariable("GIMANO_OS_INSECURE") ?? "false",
             ["OpenSearch:IndexPrefix"] = prefix,
             ["OpenSearch:TimeoutSeconds"] = "60",
+            ["OpenSearch:Replicas"] = "0",
         }).Build();
         var sp = new ServiceCollection().AddLogging(b => b.AddConsole()).AddGimanoSearch(config).BuildServiceProvider();
         client = sp.GetRequiredService<IOpenSearchLowLevelClient>();

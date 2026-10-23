@@ -13,7 +13,7 @@ public class SearchQueryBuilderTests
     public void Builds_search_as_you_type_bool_prefix_query()
     {
         var body = SearchQueryBuilder.Build(new SearchQuery("petronas", 3.11, 101.62));
-        var mm = body["query"]!["function_score"]!["query"]!["bool"]!["must"]![0]!["multi_match"]!;
+        var mm = body["query"]!["function_score"]!["query"]!["bool"]!["must"]![0]!["bool"]!["should"]![0]!["multi_match"]!;
         Assert.Equal("bool_prefix", mm["type"]!.GetValue<string>());
         Assert.Equal("petronas", mm["query"]!.GetValue<string>());
         var fields = mm["fields"]!.AsArray().Select(f => f!.GetValue<string>()).ToList();
@@ -55,16 +55,26 @@ public class SearchQueryBuilderTests
     }
 
     [Fact]
+    public void Long_queries_also_get_a_fuzzy_whole_word_match()
+    {
+        var should = SearchQueryBuilder.Build(new SearchQuery("petronaz", null, null))["query"]!["function_score"]!["query"]!["bool"]!["must"]![0]!["bool"]!["should"]!.AsArray();
+        Assert.Equal(2, should.Count);
+        Assert.Equal("AUTO", should[1]!["multi_match"]!["fuzziness"]!.GetValue<string>());
+        Assert.Single(SearchQueryBuilder.Build(new SearchQuery("kfc", null, null))["query"]!["function_score"]!["query"]!["bool"]!["must"]![0]!["bool"]!["should"]!.AsArray());
+    }
+
+    [Fact]
     public void Short_queries_are_not_fuzzy()
     {
         Assert.Equal("0", Mm(SearchQueryBuilder.Build(new SearchQuery("kf", null, null)))["fuzziness"]!.GetValue<string>());
         Assert.Equal("AUTO", Mm(SearchQueryBuilder.Build(new SearchQuery("petronas", null, null)))["fuzziness"]!.GetValue<string>());
-        static JsonNode Mm(JsonObject b) => b["query"]!["function_score"]!["query"]!["bool"]!["must"]![0]!["multi_match"]!;
+        static JsonNode Mm(JsonObject b) => b["query"]!["function_score"]!["query"]!["bool"]!["must"]![0]!["bool"]!["should"]![0]!["multi_match"]!;
     }
 
     [Fact]
     public void Index_definition_has_search_as_you_type_and_geo_point()
     {
+        Assert.Equal(1, SearchQueryBuilder.IndexDefinition(1)["settings"]!["number_of_replicas"]!.GetValue<int>());
         var props = SearchQueryBuilder.IndexDefinition()["mappings"]!["properties"]!;
         Assert.Equal("search_as_you_type", props["name"]!["type"]!.GetValue<string>());
         Assert.Equal("geo_point", props["location"]!["type"]!.GetValue<string>());

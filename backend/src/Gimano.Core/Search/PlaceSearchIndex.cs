@@ -12,7 +12,7 @@ public sealed record PlaceHit(string Id, string Name, PlaceCategory Category, st
     PlaceSource Source = PlaceSource.Osm, PlaceStatus? Status = null, double? Rating = null, int ReviewCount = 0, string? ThumbKey = null);
 
 /// <summary>Index naming: every index and alias goes through <c>OpenSearch:IndexPrefix</c> (e.g. "gimano-").</summary>
-public sealed record OpenSearchIndexOptions(string Prefix = "")
+public sealed record OpenSearchIndexOptions(string Prefix = "", int Replicas = 0)
 {
     /// <summary>The alias the API and worker read/write, e.g. "gimano-places".</summary>
     public string PlacesAlias => Prefix + SearchQueryBuilder.IndexName;
@@ -60,7 +60,7 @@ public sealed class PlaceSearchIndex(IOpenSearchLowLevelClient client, OpenSearc
     private async Task<string> CreatePhysicalAsync(CancellationToken ct)
     {
         var physical = $"{Index}-{DateTime.UtcNow:yyyyMMddHHmmss}";
-        var r = await client.Indices.CreateAsync<StringResponse>(physical, PostData.String(SearchQueryBuilder.IndexDefinition().ToJsonString()), ctx: ct);
+        var r = await client.Indices.CreateAsync<StringResponse>(physical, PostData.String(SearchQueryBuilder.IndexDefinition(names.Replicas).ToJsonString()), ctx: ct);
         if (!r.Success) throw new InvalidOperationException($"Creating index '{physical}' failed: {r.HttpStatusCode} {Trim(r.Body)}");
         logger.LogInformation("Created OpenSearch index {Index}", physical);
         return physical;

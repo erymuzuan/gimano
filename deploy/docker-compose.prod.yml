@@ -18,6 +18,7 @@ x-app-env: &app-env
   OpenSearch__User: "${OPENSEARCH_USER:-gimano}"
   OpenSearch__Password: "${OPENSEARCH_PASSWORD:?Set OPENSEARCH_PASSWORD in deploy/.env.prod}"
   OpenSearch__IndexPrefix: "${OPENSEARCH_INDEX_PREFIX:-gimano-}"
+  OpenSearch__Replicas: "${OPENSEARCH_REPLICAS:-0}"   # .149 is a single node
   OpenSearch__AllowInvalidCertificate: "${OPENSEARCH_ALLOW_INVALID_CERT:-false}"   # only for this connection (demo cert on .149)
   RabbitMq__Host: "${RABBITMQ_HOST:?Set RABBITMQ_HOST in deploy/.env.prod}"
   RabbitMq__Port: "${RABBITMQ_PORT:-5672}"

@@ -10,6 +10,7 @@ x-dotnet-env: &dotnet-env
   Media__Root: /data/media
   ConnectionStrings__Postgres: "Host=postgis;Port=5432;Database=${POSTGRES_DB:-gimano};Username=${POSTGRES_USER:-gimano};Password=${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in deploy/.env};Command Timeout=1800;GSS Encryption Mode=Disable"
   OpenSearch__Url: "http://opensearch:9200"
+  OpenSearch__Replicas: "0"   # single-node dev cluster
   RabbitMq__Host: "rabbitmq"
   RabbitMq__Port: "5672"
   RabbitMq__User: "${RABBITMQ_USER:-gimano}"
