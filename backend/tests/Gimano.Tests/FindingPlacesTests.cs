@@ -146,7 +146,8 @@ public class FindingPlacesUnitTests
     public void Chains_are_nearest_first_within_their_slots()
     {
         var ranked = new[] { new R("7 eleven", 13_700), new R("Petronas", 900), new R("7-Eleven", 623), new R("Lotus's", 2000), new R("7-ELEVEN", 1500) };
-        var o = SearchResults.ChainsNearestFirst(ranked, r => r.Name, r => r.Dist);
+        var o = SearchResults.ChainsNearestFirst(ranked, r => SearchResults.ChainKey(r.Name, null), r => r.Dist);
+        Assert.Equal("familymart", SearchResults.ChainKey("Family Mart Damansara", "FamilyMart"));
         Assert.Equal(["7-Eleven", "Petronas", "7-ELEVEN", "Lotus's", "7 eleven"], o.Select(r => r.Name).ToArray());
     }
 
@@ -232,6 +233,9 @@ public class OpenSearchIntegrationFindingPlacesTests
         P("a6", "Semenyih", PlaceCategory.Area, 2.9516, 101.8430, place: "town", pop: 8),
         P("g1", "Jabatan Kehakiman Syariah Wilayah Persekutuan Kuala Lumpur dan Putrajaya", PlaceCategory.Government, 3.0940, 101.6700),
         P("g2", "Hospital Putrajaya", PlaceCategory.Hospital, 2.9295, 101.6740),
+        P("g3", "Taman Wetland Putrajaya", PlaceCategory.Tourism, 2.9150, 101.6870),
+        P("g4", "Putrajaya Sentral", PlaceCategory.TransitStation, 2.9318, 101.6710),
+        P("g5", "Taman Botani Putrajaya", PlaceCategory.Tourism, 2.8960, 101.6830),
         // KLCC
         P("k1", "Suria KLCC", PlaceCategory.Mall, 3.1579, 101.7123),
         P("k2", "Klinik Kesihatan KLCC Wellness Centre", PlaceCategory.Clinic, 3.1560, 101.7100),

@@ -245,15 +245,16 @@ public static class SearchQueryBuilder
         },
     };
 
-    /// <summary>How many outlets of a chain (same name key) are within <paramref name="radiusM"/> of the origin.</summary>
-    public static JsonObject BuildChainCount(string nameKey, double lat, double lng, double radiusM, Guid? viewer) => new()
+    /// <summary>How many outlets of a chain (same brand key or name key) are within <paramref name="radiusM"/> of the origin.</summary>
+    public static JsonObject BuildChainCount(string chainKey, double lat, double lng, double radiusM, Guid? viewer) => new()
     {
         ["query"] = new JsonObject
         {
             ["bool"] = new JsonObject
             {
                 ["filter"] = new JsonArray(
-                    Term("nameKey", nameKey), Visibility(viewer),
+                    new JsonObject { ["bool"] = new JsonObject { ["should"] = new JsonArray(Term("nameKey", chainKey), Term("brandKey", chainKey)), ["minimum_should_match"] = 1 } },
+                    Visibility(viewer),
                     new JsonObject { ["geo_distance"] = new JsonObject { ["distance"] = $"{radiusM:0}m", ["location"] = new JsonObject { ["lat"] = lat, ["lon"] = lng } } }),
             }
         },
@@ -480,14 +481,17 @@ public static class SearchResults
         return kept;
     }
 
+    /// <summary>Chain identity: the brand when tagged ("FamilyMart" for "Family Mart Damansara"), else the spacing-free name.</summary>
+    public static string ChainKey(string name, string? brand) => TextNormalizer.Compact(string.IsNullOrWhiteSpace(brand) ? name : brand);
+
     /// <summary>
-    /// Chains are always nearest-first: members of the same chain (same spacing-insensitive name) keep the slots the ranking gave
+    /// Chains are always nearest-first: members of the same chain (same brand / spacing-insensitive name) keep the slots the ranking gave
     /// the chain, but are re-assigned to those slots in distance order. "7 eleven" 13.7 km away can't sit above the 7-Eleven 623 m away.
     /// </summary>
-    public static List<T> ChainsNearestFirst<T>(IReadOnlyList<T> ranked, Func<T, string> name, Func<T, double?> distance)
+    public static List<T> ChainsNearestFirst<T>(IReadOnlyList<T> ranked, Func<T, string> chainKey, Func<T, double?> distance)
     {
         var result = ranked.ToList();
-        foreach (var g in Enumerable.Range(0, ranked.Count).GroupBy(i => TextNormalizer.Compact(name(ranked[i]))).Where(g => g.Count() > 1))
+        foreach (var g in Enumerable.Range(0, ranked.Count).GroupBy(i => chainKey(ranked[i])).Where(g => g.Key.Length > 0 && g.Count() > 1))
         {
             var slots = g.OrderBy(i => i).ToList();
             var members = slots.Select(i => ranked[i]).OrderBy(m => distance(m) ?? double.MaxValue).ToList();

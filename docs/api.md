@@ -10,6 +10,10 @@ Auth: `Authorization: Bearer <jwt>`. Anonymous use is allowed: the app calls
 
 Errors: RFC 7807 `application/problem+json`.
 
+Language: server-written text (problem `title`, inbox `title`/`body`, area kinds in `address` such as "Bandar raya" /
+"City", reverse-geocode labels, search suggestions) follows `Accept-Language`: **English by default, Malay when the header
+prefers `ms`** (`ms`, `ms-MY`, `zsm`). Tier names (baharu/perak/emas) are always Malay.
+
 ## Auth & profile
 
 ```
@@ -56,20 +60,80 @@ Legacy shapes (migration only): `SavedPlace = {id, kind, name, icon, lat, lng, a
 ## Search & places
 
 ```
-GET /search?q=petronas&lat=3.1&lng=101.6&limit=10&category=fuel
-  → {results: PlaceSummary[]}
+GET /search?q=petronas&lat=3.1&lng=101.6&limit=10&category=fuel&near=3.15,101.70&sort=relevance&exact=false
+  → {results: PlaceSummary[], correctedQuery?, suggestions?: Suggestion[], noMatch: bool, interpretation?}
 
 GET /search/nearby?lat=&lng=&category=fuel&radius=5000
   → {results: PlaceSummary[]}
 
 GET /places/{id}?lat=&lng=   → Place      (lat/lng optional: fills distanceM)
-GET /geocode/reverse?lat=&lng= → {name, address, lat, lng}
+GET /geocode/reverse?lat=&lng=
+  → {name, address, lat, lng, label?, houseNumber?, street?, area?, city?, postcode?, nearby?: PlaceSummary[]}
 ```
 
 `PlaceSummary = {id, name, category, address, lat, lng, distanceM, brand?,
                 source: "osm"|"community", status?: "pending"|"published",
                 rating?: number, reviewCount: int, thumbnailUrl?,
-                confirmationsWeighted?: number, required?: number}`
+                confirmationsWeighted?: number, required?: number,
+                chainGroup?: {key, name, countNearby}, openNow?: bool}`
+
+`openNow` is set only when the place has OSM `opening_hours` we can evaluate (Malaysia time); otherwise null.
+
+### Finding places (`GET /search`)
+
+Parameters: `q` (≤ 100 chars), `lat`/`lng` = the user (distances are measured from here), `near=lat,lng` = the map
+centre (ranking origin when given), `limit` (≤ 50), `category`, `country` (MY/SG/BN), `sort=relevance` (default) or
+`nearest`, `exact=true` (no spelling correction).
+
+Steps, in order:
+1. **Normalise**: case, accents, apostrophes, punctuation/hyphens/slashes → space, `&` = "dan". Names are also compared
+   without spaces: "Family Mart" = "FamilyMart", "7 eleven" = "7-Eleven" = "7eleven".
+2. **Aliases** from [`data/search/aliases.csv`](../data/search/README.md) (brand short names, renames such as
+   tesco → Lotus's, dialect/abbreviations such as jln → jalan); every rewrite is searched next to the original.
+3. **Typos**: OpenSearch fuzziness AUTO on words and on the spacing-free name ("famly mart", "myddin").
+4. **Coordinates** ("3.1478, 101.6153", "3.1478 101.6153") and **Plus Codes** (full "6PH57VP3+PR", or short
+   "7VP3+PR" + optional locality, recovered near `near`/the user) → one result, `category: "point"`, `id: "pt-lat,lng"`,
+   `address` = the reverse-geocode label.
+5. **Postcodes** ("47300") → `category: "postcode"` (centroid of the addresses carrying it).
+   **Street addresses**: "12 Jalan SS2/24" → the OSM house address (`category: "address"`) when mapped, then the street;
+   "Jalan SS2/24" → `category: "street"` (one result per street name per ~20–40 km, on the road), nearest first.
+6. **Category words** (the whole query): minyak / stesen minyak / petrol → fuel; surau / masjid → surau+mosque;
+   tandas / toilet → toilets; atm; parkir / parking; klinik; farmasi; kedai runcit; … (the `category` rows of aliases.csv).
+   Nearest first within 5 km, widened to 15 then 50 km when there are fewer than 3.
+7. **Brand + area**: a trailing or leading area name ("kfc ss2", "mydin shah alam", "minyak shah alam") → the rest of the
+   query searched near that area's centre (within 10 km), unless some result's whole name already equals the query
+   ("Hospital Putrajaya").
+8. **Ranking**: a whole-name or brand match and areas beat names that merely contain the word; distance (from `near`, else
+   the user) and popularity add to that. **Chains are always nearest-first**: results with the same spacing-free name keep
+   the positions ranking gave them but are re-ordered by distance, and get `chainGroup: {key, name, countNearby}`
+   (outlets within 10 km), so the app can show "FamilyMart · 12 berdekatan". Same name within 50 m → one result.
+9. **Never empty**: when nothing matches, `noMatch: true` and `suggestions`; unless `exact=true`, the best did-you-mean
+   is searched instead and returned with `correctedQuery` (then `noMatch: false`).
+
+`Suggestion = {label, query?, category?, placeId?, lat?, lng?, distanceM?, count?}`: a did-you-mean place
+(`label`/`query` = its name, `placeId`, position, `distanceM` from the user) or a nearby category (`label` in the
+request language, `query` = the category word, `category`, `count` = how many within 5 km).
+
+`interpretation = {kind, normalized, categories?, area?, areaLat?, areaLng?}` with
+`kind ∈ text, category, brand_area, category_area, street, address, postcode, coordinates, plus_code` (informational).
+
+Result ids: `n…`/`w…`/`r…` OSM places and areas, `c_…` community places; `st-…` streets, `ad-…` addresses,
+`pc-…` postcodes and `pt-…` points are search-only (no `GET /places/{id}`; use lat/lng).
+
+### Reverse geocode ("Pilih pada peta")
+
+`GET /geocode/reverse?lat=&lng=` is anonymous and never cached (`Cache-Control: no-store`); coordinates are not logged.
+`name`/`address` are as before (a place within 40 m, else the street). Added: `label` ("Dekat 18, Jalan SS 2/24, SS2,
+Petaling Jaya" / "Near …"), `houseNumber`, `street`, `area` (suburb/neighbourhood), `city`, `postcode`, and `nearby` =
+places within 50 m, nearest first (max 5), for "Adakah ini FamilyMart?".
+
+### Search misses (anonymous zero-result counts)
+
+When a search returns nothing, the server adds 1 to a counter keyed by **(normalised query text, ~11 km cell, ISO week)**
+and nothing else: no user id or token, no IP, no exact location (the cell is lat/lng floored to 0.1°, or empty without a
+location). Before counting, emails, phone numbers and digit-heavy tokens (house numbers, postcodes, codes) are removed; if
+nothing is left, nothing is counted. Rows with a count below 5 are deleted once their week is over, and all rows after 26
+weeks. Maintainers read them with `GET /admin/search-misses?week=2026-W43&minCount=5` (X-Admin-Key) to add aliases.
 
 `confirmationsWeighted`/`required` are set only on places still being vetted (`/places/pending-nearby`, and
 pending or audited items in `/me/places/contributed`), e.g. `1` of `3` → "1 daripada 3". Same values as the
@@ -164,7 +228,9 @@ received +1); these feed `User.points`/`level`.
 `fuel, ev_charging, rest_area, toll_booth, parking, restaurant, cafe, fast_food,
 mall, supermarket, convenience, mosque, surau, temple, church, hospital, clinic,
 pharmacy, police, school, university, hotel, atm, bank, car_repair, car_wash,
-tourism, transit_station, airport, government, other, area`
+tourism, transit_station, airport, government, other, area, toilets`
+
+Search-only result kinds: `street, address, postcode, point` (see "Finding places").
 
 `area` (search results only) is a city, town, suburb, village, neighbourhood or state/district from OSM
 (`id` `n…`/`w…`/`r…`, `address` like "Bandar raya, Wilayah Persekutuan"). It cannot be chosen for a community place.
@@ -429,7 +495,8 @@ POST /me/inbox/read          {upTo: ISO time}   → 204   (everything created at
 - `place_published` / `place_rejected`: `refType: "place"`, `refId` = the community place id.
 - `feedback_status`: `refType: "feedback"`.
 - `announcement`: broadcast to everyone (a server-side table that operators fill), with `refType: "url"` and `refId` = a link when present.
-- `title`/`body` are in BM or English by the user's `locale`. The app may also render its own text from `kind` + `count`.
+- `title`/`body` follow the request's `Accept-Language` (English default, Malay when preferred). The app may also render
+  its own text from `kind` + `count`.
 - Newest first, keyset-paged with `cursor` (30 per page). `unread` counts everything newer than the read mark.
 
 ## Location pings

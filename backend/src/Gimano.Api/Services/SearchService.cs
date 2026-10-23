@@ -131,7 +131,7 @@ public sealed class SearchPipeline(PlaceSearchIndex index, Func<AliasTable> alia
         double? FromOrigin(PlaceHit h) => ranked.OriginLat is { } a && ranked.OriginLng is { } b ? GeoMath.HaversineM(a, b, h.Lat, h.Lng) : null;
 
         var list = SearchResults.Dedupe(ranked.Hits, h => h.Name, h => (h.Lat, h.Lng), ranked.Hits.Count);
-        if (!ranked.KeepOrder) list = SearchResults.ChainsNearestFirst(list, h => h.Name, FromOrigin);
+        if (!ranked.KeepOrder) list = SearchResults.ChainsNearestFirst(list, h => SearchResults.ChainKey(h.Name, h.Brand), FromOrigin);
         if (r.SortNearest || ranked.Interpretation.Kind is "category" or "category_area")
             list = list.OrderBy(h => FromOrigin(h) ?? 0).ToList();
         list = list.Take(limit).ToList();
@@ -146,15 +146,15 @@ public sealed class SearchPipeline(PlaceSearchIndex index, Func<AliasTable> alia
         if (ranked.OriginLat is { } oa && ranked.OriginLng is { } ob)
         {
             var groups = summaries.Where(s => s.Category is not (PlaceCategory.Street or PlaceCategory.Address or PlaceCategory.Area))
-                .GroupBy(s => TextNormalizer.Compact(s.Name)).Where(g => g.Count() >= 2 && g.Key.Length > 0).Take(3).ToList();
+                .GroupBy(s => SearchResults.ChainKey(s.Name, s.Brand)).Where(g => g.Count() >= 2 && g.Key.Length > 0).Take(3).ToList();
             foreach (var g in groups)
             {
                 int n;
                 try { n = await index.CountAsync(SearchQueryBuilder.BuildChainCount(g.Key, oa, ob, ChainRadiusM, r.Viewer), ct); }
                 catch (SearchUnavailableException) { n = g.Count(); }
-                var group = new ChainGroup(g.Key, g.First().Name, Math.Max(n, g.Count()));
+                var group = new ChainGroup(g.Key, g.First().Brand ?? g.First().Name, Math.Max(n, g.Count()));
                 for (var i = 0; i < summaries.Count; i++)
-                    if (TextNormalizer.Compact(summaries[i].Name) == g.Key) summaries[i] = summaries[i] with { ChainGroup = group };
+                    if (SearchResults.ChainKey(summaries[i].Name, summaries[i].Brand) == g.Key) summaries[i] = summaries[i] with { ChainGroup = group };
             }
         }
         return summaries;
