@@ -213,6 +213,16 @@
         }
       }
     },
+    "About Gimano": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tentang Gimano"
+          }
+        }
+      }
+    },
     "Accident": {
       "localizations": {
         "ms": {
@@ -313,6 +323,16 @@
         }
       }
     },
+    "Always send": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sentiasa hantar"
+          }
+        }
+      }
+    },
     "Amenities": {
       "localizations": {
         "ms": {
@@ -349,6 +369,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Versi aplikasi, peranti, bahasa dan lokasi anggaran (lebih kurang 1 km)"
+          }
+        }
+      }
+    },
+    "App version, iOS version, model, screen size, language, theme": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Versi app, versi iOS, model, saiz skrin, bahasa, tema"
           }
         }
       }
@@ -409,6 +439,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Sudah tiba di %@"
+          }
+        }
+      }
+    },
+    "Ask every time": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tanya setiap kali"
           }
         }
       }
@@ -873,6 +913,26 @@
         }
       }
     },
+    "Check the WhatsApp number.": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Semak nombor WhatsApp."
+          }
+        }
+      }
+    },
+    "Check the email address.": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Semak alamat e-mel."
+          }
+        }
+      }
+    },
     "Choose a destination": {
       "localizations": {
         "ms": {
@@ -989,6 +1049,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Hubungan"
+          }
+        }
+      }
+    },
+    "Contact details deleted": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Butiran hubungan dipadam"
           }
         }
       }
@@ -1123,6 +1193,16 @@
         }
       }
     },
+    "Delete contact": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Padam"
+          }
+        }
+      }
+    },
     "Delete review": {
       "localizations": {
         "ms": {
@@ -1149,6 +1229,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Memadam tempat dalam telefon ini dahulu, kemudian memulihkan sandaran."
+          }
+        }
+      }
+    },
+    "Demo": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Demo"
           }
         }
       }
@@ -1263,6 +1353,16 @@
         }
       }
     },
+    "Diagnostics copied": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Diagnostik disalin"
+          }
+        }
+      }
+    },
     "Disconnected": {
       "localizations": {
         "ms": {
@@ -1289,6 +1389,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Jarak"
+          }
+        }
+      }
+    },
+    "Don't send": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Jangan hantar"
           }
         }
       }
@@ -1409,6 +1519,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Berkesan"
+          }
+        }
+      }
+    },
+    "Email": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "E-mel"
           }
         }
       }
@@ -1623,6 +1743,16 @@
         }
       }
     },
+    "Gimano": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gimano"
+          }
+        }
+      }
+    },
     "Gimano %@": {
       "shouldTranslate": false
     },
@@ -1632,6 +1762,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "Gimano ialah aplikasi navigasi sumber terbuka yang dipacu komuniti untuk Malaysia, dibina menggunakan data OpenStreetMap."
+          }
+        }
+      }
+    },
+    "Gimano may contact me about this report": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gimano boleh menghubungi saya tentang laporan ini"
+          }
+        }
+      }
+    },
+    "Gimano stopped last time. Send a report?": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gimano terhenti tadi. Hantar laporan?"
           }
         }
       }
@@ -1806,6 +1956,26 @@
         }
       }
     },
+    "Hide details": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sembunyi butiran"
+          }
+        }
+      }
+    },
+    "Hide what's sent": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sembunyi apa yang dihantar"
+          }
+        }
+      }
+    },
     "Home": {
       "localizations": {
         "ms": {
@@ -1926,6 +2096,26 @@
         }
       }
     },
+    "Include approximate location": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sertakan lokasi kasar"
+          }
+        }
+      }
+    },
+    "Include device info": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sertakan maklumat peranti"
+          }
+        }
+      }
+    },
     "Include diagnostics": {
       "localizations": {
         "ms": {
@@ -1962,6 +2152,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Adakah tempat ini wujud di sini?"
+          }
+        }
+      }
+    },
+    "It helps us fix it. Locations, emails, phone numbers, tokens and file paths are removed on your phone first. No favourites, routes, searches or screenshots.": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ia membantu kami membaikinya. Lokasi, e-mel, nombor telefon, token dan laluan fail dibuang dalam telefon kamu dahulu. Tiada kegemaran, laluan, carian atau tangkapan skrin."
           }
         }
       }
@@ -2116,6 +2316,16 @@
         }
       }
     },
+    "Latest version": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Versi terkini"
+          }
+        }
+      }
+    },
     "Layers": {
       "localizations": {
         "ms": {
@@ -2206,6 +2416,16 @@
         }
       }
     },
+    "Licences": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lesen"
+          }
+        }
+      }
+    },
     "Light": {
       "localizations": {
         "ms": {
@@ -2242,6 +2462,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Pautan disalin"
+          }
+        }
+      }
+    },
+    "Live": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Langsung"
           }
         }
       }
@@ -2342,6 +2572,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Data peta"
+          }
+        }
+      }
+    },
+    "Map data © OpenStreetMap contributors": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Data peta © penyumbang OpenStreetMap"
           }
         }
       }
@@ -2626,6 +2866,16 @@
         }
       }
     },
+    "Next time": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lain kali"
+          }
+        }
+      }
+    },
     "No": {
       "localizations": {
         "ms": {
@@ -2852,6 +3102,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Dalam talian"
+          }
+        }
+      }
+    },
+    "Only if you want us to contact you about this report. Kept encrypted, used for this report only, deleted automatically within 90 days (or any time from My feedback). Never added to your pseudonym.": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hanya jika kamu mahu kami menghubungi kamu tentang laporan ini. Disulitkan, digunakan untuk laporan ini sahaja, dipadam secara automatik dalam 90 hari (atau bila-bila masa dari Maklum balas saya). Tidak sekali-kali dikaitkan dengan nama samaran kamu."
           }
         }
       }
@@ -3122,6 +3382,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Lubang jalan"
+          }
+        }
+      }
+    },
+    "Privacy": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Privasi"
           }
         }
       }
@@ -3446,6 +3716,16 @@
         }
       }
     },
+    "Rounded to about 1 km on your phone": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dibundarkan kepada kira-kira 1 km dalam telefon kamu"
+          }
+        }
+      }
+    },
     "Route": {
       "localizations": {
         "ms": {
@@ -3462,6 +3742,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Laluan"
+          }
+        }
+      }
+    },
+    "Routing by Valhalla. Tiles by OpenFreeMap. No ads, no trackers.": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Laluan oleh Valhalla. Jubin oleh OpenFreeMap. Tiada iklan, tiada penjejak."
           }
         }
       }
@@ -3606,6 +3896,26 @@
         }
       }
     },
+    "See details": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lihat butiran"
+          }
+        }
+      }
+    },
+    "See what's sent": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lihat apa yang dihantar"
+          }
+        }
+      }
+    },
     "Self-test: back up and restore (file)": {
       "localizations": {
         "ms": {
@@ -3632,6 +3942,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Hantar pautan"
+          }
+        }
+      }
+    },
+    "Send report": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hantar laporan"
           }
         }
       }
@@ -4006,6 +4326,16 @@
         }
       }
     },
+    "Source code (GitHub, MIT)": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kod sumber (GitHub, MIT)"
+          }
+        }
+      }
+    },
     "Source: %@": {
       "localizations": {
         "ms": {
@@ -4296,6 +4626,16 @@
         }
       }
     },
+    "Terms": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Terma"
+          }
+        }
+      }
+    },
     "Test": {
       "localizations": {
         "ms": {
@@ -4372,6 +4712,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Terima kasih dihantar"
+          }
+        }
+      }
+    },
+    "Thanks! Crash report sent": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Terima kasih! Laporan dihantar"
           }
         }
       }
@@ -4502,6 +4852,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Tempat ini"
+          }
+        }
+      }
+    },
+    "Tick the box to agree we may contact you about this report.": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tandakan untuk bersetuju kami boleh menghubungi kamu tentang laporan ini."
           }
         }
       }
@@ -4726,6 +5086,16 @@
         }
       }
     },
+    "Update checks will appear here once Gimano is on TestFlight / the App Store.": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Semakan kemas kini akan dipaparkan di sini apabila Gimano ada di TestFlight / App Store."
+          }
+        }
+      }
+    },
     "Uploading photos…": {
       "localizations": {
         "ms": {
@@ -4856,6 +5226,16 @@
         }
       }
     },
+    "Want a reply? (optional)": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mahu balasan? (pilihan)"
+          }
+        }
+      }
+    },
     "Weather": {
       "localizations": {
         "ms": {
@@ -4932,6 +5312,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "WhatsApp"
+          }
+        }
+      }
+    },
+    "WhatsApp number, e.g. +60123456789": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nombor WhatsApp, cth. +60123456789"
           }
         }
       }

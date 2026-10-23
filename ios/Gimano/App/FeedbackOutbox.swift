@@ -203,17 +203,4 @@ enum FeedbackAttachments {
         }
     }
 
-    @MainActor
-    static func diagnostics(position: LatLng?, routeId: String?, placeId: String?) -> FeedbackContext {
-        let info = Bundle.main.infoDictionary
-        let version = "\(info?["CFBundleShortVersionString"] as? String ?? "?") (\(info?["CFBundleVersion"] as? String ?? "?"))"
-        var sys = utsname()
-        uname(&sys)
-        let model = withUnsafeBytes(of: &sys.machine) { raw in
-            String(decoding: raw.prefix { $0 != 0 }, as: UTF8.self)
-        }
-        return FeedbackContext(appVersion: version, platform: "ios", osVersion: UIDevice.current.systemVersion, deviceModel: model,
-                               locale: Bundle.main.preferredLocalizations.first ?? "en", lat: position?.lat, lng: position?.lng,
-                               routeId: routeId, placeId: placeId)
-    }
 }

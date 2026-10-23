@@ -218,7 +218,7 @@ struct FavoriteLabelTests {
 @Suite("Feedback")
 struct FeedbackTests {
     private func req(_ m: String = "Jalan ditutup") -> FeedbackRequest {
-        FeedbackRequest(category: .mapData, message: m, rating: 4, screen: .navigation, context: nil, screenshot: nil)
+        FeedbackRequest(category: .mapData, message: m, rating: 4, screen: .navigation, screenshot: nil)
     }
 
     @Test("Validation and the driving rule")
@@ -295,11 +295,23 @@ struct FeedbackTests {
 
     @Test("Feedback request encodes the contract shape")
     func encoding() throws {
+        let device = DeviceInfo(appVersion: "0.1.0", appBuild: 1, osVersion: "iOS 26.1", deviceModel: "iPhone17,3 (iPhone 16)",
+                                screen: .init(widthPx: 1179, heightPx: 2556, density: 3, widthDp: 393, heightDp: 852),
+                                locale: "ms", theme: "light", dataMode: "live")
         let r = FeedbackRequest(category: .mapData, message: "x", rating: nil, screen: .routePreview,
-                                context: FeedbackContext(appVersion: "0.1.0 (1)", lat: 3.12, lng: 101.62), screenshot: nil)
+                                device: device, location: CoarseLocation(LatLng(lat: 3.152613, lng: 101.703718)),
+                                contact: ContactDetails(email: "ali@example.com", whatsapp: "+60123456789", consent: true),
+                                routeId: "r1", placeId: nil, screenshot: nil)
         let obj = try JSONSerialization.jsonObject(with: JSON.makeEncoder().encode(r)) as! [String: Any]
         #expect(obj["category"] as? String == "map_data")
         #expect(obj["screen"] as? String == "route_preview")
-        #expect((obj["context"] as? [String: Any])?["platform"] as? String == "ios")
+        let d = try #require(obj["device"] as? [String: Any])
+        #expect(d["platform"] as? String == "ios" && d["appBuild"] as? Int == 1 && d["osVersion"] as? String == "iOS 26.1")
+        let screen = try #require(d["screen"] as? [String: Any])
+        #expect(screen["widthPx"] as? Int == 1179 && screen["density"] as? Double == 3 && screen["widthDp"] as? Int == 393)
+        let loc = try #require(obj["location"] as? [String: Any])
+        #expect(loc["lat"] as? Double == 3.15 && loc["lng"] as? Double == 101.7)
+        #expect((obj["contact"] as? [String: Any])?["consent"] as? Bool == true)
+        #expect(obj["context"] == nil)
     }
 }

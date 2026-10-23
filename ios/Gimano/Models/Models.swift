@@ -872,12 +872,50 @@ struct FeedbackContext: Codable, Sendable, Hashable {
     var placeId: String?
 }
 
+/// docs/api.md "Feedback": sent only when the user ticks "Include device info" (shown in a preview first).
+struct DeviceInfo: Codable, Sendable, Hashable {
+    struct Screen: Codable, Sendable, Hashable {
+        var widthPx: Int, heightPx: Int, density: Double, widthDp: Int, heightDp: Int
+    }
+    var appVersion: String
+    var appBuild: Int
+    var platform: String = "ios"
+    var osVersion: String
+    var deviceModel: String
+    var manufacturer: String = "Apple"
+    var screen: Screen
+    var locale: String
+    var theme: String
+    var dataMode: String
+}
+
+struct CoarseLocation: Codable, Sendable, Hashable {
+    var lat: Double
+    var lng: Double
+    /// Rounded to 2 dp (~1 km) on the phone.
+    init(_ p: LatLng) {
+        lat = (p.lat * 100).rounded() / 100
+        lng = (p.lng * 100).rounded() / 100
+    }
+}
+
+/// Optional, volunteered per report; never prefilled, never stored on the profile.
+struct ContactDetails: Codable, Sendable, Hashable {
+    var email: String?
+    var whatsapp: String?
+    var consent: Bool
+}
+
 struct FeedbackRequest: Codable, Sendable, Hashable {
     var category: FeedbackCategory
     var message: String
     var rating: Int?
     var screen: FeedbackScreen
-    var context: FeedbackContext?
+    var device: DeviceInfo?
+    var location: CoarseLocation?
+    var contact: ContactDetails?
+    var routeId: String?
+    var placeId: String?
     /// Base64 JPEG/PNG, ≤ 1.5 MB decoded.
     var screenshot: String?
 }
@@ -893,6 +931,7 @@ struct FeedbackSummary: Codable, Sendable, Hashable, Identifiable {
     var message: String
     var status: FeedbackStatus
     var createdAt: Date
+    var hasContact: Bool?
 }
 
 // MARK: - Inbox (news about the user's public contributions only)

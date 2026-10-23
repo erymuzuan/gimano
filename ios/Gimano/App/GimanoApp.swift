@@ -11,6 +11,7 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
 
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil) -> Bool {
         UNUserNotificationCenter.current().delegate = self
+        CrashReporter.shared.start()
         return true
     }
 
@@ -146,6 +147,7 @@ struct RootView: View {
         .sheet(item: $model.savingPlace) { p in
             SavePlaceSheet(place: p).presentationDetents([.large])
         }
+        .sheet(isPresented: $model.showCrashPrompt) { CrashReportSheet() }
         .sheet(item: $model.feedbackDraft) { d in
             FeedbackForm(draft: d)
         }

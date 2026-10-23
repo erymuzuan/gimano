@@ -45,7 +45,12 @@ struct FeedbackForm: View {
     @State private var message = ""
     @State private var rating: Int?
     @State private var includeScreenshot = true
-    @State private var includeDiagnostics = false
+    @State private var includeDevice = true
+    @State private var includeLocation = false
+    @State private var email = ""
+    @State private var whatsapp = ""
+    @State private var contactConsent = false
+    @State private var contactError: String?
 
     private let columns = Array(repeating: GridItem(.flexible(), spacing: 10), count: 3)
 
@@ -103,22 +108,34 @@ struct FeedbackForm: View {
                     .disabled(draft.screenshot == nil)
                     .accessibilityIdentifier("includeScreenshot")
 
-                    Toggle(isOn: $includeDiagnostics) {
+                    DeviceInfoToggle(isOn: $includeDevice, device: draft.device)
+
+                    Toggle(isOn: $includeLocation) {
                         VStack(alignment: .leading, spacing: 2) {
-                            Text("Include diagnostics").font(Tokens.Font.bodyBold)
-                            Text("App version, device, language and approximate location (about 1 km)").font(Tokens.Font.small).foregroundStyle(Color.textMuted)
+                            Text("Include approximate location").font(Tokens.Font.bodyBold)
+                            Text("Rounded to about 1 km on your phone").font(Tokens.Font.small).foregroundStyle(Color.textMuted)
                         }
                     }
-                    .accessibilityIdentifier("includeDiagnostics")
+                    .disabled(draft.location == nil)
+                    .accessibilityIdentifier("includeLocation")
+
+                    ContactSection(email: $email, whatsapp: $whatsapp, consent: $contactConsent, error: contactError)
 
                     Button {
                         guard let category else { return }
+                        let (contact, err) = ContactRules.build(email: email, whatsapp: whatsapp, consent: contactConsent)
+                        contactError = err
+                        guard err == nil else { return }
                         let req = FeedbackRequest(
                             category: category,
                             message: message.trimmingCharacters(in: .whitespacesAndNewlines),
                             rating: rating,
                             screen: draft.screen,
-                            context: includeDiagnostics ? draft.context : nil,
+                            device: includeDevice ? draft.device : nil,
+                            location: includeLocation ? draft.location : nil,
+                            contact: contact,
+                            routeId: draft.routeId,
+                            placeId: draft.placeId,
                             screenshot: includeScreenshot ? draft.screenshot?.base64EncodedString() : nil)
                         model.submitFeedback(req)
                         dismiss()
@@ -161,11 +178,15 @@ struct MyFeedbackView: View {
                                 Button("Retry") { model.feedbackOutbox.retry(item.id); Task { await model.flushFeedback() } }.tint(.brand)
                             }
                             Button("Delete", role: .destructive) { model.feedbackOutbox.delete(item.id) }
+                            if let sid = item.serverId {
+                                contactAction(serverId: sid, hasContact: model.serverFeedback.first { $0.id == sid }?.hasContact == true)
+                            }
                         }
                 }
                 ForEach(remoteOnly) { f in
                     row(category: f.category, message: f.message, date: f.createdAt,
                         status: (Text(f.status.title), Color.brand), hasScreenshot: false)
+                        .swipeActions { contactAction(serverId: f.id, hasContact: f.hasContact == true) }
                 }
             }
             .navigationTitle("My feedback")
@@ -173,6 +194,17 @@ struct MyFeedbackView: View {
             .toolbar { ToolbarItem(placement: .topBarTrailing) { Button("Done") { dismiss() } } }
             .refreshable { await model.refreshMyFeedback() }
             .task { await model.refreshMyFeedback() }
+        }
+    }
+
+    /// "Delete my contact details" for a report I left them on.
+    @ViewBuilder private func contactAction(serverId: String, hasContact: Bool) -> some View {
+        if hasContact {
+            Button { Task { await model.deleteFeedbackContact(serverId) } } label: {
+                Label("Delete contact", systemImage: "person.crop.circle.badge.xmark")
+            }
+            .tint(.speeding)
+            .accessibilityIdentifier("deleteContact")
         }
     }
 
@@ -220,6 +252,147 @@ extension FeedbackCategory {
         case .idea: Color(light: 0xFFF1CC, dark: 0x3A2E12)
         case .other: Color(light: 0xEEF0F4, dark: 0x1E2636)
         default: .brandMist
+        }
+    }
+}
+
+/// "Include device info" (default on) with a preview of the exact block that is sent.
+struct DeviceInfoToggle: View {
+    @Binding var isOn: Bool
+    let device: DeviceInfo
+    @State private var showPreview = false
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Toggle(isOn: $isOn) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Include device info").font(Tokens.Font.bodyBold)
+                    Text("App version, iOS version, model, screen size, language, theme").font(Tokens.Font.small).foregroundStyle(Color.textMuted)
+                }
+            }
+            .accessibilityIdentifier("includeDevice")
+            Button(showPreview ? "Hide what's sent" : "See what's sent") { withAnimation { showPreview.toggle() } }
+                .font(Tokens.Font.label)
+                .accessibilityIdentifier("deviceInfoPreviewButton")
+            if showPreview {
+                Text(verbatim: Self.json(device))
+                    .font(.system(size: 12, design: .monospaced))
+                    .textSelection(.enabled)
+                    .padding(10)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(Color.surfaceAlt, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+                    .accessibilityIdentifier("deviceInfoPreview")
+            }
+        }
+    }
+
+    static func json(_ value: some Encodable) -> String {
+        let e = JSON.makeEncoder()
+        e.outputFormatting = [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]
+        return (try? e.encode(value)).map { String(decoding: $0, as: UTF8.self) } ?? "{}"
+    }
+}
+
+/// Optional contact details for THIS report only: never prefilled, explicit consent, deletable later.
+struct ContactSection: View {
+    @Binding var email: String
+    @Binding var whatsapp: String
+    @Binding var consent: Bool
+    var error: String?
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Want a reply? (optional)").font(Tokens.Font.bodyBold)
+            Text("Only if you want us to contact you about this report. Kept encrypted, used for this report only, deleted automatically within 90 days (or any time from My feedback). Never added to your pseudonym.")
+                .font(Tokens.Font.small).foregroundStyle(Color.textMuted)
+            TextField(String(localized: "Email"), text: $email)
+                .keyboardType(.emailAddress).textContentType(.none).textInputAutocapitalization(.never).autocorrectionDisabled()
+                .padding(12).background(Color.surfaceAlt, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                .accessibilityIdentifier("contactEmail")
+            TextField(String(localized: "WhatsApp number, e.g. +60123456789"), text: $whatsapp)
+                .keyboardType(.phonePad).textContentType(.none)
+                .padding(12).background(Color.surfaceAlt, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                .accessibilityIdentifier("contactWhatsApp")
+            if !email.isEmpty || !whatsapp.isEmpty {
+                Toggle(isOn: $consent) {
+                    Text("Gimano may contact me about this report").font(Tokens.Font.caption)
+                }
+                .accessibilityIdentifier("contactConsent")
+            }
+            if let error { Text(error).font(Tokens.Font.caption).foregroundStyle(Color.speeding).accessibilityIdentifier("contactError") }
+        }
+    }
+}
+
+/// "Gimano stopped last time. Send a report?" (next launch after a crash/hang; MetricKit, no third-party SDK).
+struct CrashReportSheet: View {
+    @Environment(AppModel.self) private var model
+    @Environment(\.dismiss) private var dismiss
+    @State private var showDetails = false
+    @State private var email = ""
+    @State private var whatsapp = ""
+    @State private var consent = false
+    @State private var error: String?
+    @State private var preference = CrashReporter.shared.preference
+
+    /// Exactly what is sent (scrubbed, with the device block; contact is added only if entered).
+    private func previewJSON(_ r: CrashReport) -> String {
+        var p = r.scrubbed()
+        p.device = model.currentDevice()
+        return DeviceInfoToggle.json(p)
+    }
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 16) {
+                    HStack(spacing: 12) {
+                        GimanoIcon(icon: .hazard, size: 36)
+                            .frame(width: 60, height: 60)
+                            .background(Color.reportTint, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+                        Text("Gimano stopped last time. Send a report?").font(Tokens.Font.title)
+                    }
+                    Text("It helps us fix it. Locations, emails, phone numbers, tokens and file paths are removed on your phone first. No favourites, routes, searches or screenshots.")
+                        .font(Tokens.Font.caption).foregroundStyle(Color.textMuted)
+                    Button(showDetails ? "Hide details" : "See details") { withAnimation { showDetails.toggle() } }
+                        .font(Tokens.Font.label)
+                        .accessibilityIdentifier("crashDetailsButton")
+                    if showDetails, let first = model.pendingCrashes.first {
+                        Text(verbatim: previewJSON(first))
+                            .font(.system(size: 11, design: .monospaced))
+                            .lineLimit(40)
+                            .textSelection(.enabled)
+                            .padding(10)
+                            .background(Color.surfaceAlt, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+                            .accessibilityIdentifier("crashDetails")
+                    }
+                    ContactSection(email: $email, whatsapp: $whatsapp, consent: $consent, error: error)
+                    Picker("Next time", selection: $preference) {
+                        ForEach(CrashPreference.allCases, id: \.self) { Text($0.title).tag($0) }
+                    }
+                    .pickerStyle(.segmented)
+                    .accessibilityIdentifier("crashPreference")
+                    Button {
+                        let (contact, err) = ContactRules.build(email: email, whatsapp: whatsapp, consent: consent)
+                        error = err
+                        guard err == nil else { return }
+                        CrashReporter.shared.preference = preference
+                        Task { await model.sendCrashReports(contact: contact) }
+                        dismiss()
+                    } label: { Label("Send report", systemImage: "paperplane.fill") }
+                        .buttonStyle(PrimaryButtonStyle())
+                        .accessibilityIdentifier("sendCrashReport")
+                    Button("Don't send") {
+                        CrashReporter.shared.preference = preference == .always ? .ask : preference
+                        model.discardCrashReports()
+                        dismiss()
+                    }
+                    .buttonStyle(SecondaryButtonStyle())
+                    .accessibilityIdentifier("discardCrashReport")
+                }
+                .padding(Tokens.Space.gutter)
+            }
+            .navigationBarTitleDisplayMode(.inline)
         }
     }
 }

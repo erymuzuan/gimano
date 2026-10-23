@@ -4,6 +4,18 @@ struct SideMenu: View {
     @Environment(AppModel.self) private var model
     let onSelect: (MenuDestination) -> Void
 
+    @State private var versionTaps: [Date] = []
+
+    /// 7 quick taps on the version copies a diagnostics summary (no personal data) for support.
+    private func versionTapped() {
+        let now = Date()
+        versionTaps = versionTaps.filter { now.timeIntervalSince($0) < 3 } + [now]
+        guard versionTaps.count >= 7 else { return }
+        versionTaps = []
+        UIPasteboard.general.string = AppInfo.diagnostics(model: model)
+        model.showToast(String(localized: "Diagnostics copied"))
+    }
+
     var body: some View {
         ZStack(alignment: .leading) {
             Color.black.opacity(0.35)
@@ -55,7 +67,9 @@ struct SideMenu: View {
 
                 Spacer()
                 VStack(alignment: .leading, spacing: 4) {
-                    Text("Gimano \(Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "")")
+                    Text(verbatim: "Gimano \(AppInfo.versionString)")
+                        .accessibilityIdentifier("menuVersion")
+                        .onTapGesture { versionTapped() }
                     Text("Open source (MIT) · Map data © OpenStreetMap contributors")
                 }
                 .font(Tokens.Font.nunito(11, .semibold))
@@ -222,8 +236,10 @@ struct SettingsView: View {
                 LabeledContent("Distance", value: "km")
                 LabeledContent("Speed", value: "km/h")
             }
-            Section("About") {
-                LabeledContent("Version", value: "\(Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "") (\(Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? ""))")
+            Section {
+                NavigationLink { AboutView() } label: { Label("About Gimano", systemImage: "info.circle") }
+                    .accessibilityIdentifier("settingsAbout")
+                LabeledContent("Version", value: AppInfo.versionString)
                 LabeledContent("Server", value: model.config.apiBaseURL.host() ?? "")
                     .accessibilityIdentifier("serverHost")
                 if let name = model.user?.displayName {
@@ -457,5 +473,94 @@ extension InboxKind {
         case .feedbackStatus: .feedback
         case .announcement, .unknown: .logo
         }
+    }
+}
+
+enum AppInfo {
+    static var version: String { Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "?" }
+    static var build: String { Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "?" }
+    static var versionString: String { "\(version) (\(build))" }
+
+    static let privacyURL = URL(string: "https://www.bukitbunga.com/gimano/privacy/")!
+    static let termsURL = URL(string: "https://www.bukitbunga.com/gimano/terms/")!
+    static let sourceURL = URL(string: "https://github.com/erymuzuan/gimano")!
+    static let osmCopyrightURL = URL(string: "https://www.openstreetmap.org/copyright")!
+
+    /// Support summary: device block + server + mode. No location, ids or personal data.
+    @MainActor
+    static func diagnostics(model: AppModel) -> String {
+        let device = DeviceInfoToggle.json(model.currentDevice())
+        return """
+        Gimano \(versionString)
+        server: \(model.config.apiBaseURL.host() ?? "?") · \(model.backendStatus == .online ? "live" : "\(model.backendStatus)")
+        device: \(device)
+        """
+    }
+
+    static let licences: [(String, String)] = [
+        ("MapLibre Native", "BSD-2-Clause"), ("GRDB.swift", "MIT"), ("swift-sodium / libsodium", "ISC"),
+        ("ZIPFoundation", "MIT"), ("GoogleSignIn-iOS", "Apache-2.0"), ("libwebp", "BSD-3-Clause"),
+        ("Nunito font", "SIL Open Font License 1.1"), ("BIP-39 English wordlist", "MIT"),
+        ("Map data © OpenStreetMap contributors", "ODbL 1.0"), ("Basemap: OpenFreeMap", "OpenMapTiles / ODbL"),
+    ]
+}
+
+/// Settings → About Gimano.
+struct AboutView: View {
+    @Environment(AppModel.self) private var model
+
+    var body: some View {
+        List {
+            Section {
+                HStack(spacing: 14) {
+                    GimanoIcon(icon: .logo, size: 40)
+                        .frame(width: 60, height: 60)
+                        .background(Color.brandMist, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Gimano").font(Tokens.Font.title)
+                        Text(verbatim: AppInfo.versionString).font(Tokens.Font.caption).foregroundStyle(Color.textMuted)
+                            .accessibilityIdentifier("aboutVersion")
+                    }
+                }
+                LabeledContent("Server") {
+                    Text(verbatim: "\(model.config.apiBaseURL.host() ?? "?") · \(statusText)")
+                }
+                .accessibilityIdentifier("aboutServer")
+                LabeledContent("Latest version", value: AppInfo.version)
+            } footer: {
+                Text("Update checks will appear here once Gimano is on TestFlight / the App Store.")
+            }
+            Section {
+                Link(destination: AppInfo.privacyURL) { Label("Privacy", systemImage: "lock.shield") }
+                Link(destination: AppInfo.termsURL) { Label("Terms", systemImage: "doc.text") }
+                Link(destination: AppInfo.sourceURL) { Label("Source code (GitHub, MIT)", systemImage: "chevron.left.forwardslash.chevron.right") }
+                NavigationLink { LicencesView() } label: { Label("Licences", systemImage: "text.book.closed") }
+            }
+            Section {
+                Link(destination: AppInfo.osmCopyrightURL) {
+                    Text("Map data © OpenStreetMap contributors")
+                }
+            } footer: {
+                Text("Routing by Valhalla. Tiles by OpenFreeMap. No ads, no trackers.")
+            }
+        }
+        .navigationTitle("About Gimano")
+    }
+
+    private var statusText: String {
+        switch model.backendStatus {
+        case .online: String(localized: "Live")
+        case .demoForced, .demoFallback: String(localized: "Demo")
+        default: String(localized: "Connecting…")
+        }
+    }
+}
+
+struct LicencesView: View {
+    var body: some View {
+        List(AppInfo.licences, id: \.0) { name, licence in
+            LabeledContent(name, value: licence)
+        }
+        .navigationTitle("Licences")
     }
 }

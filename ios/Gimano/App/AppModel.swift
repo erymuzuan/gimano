@@ -52,7 +52,10 @@ struct FeedbackDraft: Identifiable {
     let id = UUID()
     var screen: FeedbackScreen
     var screenshot: Data?
-    var context: FeedbackContext
+    var device: DeviceInfo
+    var location: CoarseLocation?
+    var routeId: String?
+    var placeId: String?
 }
 
 enum MenuSheet: String, Identifiable {
@@ -189,6 +192,15 @@ final class AppModel {
             try? store.clearIdentitySettings()
         }
         if d.bool(forKey: "GimanoSkipOnboarding") { d.set(true, forKey: "onboarding.done") }
+        // `-GimanoFakeCrash YES`: a crash record as MetricKit would deliver it (UI tests of the crash prompt).
+        if d.bool(forKey: "GimanoFakeCrash") {
+            UserDefaults.standard.removeObject(forKey: "crash.preference")
+            CrashReporter.shared.save(CrashReport(
+                occurredAt: .now.addingTimeInterval(-120), kind: "crash", exception: "EXC_BAD_ACCESS · SIG 11",
+                message: "Test crash near 3.152613, 101.703718 for ali@example.com",
+                stack: #"{"callStackTree":"0 Gimano 0x104a3c000 NavigationSession.applyFix + 128\n1 /var/mobile/Containers/Data/Application/ABC/Library/x.sqlite"}"#,
+                screen: "navigation", uptimeS: 312))
+        }
     }
     #endif
 
@@ -272,6 +284,7 @@ final class AppModel {
     }
 
     func refreshUserData() async {
+        CrashReporter.shared.onPending = { [weak self] in Task { await self?.checkCrashReports() } }
         let repo = self.repo
         if config.dataMode != .demo, TokenStore.load(for: config.apiBaseURL) == nil {
             _ = try? await repo.signIn()
@@ -287,6 +300,7 @@ final class AppModel {
         await flushFeedback()
         await rescheduleAllPlannedDrives()
         await refreshInbox()
+        await checkCrashReports()
     }
 
     func refreshInbox() async {
@@ -833,9 +847,57 @@ final class AppModel {
         let shot = FeedbackAttachments.captureWindowJPEG()
         let routeId = navigation?.route.id ?? planner?.selected?.id
         // Privacy: location in diagnostics is rounded to 2 dp (~1 km); diagnostics are opt-in in the form.
-        let rounded = LatLng(lat: (position.lat * 100).rounded() / 100, lng: (position.lng * 100).rounded() / 100)
-        feedbackDraft = FeedbackDraft(screen: screen, screenshot: shot,
-                                      context: FeedbackAttachments.diagnostics(position: rounded, routeId: routeId, placeId: placeId))
+        feedbackDraft = FeedbackDraft(screen: screen, screenshot: shot, device: currentDevice(),
+                                      location: CoarseLocation(position), routeId: routeId, placeId: placeId)
+    }
+
+    /// The device block shown in the feedback / crash previews.
+    func currentDevice() -> DeviceInfo {
+        DeviceInfo.current(theme: effectiveScheme == .dark ? "dark" : "light",
+                           dataMode: backendStatus == .online || (config.dataMode != .demo && backendStatus == .unknown) ? "live" : "demo")
+    }
+
+    func deleteFeedbackContact(_ id: String) async {
+        do {
+            try await repo.deleteFeedbackContact(id: id)
+            showToast(String(localized: "Contact details deleted"))
+            await refreshMyFeedback()
+        } catch {
+            showToast(error.localizedDescription)
+        }
+    }
+
+    // MARK: crash reports
+
+    var pendingCrashes: [CrashReport] = []
+    var showCrashPrompt = false
+
+    func checkCrashReports() async {
+        let reporter = CrashReporter.shared
+        await reporter.retryApproved(repo: repo)
+        let pending = reporter.pending
+        guard !pending.isEmpty else { return }
+        switch reporter.preference {
+        case .never: reporter.discardAll()
+        case .always:
+            for r in pending { _ = await reporter.send(r, device: currentDevice(), contact: nil, repo: repo) }
+        case .ask:
+            pendingCrashes = pending
+            showCrashPrompt = true
+        }
+    }
+
+    func sendCrashReports(contact: ContactDetails?) async {
+        let reporter = CrashReporter.shared
+        var sent = 0
+        for r in pendingCrashes where await reporter.send(r, device: currentDevice(), contact: contact, repo: repo) { sent += 1 }
+        pendingCrashes = reporter.pending
+        showToast(sent > 0 ? String(localized: "Thanks! Crash report sent") : String(localized: "Saved. We'll send it when we can."))
+    }
+
+    func discardCrashReports() {
+        CrashReporter.shared.discardAll()
+        pendingCrashes = []
     }
 
     func submitFeedback(_ request: FeedbackRequest) {

@@ -485,12 +485,23 @@ actor DemoRepository: GimanoRepository {
     func sendFeedback(_ f: FeedbackRequest) async throws -> FeedbackCreated {
         await pause()
         guard FeedbackRules.validate(message: f.message) else { throw APIError.http(status: 400, problem: ProblemDetails(title: "Invalid message")) }
-        let item = FeedbackSummary(id: "demo-fb-\(UUID().uuidString.prefix(8))", category: f.category, message: f.message, status: .received, createdAt: .now)
+        let item = FeedbackSummary(id: "demo-fb-\(UUID().uuidString.prefix(8))", category: f.category, message: f.message, status: .received,
+                                   createdAt: .now, hasContact: f.contact != nil)
         feedback.insert(item, at: 0)
         return FeedbackCreated(id: item.id, createdAt: item.createdAt)
     }
 
     func myFeedback() async throws -> [FeedbackSummary] { feedback }
+
+    func deleteFeedbackContact(id: String) async throws {
+        if let i = feedback.firstIndex(where: { $0.id == id }) { feedback[i].hasContact = false }
+    }
+
+    private(set) var crashReports: [CrashReport] = []
+    func sendCrashReport(_ report: CrashReport) async throws -> CrashCreated {
+        crashReports.append(report)
+        return CrashCreated(id: "demo-crash-\(crashReports.count)", signature: nil)
+    }
 
     func health() async -> Bool { true }
 }

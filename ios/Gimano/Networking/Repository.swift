@@ -31,6 +31,8 @@ protocol GimanoRepository: Sendable {
 
     func sendFeedback(_ feedback: FeedbackRequest) async throws -> FeedbackCreated
     func myFeedback() async throws -> [FeedbackSummary]
+    func deleteFeedbackContact(id: String) async throws
+    func sendCrashReport(_ report: CrashReport) async throws -> CrashCreated
 
     // Community places
     func createPlace(_ place: NewPlace) async throws -> Place
@@ -285,6 +287,14 @@ final class LiveRepository: GimanoRepository {
         try await authed { try await self.client.get("me/feedback") }
     }
 
+    func deleteFeedbackContact(id: String) async throws {
+        try await authed { try await self.client.sendNoContent("DELETE", "feedback/\(id)/contact", body: Optional<Empty>.none) }
+    }
+
+    func sendCrashReport(_ report: CrashReport) async throws -> CrashCreated {
+        try await authed { try await self.client.send("POST", "crash-reports", body: report) }
+    }
+
     // MARK: community places, reviews, photos
 
     func createPlace(_ place: NewPlace) async throws -> Place {
@@ -464,6 +474,9 @@ final class FallbackRepository: GimanoRepository {
     /// Feedback never goes to the demo store while in auto mode: failures leave it in the outbox for retry.
     func sendFeedback(_ feedback: FeedbackRequest) async throws -> FeedbackCreated { try await live.sendFeedback(feedback) }
     func myFeedback() async throws -> [FeedbackSummary] { try await live.myFeedback() }
+    func deleteFeedbackContact(id: String) async throws { try await live.deleteFeedbackContact(id: id) }
+    /// Crash reports never fall back to demo: they wait locally until the server takes them.
+    func sendCrashReport(_ report: CrashReport) async throws -> CrashCreated { try await live.sendCrashReport(report) }
 
     // Community contributions are public writes: no silent demo fallback while the backend is online.
     func createPlace(_ place: NewPlace) async throws -> Place {
