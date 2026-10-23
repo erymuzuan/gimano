@@ -689,4 +689,5 @@
     <string name="inbox_issue_confirmed">Laporan anda disahkan</string>
     <string name="inbox_issue_refuted">Laporan anda tidak disahkan</string>
     <string name="inbox_issue_resolved">Peta telah dibetulkan</string>
+    <string name="vote_need_near">Berada dalam 1 km untuk mengesahkan.</string>
 </resources>

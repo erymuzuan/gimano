@@ -265,10 +265,12 @@ class DemoRepository(
     override suspend fun issuesNearby(minLng: Double, minLat: Double, maxLng: Double, maxLat: Double, kinds: List<String>?): List<Issue> =
         demoIssues.filter { it.lng in minLng..maxLng && it.lat in minLat..maxLat && (kinds == null || it.kind in kinds) }
 
-    override suspend fun voteIssue(id: String, answer: String): Issue {
+    override suspend fun voteIssue(id: String, body: IssueVoteRequest): IssueVoteResult {
         latency()
         val i = demoIssues.firstOrNull { it.id == id } ?: throw NoSuchElementException(id)
-        return i.copy(confirmations = i.confirmations + if (answer == "still") 1 else 0).also { u -> demoIssues.replaceAll { if (it.id == id) u else it } }
+        val u = i.copy(confirmations = i.confirmations + if (body.answer == "still") 1 else 0)
+        demoIssues.replaceAll { if (it.id == id) u else it }
+        return IssueVoteResult(u.state, u.confirmations, 0.0, 2.0)
     }
 
     override suspend fun vote(reportId: String, stillThere: Boolean): Report {

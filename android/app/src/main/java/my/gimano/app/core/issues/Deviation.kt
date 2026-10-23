@@ -9,7 +9,7 @@ import java.time.LocalDate
  * "Kenapa tak ikut laluan?" (AduanLencong). Everything stays on the phone: the only thing that may ever be sent is
  * the answer plus [point]/[heading]/[road] of the route segment the driver left. No track is kept.
  */
-data class Deviation(val point: GeoPoint, val heading: Double, val road: String?)
+data class Deviation(val point: GeoPoint, val heading: Double, val road: String?, val junction: GeoPoint = point)
 
 /**
  * Detects "left the suggested route at a decision point and didn't rejoin":
@@ -44,7 +44,7 @@ class DeviationTracker {
         if (confirmed != null || candidate != null) return
         if (distanceToNextManeuverM > DECISION_M) return
         val (pt, bearing) = route.pointAt(alongM + distanceToNextManeuverM + SEGMENT_INTO_M)
-        candidate = Deviation(pt, bearing, road?.takeIf { it.isNotBlank() })
+        candidate = Deviation(pt, bearing, road?.takeIf { it.isNotBlank() }, route.pointAt(alongM + distanceToNextManeuverM).first)
         oldRoute = route
         leftAlongM = alongM
     }
@@ -76,4 +76,26 @@ object DeviationPromptGate {
 
     fun mayAsk(neverAsk: Boolean, lastAskedDay: String?, today: LocalDate, speedKmh: Int?): Boolean =
         !neverAsk && lastAskedDay != today.toString() && (speedKmh ?: 0) <= STOPPED_KMH
+}
+
+/** Last [maxM] metres driven (points ≥ [stepM] apart), memory only. */
+class RecentTrace(private val maxM: Double = 1_500.0, private val stepM: Double = 15.0) {
+    private val pts = ArrayDeque<GeoPoint>()
+    private val gaps = ArrayDeque<Double>()
+    private var total = 0.0
+
+    fun add(p: GeoPoint) {
+        val last = pts.lastOrNull()
+        if (last != null) {
+            val d = GeoMath.distanceM(last, p)
+            if (d < stepM) return
+            gaps.addLast(d); total += d
+        }
+        pts.addLast(p)
+        while (pts.size > 2 && total - gaps.first() >= maxM) { total -= gaps.removeFirst(); pts.removeFirst() }
+    }
+
+    fun points(): List<GeoPoint> = pts.toList()
+    fun lengthM(): Double = total
+    fun clear() { pts.clear(); gaps.clear(); total = 0.0 }
 }

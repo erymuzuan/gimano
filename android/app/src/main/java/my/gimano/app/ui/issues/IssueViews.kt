@@ -51,7 +51,7 @@ private val roadLabels = mapOf(
 )
 
 private val durationLabels = mapOf(
-    "unknown" to R.string.dur_unknown, "today" to R.string.dur_today, "days" to R.string.dur_days, "long_works" to R.string.dur_long_works,
+    "unknown" to R.string.dur_unknown, "today" to R.string.dur_today, "few_days" to R.string.dur_days, "long_roadworks" to R.string.dur_long_works,
 )
 
 /** "Masalah jalan" group under the report grid (AduanLapor): 6 types. */
@@ -148,7 +148,7 @@ fun StillClosedCard(i: Issue, onAnswer: (String?) -> Unit, modifier: Modifier = 
                 Spacer(Modifier.width(12.dp))
                 Column(Modifier.weight(1f)) {
                     Text(stringResource(R.string.still_closed_q), fontSize = 19.sp, fontWeight = FontWeight.Black, color = c.text)
-                    Text(issueLine(i.kind, i.subtype, i.roadName, i.state, i.confirmations, i.createdAt), fontSize = 14.sp, color = c.textMuted, maxLines = 2)
+                    Text(issueLine(i.kind, i.subtype, i.road, i.state, i.confirmations, i.createdAt), fontSize = 14.sp, color = c.textMuted, maxLines = 2)
                 }
                 IconButton(onClick = { onAnswer(null) }) { Icon(Icons.Filled.Close, stringResource(R.string.close), tint = c.textMuted) }
             }
@@ -209,7 +209,7 @@ fun RouteIssueBanner(issues: List<RouteIssue>, ignored: Set<String>, onPassAnywa
     var details by remember { mutableStateOf<RouteIssue?>(null) }
     val ms = currentLang() == Lang.MS
     shown.forEach { i ->
-        val road = i.roadName ?: stringResource(R.string.a_road)
+        val road = i.road ?: stringResource(R.string.a_road)
         val what = kindWord(i.kind) + (subtypeWord(i.subtype)?.let { " ($it)" } ?: "")
         val n = IssueText.drivers(i.confirmations)
         val tail = listOfNotNull(if (i.state == "confirmed" && n > 0) stringResource(R.string.confirmed_by_n, n) else stateWord(i.state),
@@ -232,7 +232,7 @@ fun RouteIssueBanner(issues: List<RouteIssue>, ignored: Set<String>, onPassAnywa
     details?.let { i ->
         AlertDialog(
             onDismissRequest = { details = null },
-            title = { Text(i.roadName ?: stringResource(R.string.a_road), fontWeight = FontWeight.Black) },
+            title = { Text(i.road ?: stringResource(R.string.a_road), fontWeight = FontWeight.Black) },
             text = {
                 Column {
                     Text(issueLine(i.kind, i.subtype, null, i.state, i.confirmations, i.lastEvidenceAt ?: i.createdAt), fontWeight = FontWeight.Bold)
@@ -257,9 +257,9 @@ fun PlaceIssueBadges(issues: List<Issue>, onVote: (Issue, String) -> Unit) {
     var ask by remember { mutableStateOf<Issue?>(null) }
     Column(Modifier.padding(top = 8.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
         issues.forEach { i ->
-            val text = when (i.kind) {
+            val text = i.summary?.takeIf { it.isNotBlank() } ?: when (i.kind) {
                 IssueKind.PLACE_CLOSED_PERM -> stringResource(R.string.badge_reported_closed)
-                IssueKind.PLACE_CLOSED_TEMP -> i.until?.take(10)?.let { d -> runCatching { LocalDate.parse(d) }.getOrNull() }
+                IssueKind.PLACE_CLOSED_TEMP -> i.untilDate?.take(10)?.let { d -> runCatching { LocalDate.parse(d) }.getOrNull() }
                     ?.let { stringResource(R.string.badge_closed_until, my.gimano.app.core.format.Formatters.shortDate(it, currentLang())) }
                     ?: stringResource(R.string.badge_closed_temp)
                 IssueKind.PLACE_HOURS_WRONG -> stringResource(R.string.badge_hours_changed)

@@ -88,7 +88,7 @@ class SwitchingRepository(
     override suspend fun createIssue(body: CreateIssueRequest) = write { createIssue(body) }
     override suspend fun issuesNearby(minLng: Double, minLat: Double, maxLng: Double, maxLat: Double, kinds: List<String>?) =
         if (isDemo) demo.issuesNearby(minLng, minLat, maxLng, maxLat, kinds) else remote.issuesNearby(minLng, minLat, maxLng, maxLat, kinds)
-    override suspend fun voteIssue(id: String, answer: String) = write { voteIssue(id, answer) }
+    override suspend fun voteIssue(id: String, body: IssueVoteRequest) = write { voteIssue(id, body) }
 
     override suspend fun inbox() = pick { inbox() }
     override suspend fun sendFeedback(body: FeedbackRequest) = write { sendFeedback(body) }

@@ -122,6 +122,8 @@ data class PlaceSummary(
     /** Chain this place belongs to (server groups by spacing-free name); the app collapses results that share it. */
     val chainGroup: ChainGroup? = null,
     val openNow: Boolean? = null,
+    /** Complaints v1 badge (docs/api.md "Places"). */
+    val badge: PlaceBadge? = null,
 )
 
 @Serializable
@@ -169,6 +171,7 @@ data class Place(
     val brand: String? = null,
     val phone: String? = null,
     val website: String? = null,
+    val badge: PlaceBadge? = null,
     val openingHours: String? = null,
     val openNow: Boolean? = null,
     val amenities: List<String> = emptyList(),
@@ -193,7 +196,7 @@ data class Place(
     val isUnverified get() = isCommunity && status != "published"
     val isGold get() = contributorTier == "emas"
     fun summary() = PlaceSummary(id, name, category, address, lat, lng, distanceM, brand, source, status, rating, reviewCount, thumbnailUrl,
-        confirmationsWeighted, required, rural, contributorTier)
+        confirmationsWeighted, required, rural, contributorTier, badge = badge)
 }
 
 @Serializable
