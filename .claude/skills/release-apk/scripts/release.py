@@ -3,8 +3,11 @@
 Manotu Android release helper (see ../SKILL.md). Steps, in order:
 
   plan                       read-only: current/next versions, commits since the last tags, preflight checks
-  bump  --manotu X --gimano Y   set the per-flavor defaults in android/app/build.gradle.kts (versionCode +1),
-                             commit "Release Manotu X / Gimano Y" on master (does not push)
+  bump  --manotu X           set the manotu flavor's defaults in android/app/build.gradle.kts (versionCode +1),
+                             commit "Release Manotu X" on master (does not push)
+
+Only Manotu (my.manotu.app) is released. The legacy my.gimano.app flavor is retired (user decision, 2026-10-24):
+it is not built, published or deployed, and its download folder was removed from the website.
   build                      assemble both release APKs from the committed tree, verify, stage under
                              artifacts/release-staging/<flavor>-<ver>/ (APK, .sha256, version.json, notes)
   tag                        tag vX and vY on the bump commit, push master + tags
@@ -25,12 +28,9 @@ ENV = dict(os.environ, JAVA_HOME=os.environ.get("JAVA_HOME", "/opt/homebrew/opt/
 FLAVORS = {
     # flavor: (package, staging dir prefix, manifest URL, download folder)
     "manotu": ("my.manotu.app", "manotu", "https://manotu.app/download/version.json", "https://manotu.app/download/"),
-    "gimano": ("my.gimano.app", "gimano", "https://www.bukitbunga.com/gimano/download/version.json",
-               "https://www.bukitbunga.com/gimano/download/"),
 }
 MIRRORS = {  # same files served from a second host; must stay identical
     "manotu": ["https://www.bukitbunga.com/manotu/download/version.json"],
-    "gimano": ["https://manotu.app/gimano/download/version.json"],
 }
 
 
@@ -99,7 +99,7 @@ def cmd_bump(a):
     sh("git", "pull", "-q", "--rebase", "origin", "master")
     v = versions()
     src = open(GRADLE, encoding="utf-8").read()
-    for f, new in (("manotu", a.manotu), ("gimano", a.gimano)):
+    for f, new in (("manotu", a.manotu),):
         code, name = v[f]
         if [int(x) for x in new.split(".")] <= [int(x) for x in name.split(".")]:
             sys.exit(f"{f}: {new} must be newer than {name}")
@@ -109,7 +109,7 @@ def cmd_bump(a):
     nv = versions()
     sh("git", "add", GRADLE)
     sh("git", "commit", "-q", "-m",
-       f"Release Manotu {a.manotu} ({nv['manotu'][0]}) and Gimano {a.gimano} ({nv['gimano'][0]})\n\n"
+       f"Release Manotu {a.manotu} ({nv['manotu'][0]})\n\n"
        "Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>")
     print(f"bumped: {nv}; commit {sh('git', 'rev-parse', '--short', 'HEAD')} (not pushed; run build next)")
 
@@ -134,8 +134,7 @@ def cmd_build(a):
     if sh("git", "status", "--porcelain", "--untracked-files=no", "--", "android"):
         sys.exit("android/ has uncommitted changes; the APK must equal a commit")
     head = sh("git", "rev-parse", "HEAD")
-    sh("./gradlew", "-q", "testManotuDebugUnitTest", "testGimanoDebugUnitTest",
-       "assembleManotuRelease", "assembleGimanoRelease", cwd=os.path.join(ROOT, "android"), env=ENV)
+    sh("./gradlew", "-q", "testManotuDebugUnitTest", "assembleManotuRelease", cwd=os.path.join(ROOT, "android"), env=ENV)
     v = versions()
     for f in FLAVORS:
         code, name = v[f]
@@ -161,16 +160,15 @@ def cmd_tag(a):
         src = open(os.path.join(STAGING, f"{FLAVORS[f][1]}-{v[f][1]}", "SOURCE")).read().strip()
         if src != head: sys.exit(f"{f} was built from {src[:7]}, HEAD is {head[:7]}: rebuild")
     for f in FLAVORS:
-        sh("git", "tag", "-a", f"v{v[f][1]}", "-m", f"{'Manotu' if f == 'manotu' else 'Gimano'} {v[f][1]} ({v[f][0]})")
+        sh("git", "tag", "-a", f"v{v[f][1]}", "-m", f"Manotu {v[f][1]} ({v[f][0]})")
     sh("git", "pull", "-q", "--rebase", "origin", "master")
     if sh("git", "rev-parse", "HEAD") != head: sys.exit("master moved during the release; tags point at the bump commit, re-check before pushing")
-    sh("git", "push", "-q", "origin", "master", f"v{v['manotu'][1]}", f"v{v['gimano'][1]}")
-    print(f"pushed master and tags v{v['manotu'][1]}, v{v['gimano'][1]} at {head[:7]}")
+    sh("git", "push", "-q", "origin", "master", f"v{v['manotu'][1]}")
+    print(f"pushed master and tag v{v['manotu'][1]} at {head[:7]}")
 
 
 def cmd_github(a):
     v = versions()
-    # Only Manotu is published on GitHub. The legacy my.gimano.app builds go to the website only (user decision, 2026-10-24).
     titles = {"manotu": "Manotu {n} for Android"}
     for f in titles:
         name = v[f][1]
@@ -206,7 +204,7 @@ if __name__ == "__main__":
     ap = argparse.ArgumentParser()
     sp = ap.add_subparsers(dest="step", required=True)
     sp.add_parser("plan")
-    b = sp.add_parser("bump"); b.add_argument("--manotu", required=True); b.add_argument("--gimano", required=True)
+    b = sp.add_parser("bump"); b.add_argument("--manotu", required=True)
     for s in ("build", "tag", "github", "verify"): sp.add_parser(s)
     a = ap.parse_args()
     globals()[f"cmd_{a.step}"](a)

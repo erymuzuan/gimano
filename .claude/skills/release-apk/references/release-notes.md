@@ -28,10 +28,6 @@ signed with the release key (certificate SHA-256 `b9baddcd63b3d74b8a374cb93df327
 SHA-256 (manotu-0.3.2.apk): `<sha256>`
 ```
 
-For the legacy package, open with `**Gimano 0.2.5 for Android** (package `my.gimano.app`, the original
-install)` and add one line telling users that new features come in the Manotu app from manotu.app.
-Then repeat the same changes. Use the generic "Restore from backup" / "Pulihkan dari sandaran" wording.
-
 ## Rules
 
 - Brand: only "Manotu" in user-facing text. No "formerly Gimano" or "Dahulu Gimano". Package IDs and
