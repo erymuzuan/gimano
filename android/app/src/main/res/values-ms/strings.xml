@@ -597,4 +597,5 @@
     <string name="cat_address">Alamat</string>
     <string name="cat_postcode">Poskod</string>
     <string name="cat_point">Koordinat</string>
+    <string name="search_failed">Tidak dapat mencari sekarang. Semak sambungan anda.</string>
 </resources>

@@ -598,4 +598,5 @@
     <string name="cat_address">Address</string>
     <string name="cat_postcode">Postcode</string>
     <string name="cat_point">Coordinates</string>
+    <string name="search_failed">Couldn\'t search right now. Check your connection.</string>
 </resources>
