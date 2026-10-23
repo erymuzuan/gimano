@@ -237,20 +237,26 @@ public sealed class SearchPipeline(PlaceSearchIndex index, Func<AliasTable> alia
 
         var table = aliases();
         var (oLat, oLng) = r.NearLat is not null && r.NearLng is not null ? (r.NearLat, r.NearLng) : (r.Lat, r.Lng);
-        var words = norm.Split(' ', StringSplitOptions.RemoveEmptyEntries).Append(norm).Distinct().ToList();
-        foreach (var w in words)
-            foreach (var cw in table.CategoryWords)
-                if (((w.Length >= 3 && Levenshtein(w, cw) <= (cw.Length >= 6 ? 2 : 1))
-                        || (w == norm && (" " + norm + " ").Contains(" " + cw + " ", StringComparison.Ordinal)))   // "kedai runcit pak ali"
-                    && table.Category(cw) is { Length: > 0 } cats
-                    && list.All(s => s.Category != cats[0]))
-                {
-                    int? count = null;
-                    if (oLat is { } la && oLng is { } lo)
-                        try { count = await index.CountAsync(SearchQueryBuilder.BuildCategoryCount(cats, la, lo, 5_000, r.Viewer), ct); }
-                        catch (SearchUnavailableException) { }
-                    list.Add(new SearchSuggestion(L10n.Category(cats[0], r.Lang), cw, cats[0], Count: count));
-                }
+        // Category words in or near the query: a phrase contained in the query first ("kedai runcit" in "kedai runcit pak ali"),
+        // then exact words, then near spellings ("tandass").
+        var words = norm.Split(' ', StringSplitOptions.RemoveEmptyEntries).Distinct().ToList();
+        var candidates = new List<(int Rank, int Dist, string Word, PlaceCategory[] Cats)>();
+        foreach (var cw in table.CategoryWords)
+        {
+            if (table.Category(cw) is not { Length: > 0 } cats) continue;
+            if ((" " + norm + " ").Contains(" " + cw + " ", StringComparison.Ordinal)) { candidates.Add((0, -cw.Length, cw, cats)); continue; }
+            var best = words.Append(norm).Where(w => w.Length >= 3).Select(w => Levenshtein(w, cw)).DefaultIfEmpty(99).Min();
+            if (best <= (cw.Length >= 6 ? 2 : 1)) candidates.Add((1, best, cw, cats));
+        }
+        foreach (var (_, _, cw, cats) in candidates.OrderBy(c => c.Rank).ThenBy(c => c.Dist))
+        {
+            if (list.Any(s => s.Category == cats[0])) continue;
+            int? count = null;
+            if (oLat is { } la && oLng is { } lo)
+                try { count = await index.CountAsync(SearchQueryBuilder.BuildCategoryCount(cats, la, lo, 5_000, r.Viewer), ct); }
+                catch (SearchUnavailableException) { }
+            list.Add(new SearchSuggestion(L10n.Category(cats[0], r.Lang), cw, cats[0], Count: count));
+        }
         return list.Take(4).ToList();
     }
 

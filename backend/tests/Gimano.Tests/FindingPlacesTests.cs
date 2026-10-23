@@ -355,7 +355,7 @@ public class OpenSearchIntegrationFindingPlacesTests
             ExpectCorrected("kfc ss2", null);
             ExpectCorrected("Putrajaya", null);
             var pakAli = await pipeline.SuggestAsync(new SearchRequest("kedai runcit pak ali", PjLat, PjLng), default);
-            if (pakAli.Any(s => s.PlaceId is not null) || !pakAli.Any(s => s.Category == PlaceCategory.Convenience))
+            if (pakAli.Any(s => s.PlaceId is not null) || !pakAli.Any(s => s.Category == PlaceCategory.Convenience && s.Query == "kedai runcit"))
                 failures.Add($"Assert-rank suggestions 'kedai runcit pak ali': expected only 'kedai runcit' nearby; got {string.Join(" | ", pakAli)}");
 
             var none = await pipeline.RunAsync(new SearchRequest("qzxjv", PjLat, PjLng), null, areas, default);
