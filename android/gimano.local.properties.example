@@ -5,3 +5,8 @@ gimano.googleAndroidClientId=
 
 # Play Integrity for place votes: the Google Cloud project NUMBER (not the project id). Optional.
 gimano.cloudProjectNumber=
+# Release builds (falls back to gimano.cloudProjectNumber). Gimano's project gimano-512501 = 513325189112.
+gimano.cloudProjectNumberRelease=
+
+# Android OAuth client for the RELEASE signing key (Drive backup; identifier, not a secret).
+gimano.googleAndroidClientIdRelease=

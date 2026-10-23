@@ -44,7 +44,12 @@ val localProps = Properties().apply {
     listOf("local.properties", "gimano.local.properties").map { rootProject.file(it) }.filter { it.exists() }.forEach { f -> f.inputStream().use { load(it) } }
 }
 // Play Integrity (votes): Google Cloud project NUMBER, git-ignored. Absent → votes carry no attestation.
-val cloudProjectNumber = (localProps.getProperty("gimano.cloudProjectNumber") ?: (project.findProperty("gimano.cloudProjectNumber") as String?) ?: "0").trim().toLongOrNull() ?: 0L
+fun localOrProp(key: String): String? = (localProps.getProperty(key) ?: (project.findProperty(key) as String?))?.trim()?.takeIf { it.isNotEmpty() }
+// Play Integrity needs the numeric Google Cloud project number. Debug and release may differ.
+val cloudProjectNumber = (localOrProp("gimano.cloudProjectNumber") ?: "0").toLongOrNull() ?: 0L
+val cloudProjectNumberRelease = (localOrProp("gimano.cloudProjectNumberRelease") ?: localOrProp("gimano.cloudProjectNumber") ?: "0").toLongOrNull() ?: 0L
+// Android OAuth clients are matched by package + SHA-1, one per signing key: debug (Mac debug keystore) and release.
+val googleOauthClientIdRelease = localOrProp("gimano.googleAndroidClientIdRelease") ?: ""
 val googleOauthClientId = (localProps.getProperty("gimano.googleAndroidClientId") ?: localProps.getProperty("gimano.googleOauthClientId")
     ?: (project.findProperty("gimano.googleAndroidClientId") as String?) ?: "").trim()
 
@@ -75,8 +80,8 @@ android {
         minSdk = 26
         targetSdk = 36
         // Override for test builds: -Pgimano.versionCode=3 -Pgimano.versionName=0.2.1
-        versionCode = prop("gimano.versionCode", "3").toInt()
-        versionName = prop("gimano.versionName", "0.2.1")
+        versionCode = prop("gimano.versionCode", "4").toInt()
+        versionName = prop("gimano.versionName", "0.2.2")
 
         buildConfigField("String", "API_BASE_URL", "\"$apiBaseUrl\"")
         buildConfigField("String", "MAP_STYLE_URL", "\"$mapStyleUrl\"")
@@ -108,6 +113,8 @@ android {
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
             buildConfigField("String", "API_BASE_URL", "\"$releaseApiBaseUrl\"")
             buildConfigField("boolean", "DEMO_MODE_DEFAULT", "false")
+            buildConfigField("long", "CLOUD_PROJECT_NUMBER", "${cloudProjectNumberRelease}L")
+            buildConfigField("String", "GOOGLE_OAUTH_CLIENT_ID", "\"$googleOauthClientIdRelease\"")
             signingConfig = signingConfigs.findByName("release")
             // Phones (64/32-bit ARM) + x86_64 emulators; drops JNA's legacy mips/armeabi/x86 libs.
             ndk { abiFilters += listOf("arm64-v8a", "armeabi-v7a", "x86_64") }
