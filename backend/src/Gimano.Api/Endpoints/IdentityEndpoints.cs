@@ -88,7 +88,7 @@ public static class IdentityEndpoints
         }
         else return unauthorized;
 
-        if (!replay.TryAdd($"auth:{req.Ts}:{req.Sig}")) return unauthorized;
+        if (!replay.TryAdd(ReplayCache.Key("auth", req.Ts, sig))) return unauthorized;
         user.LastSeenAt = clock.GetUtcNow();
         await db.SaveChangesAsync(ct);
         return TypedResults.Ok(new TokenResponse(jwt.Issue(user.Id, user.DisplayName, user.Mood), user.Id, user.DisplayName));

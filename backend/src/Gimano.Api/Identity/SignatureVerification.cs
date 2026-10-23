@@ -38,15 +38,25 @@ public sealed class UserKeyCache(IMemoryCache cache, IServiceScopeFactory scopes
 public sealed class ReplayCache(IMemoryCache cache)
 {
     public static readonly TimeSpan Window = TimeSpan.FromMinutes(10);
+    private readonly Lock _lock = new();
 
-    /// <summary>True if first seen (and remembers it); false if it's a replay.</summary>
+    /// <summary>True if first seen (and remembers it); false if it's a replay. Atomic: of two concurrent copies only one wins.</summary>
     public bool TryAdd(string key)
     {
         var k = "replay:" + key;
-        if (cache.TryGetValue(k, out _)) return false;
-        cache.Set(k, true, Window);
-        return true;
+        lock (_lock)
+        {
+            if (cache.TryGetValue(k, out _)) return false;
+            cache.Set(k, true, Window);
+            return true;
+        }
     }
+
+    /// <summary>
+    /// Keyed on the decoded signature bytes, not the header text: TryBase64 accepts padded, unpadded, URL-safe and
+    /// whitespace-padded spellings of the same signature, which must not count as different requests.
+    /// </summary>
+    public static string Key(string scope, long ts, byte[] sig) => $"{scope}:{ts}:{Convert.ToBase64String(sig)}";
 }
 
 public enum SignatureDecision { Verify, AllowUnsigned, RejectNoKey }
@@ -132,7 +142,7 @@ public sealed class SignatureMiddleware(RequestDelegate next, IConfiguration con
         var canonical = Signatures.RequestCanonical(ctx.Request.Method, PathAndQuery(ctx), ts, body);
         if (!Signatures.Verify(key, canonical, sig))
             return (false, "signature-invalid", "The signature doesn't match the request (method, path+query, ts, sha256(body)) or the current key.");
-        if (!replay.TryAdd($"{uid:N}:{ts}:{sigHeader}"))
+        if (!replay.TryAdd(ReplayCache.Key(uid.ToString("N"), ts, sig)))
             return (false, "signature-replayed", "This signed request was already used.");
         return (true, "", "");
     }
