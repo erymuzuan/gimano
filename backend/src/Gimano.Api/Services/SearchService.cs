@@ -43,6 +43,18 @@ public sealed class SearchPipeline(PlaceSearchIndex index, Func<AliasTable> alia
         return (results, ranked.Interpretation, CorrectedFor(ranked.LiteralTexts, results));
     }
 
+    public const double MaxCorrectionDistanceM = 3_000;
+
+    /// <summary>Penalty per rank of a secondary category: "surau" lists suraus first, a masjid only when ≥ 2 km nearer.</summary>
+    public const double SecondaryCategoryPenaltyM = 2_000;
+
+    /// <summary>"surau" → surau first, masjid as secondary (and vice versa for "masjid").</summary>
+    internal static double CategoryOrder(double distanceM, PlaceCategory category, IReadOnlyList<PlaceCategory> cats)
+    {
+        var i = cats.ToList().IndexOf(category);
+        return distanceM + (i < 0 ? 2 : i) * SecondaryCategoryPenaltyM;
+    }
+
     /// <summary>
     /// Results that came only through typo tolerance are labelled: when none of the top 3 literally contains the query (after
     /// normalisation and aliases), correctedQuery = the top result's brand or name ("famly mart" → "FamilyMart").
@@ -158,7 +170,9 @@ public sealed class SearchPipeline(PlaceSearchIndex index, Func<AliasTable> alia
 
         var list = SearchResults.Dedupe(ranked.Hits, h => h.Name, h => (h.Lat, h.Lng), ranked.Hits.Count);
         if (!ranked.KeepOrder) list = SearchResults.ChainsNearestFirst(list, h => SearchResults.ChainKey(h.Name, h.Brand), FromOrigin);
-        if (r.SortNearest || ranked.Interpretation.Kind is "category" or "category_area")
+        if (ranked.Interpretation.Kind is "category" or "category_area" && ranked.Interpretation.Categories is { Count: > 1 } cats)
+            list = list.OrderBy(h => CategoryOrder(FromOrigin(h) ?? 0, h.Category, cats)).ToList();
+        else if (r.SortNearest || ranked.Interpretation.Kind is "category" or "category_area")
             list = list.OrderBy(h => FromOrigin(h) ?? 0).ToList();
         list = list.Take(limit).ToList();
 
@@ -225,10 +239,14 @@ public sealed class SearchPipeline(PlaceSearchIndex index, Func<AliasTable> alia
                 ["size"] = 10,
                 ["_source"] = new JsonArray("id", "name", "category", "address", "location", "brand", "country", "source"),
                 ["query"] = query,
+                // deterministic: ties broken by id
+                ["sort"] = new JsonArray(new JsonObject { ["_score"] = new JsonObject { ["order"] = "desc" } }, new JsonObject { ["id"] = new JsonObject { ["order"] = "asc" } }),
             };
             // Only a near-miss spelling of the query counts ("Lotos" → "Lotus's"), never just any fuzzy hit far away.
             var queryWords = norm.Split(" ", StringSplitOptions.RemoveEmptyEntries).Length;
-            var hit = (await index.SearchAsync(body, ct)).FirstOrDefault(h => IsCloseSpelling(compact, h.Name, queryWords, norm));
+            // A correction must be close in spelling AND nearby (≤ 3 km), unless it's a chain (its nearest outlet is fine).
+            var hit = (await index.SearchAsync(body, ct)).FirstOrDefault(h => IsCloseSpelling(compact, h.Name, queryWords, norm)
+                && (h.Brand is not null || gLat is null || GeoMath.HaversineM(gLat.Value, gLng!.Value, h.Lat, h.Lng) <= MaxCorrectionDistanceM));
             if (hit is not null && TextNormalizer.Compact(hit.Name) != compact)
                 list.Add(new SearchSuggestion(hit.Name, hit.Name, null, hit.Id, hit.Lat, hit.Lng,
                     r.Lat is { } ul && r.Lng is { } ug ? Math.Round(GeoMath.HaversineM(ul, ug, hit.Lat, hit.Lng)) : null));
@@ -253,10 +271,22 @@ public sealed class SearchPipeline(PlaceSearchIndex index, Func<AliasTable> alia
             if (list.Any(s => s.Category == cats[0])) continue;
             int? count = null;
             if (oLat is { } la && oLng is { } lo)
-                try { count = await index.CountAsync(SearchQueryBuilder.BuildCategoryCount(cats, la, lo, 5_000, r.Viewer), ct); }
+                try { count = await DistinctCountAsync(cats, la, lo, r.Viewer, ct); }
                 catch (SearchUnavailableException) { }
             list.Add(new SearchSuggestion(L10n.Category(cats[0], r.Lang), cw, cats[0], Count: count));
         }
+
+        // Never empty: popular categories nearby when nothing else applies.
+        if (list.Count == 0)
+            foreach (var (cat, word) in PopularFallback(r.Lang))
+            {
+                int? count = null;
+                if (oLat is { } la && oLng is { } lo)
+                    try { count = await DistinctCountAsync([cat], la, lo, r.Viewer, ct); }
+                    catch (SearchUnavailableException) { }
+                if (count is 0) continue;
+                list.Add(new SearchSuggestion(L10n.Category(cat, r.Lang), word, cat, Count: count));
+            }
         return list.Take(4).ToList();
     }
 
@@ -279,6 +309,23 @@ public sealed class SearchPipeline(PlaceSearchIndex index, Func<AliasTable> alia
         }
         var head = string.Concat(tokens.Take(Math.Max(1, queryWords)));
         return Levenshtein(compactQuery, head) <= 1 || Levenshtein(compactQuery, string.Concat(tokens)) <= 1;
+    }
+
+    private static IEnumerable<(PlaceCategory, string)> PopularFallback(string lang) =>
+    [
+        (PlaceCategory.Restaurant, L10n.IsMs(lang) ? "kedai makan" : "restaurant"),
+        (PlaceCategory.Fuel, L10n.IsMs(lang) ? "stesen minyak" : "petrol station"),
+        (PlaceCategory.Convenience, L10n.IsMs(lang) ? "kedai runcit" : "convenience store"),
+    ];
+
+    /// <summary>Places of these categories within 5 km, with near-duplicates (an OSM node and its building) counted once.</summary>
+    private async Task<int> DistinctCountAsync(PlaceCategory[] cats, double lat, double lng, Guid? viewer, CancellationToken ct)
+    {
+        var body = SearchQueryBuilder.BuildCategoryCount(cats, lat, lng, 5_000, viewer);
+        body["size"] = 1000;
+        body["_source"] = new JsonArray("id", "name", "category", "location");
+        var hits = await index.SearchAsync(body, ct);
+        return SearchResults.Dedupe(hits, h => h.Name, h => (h.Lat, h.Lng), hits.Count).Count;
     }
 
     internal static int Levenshtein(string a, string b)
@@ -335,9 +382,13 @@ public sealed class SearchService(PlaceSearchIndex index, AliasStore aliases, Ar
         }
         if (results.Count > 0)
         {
-            // Typo-only matches always say so (exact=true: only literal matches, otherwise nothing).
+            // Typo-only matches always say so (exact=true: only literal matches, otherwise nothing). A different single shop
+            // more than 3 km away is not a correction.
             if (correctedQuery is null) return new SearchResponse(results, Interpretation: interpretation);
-            if (!r.Exact) return new SearchResponse(results, correctedQuery, null, false, interpretation);
+            var top = results[0];
+            var farSingle = top.Brand is null && oLat is { } ta && oLng is { } tg
+                && GeoMath.HaversineM(ta, tg, top.Lat, top.Lng) > SearchPipeline.MaxCorrectionDistanceM;
+            if (!r.Exact && !farSingle) return new SearchResponse(results, correctedQuery, null, false, interpretation);
             results = [];
         }
 

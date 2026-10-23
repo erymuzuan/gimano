@@ -214,6 +214,8 @@ public class FindingPlacesUnitTests
         Assert.Null(SearchPipeline.CorrectedFor(["family mart"], [S("Family Mart Damansara", "FamilyMart")]));
         Assert.Null(SearchPipeline.CorrectedFor(["petronas zaaba"], [S("Petronas", "Petronas", "Persiaran Zaaba")]));
         Assert.Null(SearchPipeline.CorrectedFor(null, [S("Toilet", null)]));
+        Assert.True(SearchPipeline.CategoryOrder(1800, PlaceCategory.Surau, [PlaceCategory.Surau, PlaceCategory.Mosque])
+                    < SearchPipeline.CategoryOrder(1000, PlaceCategory.Mosque, [PlaceCategory.Surau, PlaceCategory.Mosque]));
         static PlaceSummary S(string name, string? brand, string address = "") => new("n1", name, PlaceCategory.Other, address, 3, 101, null, brand);
         Assert.False(SearchPipeline.IsCloseSpelling("lotosmutiara", "Motor Leton", 2));
         Assert.Equal("", SearchResults.ChainKey("Toilet", null));
@@ -276,6 +278,7 @@ public class OpenSearchIntegrationFindingPlacesTests
         P("t2", "Toilet", PlaceCategory.Toilets, 3.1600, 101.6300),
         P("q1", "Surau Al-Ikhlas", PlaceCategory.Surau, 3.1460, 101.6150),
         P("q2", "Masjid Damansara Utama", PlaceCategory.Mosque, 3.1350, 101.6200),
+        P("q3", "Masjid Aminah", PlaceCategory.Mosque, 3.1470, 101.6150),                    // nearer than the surau
         P("b1", "ATM", PlaceCategory.Atm, 3.1485, 101.6158, "Maybank"),
         P("b2", "ATM", PlaceCategory.Atm, 3.1300, 101.6300, "CIMB"),
     ];
@@ -331,7 +334,8 @@ public class OpenSearchIntegrationFindingPlacesTests
             await Expect("stesen minyak", (r, i) => i.Kind == "category" && r[0].Id == "p1", "fuel, nearest first");
             await Expect("tandas", (r, i) => i.Kind == "category" && r[0].Id == "t1" && r.All(h => h.Category == PlaceCategory.Toilets && h.ChainGroup is null),
                 "toilets, nearest first, not a 'Toilet' chain");
-            await Expect("surau", (r, _) => r[0].Id == "q1" && r.Any(h => h.Id == "q2") && Ascending(r), "surau and masjid, nearest first");
+            await Expect("surau", (r, _) => r[0].Id == "q1" && r.Any(h => h.Id == "q3"), "the surau first, then mosques (even a nearer one)");
+            await Expect("masjid", (r, _) => r[0].Id == "q3" && r[1].Category == PlaceCategory.Mosque, "mosques first, then suraus");
             await Expect("atm", (r, _) => r[0].Id == "b1" && r.Count == 2, "ATMs, nearest first");
             await Expect("minyak ss2", (r, i) => i.Kind == "category_area" && r[0].Id == "p2", "fuel nearest to SS2");
             await Expect("12 Jalan SS2/24", (r, i) => i.Kind == "address" && r[0].Id == "ad-n900", "the house address");
@@ -366,6 +370,14 @@ public class OpenSearchIntegrationFindingPlacesTests
             if (!dym.Any(s => s.PlaceId == "l1")) failures.Add($"Assert-rank did-you-mean 'Lotos Mutiara': {string.Join(" | ", dym)}");
             var far = await pipeline.SuggestAsync(new SearchRequest("Motorr Letonx Qq", PjLat, PjLng), default);
             if (far.Any(s => s.PlaceId is not null && s.Label != "Motor Leton")) failures.Add($"Assert-rank did-you-mean must not invent: {string.Join(" | ", far)}");
+
+            var gibberish = await pipeline.SuggestAsync(new SearchRequest("qwxzzy plorft", PjLat, PjLng), default);
+            if (gibberish.Count < 2 || gibberish.Any(s => s.Category is null || s.Count is null or 0))
+                failures.Add($"Assert-rank never-empty suggestions 'qwxzzy plorft': {string.Join(" | ", gibberish)}");
+            var alix = await pipeline.RunAsync(new SearchRequest("kedai runcit pak alix", 3.1178, 101.6213), null, areas, default);
+            var alixS = await pipeline.SuggestAsync(new SearchRequest("kedai runcit pak alix", 3.1178, 101.6213), default);
+            if (alix.Results.Count != 0 || alixS.Any(s => s.PlaceId is not null))
+                failures.Add($"Assert-rank 'kedai runcit pak alix': no result and no shop correction expected; got {alix.Results.Count} results, {string.Join(" | ", alixS)}");
 
             Assert.True(failures.Count == 0, string.Join("\n", failures));
         }

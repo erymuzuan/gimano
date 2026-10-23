@@ -104,7 +104,8 @@ Steps, in order:
    "Jalan SS2/24" → `category: "street"` (one result per street name per ~20–40 km, on the road), nearest first.
 6. **Category words** (the whole query): minyak / stesen minyak / petrol → fuel; surau / masjid → surau+mosque;
    tandas / toilet → toilets; atm; parkir / parking; klinik; farmasi; kedai runcit; … (the `category` rows of aliases.csv).
-   Nearest first within 5 km, widened to 15 then 50 km when there are fewer than 3.
+   Nearest first within 5 km, widened to 15 then 50 km when there are fewer than 3. With two categories the first is
+   primary: "surau" lists suraus first and a masjid only when it is ≥ 2 km nearer (and vice versa for "masjid").
 7. **Brand + area**: a trailing or leading area name ("kfc ss2", "mydin shah alam", "minyak shah alam") → the rest of the
    query searched near that area's centre (within 10 km), unless some result's whole name already equals the query
    ("Hospital Putrajaya").
@@ -114,8 +115,11 @@ Steps, in order:
    (outlets within 10 km), so the app can show "FamilyMart · 12 berdekatan". Same name within 50 m → one result.
 9. **Never empty**: when nothing matches, `noMatch: true` and `suggestions` (a category word inside the query, e.g.
    "kedai runcit pak ali" → nearby convenience stores). A did-you-mean place is only offered for a close spelling (same rule
-   as 3, word by word); unless `exact=true` it is searched instead and returned with `correctedQuery` (then `noMatch: false`).
-   Nothing is ever substituted silently.
+   as 3, word by word) **and** within 3 km of the origin, unless it is a chain (then its nearest outlet); a different single
+   shop farther away is never a correction. Unless `exact=true` it is searched instead and returned with `correctedQuery`
+   (then `noMatch: false`). Nothing is ever substituted silently. When nothing else applies, `suggestions` falls back to
+   popular categories nearby (kedai makan, stesen minyak, kedai runcit, with counts), so it is never empty.
+   Category `count`s are places within 5 km with an OSM node and its building counted once.
 
 `Suggestion = {label, query?, category?, placeId?, lat?, lng?, distanceM?, count?}`: a did-you-mean place
 (`label`/`query` = its name, `placeId`, position, `distanceM` from the user) or a nearby category (`label` in the
