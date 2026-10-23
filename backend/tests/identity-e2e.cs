@@ -121,7 +121,9 @@ Check(near is JsonArray arr && arr.Any(x => x?["id"]?.ToString() == pid), $"pend
 var vote = new { answer = "yes", nameCorrect = true, locationCorrect = true, proximity = new { cell = "w2838r", withinM = 400 } };
 var (v1, res) = await Send(HttpMethod.Post, $"/api/v1/places/{pid}/verify", vote, jwt3, k3);
 Check(v1.IsSuccessStatusCode && res?["required"]?.GetValue<double>() == 3, $"verify → {(int)v1.StatusCode} {res?.ToJsonString()} (new accounts weigh 0)");
-Check((int)(await Send(HttpMethod.Post, $"/api/v1/places/{pid}/verify", vote, jwt3, k3)).Item1.StatusCode == 409, "second vote → 409");
+// A different body (identical requests within the same second are rejected earlier as replays).
+var vote2 = new { answer = "no", proximity = new { cell = "w2838r", withinM = 380 } };
+Check((int)(await Send(HttpMethod.Post, $"/api/v1/places/{pid}/verify", vote2, jwt3, k3)).Item1.StatusCode == 409, "second vote → 409");
 Check((int)(await Send(HttpMethod.Post, $"/api/v1/places/{pid}/verify", vote, jwt, k2)).Item1.StatusCode == 403, "contributor can't vote → 403");
 var far = new { answer = "yes", proximity = new { cell = "w8cezs", withinM = 400 } };
 var (k4, pk4) = NewKey();
