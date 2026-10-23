@@ -90,6 +90,11 @@ object Labels {
         "government" -> stringResource(R.string.cat_government)
         "airport" -> stringResource(R.string.cat_airport)
         "other" -> stringResource(R.string.cat_other)
+        "toilets" -> stringResource(R.string.cat_toilets)
+        "street" -> stringResource(R.string.cat_street)
+        "address" -> stringResource(R.string.cat_address)
+        "postcode" -> stringResource(R.string.cat_postcode)
+        "point" -> stringResource(R.string.cat_point)
         "police" -> stringResource(R.string.rt_police)
         "toll_booth" -> stringResource(R.string.avoid_tolls)
         else -> c.replace('_', ' ').replaceFirstChar { it.uppercase() }

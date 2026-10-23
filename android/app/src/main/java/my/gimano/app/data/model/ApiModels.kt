@@ -119,8 +119,8 @@ data class PlaceSummary(
     val rural: Boolean = false,
     /** Tier of the contributor (only "emas" is shown, as a badge). */
     val contributorTier: String? = null,
-    /** Chain/brand group key (e.g. "familymart"); the app groups results that share it. */
-    val chainGroup: String? = null,
+    /** Chain this place belongs to (server groups by spacing-free name); the app collapses results that share it. */
+    val chainGroup: ChainGroup? = null,
     val openNow: Boolean? = null,
 )
 
@@ -131,7 +131,18 @@ data class SearchResponse(
     val correctedQuery: String? = null,
     /** "Mungkin anda maksudkan": shown when there are no (or few) results. */
     val suggestions: List<SearchSuggestion> = emptyList(),
+    /** Nothing matched (then [suggestions] say what's nearby / did-you-mean). */
+    val noMatch: Boolean = false,
+    /** How the server read the query (informational). */
+    val interpretation: SearchInterpretation? = null,
 )
+
+@Serializable
+data class SearchInterpretation(val kind: String = "text", val normalized: String? = null, val area: String? = null)
+
+/** Branches of the same chain: the app shows "FamilyMart · 12 berdekatan" (outlets within 10 km). */
+@Serializable
+data class ChainGroup(val key: String, val name: String = "", val countNearby: Int = 0)
 
 /** A suggestion is either a new query (e.g. a category) or a place. Parsed leniently. */
 @Serializable
@@ -362,8 +373,15 @@ data class ReverseGeocode(
     val address: String = "",
     val lat: Double,
     val lng: Double,
-    /** Known places near the point (newer servers); "Adakah ini …?" offers those within 50 m. */
+    /** Known places within 50 m, nearest first: "Adakah ini …?". */
     val nearby: List<PlaceSummary> = emptyList(),
+    /** "Dekat 18, Jalan SS 2/24, SS2, Petaling Jaya" (request language). */
+    val label: String? = null,
+    val houseNumber: String? = null,
+    val street: String? = null,
+    val area: String? = null,
+    val city: String? = null,
+    val postcode: String? = null,
 )
 
 @Serializable

@@ -593,4 +593,9 @@
     <string name="tier_need_accuracy">accuracy %1$d%%</string>
     <string name="tier_need_age">account %1$d days old</string>
     <string name="tier_need_disputes">no upheld disputes for 90 days</string>
+    <string name="cat_toilets">Toilets</string>
+    <string name="cat_street">Street</string>
+    <string name="cat_address">Address</string>
+    <string name="cat_postcode">Postcode</string>
+    <string name="cat_point">Coordinates</string>
 </resources>

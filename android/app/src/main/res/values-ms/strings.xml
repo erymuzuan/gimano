@@ -592,4 +592,9 @@
     <string name="tier_need_accuracy">ketepatan %1$d%%</string>
     <string name="tier_need_age">akaun berumur %1$d hari</string>
     <string name="tier_need_disputes">tiada pertikaian disahkan dalam 90 hari</string>
+    <string name="cat_toilets">Tandas</string>
+    <string name="cat_street">Jalan</string>
+    <string name="cat_address">Alamat</string>
+    <string name="cat_postcode">Poskod</string>
+    <string name="cat_point">Koordinat</string>
 </resources>
