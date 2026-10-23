@@ -182,6 +182,20 @@ public class SearchOpenNowRegressionTests
     }
 }
 
+public class InboxUnreadRegressionTests
+{
+    [Fact]
+    public void An_expired_announcement_is_neither_listed_nor_counted_as_unread()
+    {
+        var now = new DateTimeOffset(2026, 10, 23, 10, 0, 0, TimeSpan.Zero);
+        var visible = Gimano.Core.Community.InboxRules.VisibleAnnouncement(now).Compile();
+        Assert.False(visible(new Announcement { Title = "Maintenance tonight", Body = "", CreatedAt = now.AddDays(-1), ExpiresAt = now.AddMinutes(-5) }));
+        Assert.True(visible(new Announcement { Title = "New version", Body = "", CreatedAt = now.AddDays(-1), ExpiresAt = null }));
+        Assert.True(visible(new Announcement { Title = "Promo", Body = "", CreatedAt = now.AddDays(-1), ExpiresAt = now.AddDays(1) }));
+        Assert.False(visible(new Announcement { Title = "Old", Body = "", CreatedAt = now.AddDays(-91) }));
+    }
+}
+
 public class IssueDirectoryExpiryRegressionTests
 {
     private static readonly DateTimeOffset Now = new(2026, 10, 23, 10, 0, 0, TimeSpan.Zero);

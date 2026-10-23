@@ -7,6 +7,16 @@ namespace Gimano.Core.Community;
 public static class InboxRules
 {
     public static readonly TimeSpan Retention = TimeSpan.FromDays(90);
+
+    /// <summary>
+    /// Announcements a user can see: within retention and not expired. Used for both the page and the unread count, so an
+    /// expired announcement can't leave an unread badge with nothing behind it.
+    /// </summary>
+    public static System.Linq.Expressions.Expression<Func<Domain.Announcement, bool>> VisibleAnnouncement(DateTimeOffset now)
+    {
+        var since = now - Retention;
+        return a => a.CreatedAt > since && (a.ExpiresAt == null || a.ExpiresAt > now);
+    }
     public const int PageSize = 30;
 
     public static bool IsMalay(string? locale) => locale is null || locale.StartsWith("ms", StringComparison.OrdinalIgnoreCase);

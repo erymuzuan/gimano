@@ -24,13 +24,14 @@ public static class InboxEndpoints
         var user = await db.Users.AsNoTracking().FirstOrDefaultAsync(u => u.Id == uid, ct);
         if (user is null) return TypedResults.NotFound();
         await EnsureLegacyNoticeAsync(db, user, clock.GetUtcNow(), ct);
-        var since = clock.GetUtcNow() - InboxRules.Retention;
+        var now = clock.GetUtcNow();
+        var since = now - InboxRules.Retention;
         var c = InboxRules.DecodeCursor(cursor);
         var readUpTo = user.InboxReadUpTo ?? DateTimeOffset.MinValue;
         var take = InboxRules.PageSize + 1;
 
         var iq = db.InboxItems.AsNoTracking().Where(i => i.UserId == uid && i.CreatedAt > since);
-        var aq = db.Announcements.AsNoTracking().Where(a => a.CreatedAt > since && (a.ExpiresAt == null || a.ExpiresAt > clock.GetUtcNow()));
+        var aq = db.Announcements.AsNoTracking().Where(InboxRules.VisibleAnnouncement(now));
         if (c is { } cur)
         {
             iq = iq.Where(i => i.CreatedAt < cur.At || (i.CreatedAt == cur.At && i.Id.CompareTo(cur.Id) < 0));
@@ -51,7 +52,7 @@ public static class InboxEndpoints
                 a.Url is null ? null : "url", a.Url, a.CreatedAt, a.CreatedAt <= readUpTo)));
 
         var unread = await db.InboxItems.CountAsync(i => i.UserId == uid && i.CreatedAt > since && i.CreatedAt > readUpTo, ct)
-                     + await db.Announcements.CountAsync(a => a.CreatedAt > since && a.CreatedAt > readUpTo, ct);
+                     + await db.Announcements.Where(InboxRules.VisibleAnnouncement(now)).CountAsync(a => a.CreatedAt > readUpTo, ct);
         return TypedResults.Ok(new InboxPage(page, next, unread));
     }
 
