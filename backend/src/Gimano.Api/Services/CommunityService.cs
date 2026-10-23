@@ -136,6 +136,11 @@ public sealed class CommunityService(GimanoDbContext db, IEventPublisher bus, Gi
             if (!Reputation.WithinProximity(prox.WithinM, place.Rural))
                 throw new ForbiddenException($"You need to be within {(place.Rural ? Reputation.RuralWithinM : Reputation.TownWithinM)} m of this place to verify it.");
         }
+        // Deliberate: the legacy 0.1.0 body {exists, correctLocation} (no `answer`) has no proximity field, and installed 0.1.0
+        // apps can't send one, so that body is still accepted without a proximity check. 0.1.0 apps run key-less accounts, whose
+        // votes weigh at most 1 (Baharu cap, Reputation.CapForLegacy) and are rate-limited per day; Identity:RequireSignatures=true
+        // rejects their unsigned requests altogether. Note the branch keys on the body shape, not the account: a keyed client
+        // sending the old shape also skips the proximity check. Drop this branch once 0.1.0 is no longer in use.
         else if (req.Answer is not null) throw new ValidationException("proximity", "proximity {cell, withinM} is required.");
 
         if (await db.PlaceVotes.AnyAsync(v => v.PlaceId == id && v.VoterId == userId, ct))
