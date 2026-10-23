@@ -14,6 +14,8 @@
 <link rel="preload" href="fonts/nunito-variable.ttf" as="font" type="font/ttf" crossorigin>
 <style>
 @font-face{font-family:Nunito;src:url("fonts/nunito-variable.ttf") format("truetype");font-weight:200 1000;font-display:swap}
+:root{--gx:24px}
+@media (max-width:600px){:root{--gx:16px}}
 html{scroll-behavior:smooth}
 @media (prefers-reduced-motion: reduce){html{scroll-behavior:auto}}
 body{margin:0;background:#F5F8FD;font-family:Nunito,system-ui,sans-serif}
@@ -62,17 +64,24 @@ a{color:#0047AB}a:hover{color:#0A2E6E}
 @keyframes gm-marquee{from{transform:translateX(0)}to{transform:translateX(-50%)}}
 @keyframes gm-float{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}
 @media (prefers-reduced-motion: reduce){*{animation:none!important}}
+@media (prefers-reduced-motion: reduce){.gm-c2,.gm-c3{opacity:0}.gm-drive{transform:translateX(320px)}}
+a:focus-visible{outline:3px solid #0047AB;outline-offset:3px}
+.on-dark a:focus-visible{outline-color:#FFFFFF}
+.skip{position:absolute;left:16px;top:-60px;z-index:10;padding:10px 16px;border-radius:12px;background:#0B1B3A;color:#FFFFFF;font-weight:800;text-decoration:none}
+.skip:focus{top:12px}
 </style>
 </head>
 <body>
+<a class="skip" href="#kandungan">Langkau ke kandungan</a>
 <div style="width: 100%; min-height: 100vh; background: #F5F8FD; color: #0B1B3A; font-family: Nunito, system-ui, sans-serif;">
 
-  <header style="max-width: 1180px; margin: 0 auto; padding: 20px 24px; display: flex; flex-wrap: wrap; align-items: center; gap: 16px;">
+  <header style="max-width: 1180px; margin: 0 auto; padding: 20px var(--gx); display: flex; flex-wrap: wrap; align-items: center; gap: 16px;">
     <a href="#top" style="display: flex; align-items: center; gap: 12px; text-decoration: none; color: #0B1B3A;">
       <svg width="44" height="44" viewBox="0 0 200 200" aria-hidden="true"><rect width="200" height="200" rx="44" fill="#0047AB"></rect><path d="M100 30C116 44 146 50 168 68 146 82 120 82 108 90V106C128 108 154 122 160 150 136 138 114 144 100 170 86 144 64 138 40 150 46 122 72 108 92 106V90C80 82 54 82 32 68 54 50 84 44 100 30Z" fill="#FFFFFF"></path><path d="M100 40V160" stroke="#0A1F4D" stroke-width="5" stroke-linecap="round"></path><circle cx="100" cy="98" r="12" fill="#FF6B4A"></circle></svg>
       <span style="font-size: 26px; font-weight: 900; letter-spacing: -0.5px;">Gimano</span>
     </a>
     <nav style="margin-left: auto; display: flex; flex-wrap: wrap; align-items: center; gap: 20px; font-weight: 800; font-size: 16px;">
+      <a href="#skrin" style="text-decoration: none;">Lihat app</a>
       <a href="#privasi" style="text-decoration: none;">Privasi</a>
       <a href="#sumber-terbuka" style="text-decoration: none;">Sumber terbuka</a>
       <a href="#ciri" style="text-decoration: none;">Ciri-ciri</a>
@@ -83,13 +92,14 @@ a{color:#0047AB}a:hover{color:#0A2E6E}
     </nav>
   </header>
 
-  <section id="top" style="max-width: 1180px; margin: 0 auto; padding: 32px 24px 56px; display: flex; flex-wrap: wrap; align-items: center; gap: 48px;">
+  <main id="kandungan">
+  <section id="top" style="max-width: 1180px; margin: 0 auto; padding: 32px var(--gx) 56px; display: flex; flex-wrap: wrap; align-items: center; gap: 48px;">
     <div style="flex: 999 1 460px; min-width: 0; display: flex; flex-direction: column; gap: 20px;">
       <span style="align-self: flex-start; padding: 6px 14px; border-radius: 999px; background: #E3ECFA; color: #0A2E6E; font-weight: 800; font-size: 15px;">Navigasi komuniti · Malaysia</span>
       <h1 style="margin: 0; font-size: clamp(2.4rem, 5vw, 4.2rem); line-height: 1.04; font-weight: 900; letter-spacing: -1.5px;">Gi mano pun, rahsia anda kekal milik anda.</h1>
       <p style="margin: 0; font-size: 1.3rem; line-height: 1.5; color: #3A4A66; max-width: 560px;">Wherever you're going, it stays your business. Rumah, kampung, rumah mertua: semua tempat anda disimpan <b style="color: #0B1B3A;">dalam telefon anda sahaja</b>.</p>
       <div style="display: flex; flex-wrap: wrap; gap: 12px; margin-top: 8px;">
-        <a href="#muat-turun" style="height: 56px; padding: 0 28px; border-radius: 999px; background: #0047AB; color: #FFFFFF; font-weight: 800; font-size: 18px; display: inline-flex; align-items: center; text-decoration: none;">Muat turun · Download</a>
+        <a href="download/" style="height: 56px; padding: 0 28px; border-radius: 999px; background: #0047AB; color: #FFFFFF; font-weight: 800; font-size: 18px; display: inline-flex; align-items: center; text-decoration: none;">Muat turun · Download</a>
         <a href="https://github.com/erymuzuan/gimano" style="height: 56px; padding: 0 24px; border-radius: 999px; background: #FFFFFF; color: #0B1B3A; font-weight: 800; font-size: 18px; display: inline-flex; align-items: center; gap: 10px; text-decoration: none; box-shadow: inset 0 0 0 2px #C9D6EE;">Lihat kod sumber →</a>
       </div>
     </div>
@@ -138,7 +148,7 @@ a{color:#0047AB}a:hover{color:#0A2E6E}
   </section>
 
   <section style="background: #0B1B3A; color: #FFFFFF;">
-    <div style="max-width: 1180px; margin: 0 auto; padding: 28px 24px; display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 20px;">
+    <div style="max-width: 1180px; margin: 0 auto; padding: 28px var(--gx); display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 20px;">
       
         <div style="display: flex; align-items: center; gap: 14px;">
           <span style="width: 56px; height: 56px; border-radius: 18px; background: #16233D; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
@@ -173,7 +183,7 @@ a{color:#0047AB}a:hover{color:#0A2E6E}
     </div>
   </section>
 
-  <section id="privasi" style="max-width: 1180px; margin: 0 auto; padding: 72px 24px 24px; display: flex; flex-direction: column; gap: 28px;">
+  <section id="privasi" style="max-width: 1180px; margin: 0 auto; padding: 72px var(--gx) 24px; display: flex; flex-direction: column; gap: 28px;">
     <div style="display: flex; flex-direction: column; gap: 8px; max-width: 760px;">
       <span style="font-weight: 900; color: #0047AB; letter-spacing: 1px; font-size: 14px;">DATA ANDA, MILIK ANDA · YOUR DATA IS YOURS</span>
       <h2 style="margin: 0; font-size: clamp(1.9rem, 3.4vw, 2.8rem); line-height: 1.1; font-weight: 900;">Kami tidak menyimpan data peribadi anda. Langsung.</h2>
@@ -278,7 +288,7 @@ a{color:#0047AB}a:hover{color:#0A2E6E}
     </div>
   </section>
 
-  <section id="aliran-data" style="max-width: 1180px; margin: 0 auto; padding: 56px 24px 8px; display: flex; flex-direction: column; gap: 20px;">
+  <section id="aliran-data" style="max-width: 1180px; margin: 0 auto; padding: 56px var(--gx) 8px; display: flex; flex-direction: column; gap: 20px;">
     <div style="display: flex; flex-direction: column; gap: 8px; max-width: 780px;">
       <span style="font-weight: 900; color: #0047AB; letter-spacing: 1px; font-size: 14px;">BAGAIMANA DATA ANDA BERGERAK · HOW YOUR DATA MOVES</span>
       <h2 style="margin: 0; font-size: clamp(1.9rem, 3.4vw, 2.8rem); line-height: 1.1; font-weight: 900;">Empat perjalanan data. Lihat sendiri.</h2>
@@ -290,7 +300,7 @@ a{color:#0047AB}a:hover{color:#0A2E6E}
         <span style="width: 40px; height: 40px; border-radius: 12px; background: #0047AB; color: #FFFFFF; font-weight: 900; font-size: 20px; display: flex; align-items: center; justify-content: center;">1</span>
         <span style="font-size: 22px; font-weight: 900;">Tempat peribadi</span>
         <span style="font-size: 15px; color: #3A4A66;">Rumah, kampung, sejarah carian: tinggal dalam telefon. Tiada jalan keluar ke pelayan kami.</span>
-        <span style="font-size: 13px; font-weight: 800; color: #6B7A94;">Private places never leave the phone.</span>
+        <span style="font-size: 13px; font-weight: 800; color: #5A6984;">Private places never leave the phone.</span>
       </div>
       <svg viewBox="0 0 820 200" style="flex: 999 1 520px; min-width: 0; width: 100%; height: auto;" role="img" aria-label="Animation: your private places stay inside your phone; a packet trying to leave towards Gimano's server is blocked and returns.">
         <rect x="20" y="10" width="120" height="180" rx="24" fill="#0B1B3A"></rect>
@@ -315,7 +325,7 @@ a{color:#0047AB}a:hover{color:#0A2E6E}
         <span style="width: 40px; height: 40px; border-radius: 12px; background: #0047AB; color: #FFFFFF; font-weight: 900; font-size: 20px; display: flex; align-items: center; justify-content: center;">2</span>
         <span style="font-size: 22px; font-weight: 900;">Sandaran</span>
         <span style="font-size: 15px; color: #3A4A66;">Dikunci dalam telefon, kemudian dihantar terus ke Google Drive atau iCloud anda. Kami tidak berada di tengah.</span>
-        <span style="font-size: 13px; font-weight: 800; color: #6B7A94;">Encrypted on the phone, straight to your own cloud.</span>
+        <span style="font-size: 13px; font-weight: 800; color: #5A6984;">Encrypted on the phone, straight to your own cloud.</span>
       </div>
       <svg viewBox="0 0 820 200" style="flex: 999 1 520px; min-width: 0; width: 100%; height: auto;" role="img" aria-label="Animation: a locked backup travels from your phone directly to your own Google Drive or iCloud, and a check mark appears.">
         <rect x="20" y="10" width="120" height="180" rx="24" fill="#0B1B3A"></rect>
@@ -336,7 +346,7 @@ a{color:#0047AB}a:hover{color:#0A2E6E}
         <span style="width: 40px; height: 40px; border-radius: 12px; background: #0047AB; color: #FFFFFF; font-weight: 900; font-size: 20px; display: flex; align-items: center; justify-content: center;">3</span>
         <span style="font-size: 22px; font-weight: 900;">Trafik tanpa nama</span>
         <span style="font-size: 15px; color: #3A4A66;">Ketika memandu, titik kelajuan tanpa nama menjadi warna jalan, kemudian dipadam dalam 30 saat. Perjalanan anda tidak disimpan.</span>
-        <span style="font-size: 13px; font-weight: 800; color: #6B7A94;">Anonymous speeds become road colour, then vanish.</span>
+        <span style="font-size: 13px; font-weight: 800; color: #5A6984;">Anonymous speeds become road colour, then vanish.</span>
       </div>
       <svg viewBox="0 0 820 200" style="flex: 999 1 520px; min-width: 0; width: 100%; height: auto;" role="img" aria-label="Animation: a car drives along a road, anonymous speed dots rise and disappear, the road segment turns orange for traffic, and a 30 second timer shows the raw points being deleted.">
         <rect x="0" y="130" width="820" height="40" rx="6" fill="#D5D9DE"></rect>
@@ -363,7 +373,7 @@ a{color:#0047AB}a:hover{color:#0A2E6E}
         <span style="width: 40px; height: 40px; border-radius: 12px; background: #0047AB; color: #FFFFFF; font-weight: 900; font-size: 20px; display: flex; align-items: center; justify-content: center;">4</span>
         <span style="font-size: 22px; font-weight: 900;">Kongsi perjalanan</span>
         <span style="font-size: 15px; color: #3A4A66;">Lokasi disulitkan. Pelayan kami hanya nampak huruf rawak; kuncinya pergi terus kepada kawan anda dalam pautan.</span>
-        <span style="font-size: 13px; font-weight: 800; color: #6B7A94;">End-to-end encrypted: our relay sees only gibberish.</span>
+        <span style="font-size: 13px; font-weight: 800; color: #5A6984;">End-to-end encrypted: our relay sees only gibberish.</span>
       </div>
       <svg viewBox="0 0 820 220" style="flex: 999 1 520px; min-width: 0; width: 100%; height: auto;" role="img" aria-label="Animation: an encrypted location travels from your phone through Gimano's relay, which sees only scrambled text, to your friend's phone; the key travels separately inside the link, over the top, never through the server.">
         <rect x="20" y="40" width="100" height="160" rx="22" fill="#0B1B3A"></rect><rect x="27" y="50" width="86" height="140" rx="16" fill="#E3ECFA"></rect>
@@ -388,7 +398,7 @@ a{color:#0047AB}a:hover{color:#0A2E6E}
     </div>
   </section>
 
-  <section id="sumber-terbuka" style="max-width: 1180px; margin: 0 auto; padding: 56px 24px; display: flex; flex-wrap: wrap; gap: 24px;">
+  <section id="sumber-terbuka" style="max-width: 1180px; margin: 0 auto; padding: 56px var(--gx); display: flex; flex-wrap: wrap; gap: 24px;">
     <div style="flex: 1 1 100%; display: flex; flex-direction: column; gap: 8px;">
       <span style="font-weight: 900; color: #0047AB; letter-spacing: 1px; font-size: 14px;">SUMBER TERBUKA · OPEN SOURCE</span>
       <h2 style="margin: 0; font-size: clamp(1.9rem, 3.4vw, 2.8rem); line-height: 1.1; font-weight: 900;">Jangan percaya kata-kata kami. Baca kodnya.</h2>
@@ -403,43 +413,43 @@ a{color:#0047AB}a:hover{color:#0A2E6E}
       <div role="img" aria-label="Animation: lines of public source code being written, with a blinking cursor" style="display: flex; flex-direction: column; gap: 12px; padding: 8px 4px;">
         
           <div style="display: flex; gap: 10px; align-items: center; padding-left: 0px;">
-            <span style="width: 34%; height: 12px; border-radius: 6px; background: #8FB0E8; animation-delay: 0.00s;" class="gm-line"></span>
+            <span style="width: 34%; height: 12px; border-radius: 6px; background: #8FB0E8; animation-delay: 0s;" class="gm-line"></span>
             <span style="width: 22%; height: 12px; border-radius: 6px; background: #3A5A99; animation-delay: 0.15s;" class="gm-line"></span>
           </div>
         
           <div style="display: flex; gap: 10px; align-items: center; padding-left: 0px;">
             <span style="width: 20%; height: 12px; border-radius: 6px; background: #FFB020; animation-delay: 0.35s;" class="gm-line"></span>
-            <span style="width: 40%; height: 12px; border-radius: 6px; background: #3A5A99; animation-delay: 0.50s;" class="gm-line"></span>
+            <span style="width: 40%; height: 12px; border-radius: 6px; background: #3A5A99; animation-delay: 0.5s;" class="gm-line"></span>
           </div>
         
           <div style="display: flex; gap: 10px; align-items: center; padding-left: 24px;">
-            <span style="width: 28%; height: 12px; border-radius: 6px; background: #2BC79A; animation-delay: 0.70s;" class="gm-line"></span>
+            <span style="width: 28%; height: 12px; border-radius: 6px; background: #2BC79A; animation-delay: 0.7s;" class="gm-line"></span>
             <span style="width: 30%; height: 12px; border-radius: 6px; background: #3A5A99; animation-delay: 0.85s;" class="gm-line"></span>
           </div>
         
           <div style="display: flex; gap: 10px; align-items: center; padding-left: 24px;">
             <span style="width: 44%; height: 12px; border-radius: 6px; background: #8FB0E8; animation-delay: 1.05s;" class="gm-line"></span>
-            <span style="width: 14%; height: 12px; border-radius: 6px; background: #3A5A99; animation-delay: 1.20s;" class="gm-line"></span>
+            <span style="width: 14%; height: 12px; border-radius: 6px; background: #3A5A99; animation-delay: 1.2s;" class="gm-line"></span>
           </div>
         
           <div style="display: flex; gap: 10px; align-items: center; padding-left: 48px;">
-            <span style="width: 18%; height: 12px; border-radius: 6px; background: #FF8266; animation-delay: 1.40s;" class="gm-line"></span>
+            <span style="width: 18%; height: 12px; border-radius: 6px; background: #FF8266; animation-delay: 1.4s;" class="gm-line"></span>
             <span style="width: 36%; height: 12px; border-radius: 6px; background: #3A5A99; animation-delay: 1.55s;" class="gm-line"></span>
           </div>
         
           <div style="display: flex; gap: 10px; align-items: center; padding-left: 48px;">
             <span style="width: 30%; height: 12px; border-radius: 6px; background: #8FB0E8; animation-delay: 1.75s;" class="gm-line"></span>
-            <span style="width: 20%; height: 12px; border-radius: 6px; background: #3A5A99; animation-delay: 1.90s;" class="gm-line"></span>
+            <span style="width: 20%; height: 12px; border-radius: 6px; background: #3A5A99; animation-delay: 1.9s;" class="gm-line"></span>
           </div>
         
           <div style="display: flex; gap: 10px; align-items: center; padding-left: 24px;">
-            <span style="width: 24%; height: 12px; border-radius: 6px; background: #2BC79A; animation-delay: 2.10s;" class="gm-line"></span>
+            <span style="width: 24%; height: 12px; border-radius: 6px; background: #2BC79A; animation-delay: 2.1s;" class="gm-line"></span>
             <span style="width: 26%; height: 12px; border-radius: 6px; background: #3A5A99; animation-delay: 2.25s;" class="gm-line"></span>
           </div>
         
           <div style="display: flex; gap: 10px; align-items: center; padding-left: 0px;">
             <span style="width: 12%; height: 12px; border-radius: 6px; background: #8FB0E8; animation-delay: 2.45s;" class="gm-line"></span>
-            <span style="width: 0%; height: 12px; border-radius: 6px; background: #3A5A99; animation-delay: 2.60s;" class="gm-line"></span>
+            <span style="width: 0%; height: 12px; border-radius: 6px; background: #3A5A99; animation-delay: 2.6s;" class="gm-line"></span>
           </div>
         
         <span class="gm-blink" style="width: 10px; height: 18px; background: #FFFFFF; margin-left: 4px;"></span>
@@ -527,35 +537,35 @@ a{color:#0047AB}a:hover{color:#0A2E6E}
         
           <span style="padding: 8px 16px; border-radius: 999px; background: #FFFFFF; color: #0A2E6E; font-weight: 900; font-size: 15px; white-space: nowrap;">Nunito</span>
         
-          <span style="padding: 8px 16px; border-radius: 999px; background: #FFFFFF; color: #0A2E6E; font-weight: 900; font-size: 15px; white-space: nowrap;">OpenStreetMap</span>
+          <span aria-hidden="true" style="padding: 8px 16px; border-radius: 999px; background: #FFFFFF; color: #0A2E6E; font-weight: 900; font-size: 15px; white-space: nowrap;">OpenStreetMap</span>
         
-          <span style="padding: 8px 16px; border-radius: 999px; background: #FFFFFF; color: #0A2E6E; font-weight: 900; font-size: 15px; white-space: nowrap;">MapLibre</span>
+          <span aria-hidden="true" style="padding: 8px 16px; border-radius: 999px; background: #FFFFFF; color: #0A2E6E; font-weight: 900; font-size: 15px; white-space: nowrap;">MapLibre</span>
         
-          <span style="padding: 8px 16px; border-radius: 999px; background: #FFFFFF; color: #0A2E6E; font-weight: 900; font-size: 15px; white-space: nowrap;">Valhalla</span>
+          <span aria-hidden="true" style="padding: 8px 16px; border-radius: 999px; background: #FFFFFF; color: #0A2E6E; font-weight: 900; font-size: 15px; white-space: nowrap;">Valhalla</span>
         
-          <span style="padding: 8px 16px; border-radius: 999px; background: #FFFFFF; color: #0A2E6E; font-weight: 900; font-size: 15px; white-space: nowrap;">.NET</span>
+          <span aria-hidden="true" style="padding: 8px 16px; border-radius: 999px; background: #FFFFFF; color: #0A2E6E; font-weight: 900; font-size: 15px; white-space: nowrap;">.NET</span>
         
-          <span style="padding: 8px 16px; border-radius: 999px; background: #FFFFFF; color: #0A2E6E; font-weight: 900; font-size: 15px; white-space: nowrap;">PostgreSQL</span>
+          <span aria-hidden="true" style="padding: 8px 16px; border-radius: 999px; background: #FFFFFF; color: #0A2E6E; font-weight: 900; font-size: 15px; white-space: nowrap;">PostgreSQL</span>
         
-          <span style="padding: 8px 16px; border-radius: 999px; background: #FFFFFF; color: #0A2E6E; font-weight: 900; font-size: 15px; white-space: nowrap;">PostGIS</span>
+          <span aria-hidden="true" style="padding: 8px 16px; border-radius: 999px; background: #FFFFFF; color: #0A2E6E; font-weight: 900; font-size: 15px; white-space: nowrap;">PostGIS</span>
         
-          <span style="padding: 8px 16px; border-radius: 999px; background: #FFFFFF; color: #0A2E6E; font-weight: 900; font-size: 15px; white-space: nowrap;">OpenSearch</span>
+          <span aria-hidden="true" style="padding: 8px 16px; border-radius: 999px; background: #FFFFFF; color: #0A2E6E; font-weight: 900; font-size: 15px; white-space: nowrap;">OpenSearch</span>
         
-          <span style="padding: 8px 16px; border-radius: 999px; background: #FFFFFF; color: #0A2E6E; font-weight: 900; font-size: 15px; white-space: nowrap;">RabbitMQ</span>
+          <span aria-hidden="true" style="padding: 8px 16px; border-radius: 999px; background: #FFFFFF; color: #0A2E6E; font-weight: 900; font-size: 15px; white-space: nowrap;">RabbitMQ</span>
         
-          <span style="padding: 8px 16px; border-radius: 999px; background: #FFFFFF; color: #0A2E6E; font-weight: 900; font-size: 15px; white-space: nowrap;">Kotlin</span>
+          <span aria-hidden="true" style="padding: 8px 16px; border-radius: 999px; background: #FFFFFF; color: #0A2E6E; font-weight: 900; font-size: 15px; white-space: nowrap;">Kotlin</span>
         
-          <span style="padding: 8px 16px; border-radius: 999px; background: #FFFFFF; color: #0A2E6E; font-weight: 900; font-size: 15px; white-space: nowrap;">Swift</span>
+          <span aria-hidden="true" style="padding: 8px 16px; border-radius: 999px; background: #FFFFFF; color: #0A2E6E; font-weight: 900; font-size: 15px; white-space: nowrap;">Swift</span>
         
-          <span style="padding: 8px 16px; border-radius: 999px; background: #FFFFFF; color: #0A2E6E; font-weight: 900; font-size: 15px; white-space: nowrap;">libsodium</span>
+          <span aria-hidden="true" style="padding: 8px 16px; border-radius: 999px; background: #FFFFFF; color: #0A2E6E; font-weight: 900; font-size: 15px; white-space: nowrap;">libsodium</span>
         
-          <span style="padding: 8px 16px; border-radius: 999px; background: #FFFFFF; color: #0A2E6E; font-weight: 900; font-size: 15px; white-space: nowrap;">Nunito</span>
+          <span aria-hidden="true" style="padding: 8px 16px; border-radius: 999px; background: #FFFFFF; color: #0A2E6E; font-weight: 900; font-size: 15px; white-space: nowrap;">Nunito</span>
         
       </div>
     </div>
   </section>
 
-  <section style="max-width: 1180px; margin: 0 auto; padding: 0 24px 56px; display: flex; flex-wrap: wrap; gap: 24px;">
+  <section style="max-width: 1180px; margin: 0 auto; padding: 0 var(--gx) 56px; display: flex; flex-wrap: wrap; gap: 24px;">
     <div style="flex: 1 1 420px; min-width: 0; background: #FFFFFF; border-radius: 28px; padding: 32px; box-shadow: 0 2px 12px rgba(11,27,58,.06); display: flex; flex-direction: column; gap: 16px;">
       <svg width="64" height="64" viewBox="0 0 64 64" aria-hidden="true">
         <circle cx="32" cy="32" r="30" fill="#E3ECFA"></circle>
@@ -589,7 +599,131 @@ a{color:#0047AB}a:hover{color:#0A2E6E}
     </div>
   </section>
 
-  <section id="ciri" style="max-width: 1180px; margin: 0 auto; padding: 24px 24px 64px; display: flex; flex-direction: column; gap: 24px;">
+  <section id="skrin" style="max-width: 1180px; margin: 0 auto; padding: 56px var(--gx) 40px; display: flex; flex-direction: column; gap: 28px;">
+    <div style="display: flex; flex-direction: column; gap: 8px; max-width: 760px;">
+      <span style="font-weight: 900; color: #0047AB; letter-spacing: 1px; font-size: 14px;">LIHAT GIMANO · SEE GIMANO</span>
+      <h2 style="margin: 0; font-size: clamp(1.9rem, 3.4vw, 2.8rem); line-height: 1.1; font-weight: 900;">Ikon besar, teks sikit. Mudah dipandang sambil memandu.</h2>
+      <p style="margin: 0; font-size: 1.15rem; color: #3A4A66;">Big icons, little text: built to be glanced at, not read. Real screenshots from the app.</p>
+    </div>
+    <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 28px 20px;">
+      
+        <figure style="margin: 0; display: flex; flex-direction: column; align-items: center; gap: 14px;">
+          <div style="width: 234px; height: 506px; border-radius: 36px; border: 8px solid #0B1B3A; overflow: hidden; background: #EEF2F8; box-shadow: 0 12px 30px rgba(11,27,58,.18);">
+            <img loading="lazy" width="414" height="900" src="img/a-navigation-car.jpg" alt="Gimano navigation screen: dark-blue turn banner with 40 m and Jalan Puncak, route line on the map, speedometer at 55 km/h and the coral report button" style="width: 100%; height: 100%; object-fit: cover; display: block;">
+          </div>
+          <figcaption style="max-width: 270px; display: flex; flex-direction: column; gap: 4px; text-align: center;">
+            <span style="display: inline-flex; align-self: center; padding: 2px 10px; border-radius: 999px; background: #DDF4F2; color: #0E5A54; font-size: 12px; font-weight: 900;">Dalam app</span>
+            <span style="font-size: 19px; font-weight: 900;">Navigasi belok demi belok</span>
+            <span style="font-size: 15px; font-weight: 700; color: #3A4A66; line-height: 1.4;">Arahan besar, suara BM &amp; English, laju semasa, dan butang lapor satu ketikan.</span>
+            <span style="font-size: 14px; color: #5A6984; line-height: 1.4;">Big turn banner, BM/English voice, speed, one-tap report.</span>
+          </figcaption>
+        </figure>
+      
+        <figure style="margin: 0; display: flex; flex-direction: column; align-items: center; gap: 14px;">
+          <div style="width: 234px; height: 506px; border-radius: 36px; border: 8px solid #0B1B3A; overflow: hidden; background: #EEF2F8; box-shadow: 0 12px 30px rgba(11,27,58,.18);">
+            <img loading="lazy" width="414" height="900" src="img/search-petronas.jpg" alt="Gimano search screen: results for petronas with distance on the right, and Fuel, Food, Surau and Parking chips" style="width: 100%; height: 100%; object-fit: cover; display: block;">
+          </div>
+          <figcaption style="max-width: 270px; display: flex; flex-direction: column; gap: 4px; text-align: center;">
+            <span style="display: inline-flex; align-self: center; padding: 2px 10px; border-radius: 999px; background: #DDF4F2; color: #0E5A54; font-size: 12px; font-weight: 900;">Dalam app</span>
+            <span style="font-size: 19px; font-weight: 900;">Cari dengan pantas</span>
+            <span style="font-size: 15px; font-weight: 700; color: #3A4A66; line-height: 1.4;">Petronas, surau, R&amp;R, parkir: hasil terdekat dengan jarak, daripada data OpenStreetMap.</span>
+            <span style="font-size: 14px; color: #5A6984; line-height: 1.4;">Nearest results with distances, from open map data.</span>
+          </figcaption>
+        </figure>
+      
+        <figure style="margin: 0; display: flex; flex-direction: column; align-items: center; gap: 14px;">
+          <div style="width: 234px; height: 506px; border-radius: 36px; border: 8px solid #0B1B3A; overflow: hidden; background: #EEF2F8; box-shadow: 0 12px 30px rgba(11,27,58,.18);">
+            <img loading="lazy" width="414" height="900" src="img/f-toll-badge-RM-6.jpg" alt="Gimano route preview: three route options with the best at 28 minutes, car, moto, bike and walk tabs, toll estimate RM 6.80 and Go now button" style="width: 100%; height: 100%; object-fit: cover; display: block;">
+          </div>
+          <figcaption style="max-width: 270px; display: flex; flex-direction: column; gap: 4px; text-align: center;">
+            <span style="display: inline-flex; align-self: center; padding: 2px 10px; border-radius: 999px; background: #DDF4F2; color: #0E5A54; font-size: 12px; font-weight: 900;">Dalam app</span>
+            <span style="font-size: 19px; font-weight: 900;">Laluan, mod &amp; tol</span>
+            <span style="font-size: 15px; font-weight: 700; color: #3A4A66; line-height: 1.4;">Bandingkan laluan, pilih kereta, motor, basikal atau jalan kaki, dan lihat anggaran tol.</span>
+            <span style="font-size: 14px; color: #5A6984; line-height: 1.4;">Compare routes, pick your mode, see the toll estimate.</span>
+          </figcaption>
+        </figure>
+      
+      <figure style="margin: 0; display: flex; flex-direction: column; align-items: center; gap: 14px;">
+        <div style="width: 234px; height: 506px; border-radius: 36px; border: 8px solid #0B1B3A; overflow: hidden; background: #F5F8FD; box-shadow: 0 12px 30px rgba(11,27,58,.18);">
+          <img loading="lazy" width="414" height="900" src="img/favourites.jpg" alt="Gimano Favourites screen: Home and Work, plus favourites labelled Kampung and Rumah Mertua, each with its own icon" style="width: 100%; height: 100%; object-fit: cover; display: block;">
+        </div>
+        <figcaption style="max-width: 270px; display: flex; flex-direction: column; gap: 4px; text-align: center;">
+          <span style="display: inline-flex; align-self: center; padding: 2px 10px; border-radius: 999px; background: #DDF4F2; color: #0E5A54; font-size: 12px; font-weight: 900;">Dalam app</span>
+          <span style="font-size: 19px; font-weight: 900;">Kampung &amp; Rumah Mertua</span>
+          <span style="font-size: 15px; font-weight: 700; color: #3A4A66; line-height: 1.4;">Labelkan tempat dengan nama dan ikon anda sendiri. Disimpan dalam telefon sahaja.</span>
+          <span style="font-size: 14px; color: #5A6984; line-height: 1.4;">Your own labels and icons, stored only on your phone.</span>
+        </figcaption>
+      </figure>
+      <figure style="margin: 0; display: flex; flex-direction: column; align-items: center; gap: 14px;">
+        <div style="width: 234px; height: 506px; border-radius: 36px; border: 8px solid #0B1B3A; overflow: hidden; background: #F5F8FD; box-shadow: 0 12px 30px rgba(11,27,58,.18);">
+          <img loading="lazy" width="414" height="900" src="img/planned-drives.jpg" alt="Gimano Planned drives screen: a weekday drive to Mid Valley Megamall arriving 08:30, with a leave-by time" style="width: 100%; height: 100%; object-fit: cover; display: block;">
+        </div>
+        <figcaption style="max-width: 270px; display: flex; flex-direction: column; gap: 4px; text-align: center;">
+          <span style="display: inline-flex; align-self: center; padding: 2px 10px; border-radius: 999px; background: #DDF4F2; color: #0E5A54; font-size: 12px; font-weight: 900;">Dalam app</span>
+          <span style="font-size: 19px; font-weight: 900;">Perjalanan dirancang</span>
+          <span style="font-size: 15px; font-weight: 700; color: #3A4A66; line-height: 1.4;">"Bertolak sebelum 7:40 pagi." Peringatan ikut trafik, setiap hari bekerja.</span>
+          <span style="font-size: 14px; color: #5A6984; line-height: 1.4;">Leave-by reminders for your regular trips.</span>
+        </figcaption>
+      </figure>
+      <figure style="margin: 0; display: flex; flex-direction: column; align-items: center; gap: 14px;">
+        <div style="width: 234px; height: 506px; border-radius: 36px; border: 8px solid #0B1B3A; overflow: hidden; background: #F5F8FD; box-shadow: 0 12px 30px rgba(11,27,58,.18);">
+          <img loading="lazy" width="414" height="900" src="img/share-drive.jpg" alt="Gimano navigation with the blue Sharing chip under the turn banner, showing the trip is being shared live" style="width: 100%; height: 100%; object-fit: cover; display: block;">
+        </div>
+        <figcaption style="max-width: 270px; display: flex; flex-direction: column; gap: 4px; text-align: center;">
+          <span style="display: inline-flex; align-self: center; padding: 2px 10px; border-radius: 999px; background: #DDF4F2; color: #0E5A54; font-size: 12px; font-weight: 900;">Dalam app</span>
+          <span style="font-size: 19px; font-weight: 900;">Kongsi perjalanan</span>
+          <span style="font-size: 15px; font-weight: 700; color: #3A4A66; line-height: 1.4;">Hantar pautan ETA melalui WhatsApp. Disulitkan hujung-ke-hujung; tamat bila sampai.</span>
+          <span style="font-size: 14px; color: #5A6984; line-height: 1.4;">Live ETA link, end-to-end encrypted, ends on arrival.</span>
+        </figcaption>
+      </figure>
+      <figure style="margin: 0; display: flex; flex-direction: column; align-items: center; gap: 14px;">
+        <div style="width: 234px; height: 506px; border-radius: 36px; border: 8px solid #0B1B3A; overflow: hidden; background: #F5F8FD; box-shadow: 0 12px 30px rgba(11,27,58,.18);">
+          <img loading="lazy" width="414" height="900" src="img/add-place.jpg" alt="Gimano Add a place screen asking whether the place is Just for me, saved only on this phone, or Share with everyone" style="width: 100%; height: 100%; object-fit: cover; display: block;">
+        </div>
+        <figcaption style="max-width: 270px; display: flex; flex-direction: column; gap: 4px; text-align: center;">
+          <span style="display: inline-flex; align-self: center; padding: 2px 10px; border-radius: 999px; background: #DDF4F2; color: #0E5A54; font-size: 12px; font-weight: 900;">Dalam app</span>
+          <span style="font-size: 19px; font-weight: 900;">Tambah tempat</span>
+          <span style="font-size: 15px; font-weight: 700; color: #3A4A66; line-height: 1.4;">Gerai kegemaran tiada dalam peta? Pin sendiri, untuk anda atau untuk semua.</span>
+          <span style="font-size: 14px; color: #5A6984; line-height: 1.4;">Pin a missing place, just for you or for everyone.</span>
+        </figcaption>
+      </figure>
+      <figure style="margin: 0; display: flex; flex-direction: column; align-items: center; gap: 14px;">
+        <div style="width: 234px; height: 506px; border-radius: 36px; border: 8px solid #0B1B3A; overflow: hidden; background: #F5F8FD; box-shadow: 0 12px 30px rgba(11,27,58,.18);">
+          <img loading="lazy" width="414" height="900" src="img/place-reviews.jpg" alt="Gimano place card for a community-added place: Is this place here? confirmed, opening hours, and a Reviews section with Write a review" style="width: 100%; height: 100%; object-fit: cover; display: block;">
+        </div>
+        <figcaption style="max-width: 270px; display: flex; flex-direction: column; gap: 4px; text-align: center;">
+          <span style="display: inline-flex; align-self: center; padding: 2px 10px; border-radius: 999px; background: #DDF4F2; color: #0E5A54; font-size: 12px; font-weight: 900;">Dalam app</span>
+          <span style="font-size: 19px; font-weight: 900;">Ulasan &amp; gambar</span>
+          <span style="font-size: 15px; font-weight: 700; color: #3A4A66; line-height: 1.4;">Pemandu sahkan tempat baharu. Gambar ditukar ke WebP, lokasi GPS dibuang.</span>
+          <span style="font-size: 14px; color: #5A6984; line-height: 1.4;">Community-verified places; photos stripped of GPS.</span>
+        </figcaption>
+      </figure>
+      <figure style="margin: 0; display: flex; flex-direction: column; align-items: center; gap: 14px;">
+        <div style="width: 234px; height: 506px; border-radius: 36px; border: 8px solid #0B1B3A; overflow: hidden; background: #F5F8FD; box-shadow: 0 12px 30px rgba(11,27,58,.18);">
+          <img loading="lazy" width="414" height="900" src="img/backup.jpg" alt="Gimano Backup and restore screen: Back up now, last backup time, and a list of backups in your own Drive to restore from" style="width: 100%; height: 100%; object-fit: cover; display: block;">
+        </div>
+        <figcaption style="max-width: 270px; display: flex; flex-direction: column; gap: 4px; text-align: center;">
+          <span style="display: inline-flex; align-self: center; padding: 2px 10px; border-radius: 999px; background: #DDF4F2; color: #0E5A54; font-size: 12px; font-weight: 900;">Dalam app</span>
+          <span style="font-size: 19px; font-weight: 900;">Sandaran milik anda</span>
+          <span style="font-size: 15px; font-weight: 700; color: #3A4A66; line-height: 1.4;">Ke Google Drive, iCloud atau fail anda sendiri, dikunci dengan kata laluan anda.</span>
+          <span style="font-size: 14px; color: #5A6984; line-height: 1.4;">Back up to your own cloud, locked with your key.</span>
+        </figcaption>
+      </figure>
+      <figure style="margin: 0; display: flex; flex-direction: column; align-items: center; gap: 14px;">
+        <div style="width: 234px; height: 506px; border-radius: 36px; border: 8px solid #0B1B3A; overflow: hidden; background: #F5F8FD; box-shadow: 0 12px 30px rgba(11,27,58,.18);">
+          <img loading="lazy" width="414" height="900" src="img/theme.jpg" alt="Gimano home screen in the default light theme: map, Where to? search and big icon shortcuts for Home, Work, Fuel, Food, Surau, Parking, EV and Recent" style="width: 100%; height: 100%; object-fit: cover; display: block;">
+        </div>
+        <figcaption style="max-width: 270px; display: flex; flex-direction: column; gap: 4px; text-align: center;">
+          <span style="display: inline-flex; align-self: center; padding: 2px 10px; border-radius: 999px; background: #DDF4F2; color: #0E5A54; font-size: 12px; font-weight: 900;">Dalam app</span>
+          <span style="font-size: 19px; font-weight: 900;">Cerah atau gelap</span>
+          <span style="font-size: 15px; font-weight: 700; color: #3A4A66; line-height: 1.4;">Cerah secara lalai, mudah dibaca di bawah matahari. Tukar ke gelap atau ikut waktu.</span>
+          <span style="font-size: 14px; color: #5A6984; line-height: 1.4;">Light by default; dark or day/night when you want.</span>
+        </figcaption>
+      </figure>
+    </div>
+  </section>
+
+  <section id="ciri" style="max-width: 1180px; margin: 0 auto; padding: 24px var(--gx) 64px; display: flex; flex-direction: column; gap: 24px;">
     <h2 style="margin: 0; font-size: clamp(1.9rem, 3.4vw, 2.6rem); font-weight: 900;">Semua yang pemandu Malaysia perlukan</h2>
     <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px;">
       
@@ -660,23 +794,27 @@ a{color:#0047AB}a:hover{color:#0A2E6E}
     </div>
   </section>
 
-  <section id="muat-turun" style="background: #0047AB; color: #FFFFFF;">
-    <div style="max-width: 1180px; margin: 0 auto; padding: 56px 24px; display: flex; flex-wrap: wrap; align-items: center; gap: 24px;">
+  <section id="muat-turun" class="on-dark" style="background: #0047AB; color: #FFFFFF;">
+    <div style="max-width: 1180px; margin: 0 auto; padding: 56px var(--gx); display: flex; flex-wrap: wrap; align-items: center; gap: 24px;">
       <div style="flex: 999 1 420px; min-width: 0; display: flex; flex-direction: column; gap: 8px;">
         <h2 style="margin: 0; font-size: clamp(1.9rem, 3.4vw, 2.6rem); font-weight: 900;">Gi mano hari ni?</h2>
-        <p style="margin: 0; font-size: 1.15rem; color: #DCE6F7;">Android &amp; iPhone. Percuma, tanpa iklan. Free, no ads.</p>
+        <p style="margin: 0; font-size: 1.15rem; color: #DCE6F7;">Android sekarang, iPhone segera. Percuma, tanpa iklan. Android now, iPhone soon. Free, no ads.</p>
       </div>
-      <div style="flex: 1 1 320px; display: flex; flex-wrap: wrap; gap: 12px;">
-        <a href="#muat-turun" style="height: 56px; padding: 0 24px; border-radius: 16px; background: #FFFFFF; color: #0B1B3A; font-weight: 900; font-size: 17px; display: inline-flex; align-items: center; text-decoration: none;">Google Play · segera</a>
-        <a href="#muat-turun" style="height: 56px; padding: 0 24px; border-radius: 16px; background: #0B1B3A; color: #FFFFFF; font-weight: 900; font-size: 17px; display: inline-flex; align-items: center; text-decoration: none;">App Store · segera</a>
+      <div style="flex: 1 1 460px; min-width: 0; display: flex; flex-wrap: wrap; gap: 12px;">
+        <a href="download/" style="height: 56px; padding: 0 24px; border-radius: 16px; background: #FFFFFF; color: #0B1B3A; font-weight: 900; font-size: 17px; display: inline-flex; align-items: center; gap: 10px; text-decoration: none;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#0047AB" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"></path></svg>Muat turun APK</a>
+        <span style="height: 56px; padding: 0 16px; border-radius: 16px; background: #0B1B3A; color: #FFFFFF; font-weight: 900; font-size: 15px; display: inline-flex; align-items: center;">Google Play: segera / soon</span>
+        <span style="height: 56px; padding: 0 16px; border-radius: 16px; background: #0B1B3A; color: #FFFFFF; font-weight: 900; font-size: 15px; display: inline-flex; align-items: center;">App Store: segera / soon</span>
       </div>
     </div>
   </section>
 
-  <footer style="max-width: 1180px; margin: 0 auto; padding: 28px 24px 48px; display: flex; flex-wrap: wrap; gap: 16px 28px; font-size: 15px; color: #3A4A66;">
+  </main>
+
+  <footer style="max-width: 1180px; margin: 0 auto; padding: 28px var(--gx) 48px; display: flex; flex-wrap: wrap; gap: 16px 28px; font-size: 15px; color: #3A4A66;">
     <span>© Gimano contributors · MIT</span>
     <a href="privacy/">Dasar Privasi</a>
     <a href="terms/">Terma</a>
+    <a href="download/">Muat turun APK</a>
     <a href="https://github.com/erymuzuan/gimano">GitHub</a>
     <span>Data peta © <a href="https://www.openstreetmap.org/copyright">OpenStreetMap contributors</a></span>
   </footer>
