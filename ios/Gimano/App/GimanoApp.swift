@@ -45,6 +45,7 @@ enum MenuDestination: String, Identifiable {
 
 struct RootView: View {
     @Environment(AppModel.self) private var model
+    @Environment(\.colorScheme) private var colorScheme
     @State private var menuDestination: MenuDestination?
 
     var body: some View {
@@ -149,6 +150,16 @@ struct RootView: View {
         }
         .fullScreenCover(isPresented: $model.showOnboarding) {
             OnboardingView()
+        }
+        .preferredColorScheme(model.preferredScheme)
+        .onAppear { model.schemeChanged(colorScheme) }
+        .onChange(of: colorScheme) { _, s in model.schemeChanged(s) }
+        .task {
+            // Auto day/night: re-check every minute.
+            while !Task.isCancelled {
+                try? await Task.sleep(for: .seconds(60))
+                if model.theme == .auto { model.themeClock = .now }
+            }
         }
         .onChange(of: model.live.revision) { model.syncLiveLayers() }
         .onChange(of: model.map.visibleBBox) { _, bbox in

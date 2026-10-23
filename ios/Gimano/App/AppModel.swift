@@ -93,6 +93,17 @@ final class AppModel {
     var toast: String?
     var soundMode: SoundMode = .on { didSet { voice.mode = soundMode } }
     var vehicle: Vehicle = .car
+    /// Settings → Theme (persisted in the local settings table; default Light).
+    var theme: ThemeMode = .light {
+        didSet {
+            try? store.setSetting("theme", theme.rawValue)
+            themeClock = .now
+        }
+    }
+    /// Re-evaluated every minute for Auto day/night.
+    var themeClock = Date()
+    /// The scheme actually on screen (reported by the root view), drives the map style.
+    private(set) var effectiveScheme: ColorScheme = .light
     /// Category pre-selected when opening search from a home shortcut tile.
     var searchCategory: PlaceCategory?
     /// Place being saved from the place card ("Save" sheet).
@@ -138,6 +149,10 @@ final class AppModel {
         }
         #endif
         if let raw = UserDefaults.standard.string(forKey: "travelMode"), let v = Vehicle(rawValue: raw) { vehicle = v }
+        if let raw = try? store.setting("theme"), let t = ThemeMode(rawValue: raw) { theme = t }
+        #if DEBUG
+        if let raw = UserDefaults.standard.string(forKey: "GimanoTheme"), let t = ThemeMode(rawValue: raw) { theme = t }
+        #endif
         wireMap()
         location.onFix = { [weak self] fix in self?.handleRealFix(fix) }
         rebuildRepository()
@@ -233,7 +248,7 @@ final class AppModel {
             }
             backendStatus = .unknown
         }
-        map.styleURL = config.styleURL
+        map.styleURL = effectiveScheme == .dark ? config.darkStyleURL : config.styleURL
         let hubURL: URL? = config.dataMode == .demo ? nil : config.liveHubURL
         live.configure(repo: repo, hubURL: hubURL, tokenProvider: { TokenStore.load(for: base) })
         Task { await refreshUserData() }
@@ -255,6 +270,16 @@ final class AppModel {
     }
 
     /// Reloads favourites and recents from the on-device store.
+    /// Forced scheme for the whole app (nil = follow the phone).
+    var preferredScheme: ColorScheme? { theme.colorScheme(now: themeClock, location: position) }
+
+    /// Called by the root view whenever the visible scheme changes: switches the basemap.
+    func schemeChanged(_ scheme: ColorScheme) {
+        effectiveScheme = scheme
+        let url = scheme == .dark ? config.darkStyleURL : config.styleURL
+        if map.styleURL != url { map.styleURL = url }
+    }
+
     func reloadLocal() {
         savedPlaces = (try? store.savedPlaces()) ?? []
         recents = (try? store.recents()) ?? []

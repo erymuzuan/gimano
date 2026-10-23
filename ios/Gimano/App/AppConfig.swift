@@ -65,6 +65,12 @@ final class AppConfig {
         return URL(string: raw) ?? URL(string: Self.fallbackStyleURL)!
     }
 
+    /// Dark basemap (OpenFreeMap "dark"); a custom style override applies to both themes.
+    var darkStyleURL: URL {
+        if !styleURLOverride.trimmingCharacters(in: .whitespaces).isEmpty { return styleURL }
+        return URL(string: "https://tiles.openfreemap.org/styles/dark")!
+    }
+
     /// `ws(s)://host/hubs/live`, derived from the API base URL (`…/api/v1/` stripped).
     var liveHubURL: URL {
         Self.hubURL(fromAPIBase: apiBaseURL)

@@ -181,10 +181,12 @@ struct GimanoMapView: UIViewRepresentable {
 
         fileprivate func styleLoaded(_ style: MLNStyle) {
             self.style = style
+            // Resolve dynamic colours against the map's own traits (follows the app's forced theme).
+            let traits = map?.traitCollection ?? .current
             Self.registerImages(in: style)
             // Cobalt land colour.
             if let bg = style.layers.first(where: { $0 is MLNBackgroundStyleLayer }) as? MLNBackgroundStyleLayer {
-                bg.backgroundColor = NSExpression(forConstantValue: Tokens.Palette.mapBackground.resolvedColor(with: .current))
+                bg.backgroundColor = NSExpression(forConstantValue: Tokens.Palette.mapBackground.resolvedColor(with: traits))
             }
 
             func lineLayer(_ id: String, source: MLNSource, color: UIColor, width: Double, opacity: Double = 1, predicate: NSPredicate? = nil) -> MLNLineStyleLayer {
@@ -214,9 +216,9 @@ struct GimanoMapView: UIViewRepresentable {
                                          predicate: NSPredicate(format: "level == %d", level)))
             }
             style.addLayer(lineLayer("route-alt-casing", source: alt, color: .white, width: 11))
-            style.addLayer(lineLayer("route-alt", source: alt, color: Tokens.Palette.routeAlt.resolvedColor(with: .current), width: 7))
-            style.addLayer(lineLayer("route-sel-casing", source: sel, color: Tokens.Palette.brandInk.resolvedColor(with: .current), width: 13))
-            style.addLayer(lineLayer("route-sel", source: sel, color: Tokens.Palette.routeActive.resolvedColor(with: .current), width: 9))
+            style.addLayer(lineLayer("route-alt", source: alt, color: Tokens.Palette.routeAlt.resolvedColor(with: traits), width: 7))
+            style.addLayer(lineLayer("route-sel-casing", source: sel, color: Tokens.Palette.brandInk.resolvedColor(with: traits), width: 13))
+            style.addLayer(lineLayer("route-sel", source: sel, color: Tokens.Palette.routeActive.resolvedColor(with: traits), width: 9))
             for level in 1...4 {
                 style.addLayer(lineLayer("route-traffic-\(level)", source: traffic, color: Tokens.Palette.traffic(level: level), width: 9,
                                          predicate: NSPredicate(format: "level == %d", level)))

@@ -403,6 +403,16 @@
         }
       }
     },
+    "Auto day/night": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Auto siang/malam"
+          }
+        }
+      }
+    },
     "Avoid": {
       "localizations": {
         "ms": {
@@ -1003,6 +1013,16 @@
         }
       }
     },
+    "Dark": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gelap"
+          }
+        }
+      }
+    },
     "Data": {
       "localizations": {
         "ms": {
@@ -1439,6 +1459,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Kabus"
+          }
+        }
+      }
+    },
+    "Follow phone": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ikut telefon"
           }
         }
       }
@@ -1962,6 +1992,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Tahap"
+          }
+        }
+      }
+    },
+    "Light": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cerah"
           }
         }
       }
@@ -3872,6 +3912,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Fail sandaran rosak."
+          }
+        }
+      }
+    },
+    "Theme": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tema"
           }
         }
       }

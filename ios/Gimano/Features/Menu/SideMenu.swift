@@ -179,6 +179,9 @@ struct SettingsView: View {
                 PrivacyCard().listRowInsets(EdgeInsets())
                 NavigationLink("Backup & restore") { BackupView() }.accessibilityIdentifier("settingsBackup")
             }
+            Section("Theme") {
+                ThemePicker()
+            }
             Section("Sound") {
                 Picker("Voice guidance", selection: $model.soundMode) {
                     ForEach(SoundMode.allCases, id: \.self) { Text($0.title).tag($0) }
@@ -249,5 +252,33 @@ struct OnboardingView: View {
             .padding(.bottom, 24)
         }
         .background(Color.surface.ignoresSafeArea())
+    }
+}
+
+/// Big icon tiles: Light (default) · Dark · Follow phone · Auto day/night.
+struct ThemePicker: View {
+    @Environment(AppModel.self) private var model
+
+    var body: some View {
+        LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: 2), spacing: 8) {
+            ForEach(ThemeMode.allCases) { t in
+                let on = model.theme == t
+                Button { model.theme = t } label: {
+                    HStack(spacing: 8) {
+                        Image(systemName: t.systemImage).font(.system(size: 20, weight: .semibold))
+                        Text(t.title).font(Tokens.Font.label).lineLimit(1).minimumScaleFactor(0.8)
+                        Spacer(minLength: 0)
+                    }
+                    .padding(12)
+                    .frame(maxWidth: .infinity, minHeight: 56)
+                    .foregroundStyle(on ? Color.brandOn : Color.brandInk)
+                    .background(on ? Color.brand : Color.brandMist, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+                }
+                .buttonStyle(.plain)
+                .accessibilityIdentifier("theme.\(t.rawValue)")
+                .accessibilityAddTraits(on ? .isSelected : [])
+            }
+        }
+        .listRowBackground(Color.clear)
     }
 }
