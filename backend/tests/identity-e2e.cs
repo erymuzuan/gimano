@@ -1,6 +1,7 @@
 // End-to-end check of pseudonymous identity + signed requests + vetting against a running API that enforces
 // signatures (Identity:RequireSignatures=true). Also a reference client implementation for the apps.
 //   dotnet run backend/tests/identity-e2e.cs -- http://localhost:5091
+#:property ManagePackageVersionsCentrally=false
 #:package NSec.Cryptography@26.4.0
 using System.Net.Http.Json;
 using System.Security.Cryptography;
