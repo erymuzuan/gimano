@@ -76,7 +76,10 @@ fun PlaceCard(sel: PlaceSel, vm: MainViewModel, cvm: ContributeViewModel, apiBas
     }
 
     SheetSurface(modifier.fillMaxWidth().heightIn(max = maxH)) {
-        Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp).windowInsetsPadding(WindowInsets.navigationBars).padding(bottom = 16.dp)) {
+        // The scrolling part ends above the system navigation bar and "Routes" stays visible below it, whatever the
+        // font scale (it used to be the last scrolled item and could sit under the gesture/nav bar).
+        Column(Modifier.fillMaxWidth().windowInsetsPadding(WindowInsets.navigationBars).padding(bottom = 12.dp)) {
+        Column(Modifier.weight(1f, fill = false).fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp)) {
             Box(Modifier.fillMaxWidth().padding(top = 8.dp), contentAlignment = Alignment.Center) { GrabHandle() }
             Row(Modifier.padding(top = 10.dp), verticalAlignment = Alignment.Top) {
                 CategoryBadge(p.category, size = 48.dp)
@@ -154,17 +157,18 @@ fun PlaceCard(sel: PlaceSel, vm: MainViewModel, cvm: ContributeViewModel, apiBas
             }
 
             if (d != null) ReviewsSection(d, reviews.reviews, reviews.summary, reviews.loading, cvm, apiBase) { urls, i -> viewer = urls to i }
+            if (priv != null) TextButton(onClick = { vm.deletePrivatePlace(priv.id) }, Modifier.align(Alignment.End)) {
+                Text(stringResource(R.string.delete), color = c.report, fontWeight = FontWeight.ExtraBold)
+            }
+        }
 
             Button(
                 onClick = vm::routeToPlace,
-                modifier = Modifier.fillMaxWidth().height(56.dp).padding(top = 4.dp),
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp).padding(top = 8.dp).heightIn(min = 56.dp),
                 shape = RoundedCornerShape(Radius.md),
                 colors = ButtonDefaults.buttonColors(containerColor = c.brand, contentColor = c.brandOn),
             ) {
                 Icon(Icons.Filled.Directions, null); Spacer(Modifier.width(8.dp)); Text(stringResource(R.string.routes), style = GimanoType.button)
-            }
-            if (priv != null) TextButton(onClick = { vm.deletePrivatePlace(priv.id) }, Modifier.align(Alignment.End)) {
-                Text(stringResource(R.string.delete), color = c.report, fontWeight = FontWeight.ExtraBold)
             }
         }
     }

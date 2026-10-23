@@ -102,6 +102,8 @@ data class RoutePlan(
     val mode: TravelMode = TravelMode.CAR,
     val avoid: AvoidOptions = AvoidOptions(),
     val departAt: Instant? = null,
+    /** Opened with one tap (Home, Work, favourite, recent, planned drive): may auto-start if the user enabled it. */
+    val quickPick: Boolean = false,
     /** "Lalu juga": issues whose exclusion is ignored for this trip only. */
     val ignoredIssues: Set<String> = emptySet(),
     val countdownRunning: Boolean = false,
@@ -505,6 +507,25 @@ class MainViewModel(private val c: AppContainer) : ViewModel() {
                 }
                 .onFailure { _events.tryEmit(UiEvent.Toast(R.string.report_failed)) }
         }
+    }
+
+    // Leaving the app pauses (cancels) the route-preview countdown; coming back probes the live server at once.
+    private val lifecycleObserver: androidx.lifecycle.LifecycleEventObserver =
+        androidx.lifecycle.LifecycleEventObserver { _, e ->
+            when (e) {
+                androidx.lifecycle.Lifecycle.Event.ON_STOP -> cancelCountdown()
+                androidx.lifecycle.Lifecycle.Event.ON_START -> if (repo.fallbackActive.value && !settings.current.demoMode) viewModelScope.launch {
+                    if (repo.probeRemote()) { c.liveHub.start(); refreshAccount() }
+                }
+                else -> Unit
+            }
+        }
+
+    init { androidx.lifecycle.ProcessLifecycleOwner.get().lifecycle.addObserver(lifecycleObserver) }
+
+    override fun onCleared() {
+        androidx.lifecycle.ProcessLifecycleOwner.get().lifecycle.removeObserver(lifecycleObserver)
+        super.onCleared()
     }
 
     // --- Complaints v1 (docs/complaints.md) ------------------------------------------------------
@@ -959,7 +980,7 @@ class MainViewModel(private val c: AppContainer) : ViewModel() {
     /** Planned drive "Go" or its reminder notification → route preview. */
     fun goPlanned(d: my.gimano.app.data.planned.PlannedDrive) {
         viewModelScope.launch { settings.setVehicle(d.vehicle) }
-        routeTo(d.destination.toDestination(), d.waypoints.map { it.toDestination() })
+        routeTo(d.destination.toDestination(), d.waypoints.map { it.toDestination() }, quickPick = true)
     }
 
     fun openPlannedDrive(id: String) = viewModelScope.launch { c.planned.byId(id)?.let { goPlanned(it) } }
@@ -1117,10 +1138,10 @@ class MainViewModel(private val c: AppContainer) : ViewModel() {
 
     // --- Route planning ---------------------------------------------------------------------
 
-    fun routeTo(dest: NavDestination, stops: List<NavDestination> = emptyList()) {
+    fun routeTo(dest: NavDestination, stops: List<NavDestination> = emptyList(), quickPick: Boolean = false) {
         val st = settings.current
         val prev = _ui.value.plan
-        val plan = RoutePlan(destination = dest, origin = null, originSource = OriginSource.LOCATING, stops = stops,
+        val plan = RoutePlan(destination = dest, origin = null, originSource = OriginSource.LOCATING, stops = stops, quickPick = quickPick,
             mode = TravelMode.from(st.vehicle), avoid = prev?.avoid ?: AvoidOptions(), loading = false)
         GLog.d("VM", "route preview, ${stops.size} stops")
         _ui.update { it.copy(screen = Screen.RoutePreview, plan = plan, following = false, selectedAlertId = null) }
@@ -1223,8 +1244,8 @@ class MainViewModel(private val c: AppContainer) : ViewModel() {
         routeTo(p.toDestination())
     }
 
-    fun routeToSaved(sp: SavedPlace) = routeTo(NavDestination(sp.name, sp.address, GeoPoint(sp.lat, sp.lng), sp.placeId))
-    fun routeToRecent(r: Recent) = routeTo(NavDestination(r.name, r.address, GeoPoint(r.lat, r.lng), r.placeId))
+    fun routeToSaved(sp: SavedPlace) = routeTo(NavDestination(sp.name, sp.address, GeoPoint(sp.lat, sp.lng), sp.placeId), quickPick = true)
+    fun routeToRecent(r: Recent) = routeTo(NavDestination(r.name, r.address, GeoPoint(r.lat, r.lng), r.placeId), quickPick = true)
 
     private var routeJob: Job? = null
 
@@ -1262,7 +1283,9 @@ class MainViewModel(private val c: AppContainer) : ViewModel() {
             _ui.update {
                 it.copy(
                     plan = it.plan?.copy(routes = routes, decoded = decoded, selectedId = best.id, loading = false, request = req,
-                        countdownRunning = plan.departAt == null && plan.stops.isEmpty() && plan.originSource == OriginSource.GPS, computedAt = Instant.now()),
+                        countdownRunning = my.gimano.app.core.trip.AutoStart.shouldCountdown(settings.current.autoStartNav, plan.quickPick,
+                            plan.originSource == OriginSource.GPS, plan.stops.isNotEmpty(), plan.departAt != null, my.gimano.app.core.net.AppForeground.foreground),
+                        computedAt = Instant.now()),
                     camera = CameraCommand.Fit(decoded.values.flatten() + origin + plan.destination.point, topDp = 170, bottomDp = 430),
                 )
             }
@@ -1515,6 +1538,7 @@ class MainViewModel(private val c: AppContainer) : ViewModel() {
     fun setVoiceLang(v: String) = viewModelScope.launch { settings.setVoiceLang(v) }
     fun setSoundMode(v: SoundMode) = viewModelScope.launch { settings.setSoundMode(v) }
     fun setUse24h(v: Boolean) = viewModelScope.launch { settings.setUse24h(v) }
+    fun setAutoStartNav(v: Boolean) = viewModelScope.launch { settings.setAutoStartNav(v) }
     fun setVehicleHome(v: String) = rememberMode(TravelMode.from(v))
     fun setApiBaseUrl(v: String) = viewModelScope.launch {
         settings.setApiBaseUrl(v)

@@ -127,6 +127,13 @@ class GimanoApp : Application() {
         super.onCreate()
         container = AppContainer(this)
         container.crashes.install()
+        androidx.lifecycle.ProcessLifecycleOwner.get().lifecycle.addObserver(androidx.lifecycle.LifecycleEventObserver { _, e ->
+            when (e) {
+                androidx.lifecycle.Lifecycle.Event.ON_START -> my.gimano.app.core.net.AppForeground.foreground = true
+                androidx.lifecycle.Lifecycle.Event.ON_STOP -> my.gimano.app.core.net.AppForeground.foreground = false
+                else -> Unit
+            }
+        })
         my.gimano.app.data.places.PhotoPrep.sweepCameraTemps(this)
     }
 }

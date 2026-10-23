@@ -691,4 +691,6 @@
     <string name="inbox_issue_resolved">The map is fixed</string>
     <string name="vote_need_near">Be within 1 km of it to confirm.</string>
     <string name="backup_dest_file">file</string>
+    <string name="auto_start_nav">Start navigation automatically</string>
+    <string name="auto_start_nav_desc">After 10 s on the route preview, for Home, Work, favourites, recent places and planned drives. Never after a search.</string>
 </resources>
