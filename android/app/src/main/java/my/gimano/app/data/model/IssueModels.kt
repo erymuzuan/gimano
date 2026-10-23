@@ -1,0 +1,103 @@
+package my.gimano.app.data.model
+
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.JsonNames
+
+/*
+ * Complaints v1 (docs/complaints.md, docs/api.md "Issues"). Public contributions under the pseudonym; deviation answers
+ * carry only the kind + the segment point/heading, never a track. Field aliases keep the app tolerant while the server
+ * contract settles.
+ */
+
+object IssueKind {
+    const val ROAD_CLOSED_TEMP = "road_closed_temp"
+    const val ROAD_NOT_EXIST = "road_not_exist"
+    const val ONEWAY_CLOSED_DIR = "oneway_wrong_closed_dir"
+    const val ONEWAY_OPEN_DIR = "oneway_wrong_open_dir"
+    const val TURN_NOT_ALLOWED = "turn_not_allowed"
+    const val ODD_ROUTE = "odd_route"
+    const val NEW_ROAD = "new_road"
+    const val PLACE_CLOSED_PERM = "place_closed_perm"
+    const val PLACE_CLOSED_TEMP = "place_closed_temp"
+    const val PLACE_HOURS_WRONG = "place_hours_wrong"
+    const val PLACE_ENTRANCE_WRONG = "place_entrance_wrong"
+    const val PLACE_INFO_WRONG = "place_info_wrong"
+    const val PLACE_DUPLICATE = "place_duplicate"
+
+    val road = setOf(ROAD_CLOSED_TEMP, ROAD_NOT_EXIST, ONEWAY_CLOSED_DIR, ONEWAY_OPEN_DIR, TURN_NOT_ALLOWED)
+}
+
+object IssueState {
+    const val REPORTED = "reported"
+    const val SUSPECTED = "suspected"
+    const val CONFIRMED = "confirmed"
+    val open = setOf(REPORTED, SUSPECTED, CONFIRMED)
+}
+
+@Serializable
+data class CreateIssueRequest(
+    val kind: String,
+    val subtype: String? = null,
+    val lat: Double,
+    val lng: Double,
+    val heading: Double? = null,
+    val placeId: String? = null,
+    val vehicle: String? = null,
+    /** unknown | today | days | long_works (road_closed_temp). */
+    val durationHint: String? = null,
+    /** report | deviation | place_edit */
+    val source: String,
+    /** String map, same keys as iOS: routeId, roadName, until, openingHours, navLat/navLng, comment. */
+    val payload: Map<String, String>? = null,
+)
+
+@Serializable
+data class Issue(
+    val id: String,
+    val kind: String,
+    val subtype: String? = null,
+    val state: String = IssueState.SUSPECTED,
+    val lat: Double = 0.0,
+    val lng: Double = 0.0,
+    val heading: Double? = null,
+    val placeId: String? = null,
+    @JsonNames("road", "street", "segmentName") val roadName: String? = null,
+    val summary: String? = null,
+    @JsonNames("confirmationsWeighted", "votes", "confirmedBy") val confirmations: Double = 0.0,
+    val createdAt: String = "",
+    val expiresAt: String? = null,
+    val lastEvidenceAt: String? = null,
+    /** place_closed_temp: closed until (ISO date). */
+    val until: String? = null,
+)
+
+@Serializable
+data class IssueVoteRequest(
+    /** still | cleared | unsure */
+    val answer: String,
+)
+
+@Serializable
+data class IssuesPage(val issues: List<Issue> = emptyList())
+
+/** `issues[]` on a route: issues on it (warn) or avoided by it ("Mengelak …"). */
+@Serializable
+data class RouteIssue(
+    val id: String,
+    val kind: String,
+    val state: String = IssueState.SUSPECTED,
+    val subtype: String? = null,
+    /** true: this route goes around it; false/null: the route passes it (warn). */
+    val avoided: Boolean? = null,
+    /** Older alias: "avoided" | "on_route". */
+    @JsonNames("effect") val relation: String? = null,
+    @JsonNames("road", "street", "segmentName") val roadName: String? = null,
+    val summary: String? = null,
+    @JsonNames("confirmationsWeighted", "votes", "confirmedBy") val confirmations: Double = 0.0,
+    val createdAt: String? = null,
+    val lastEvidenceAt: String? = null,
+    val lat: Double? = null,
+    val lng: Double? = null,
+) {
+    val isAvoided: Boolean get() = avoided == true || relation == "avoided"
+}

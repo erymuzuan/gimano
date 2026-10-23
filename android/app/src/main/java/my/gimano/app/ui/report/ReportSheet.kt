@@ -1,6 +1,8 @@
 package my.gimano.app.ui.report
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
@@ -31,20 +33,29 @@ import androidx.compose.ui.semantics.semantics
 
 /** "What do you see?" — 3×3 grid of report types, then one-tap subtypes. */
 @Composable
-fun ReportSheet(onDismiss: () -> Unit, onSubmit: (type: String, subtype: String?, comment: String?) -> Unit) {
+fun ReportSheet(
+    onDismiss: () -> Unit,
+    onSubmit: (type: String, subtype: String?, comment: String?) -> Unit,
+    /** Complaints v1 "Masalah jalan" group (during navigation, when the server has /issues). */
+    onRoadProblem: ((type: String, durationHint: String?) -> Unit)? = null,
+) {
     val c = Gimano.colors
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     var type by remember { mutableStateOf<String?>(null) }
     var comment by remember { mutableStateOf("") }
+    var road by remember { mutableStateOf<String?>(null) }
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
         containerColor = c.surface,
         shape = RoundedCornerShape(topStart = Radius.sheet, topEnd = Radius.sheet),
     ) {
-        Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp).padding(bottom = 24.dp)) {
+        Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp).padding(bottom = 24.dp)) {
             val t = type
-            if (t == null) {
+            val rp = road
+            if (rp != null && onRoadProblem != null) {
+                my.gimano.app.ui.issues.RoadProblemConfirm(rp, onBack = { road = null }) { d -> onRoadProblem(rp, d) }
+            } else if (t == null) {
                 Spacer(Modifier.height(4.dp))
                 LazyVerticalGrid(
                     GridCells.Fixed(3), verticalArrangement = Arrangement.spacedBy(14.dp), horizontalArrangement = Arrangement.spacedBy(10.dp),
@@ -63,6 +74,7 @@ fun ReportSheet(onDismiss: () -> Unit, onSubmit: (type: String, subtype: String?
                         }
                     }
                 }
+                if (onRoadProblem != null) my.gimano.app.ui.issues.RoadProblemGroup { road = it }
             } else {
                 Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(bottom = 12.dp)) {
                     IconButton(onClick = { type = null }) { Icon(Icons.AutoMirrored.Filled.ArrowBack, stringResource(R.string.back), tint = c.text) }

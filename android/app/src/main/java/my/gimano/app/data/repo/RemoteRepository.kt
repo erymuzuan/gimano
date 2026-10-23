@@ -152,6 +152,11 @@ class RemoteRepository(
     override suspend fun thank(reportId: String) { authed { thank(reportId) }.orThrow() }
     override suspend fun postLocations(batch: LocationBatch) { authed { postLocations(batch) }.orThrow() }
 
+    override suspend fun createIssue(body: CreateIssueRequest) = authed { createIssue(body) }
+    override suspend fun issuesNearby(minLng: Double, minLat: Double, maxLng: Double, maxLat: Double, kinds: List<String>?) =
+        authed { issuesNearby(String.format(Locale.US, "%.5f,%.5f,%.5f,%.5f", minLng, minLat, maxLng, maxLat), kinds?.joinToString(",")) }.issues
+    override suspend fun voteIssue(id: String, answer: String) = authed { voteIssue(id, IssueVoteRequest(answer)) }
+
     override suspend fun inbox(): List<InboxItem> = try { authed { inbox() } } catch (e: HttpException) { if (e.code() in setOf(404, 405, 501)) emptyList() else throw e }
     override suspend fun sendFeedback(body: FeedbackRequest) = authed { feedback(body) }
     override suspend fun myFeedback() = authed { myFeedback() }

@@ -49,7 +49,7 @@ import my.gimano.app.ui.map.VisibleBounds
 import java.time.Instant
 import java.time.ZoneId
 
-enum class SearchPurpose { NAVIGATE, SET_HOME, SET_WORK, ADD_STOP, ADD_STOP_PREVIEW, ADD_FAVORITE, PLAN_DRIVE, SET_ORIGIN }
+enum class SearchPurpose { NAVIGATE, SET_HOME, SET_WORK, ADD_STOP, ADD_STOP_PREVIEW, ADD_FAVORITE, PLAN_DRIVE, SET_ORIGIN, ENTRANCE }
 
 sealed interface Screen {
     data object Home : Screen
@@ -102,6 +102,8 @@ data class RoutePlan(
     val mode: TravelMode = TravelMode.CAR,
     val avoid: AvoidOptions = AvoidOptions(),
     val departAt: Instant? = null,
+    /** "Lalu juga": issues whose exclusion is ignored for this trip only. */
+    val ignoredIssues: Set<String> = emptySet(),
     val countdownRunning: Boolean = false,
     val request: RouteRequest? = null,
     val computedAt: Instant = Instant.now(),
@@ -169,6 +171,14 @@ data class UiState(
     val namePin: NavDestination? = null,
     /** Nearby pending community place to confirm (shown only while parked; see VerifyPromptGate). */
     val vetPrompt: PlaceSummary? = null,
+    /** Complaints v1 (docs/complaints.md): shown only once the server has /issues. */
+    val issuesAvailable: Boolean = false,
+    /** "Kenapa tak ikut laluan?" waiting to be asked (after arrival / when stopped). */
+    val deviationAsk: my.gimano.app.core.issues.Deviation? = null,
+    /** "Masih ditutup?" for an issue within 300 m while driving. */
+    val stillClosed: my.gimano.app.data.model.Issue? = null,
+    /** Issues about the place on the card (badges). */
+    val placeIssues: List<my.gimano.app.data.model.Issue> = emptyList(),
 )
 
 data class PreciseAsk(val beforeNav: Boolean)
@@ -274,6 +284,9 @@ class MainViewModel(private val c: AppContainer) : ViewModel() {
         }
         if (!repo.isDemo) c.liveHub.start()
         viewModelScope.launch { repo.fallbackActive.collect { if (it) c.liveHub.stop() } }
+        viewModelScope.launch { c.issues.probe() }
+        viewModelScope.launch { c.issues.available.collect { a -> _ui.update { it.copy(issuesAvailable = a) } } }
+        viewModelScope.launch { c.navigation.state.collect(::onNavForIssues) }
     }
 
     fun refreshAccount() {
@@ -341,6 +354,8 @@ class MainViewModel(private val c: AppContainer) : ViewModel() {
         c.lastFixAccuracyM = f.accuracyM?.toInt()
         _ui.update { it.copy(myLocation = f) }
         if (_ui.value.plan?.originSource == OriginSource.UNKNOWN && _ui.value.screen == Screen.RoutePreview) resolveOrigin()
+        // A drive ended while still moving: ask "Kenapa tak ikut laluan?" once the phone is stopped.
+        if (pendingDeviation != null && !nav.value.active) maybeAskDeviation(f.speedMps?.let { (it * 3.6f).toInt() } ?: 0)
         maybeAskNearby(f, prev)
         if (!centeredOnce) {
             centeredOnce = true
@@ -478,7 +493,8 @@ class MainViewModel(private val c: AppContainer) : ViewModel() {
 
     fun submitReport(type: String, subtype: String?, comment: String?) {
         val fix = nav.value.fix ?: _ui.value.myLocation
-        val p = fix?.point ?: here()
+        // A report is about where the user is: never place it at the map centre.
+        val p = myFreshLocation() ?: run { _ui.update { it.copy(reportOpen = false) }; _events.tryEmit(UiEvent.Toast(R.string.report_needs_location)); return }
         _ui.update { it.copy(reportOpen = false) }
         viewModelScope.launch {
             runCatching { repo.createReport(CreateReportRequest(type, subtype, p.lat, p.lng, fix?.bearing?.toDouble(), comment?.takeIf { it.isNotBlank() })) }
@@ -489,6 +505,143 @@ class MainViewModel(private val c: AppContainer) : ViewModel() {
                 }
                 .onFailure { _events.tryEmit(UiEvent.Toast(R.string.report_failed)) }
         }
+    }
+
+    // --- Complaints v1 (docs/complaints.md) ------------------------------------------------------
+
+    /** "Masalah jalan" from the report sheet: one tap + Hantar, at the current fix and heading. */
+    fun submitRoadProblem(type: String, durationHint: String?) {
+        _ui.update { it.copy(reportOpen = false) }
+        val kind = my.gimano.app.core.issues.IssueSupport.roadProblemKinds[type] ?: return
+        val fix = nav.value.fix ?: _ui.value.myLocation
+        val p = myFreshLocation() ?: run { _events.tryEmit(UiEvent.Toast(R.string.report_needs_location)); return }
+        val heading = fix?.bearing?.toDouble() ?: nav.value.progress?.bearing
+        val payload = buildMap {
+            nav.value.route?.id?.let { put("routeId", it) }
+            nav.value.progress?.nextManeuver?.streetName?.takeIf { it.isNotBlank() }?.let { put("roadName", it) }
+        }
+        sendIssue(CreateIssueRequest(kind, lat = round5(p.lat), lng = round5(p.lng), heading = heading, vehicle = nav.value.mode.wire,
+            durationHint = durationHint.takeIf { kind == my.gimano.app.data.model.IssueKind.ROAD_CLOSED_TEMP }, source = "report",
+            payload = payload.ifEmpty { null }), R.string.issue_sent)
+    }
+
+    private fun round5(v: Double) = my.gimano.app.core.issues.IssueSupport.round5(v)
+
+    private fun sendIssue(body: CreateIssueRequest, okMsg: Int, after: (my.gimano.app.data.model.Issue) -> Unit = {}) {
+        viewModelScope.launch {
+            val r = c.issues.call { createIssue(body) }
+            if (r != null) {
+                runCatching { my.gimano.app.data.places.ContributionLog(c.db.outbox()).report(r.id, r.kind) }
+                _events.tryEmit(UiEvent.Toast(okMsg)); after(r)
+            } else _events.tryEmit(UiEvent.Toast(if (_ui.value.issuesAvailable) R.string.report_failed else R.string.issues_unavailable))
+        }
+    }
+
+    private var pendingDeviation: my.gimano.app.core.issues.Deviation? = null
+    private var navWasActive = false
+    private var navIssues: List<my.gimano.app.data.model.Issue> = emptyList()
+    private var navIssuesAt: GeoPoint? = null
+    private var navIssuesMs = 0L
+    private val answeredIssues = HashSet<String>()
+
+    private fun onNavForIssues(s: my.gimano.app.nav.NavState) {
+        s.deviation?.let { pendingDeviation = it }
+        if (s.active) navWasActive = true
+        // Ask after arrival (stopped), or once the drive has ended. Never while moving.
+        if ((s.arrived || (!s.active && navWasActive)) && pendingDeviation != null) maybeAskDeviation(if (s.active) s.speedKmh else null)
+        if (!s.active) { navWasActive = false; return }
+        if (!_ui.value.issuesAvailable || s.arrived) return
+        val me = s.fix?.point ?: return
+        if (s.fix.simulated && !repo.isDemo) return
+        val now = System.currentTimeMillis()
+        val moved = navIssuesAt?.let { GeoMath.distanceM(it, me) } ?: Double.MAX_VALUE
+        if (moved > 1_500 || now - navIssuesMs > 180_000) {
+            navIssuesAt = me; navIssuesMs = now
+            viewModelScope.launch {
+                val b = my.gimano.app.core.issues.IssueSupport.bbox(me, 2_500.0)
+                c.issues.call { issuesNearby(b[0], b[1], b[2], b[3], my.gimano.app.data.model.IssueKind.road.toList()) }?.let { navIssues = it }
+            }
+        }
+        if (_ui.value.stillClosed == null) {
+            val fromRoute = s.route?.issues.orEmpty().filter { it.lat != null && it.lng != null && !it.isAvoided }
+                .map { my.gimano.app.data.model.Issue(it.id, it.kind, it.subtype, it.state, it.lat!!, it.lng!!, roadName = it.roadName, confirmations = it.confirmations, createdAt = it.createdAt ?: "") }
+            my.gimano.app.core.issues.IssueText.stillClosedCandidate(navIssues + fromRoute, me, answeredIssues)?.let { i ->
+                answeredIssues += i.id   // once per issue per trip
+                _ui.update { it.copy(stillClosed = i) }
+            }
+        }
+    }
+
+    private fun maybeAskDeviation(speedKmh: Int?) {
+        val d = pendingDeviation ?: return
+        if (!_ui.value.issuesAvailable || _ui.value.deviationAsk != null) return
+        val st = settings.current
+        val speed = speedKmh ?: _ui.value.myLocation?.speedMps?.let { (it * 3.6f).toInt() }
+        if (!my.gimano.app.core.issues.DeviationPromptGate.mayAsk(st.deviationNeverAsk, st.deviationLastAsked, java.time.LocalDate.now(), speed)) return
+        pendingDeviation = null
+        _ui.update { it.copy(deviationAsk = d) }
+    }
+
+    /** [answer] null = closed the sheet without answering. Only the answer + the segment are sent. */
+    fun answerDeviation(answer: String?, neverAgain: Boolean) {
+        val d = _ui.value.deviationAsk ?: return
+        _ui.update { it.copy(deviationAsk = null) }
+        viewModelScope.launch { settings.setDeviationAsked(java.time.LocalDate.now().toString(), neverAgain) }
+        val kind = answer?.let(my.gimano.app.core.issues.IssueSupport::deviationKind) ?: run {
+            if (answer != null) _events.tryEmit(UiEvent.Toast(R.string.thanks_noted)); return
+        }
+        sendIssue(CreateIssueRequest(kind, lat = round5(d.point.lat), lng = round5(d.point.lng), heading = d.heading, vehicle = settings.current.vehicle,
+            source = "deviation", payload = d.road?.let { mapOf("roadName" to it) }), R.string.issue_sent)
+    }
+
+    /** "Masih ditutup?" answers: still | cleared | unsure. */
+    fun answerStillClosed(answer: String?) {
+        val i = _ui.value.stillClosed ?: return
+        _ui.update { it.copy(stillClosed = null) }
+        if (answer == null) return
+        viewModelScope.launch {
+            if (c.issues.call(collection = false) { voteIssue(i.id, answer) } != null) _events.tryEmit(UiEvent.Toast(R.string.thanks_vote))
+        }
+    }
+
+    /** "Lalu juga (saya tahu jalan ini)": recompute without that exclusion, for this trip only. */
+    fun passAnyway(issueId: String) {
+        val plan = _ui.value.plan ?: return
+        cancelCountdown()
+        fetchRoutes(plan.copy(ignoredIssues = plan.ignoredIssues + issueId))
+    }
+
+    /** Badges for the place on the card: issues about it within a small box. */
+    private fun loadPlaceIssues(placeId: String, at: GeoPoint) {
+        _ui.update { it.copy(placeIssues = emptyList()) }
+        if (!_ui.value.issuesAvailable || placeId.startsWith("pin:") || placeId.startsWith("private:")) return
+        viewModelScope.launch {
+            val b = my.gimano.app.core.issues.IssueSupport.bbox(at, 150.0)
+            val list = c.issues.call { issuesNearby(b[0], b[1], b[2], b[3], null) }.orEmpty()
+                .filter { it.placeId == placeId && it.state in my.gimano.app.data.model.IssueState.open }
+            _ui.update { s -> if (s.place?.summary?.id == placeId) s.copy(placeIssues = list) else s }
+        }
+    }
+
+    /** "Cadangkan suntingan": a place issue with its payload (until / openingHours / navLat+navLng / comment). */
+    fun reportPlaceIssue(kind: String, payload: Map<String, String>? = null, at: GeoPoint? = null) {
+        val p = _ui.value.place?.summary ?: return
+        val pt = at ?: GeoPoint(p.lat, p.lng)
+        sendIssue(CreateIssueRequest(kind, lat = round5(pt.lat), lng = round5(pt.lng), placeId = p.id, source = "place_edit", payload = payload), R.string.issue_sent) {
+            loadPlaceIssues(p.id, GeoPoint(p.lat, p.lng))
+        }
+    }
+
+    fun votePlaceIssue(i: my.gimano.app.data.model.Issue, answer: String) {
+        viewModelScope.launch {
+            if (c.issues.call(collection = false) { voteIssue(i.id, answer) } != null) _events.tryEmit(UiEvent.Toast(R.string.thanks_vote))
+        }
+    }
+
+    /** "Pintu masuk / parkir salah": pick the right point with a green pin. */
+    fun pickEntrance() {
+        val p = _ui.value.place?.summary ?: return
+        openPickOnMap(SearchPurpose.ENTRANCE, start = GeoPoint(p.lat, p.lng))
     }
 
     // --- Search -----------------------------------------------------------------------------
@@ -619,7 +772,7 @@ class MainViewModel(private val c: AppContainer) : ViewModel() {
         val s = _ui.value
         val pk = s.pick ?: return
         val purpose = (s.screen as? Screen.PickOnMap)?.purpose ?: SearchPurpose.NAVIGATE
-        val poi = pk.nearPoi?.takeIf { GeoMath.distanceM(pk.center, GeoPoint(it.lat, it.lng)) <= 10 }
+        val poi = pk.nearPoi?.takeIf { purpose != SearchPurpose.ENTRANCE && GeoMath.distanceM(pk.center, GeoPoint(it.lat, it.lng)) <= 10 }
         val p = poi ?: PlaceSummary(
             "pin:${pk.center.lat},${pk.center.lng}", pk.label ?: c.app.getString(R.string.pin_on_map), "other",
             pk.address ?: "", pk.center.lat, pk.center.lng, GeoMath.distanceM(here(), pk.center),
@@ -717,6 +870,11 @@ class MainViewModel(private val c: AppContainer) : ViewModel() {
                 _ui.update { it.copy(screen = Screen.Planned) }
                 _events.tryEmit(UiEvent.PlanDrive(p.toPoint(), null, emptyList(), settings.current.vehicle))
             }
+            SearchPurpose.ENTRANCE -> {
+                _ui.update { it.copy(screen = Screen.PlaceCard) }
+                reportPlaceIssue(my.gimano.app.data.model.IssueKind.PLACE_ENTRANCE_WRONG,
+                    mapOf("navLat" to "%.6f".format(java.util.Locale.US, p.lat), "navLng" to "%.6f".format(java.util.Locale.US, p.lng)))
+            }
             SearchPurpose.SET_ORIGIN -> {
                 _ui.update { it.copy(screen = Screen.RoutePreview) }
                 setPlanOrigin(GeoPoint(p.lat, p.lng), OriginSource.CHOSEN, p.toDestination())
@@ -812,6 +970,7 @@ class MainViewModel(private val c: AppContainer) : ViewModel() {
             val me = here()
             val d = runCatching { repo.place(p.id, me.lat, me.lng) }.getOrNull()
             _ui.update { s -> if (s.place?.summary?.id == p.id) s.copy(place = s.place.copy(detail = d, loading = false)) else s }
+            loadPlaceIssues(p.id, GeoPoint(p.lat, p.lng))
         }
     }
 
@@ -922,6 +1081,9 @@ class MainViewModel(private val c: AppContainer) : ViewModel() {
         if (f != null && f.simulated && !repo.isDemo) return RouteOrigin.Gps.None
         return RouteOrigin.classify(f?.point, f?.timeMs, nowMs)
     }
+
+    /** The user's position if a fix is no older than 2 min; null otherwise (UI must not invent "from you"). */
+    fun myFreshLocation(): GeoPoint? = (gpsFix() as? RouteOrigin.Gps.Fresh)?.point
 
     private var originJob: Job? = null
 
@@ -1035,6 +1197,7 @@ class MainViewModel(private val c: AppContainer) : ViewModel() {
                 avoid = if (plan.mode.isMotorised) plan.avoid else AvoidOptions(),
                 departAt = plan.departAt?.toString(),
                 alternatives = if (plan.stops.isEmpty()) 2 else 0,
+                ignoreIssues = plan.ignoredIssues.sorted().ifEmpty { null },
             )
             val routes = runCatching { repo.routes(req) }.getOrNull().orEmpty()
             if (routes.isEmpty()) {

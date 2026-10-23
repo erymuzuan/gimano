@@ -399,6 +399,8 @@ data class RouteRequest(
     val avoid: AvoidOptions = AvoidOptions(),
     val departAt: String? = null,
     val alternatives: Int = 2,
+    /** "Lalu juga": recompute without these issues' exclusions, for this trip only. */
+    val ignoreIssues: List<String>? = null,
 )
 
 @Serializable
@@ -422,6 +424,8 @@ data class Route(
     val bbox: List<Double> = emptyList(),
     val legs: List<Leg> = emptyList(),
     val trafficSegments: List<TrafficSegment> = emptyList(),
+    /** Complaints v1: issues on this route or avoided by it. */
+    val issues: List<RouteIssue> = emptyList(),
     val alerts: List<AlertOnRoute> = emptyList(),
 ) {
     val isBest get() = label == "best"

@@ -61,6 +61,8 @@ data class NavState(
     val accuracyM: Double? = null,
     /** "Isyarat GPS lemah · ±xx m" (accuracy > 50 m for > 10 s), else null. */
     val weakGpsM: Int? = null,
+    /** Complaints v1: the driver left the route at a decision point and didn't rejoin (asked about later, on the phone). */
+    val deviation: my.gimano.app.core.issues.Deviation? = null,
 )
 
 /**
@@ -83,6 +85,8 @@ class NavigationController(
     private var job: Job? = null
     private var tracker: NavigationTracker? = null
     private val offRoute = OffRouteDetector()
+    private val deviation = my.gimano.app.core.issues.DeviationTracker()
+    private var lastOnRoute: NavProgress? = null
     private var planner = VoicePromptPlanner()
     private val batcher = LocationBatcher()
     private val announcedAlerts = HashSet<String>()
@@ -104,6 +108,7 @@ class NavigationController(
         tracker = NavigationTracker(route)
         planner = VoicePromptPlanner(mode.wire)
         offRoute.reset(); announcedAlerts.clear(); dismissedAlerts.clear()
+        deviation.reset(); lastOnRoute = null
         _state.value = NavState(active = true, route = route, destination = destination, stops = stops, simulated = simulate, startedAt = Instant.now(), mode = mode)
         gpsQuality.reset()
         val lang = langProvider()
@@ -143,7 +148,9 @@ class NavigationController(
             }
             return
         }
+        if (!fix.simulated) deviation.onFix(fix.point)?.let { d -> _state.update { it.copy(deviation = d) } }
         val p = t.update(fix.point) ?: return
+        if (p.distanceFromRouteM < 20) lastOnRoute = p
         val speed = ((fix.speedMps ?: 0f) * 3.6f).toInt()
         val lang = langProvider()
         val sound = soundMode()
@@ -206,6 +213,7 @@ class NavigationController(
         if (_state.value.arrivedAtStop != null && !fix.simulated && p.distanceAlongM > stopCardAlongM + 100) continueAfterStop()
 
         if (!fix.simulated && offRoute.update(p.distanceFromRouteM, fix.accuracyM?.toDouble(), fix.timeMs, headingDiff(fix.bearing?.toDouble(), p.bearing), speed.toDouble())) {
+            lastOnRoute?.let { lp -> deviation.onLeftRoute(lp.distanceAlongM, lp.distanceToNextM, lp.nextManeuver?.streetName, t.geometry) }
             reroute(fix)
         }
     }
@@ -248,6 +256,7 @@ class NavigationController(
     }
 
     private fun replaceRoute(route: Route) {
+        lastOnRoute = null
         tracker = NavigationTracker(route)
         planner = VoicePromptPlanner(_state.value.mode.wire)
         offRoute.reset()

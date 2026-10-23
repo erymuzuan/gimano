@@ -107,6 +107,9 @@ fun NavigationOverlay(nav: NavState, ui: UiState, settings: AppSettings, vm: Mai
         // ---- Bottom: alert card, speedometer, report, ETA bar ------------------------------
         Column(Modifier.align(Alignment.BottomCenter).fillMaxWidth()) {
             val alert = nav.upcomingAlert
+            val still = ui.stillClosed
+            if (still != null && !nav.arrived && alert == null) my.gimano.app.ui.issues.StillClosedCard(still, vm::answerStillClosed,
+                Modifier.padding(horizontal = 12.dp, vertical = 8.dp))
             AnimatedVisibility(alert != null && !nav.arrived) {
                 if (alert != null) {
                     AlertCard(
