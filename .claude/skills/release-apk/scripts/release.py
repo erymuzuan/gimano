@@ -69,7 +69,9 @@ def last_tag(prefix):
 
 def http(url):
     sep = "&" if "?" in url else "?"
-    with urllib.request.urlopen(url + f"{sep}v={random.randrange(1 << 30)}", timeout=60) as r:
+    # Cloudflare answers 403 to urllib's default User-Agent.
+    req = urllib.request.Request(url + f"{sep}v={random.randrange(1 << 30)}", headers={"User-Agent": "manotu-release-check/1"})
+    with urllib.request.urlopen(req, timeout=120) as r:
         return r.read()
 
 
