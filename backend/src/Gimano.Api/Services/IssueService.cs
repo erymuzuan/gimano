@@ -171,6 +171,13 @@ public sealed class IssueService(GimanoDbContext db, IEventPublisher bus, IssueD
         {
             if (vote.Answer == answer) return;
             Unapply(issue, vote);
+            // A withdrawn Emas "still" no longer supports the issue unless another Emas "still" does.
+            if (vote is { Answer: IssueAnswer.Still, Emas: true })
+            {
+                var voteId = vote.Id;
+                issue.EmasSupport = await db.IssueVotes.AnyAsync(v => v.IssueId == issue.Id && v.Id != voteId && v.Answer == IssueAnswer.Still
+                                                                      && v.Emas && v.Weight > 0, ct);
+            }
             vote.Answer = answer; vote.Weight = weight; vote.Emas = emas; vote.CreatedAt = now;
         }
         else

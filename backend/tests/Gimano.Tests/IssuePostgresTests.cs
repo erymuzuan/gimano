@@ -165,6 +165,28 @@ public sealed class PostgresIntegrationIssueTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task A_withdrawn_emas_still_no_longer_counts_as_emas_support()
+    {
+        if (_ds is null) { Assert.Skip("GIMANO_PG_TEST not set"); return; }
+        var users = await SeedAsync(2, emasFirst: true);   // users[0] is Emas
+        var clock = new Clock(T0);
+        var (svc, db, _) = Service(clock);
+        var a = await svc.CreateAsync(users[1].Id,
+            new CreateIssueRequest(IssueKind.OnewayWrongOpenDir, null, Lat, Lng + 0.00003, 0, null, null, null, IssueSource.Report, null), "en", default);
+        await svc.VoteAsync(users[0].Id, a.Id, new IssueVoteRequest(IssueAnswer.Still, Near), default);
+        await svc.VoteAsync(users[0].Id, a.Id, new IssueVoteRequest(IssueAnswer.Unsure, null), default);   // the Emas changes their mind
+
+        // Traffic now uses the forbidden direction; "actually two-way" needs one Emas *and* that evidence.
+        db.SegmentTraversalCounts.Add(new SegmentTraversalCount { WayId = 4242, Seq = 0, Direction = IssueDirection.Forward, Hour = T0.AddHours(1), Count = 6 });
+        await db.SaveChangesAsync();
+        clock.Now = T0.AddHours(3);
+        await using var fresh = NewDb();
+        var issue = await fresh.Issues.FirstAsync(i => i.Id == a.Id);
+        Assert.False(issue.EmasSupport);
+        Assert.Null(await IssueLedger.EvaluateAsync(fresh, issue, clock.Now, default));   // before: confirmed on the withdrawn Emas vote
+    }
+
+    [Fact]
     public async Task Votes_need_proximity_and_new_accounts_weigh_nothing()
     {
         if (_ds is null) { Assert.Skip("GIMANO_PG_TEST not set"); return; }
