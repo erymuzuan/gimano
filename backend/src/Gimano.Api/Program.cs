@@ -91,9 +91,9 @@ if (config.GetValue("Database:MigrateOnStartup", true))
             await db.Database.MigrateAsync();
             break;
         }
-        catch (Exception ex) when (attempt < 10 && ex is Npgsql.NpgsqlException or System.Net.Sockets.SocketException or InvalidOperationException)
+        catch (Exception ex) when (attempt < 60 && ex is Npgsql.NpgsqlException or System.Net.Sockets.SocketException or InvalidOperationException)
         {
-            log.LogWarning("Database not ready ({Message}); retry {Attempt}/10", ex.Message, attempt);
+            log.LogWarning("Database not ready ({Message}); retry {Attempt}/60", ex.Message, attempt);
             await Task.Delay(TimeSpan.FromSeconds(3));
         }
     }

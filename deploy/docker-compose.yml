@@ -6,7 +6,7 @@
 name: gimano
 
 x-dotnet-env: &dotnet-env
-  ConnectionStrings__Postgres: "Host=postgis;Port=5432;Database=${POSTGRES_DB:-gimano};Username=${POSTGRES_USER:-gimano};Password=${POSTGRES_PASSWORD:-gimano};Command Timeout=1800"
+  ConnectionStrings__Postgres: "Host=postgis;Port=5432;Database=${POSTGRES_DB:-gimano};Username=${POSTGRES_USER:-gimano};Password=${POSTGRES_PASSWORD:-gimano};Command Timeout=1800;GSS Encryption Mode=Disable"
   OpenSearch__Url: "http://opensearch:9200"
   RabbitMq__Host: "rabbitmq"
   RabbitMq__Port: "5672"
@@ -23,11 +23,15 @@ services:
       POSTGRES_DB: ${POSTGRES_DB:-gimano}
       POSTGRES_USER: ${POSTGRES_USER:-gimano}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-gimano}
-    command: ["postgres", "-c", "shared_buffers=1GB", "-c", "work_mem=64MB", "-c", "maintenance_work_mem=1GB", "-c", "max_wal_size=4GB"]
+    # Dev tuning: the importer bulk-loads ~1.3 M rows; durability settings are relaxed (set PG_FSYNC=on for anything real).
+    command: ["postgres", "-c", "shared_buffers=1GB", "-c", "work_mem=64MB", "-c", "maintenance_work_mem=1GB", "-c", "max_wal_size=4GB",
+              "-c", "fsync=${PG_FSYNC:-off}", "-c", "synchronous_commit=off", "-c", "full_page_writes=${PG_FSYNC:-off}",
+              "-c", "recovery_init_sync_method=syncfs"]
+    stop_grace_period: 60s
     ports: ["${POSTGIS_PORT:-5433}:5432"]
     volumes: ["pgdata:/var/lib/postgresql/data"]
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-gimano} -d ${POSTGRES_DB:-gimano}"]
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U ${POSTGRES_USER:-gimano} -d ${POSTGRES_DB:-gimano}"]
       interval: 5s
       timeout: 5s
       retries: 30
