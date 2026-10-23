@@ -28,7 +28,7 @@ class BackupWorker(context: Context, params: WorkerParameters) : CoroutineWorker
         return try {
             val bytes = ByteArrayOutputStream().also { c.backup.createBackup(it, c.backupPassphrase()) }.toByteArray()
             c.drive.upload(auth.accessToken, "manotu-${LocalDate.now()}.manotu", bytes)
-            c.drive.prune(auth.accessToken)
+            runCatching { c.drive.prune(auth.accessToken) }
             c.settings.setLastBackup(java.time.Instant.now().toString(), bytes.size.toLong(), fp, "drive")
             Result.success()
         } catch (e: Exception) {

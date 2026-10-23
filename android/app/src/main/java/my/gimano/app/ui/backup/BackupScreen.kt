@@ -123,7 +123,8 @@ fun BackupScreen(vm: BackupViewModel, onBack: () -> Unit) {
             text = {
                 Column {
                     if (files.isEmpty()) Text(stringResource(R.string.no_backup_yet))
-                    files.forEach { f -> Text(my.gimano.app.core.format.Formatters.localStamp(f.createdTime) + "  " + f.name, Modifier.fillMaxWidth().clickable { vm.restoreFromDrive(f) }.padding(vertical = 12.dp)) }
+                    files.forEach { f -> Text(my.gimano.app.core.format.Formatters.localStamp(f.createdTime) + "  " + f.name +
+                        (if (f.installId != null && f.installId == vm.driveInstallId) " · " + stringResource(R.string.backup_this_phone) else ""), Modifier.fillMaxWidth().clickable { vm.restoreFromDrive(f) }.padding(vertical = 12.dp)) }
                 }
             },
             confirmButton = { TextButton(onClick = vm::cancelRestore) { Text(stringResource(R.string.cancel)) } },

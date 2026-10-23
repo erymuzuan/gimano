@@ -48,10 +48,20 @@ fun localOrProp(key: String): String? = (localProps.getProperty(key) ?: (project
 // Play Integrity needs the numeric Google Cloud project number. Debug and release may differ.
 val cloudProjectNumber = (localOrProp("gimano.cloudProjectNumber") ?: "0").toLongOrNull() ?: 0L
 val cloudProjectNumberRelease = (localOrProp("gimano.cloudProjectNumberRelease") ?: localOrProp("gimano.cloudProjectNumber") ?: "0").toLongOrNull() ?: 0L
-// Android OAuth clients are matched by package + SHA-1, one per signing key: debug (Mac debug keystore) and release.
-val googleOauthClientIdRelease = localOrProp("gimano.googleAndroidClientIdRelease") ?: ""
-val googleOauthClientId = (localProps.getProperty("gimano.googleAndroidClientId") ?: localProps.getProperty("gimano.googleOauthClientId")
-    ?: (project.findProperty("gimano.googleAndroidClientId") as String?) ?: "").trim()
+// Android OAuth clients are matched by package + SHA-1, one per signing key: debug (Mac debug keystore) and release,
+// and one set per flavor (my.gimano.app keeps the gimano.* clients; my.manotu.app uses manotu.*).
+fun oauthClient(flavor: String, release: Boolean): String = when {
+    flavor == "manotu" && release -> localOrProp("manotu.googleAndroidClientIdRelease")
+    flavor == "manotu" -> localOrProp("manotu.googleAndroidClientId")
+    release -> localOrProp("gimano.googleAndroidClientIdRelease")
+    else -> localOrProp("gimano.googleAndroidClientId") ?: localOrProp("gimano.googleOauthClientId")
+} ?: ""
+fun cloudProject(flavor: String, release: Boolean): Long {
+    val keys = if (flavor == "manotu") listOf(if (release) "manotu.cloudProjectNumberRelease" else "manotu.cloudProjectNumber", "manotu.cloudProjectNumber")
+        else emptyList()
+    val base = if (release) cloudProjectNumberRelease else cloudProjectNumber
+    return keys.firstNotNullOfOrNull { localOrProp(it)?.toLongOrNull() } ?: base
+}
 
 // Debug-only network security config: cleartext HTTP is allowed for the dev hosts below plus
 // whatever host gimano.apiBaseUrl points at. Release uses src/main/res/xml (HTTPS only).
@@ -79,16 +89,34 @@ android {
         applicationId = "my.gimano.app"
         minSdk = 26
         targetSdk = 36
-        // Override for test builds: -Pgimano.versionCode=3 -Pgimano.versionName=0.2.1
-        versionCode = prop("gimano.versionCode", "5").toInt()
-        versionName = prop("gimano.versionName", "0.2.3")
+        // Versions are per flavor (productFlavors); override with -Pgimano.versionCode / -Pmanotu.versionCode etc.
 
         buildConfigField("String", "API_BASE_URL", "\"$apiBaseUrl\"")
         buildConfigField("String", "MAP_STYLE_URL", "\"$mapStyleUrl\"")
         buildConfigField("String", "MAP_STYLE_DARK_URL", "\"$mapStyleDarkUrl\"")
         buildConfigField("boolean", "DEMO_MODE_DEFAULT", "$demoMode")
-        buildConfigField("String", "GOOGLE_OAUTH_CLIENT_ID", "\"$googleOauthClientId\"")
-        buildConfigField("long", "CLOUD_PROJECT_NUMBER", "${cloudProjectNumber}L")
+        // Per variant (flavor × build type): see androidComponents below.
+        buildConfigField("String", "GOOGLE_OAUTH_CLIENT_ID", "\"\"")
+        buildConfigField("long", "CLOUD_PROJECT_NUMBER", "0L")
+    }
+
+    // One tree, two apps: "gimano" = my.gimano.app (0.2.x, its farewell updates), "manotu" = my.manotu.app (0.3.0+).
+    flavorDimensions += "brand"
+    productFlavors {
+        create("gimano") {
+            dimension = "brand"
+            applicationId = "my.gimano.app"
+            versionCode = prop("gimano.versionCode", "5").toInt()
+            versionName = prop("gimano.versionName", "0.2.3")
+            buildConfigField("String", "UPDATE_MANIFEST_URL", "\"https://www.bukitbunga.com/gimano/download/version.json\"")
+        }
+        create("manotu") {
+            dimension = "brand"
+            applicationId = "my.manotu.app"
+            versionCode = prop("manotu.versionCode", "6").toInt()
+            versionName = prop("manotu.versionName", "0.3.0")
+            buildConfigField("String", "UPDATE_MANIFEST_URL", "\"https://manotu.app/download/version.json\"")
+        }
     }
 
     androidResources {
@@ -118,8 +146,6 @@ android {
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
             buildConfigField("String", "API_BASE_URL", "\"$releaseApiBaseUrl\"")
             buildConfigField("boolean", "DEMO_MODE_DEFAULT", "false")
-            buildConfigField("long", "CLOUD_PROJECT_NUMBER", "${cloudProjectNumberRelease}L")
-            buildConfigField("String", "GOOGLE_OAUTH_CLIENT_ID", "\"$googleOauthClientIdRelease\"")
             signingConfig = signingConfigs.findByName("release")
             // Phones (64/32-bit ARM) + x86_64 emulators; drops JNA's legacy mips/armeabi/x86 libs.
             ndk { abiFilters += listOf("arm64-v8a", "armeabi-v7a", "x86_64") }
@@ -146,6 +172,15 @@ android {
 
     packaging {
         resources.excludes += setOf("META-INF/{AL2.0,LGPL2.1}", "META-INF/INDEX.LIST", "META-INF/DEPENDENCIES")
+    }
+}
+
+androidComponents {
+    onVariants { v ->
+        val flavor = v.flavorName ?: "gimano"
+        val release = v.buildType == "release"
+        v.buildConfigFields?.put("GOOGLE_OAUTH_CLIENT_ID", com.android.build.api.variant.BuildConfigField("String", "\"${oauthClient(flavor, release)}\"", "Drive backup OAuth client"))
+        v.buildConfigFields?.put("CLOUD_PROJECT_NUMBER", com.android.build.api.variant.BuildConfigField("long", "${cloudProject(flavor, release)}L", "Play Integrity project"))
     }
 }
 
@@ -211,15 +246,20 @@ ksp {
     arg("room.schemaLocation", "$projectDir/schemas")
 }
 
-// Release APK with a download-friendly name: app/build/outputs/apk/release/manotu-<version>.apk (Gimano → Manotu, 0.2.3)
-val releaseApkDir = layout.buildDirectory.dir("outputs/apk/release")
-val releaseApkName = "manotu-${android.defaultConfig.versionName}.apk"
-val copyReleaseApk = tasks.register("gimanoReleaseApk") {
-    val src = releaseApkDir.map { it.file("app-release.apk") }
-    val dst = releaseApkDir.map { it.file(releaseApkName) }
-    inputs.file(src)
-    outputs.file(dst)
-    doLast { src.get().asFile.copyTo(dst.get().asFile, overwrite = true) }
+// Release APKs with download-friendly names next to the AGP output:
+//   gimano flavor → app/build/outputs/apk/gimano/release/manotu-<ver>.apk (my.gimano.app 0.2.x, the farewell builds)
+//   manotu flavor → app/build/outputs/apk/manotu/release/manotu-<ver>.apk (my.manotu.app)
+listOf("gimano", "manotu").forEach { flavor ->
+    val cap = flavor.replaceFirstChar { it.uppercase() }
+    val dir = layout.buildDirectory.dir("outputs/apk/$flavor/release")
+    val copy = tasks.register("${flavor}NamedReleaseApk") {
+        val ver = android.productFlavors.getByName(flavor).versionName
+        val src = dir.map { it.file("app-$flavor-release.apk") }
+        val dst = dir.map { it.file("manotu-$ver.apk") }
+        inputs.file(src)
+        outputs.file(dst)
+        doLast { src.get().asFile.copyTo(dst.get().asFile, overwrite = true) }
+    }
+    tasks.matching { it.name == "assemble${cap}Release" }.configureEach { finalizedBy(copy) }
+    tasks.matching { it.name.startsWith("create${cap}ReleaseApkListingFileRedirect") }.configureEach { mustRunAfter(copy) }
 }
-tasks.matching { it.name == "assembleRelease" }.configureEach { finalizedBy(copyReleaseApk) }
-tasks.matching { it.name.startsWith("createReleaseApkListingFileRedirect") }.configureEach { mustRunAfter(copyReleaseApk) }
