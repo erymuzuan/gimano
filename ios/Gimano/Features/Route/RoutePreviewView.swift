@@ -568,6 +568,11 @@ struct LeaveLaterSheet: View {
                     Button {
                         onPick(nil); dismiss()
                     } label: { Label("Leave now", systemImage: "bolt.fill") }
+                    Button {
+                        dismiss()
+                        model.editingDrive = model.newPlannedDrive(from: planner)
+                    } label: { Label("Plan this drive (reminder)", systemImage: "calendar.badge.clock") }
+                        .accessibilityIdentifier("planThisDrive")
                 }
                 Section("Best time to leave") {
                     if loading { ProgressView() }

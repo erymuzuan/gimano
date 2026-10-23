@@ -34,6 +34,16 @@
     "%@ · %@": {
       "shouldTranslate": false
     },
+    "%@ · arrive %@": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ · tiba %@"
+          }
+        }
+      }
+    },
     "%@, %@": {
       "shouldTranslate": false
     },
@@ -369,6 +379,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Tiba di %@"
+          }
+        }
+      }
+    },
+    "Arrive by": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tiba sebelum"
           }
         }
       }
@@ -833,6 +853,16 @@
         }
       }
     },
+    "Choose a destination": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pilih destinasi"
+          }
+        }
+      }
+    },
     "Clear": {
       "localizations": {
         "ms": {
@@ -1143,6 +1173,16 @@
         }
       }
     },
+    "Destination": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Destinasi"
+          }
+        }
+      }
+    },
     "Developer": {
       "localizations": {
         "ms": {
@@ -1363,6 +1403,16 @@
         }
       }
     },
+    "Every day": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Setiap hari"
+          }
+        }
+      }
+    },
     "Exit the roundabout": {
       "localizations": {
         "ms": {
@@ -1512,6 +1562,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Gimano ialah aplikasi navigasi sumber terbuka yang dipacu komuniti untuk Malaysia, dibina menggunakan data OpenStreetMap."
+          }
+        }
+      }
+    },
+    "Go": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pergi"
           }
         }
       }
@@ -1952,6 +2012,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "Lapisan"
+          }
+        }
+      }
+    },
+    "Leave by %@": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bertolak sebelum %@"
+          }
+        }
+      }
+    },
+    "Leave by %@ to arrive at %@ at %@": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bertolak sebelum %@ untuk sampai di %@ pada %@"
           }
         }
       }
@@ -2546,6 +2626,16 @@
         }
       }
     },
+    "One-off. Tap days to repeat every week.": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sekali sahaja. Ketik hari untuk ulang setiap minggu."
+          }
+        }
+      }
+    },
     "Online": {
       "localizations": {
         "ms": {
@@ -2696,6 +2786,16 @@
         }
       }
     },
+    "Plan a drive": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rancang perjalanan"
+          }
+        }
+      }
+    },
     "Plan a drive from the route screen with “Leave later”.": {
       "localizations": {
         "ms": {
@@ -2706,12 +2806,42 @@
         }
       }
     },
+    "Plan a drive here or from the route screen with “Leave later”.": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rancang perjalanan di sini atau dari skrin laluan dengan “Bertolak kemudian”."
+          }
+        }
+      }
+    },
+    "Plan this drive (reminder)": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rancang perjalanan ini (peringatan)"
+          }
+        }
+      }
+    },
     "Planned": {
       "localizations": {
         "ms": {
           "stringUnit": {
             "state": "translated",
             "value": "Dirancang"
+          }
+        }
+      }
+    },
+    "Planned drive": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Perjalanan dirancang"
           }
         }
       }
@@ -2922,6 +3052,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Ulang kata laluan"
+          }
+        }
+      }
+    },
+    "Repeats every week. Gimano reminds you when to leave.": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Berulang setiap minggu. Gimano akan mengingatkan bila perlu bertolak."
           }
         }
       }
@@ -3152,6 +3292,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Disimpan dalam telefon ini sahaja"
+          }
+        }
+      }
+    },
+    "Saved on this phone only. To work out when to leave, the start and end are sent to the server for this calculation only and aren't stored.": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Disimpan dalam telefon ini sahaja. Untuk mengira masa bertolak, titik mula dan destinasi dihantar ke pelayan untuk pengiraan ini sahaja dan tidak disimpan."
           }
         }
       }
@@ -4056,6 +4206,16 @@
         }
       }
     },
+    "Travel mode": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mod perjalanan"
+          }
+        }
+      }
+    },
     "Triaged": {
       "localizations": {
         "ms": {
@@ -4216,6 +4376,16 @@
         }
       }
     },
+    "Via %@": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Melalui %@"
+          }
+        }
+      }
+    },
     "View profile": {
       "localizations": {
         "ms": {
@@ -4306,6 +4476,16 @@
         }
       }
     },
+    "Weekdays": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hari bekerja"
+          }
+        }
+      }
+    },
     "Welcome to Gimano": {
       "localizations": {
         "ms": {
@@ -4342,6 +4522,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Kerusi roda"
+          }
+        }
+      }
+    },
+    "When": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bila"
           }
         }
       }
@@ -4512,6 +4702,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "pemandu"
+          }
+        }
+      }
+    },
+    "e.g. Pergi kerja": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "cth. Pergi kerja"
           }
         }
       }

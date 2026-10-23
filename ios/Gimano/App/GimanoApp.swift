@@ -2,8 +2,33 @@ import SwiftUI
 
 import GoogleSignIn
 
+import UserNotifications
+
+/// Handles taps on planned-drive notifications.
+final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDelegate {
+    @MainActor static var onOpenPlannedDrive: ((String) -> Void)?
+    @MainActor static var pendingDriveId: String?
+
+    func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil) -> Bool {
+        UNUserNotificationCenter.current().delegate = self
+        return true
+    }
+
+    nonisolated func userNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse) async {
+        guard let id = response.notification.request.content.userInfo["plannedDriveId"] as? String else { return }
+        await MainActor.run {
+            if let open = AppDelegate.onOpenPlannedDrive { open(id) } else { AppDelegate.pendingDriveId = id }
+        }
+    }
+
+    nonisolated func userNotificationCenter(_ center: UNUserNotificationCenter, willPresent notification: UNNotification) async -> UNNotificationPresentationOptions {
+        [.banner, .sound]
+    }
+}
+
 @main
 struct GimanoApp: App {
+    @UIApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
     @State private var model: AppModel
 
     init() {
@@ -28,7 +53,11 @@ struct GimanoApp: App {
                 .environment(model)
                 .tint(.brand)
                 .font(Tokens.Font.body)
-                .task { await model.bootstrap() }
+                .task {
+                    AppDelegate.onOpenPlannedDrive = { [model] id in model.openPlannedDrive(id: id) }
+                    await model.bootstrap()
+                    if let id = AppDelegate.pendingDriveId { AppDelegate.pendingDriveId = nil; model.openPlannedDrive(id: id) }
+                }
                 .onOpenURL { url in
                     if GIDSignIn.sharedInstance.handle(url) { return }
                     // A .gimano file opened from Files / WhatsApp / Mail.
@@ -110,6 +139,9 @@ struct RootView: View {
         }
         .sheet(item: $menuDestination) { dest in
             MenuDestinationView(destination: dest)
+        }
+        .sheet(item: $model.editingDrive) { d in
+            PlannedDriveEditor(drive: d)
         }
         .sheet(item: $model.savingPlace) { p in
             SavePlaceSheet(place: p).presentationDetents([.large])

@@ -77,6 +77,11 @@ final class AppModel {
     private(set) var recents: [Recent] = []
     /// "Just for me" places (on device only).
     private(set) var privatePlaces: [PrivatePlace] = []
+    /// Planned drives (on device only) and their next computed "Leave by".
+    private(set) var plannedDrives: [PlannedDrive] = []
+    private(set) var nextLeaveBy: [String: Date] = [:]
+    /// Planned-drive editor (new or existing).
+    var editingDrive: PlannedDrive?
     /// Add-a-place flow (nil when closed); the coordinate is where the pin starts.
     var addPlaceStart: LatLng?
     /// Long-press menu: "Navigate here" / "Add a place here".
@@ -170,6 +175,7 @@ final class AppModel {
             try? store.wipePersonalData()
             try? store.replaceOutbox(kind: "feedback", items: [])
             try? store.setSetting(LegacyDataMigration.doneKey, nil)
+            try? store.setSetting("theme", nil)
         }
         if d.bool(forKey: "GimanoSkipOnboarding") { d.set(true, forKey: "onboarding.done") }
     }
@@ -267,6 +273,57 @@ final class AppModel {
         await migrateLegacyDataIfNeeded()
         reloadLocal()
         await flushFeedback()
+        await rescheduleAllPlannedDrives()
+    }
+
+    // MARK: planned drives
+
+    /// A new planned drive for the trip in route preview (or an empty one from the menu).
+    func newPlannedDrive(from planner: RoutePlanner?) -> PlannedDrive {
+        let dest = planner?.destination
+        var arrival = Calendar.current.date(bySettingHour: 8, minute: 30, second: 0, of: .now.addingTimeInterval(24 * 3600)) ?? .now
+        if let d = planner?.departAt { arrival = d.addingTimeInterval(planner?.selected?.effectiveDurationS ?? 1800) }
+        return PlannedDrive(id: UUID().uuidString.lowercased(), name: dest?.name, origin: nil,
+                            destination: PlannedDrive.Place(lat: dest?.location.lat ?? home?.lat ?? position.lat, lng: dest?.location.lng ?? home?.lng ?? position.lng,
+                                                            name: dest?.name ?? home?.name, address: dest?.address ?? home?.address, placeId: dest?.placeId),
+                            waypoints: planner?.stops ?? [], vehicle: planner?.vehicle ?? vehicle, departAt: nil,
+                            schedule: PlannedDrive.Schedule(arriveAt: arrival), createdAt: .now)
+    }
+
+    func savePlannedDrive(_ d: PlannedDrive) {
+        Task {
+            _ = await PlannedDriveNotifier.requestPermission()
+            var drive = d
+            let leaveBy = await PlannedDriveNotifier.reschedule(drive, from: position, repo: repo)
+            if drive.schedule.arriveAt != nil { drive.departAt = leaveBy }
+            try? store.savePlannedDrive(drive)
+            nextLeaveBy[drive.id] = leaveBy
+            reloadLocal()
+            showToast(leaveBy.map { String(localized: "Leave by \($0.formatted(date: .omitted, time: .shortened))") } ?? String(localized: "Planned"))
+        }
+    }
+
+    func deletePlannedDrive(_ d: PlannedDrive) {
+        try? store.deletePlannedDrive(id: d.id)
+        nextLeaveBy[d.id] = nil
+        reloadLocal()
+        Task { await PlannedDriveNotifier.cancel(d.id) }
+    }
+
+    func rescheduleAllPlannedDrives() async {
+        for d in plannedDrives {
+            nextLeaveBy[d.id] = await PlannedDriveNotifier.reschedule(d, from: position, repo: repo)
+        }
+    }
+
+    /// Notification tap → route preview for that drive.
+    func openPlannedDrive(id: String) {
+        guard let d = (try? store.plannedDrives())?.first(where: { $0.id == id }) else { return }
+        vehicle = d.vehicle
+        showMenu = false
+        menuSheet = nil
+        planRoute(to: Destination(name: d.destination.name ?? d.title, address: d.destination.address ?? "",
+                                  location: d.destination.location, placeId: d.destination.placeId), stops: d.waypoints)
     }
 
     /// Reloads favourites and recents from the on-device store.
@@ -284,6 +341,7 @@ final class AppModel {
         savedPlaces = (try? store.savedPlaces()) ?? []
         recents = (try? store.recents()) ?? []
         privatePlaces = (try? store.privatePlaces()) ?? []
+        plannedDrives = (try? store.plannedDrives()) ?? []
         map.privatePins = privatePlaces.map { $0.location }
     }
 

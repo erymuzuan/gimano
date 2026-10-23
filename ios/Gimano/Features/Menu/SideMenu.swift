@@ -106,9 +106,7 @@ struct MenuDestinationView: View {
             Group {
                 switch destination {
                 case .profile: ProfileView()
-                case .planned:
-                    ContentUnavailableView("No planned drives", systemImage: "calendar",
-                                           description: Text("Plan a drive from the route screen with “Leave later”."))
+                case .planned: PlannedDrivesView()
                 case .inbox:
                     ContentUnavailableView("Inbox is empty", systemImage: "tray",
                                            description: Text("Thanks from other drivers and report updates will appear here."))
