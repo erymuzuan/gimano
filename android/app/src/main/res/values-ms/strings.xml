@@ -601,4 +601,6 @@
     <string name="photo_take">Ambil gambar</string>
     <string name="photo_choose">Pilih dari galeri</string>
     <string name="formerly_gimano">Dahulu Gimano · Formerly Gimano</string>
+    <string name="restore_from_gimano">Pulihkan dari Gimano</string>
+    <string name="backup_this_phone">telefon ini</string>
 </resources>

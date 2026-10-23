@@ -21,7 +21,27 @@ import java.io.IOException
 import java.io.InputStream
 
 @Serializable
-data class DriveFile(val id: String, val name: String = "", val createdTime: String = "", val size: String? = null)
+data class DriveFile(
+    val id: String, val name: String = "", val createdTime: String = "", val size: String? = null,
+    val appProperties: Map<String, String>? = null,
+) {
+    val installId: String? get() = appProperties?.get(DrivePrune.INSTALL_ID)
+}
+
+/**
+ * appDataFolder is shared by every OAuth client of the Google Cloud project (Gimano and Manotu, Android and iOS,
+ * every phone of the user). Each upload is tagged with appProperties.installId (random, per install), and
+ * retention only ever deletes files carrying THIS install's id. Untagged or other-id files are never touched.
+ */
+object DrivePrune {
+    const val INSTALL_ID = "installId"
+    const val KEEP = 5
+
+    fun toDelete(files: List<DriveFile>, installId: String, keep: Int = KEEP): List<DriveFile> {
+        if (installId.isBlank()) return emptyList()
+        return files.filter { it.installId == installId }.sortedByDescending { it.createdTime }.drop(keep)
+    }
+}
 
 @Serializable
 private data class DriveList(val files: List<DriveFile> = emptyList())
@@ -35,14 +55,21 @@ sealed interface DriveAuth {
 /**
  * Backups in the user's OWN Google Drive app-private folder (`appDataFolder`, scope
  * `drive.appdata`): only Gimano can see the files; Gimano's servers are never involved.
- * Drive REST v3 directly, keeping the last [KEEP] backups.
+ * Drive REST v3 directly. Keeps this install's newest [DrivePrune.KEEP] backups; see [DrivePrune] for why it
+ * never deletes anything it did not upload itself.
  */
 class DriveBackup(private val context: Context, private val http: OkHttpClient = OkHttpClient()) {
     companion object {
         const val SCOPE = "https://www.googleapis.com/auth/drive.appdata"
-        const val KEEP = 5
         private const val API = "https://www.googleapis.com/drive/v3"
-        private const val UPLOAD = "https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,name,createdTime,size"
+        private const val UPLOAD = "https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,name,createdTime,size,appProperties"
+    }
+
+    /** Random per-install id in noBackupFilesDir, so Android auto-backup never copies it to another phone. */
+    val installId: String by lazy {
+        val f = java.io.File(context.noBackupFilesDir, "drive-install-id")
+        f.takeIf { it.exists() }?.readText()?.trim()?.takeIf { it.length >= 16 }
+            ?: java.util.UUID.randomUUID().toString().also { f.writeText(it) }
     }
 
     /** False until an OAuth client id is put in gimano.local.properties. */
@@ -58,7 +85,7 @@ class DriveBackup(private val context: Context, private val http: OkHttpClient =
         runCatching { Identity.getAuthorizationClient(context).getAuthorizationResultFromIntent(data).accessToken }.getOrNull()
 
     suspend fun upload(token: String, name: String, bytes: ByteArray): DriveFile = withContext(Dispatchers.IO) {
-        val meta = """{"name":"$name","parents":["appDataFolder"]}"""
+        val meta = """{"name":"$name","parents":["appDataFolder"],"appProperties":{"${DrivePrune.INSTALL_ID}":"$installId","app":"android"}}"""
         val body = MultipartBody.Builder().setType("multipart/related".toMediaType())
             .addPart(meta.toRequestBody("application/json; charset=UTF-8".toMediaType()))
             .addPart(bytes.toRequestBody("application/zip".toMediaType()))
@@ -71,7 +98,7 @@ class DriveBackup(private val context: Context, private val http: OkHttpClient =
     }
 
     suspend fun list(token: String): List<DriveFile> = withContext(Dispatchers.IO) {
-        val url = "$API/files?spaces=appDataFolder&orderBy=createdTime%20desc&fields=files(id,name,createdTime,size)&pageSize=50"
+        val url = "$API/files?spaces=appDataFolder&orderBy=createdTime%20desc&fields=files(id,name,createdTime,size,appProperties)&pageSize=100"
         http.newCall(Request.Builder().url(url).header("Authorization", "Bearer $token").build()).execute().use {
             if (!it.isSuccessful) throw IOException("Drive list failed: HTTP ${it.code}")
             GimanoJson.decodeFromString(DriveList.serializer(), it.body!!.string()).files
@@ -84,9 +111,9 @@ class DriveBackup(private val context: Context, private val http: OkHttpClient =
         resp.body!!.bytes().inputStream().also { resp.close() }
     }
 
-    /** Deletes all but the newest [KEEP] backups. */
+    /** Deletes this install's own backups beyond the newest [DrivePrune.KEEP]; never other installs' or untagged files. */
     suspend fun prune(token: String) = withContext(Dispatchers.IO) {
-        list(token).drop(KEEP).forEach { f ->
+        DrivePrune.toDelete(list(token), installId).forEach { f ->
             http.newCall(Request.Builder().url("$API/files/${f.id}").header("Authorization", "Bearer $token").delete().build()).execute().close()
         }
     }

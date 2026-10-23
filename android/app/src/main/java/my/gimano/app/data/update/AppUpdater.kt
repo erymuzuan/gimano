@@ -61,7 +61,8 @@ sealed interface UpdateError {
  */
 class AppUpdater(private val context: Context) {
     companion object {
-        const val MANIFEST_URL = "https://www.bukitbunga.com/gimano/download/version.json"
+        /** Per flavor: my.gimano.app → bukitbunga.com/gimano/download, my.manotu.app → manotu.app/download. */
+        val MANIFEST_URL: String = BuildConfig.UPDATE_MANIFEST_URL
         private const val PREFS = "gimano.updater"
         private const val CHANNEL = "updates"
         @Volatile var instance: AppUpdater? = null
@@ -94,15 +95,23 @@ class AppUpdater(private val context: Context) {
         val now = System.currentTimeMillis()
         if (!UpdatePolicy.shouldCheck(prefs.getLong("lastCheck", 0), now, force) || _ui.value.checking) return
         _ui.update { it.copy(checking = true) }
+        // 404/410: nothing published at this address yet (e.g. manotu.app before its first release) → quietly up to date.
+        var notPublished = false
         val text = withContext(Dispatchers.IO) {
             runCatching {
                 http.newCall(Request.Builder().url(MANIFEST_URL).header("Cache-Control", "no-cache").build()).execute().use { r ->
+                    if (r.code == 404 || r.code == 410) notPublished = true
                     if (r.isSuccessful) r.body?.string() else null
                 }
             }.getOrNull()
         }
         val m = text?.let(UpdateManifest::parse)
         if (m != null) prefs.edit().putString("manifest", text).putLong("lastCheck", now).apply()
+        if (notPublished) {
+            prefs.edit().remove("manifest").putLong("lastCheck", now).apply()
+            _ui.update { it.copy(checking = false, lastCheckMs = now, decision = UpdateDecision.UpToDate) }
+            return
+        }
         _ui.update { it.copy(checking = false, lastCheckMs = if (m != null) now else it.lastCheckMs, decision = if (m != null) decide(m) else it.decision) }
     }
 

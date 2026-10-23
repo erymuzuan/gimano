@@ -65,6 +65,7 @@ class BackupViewModel(private val c: AppContainer) : ViewModel() {
     val events: SharedFlow<BackupEvent> = _events
     val settings = c.settings.state
     val driveConfigured: Boolean get() = c.drive.configured
+    val driveInstallId: String get() = c.drive.installId
 
     private var sessionPassphrase: String? = null
     private var afterConsent: (suspend (String) -> Unit)? = null
@@ -127,7 +128,7 @@ class BackupViewModel(private val c: AppContainer) : ViewModel() {
     private suspend fun uploadToDrive(token: String) {
         val bytes = backupBytes()
         c.drive.upload(token, fileName(), bytes)
-        c.drive.prune(token)
+        runCatching { c.drive.prune(token) }   // own tagged files only (DrivePrune)
         record(bytes.size.toLong(), "drive")
         _events.tryEmit(BackupEvent.Message(R.string.backup_drive_done))
     }

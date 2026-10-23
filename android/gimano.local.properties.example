@@ -10,3 +10,11 @@ gimano.cloudProjectNumberRelease=
 
 # Android OAuth client for the RELEASE signing key (Drive backup; identifier, not a secret).
 gimano.googleAndroidClientIdRelease=
+
+# --- my.manotu.app (manotu flavor) ---
+# Android OAuth clients for package my.manotu.app (debug: my.manotu.app.dev + Mac debug key; release: release key).
+manotu.googleAndroidClientId=
+manotu.googleAndroidClientIdRelease=
+# Play Integrity project number for my.manotu.app (falls back to gimano.cloudProjectNumber[Release]).
+manotu.cloudProjectNumber=
+manotu.cloudProjectNumberRelease=

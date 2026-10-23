@@ -283,6 +283,11 @@ fun GimanoRoot(vm: MainViewModel, onMic: () -> Unit, onExit: () -> Unit, onReque
             onDismissRequest = vm::dismissPrivacyCard,
             text = { my.gimano.app.ui.common.PrivacyCard(onBackup = { vm.dismissPrivacyCard(); vm.open(Screen.Backup) }) },
             confirmButton = { TextButton(onClick = vm::dismissPrivacyCard) { Text(stringResource(R.string.got_it), fontWeight = FontWeight.ExtraBold) } },
+            // Manotu's first run: offer (never automatic) to bring places over from a Gimano/Manotu backup file or Drive.
+            // The Backup screen asks which backup and confirms before anything is replaced.
+            dismissButton = if (my.gimano.app.BuildConfig.FLAVOR == "manotu") {
+                { TextButton(onClick = { vm.dismissPrivacyCard(); vm.open(Screen.Backup) }) { Text(stringResource(R.string.restore_from_gimano), fontWeight = FontWeight.ExtraBold) } }
+            } else null,
         )
     }
     if (ui.reportOpen) {

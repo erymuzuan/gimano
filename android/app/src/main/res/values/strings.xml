@@ -602,4 +602,6 @@
     <string name="photo_take">Take photo</string>
     <string name="photo_choose">Choose from gallery</string>
     <string name="formerly_gimano">Dahulu Gimano · Formerly Gimano</string>
+    <string name="restore_from_gimano">Restore from a backup</string>
+    <string name="backup_this_phone">this phone</string>
 </resources>
