@@ -12,6 +12,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.update
@@ -223,7 +224,9 @@ class MainViewModel(private val c: AppContainer) : ViewModel() {
         viewModelScope.launch { local.recents.collect { r -> _ui.update { it.copy(recents = r) } } }
         viewModelScope.launch { local.privatePlaces.collect { l -> _ui.update { it.copy(privatePins = l.map { p -> p.id to GeoPoint(p.lat, p.lng) }) } } }
         refreshAccount()
-        viewModelScope.launch { queryFlow.debounce(220).distinctUntilChanged().collect { runSearch(it) } }
+        // collectLatest: a new query cancels the one in flight, so results never lag behind typing
+        // (keyboards commit a few letters at a time; queued prefix searches showed stale "no results").
+        viewModelScope.launch { queryFlow.debounce(250).distinctUntilChanged().collectLatest { runSearch(it) } }
         viewModelScope.launch { boundsFlow.debounce(400).collect { b -> if (b != null) loadLive(b) } }
         viewModelScope.launch {
             while (isActive) {
@@ -496,6 +499,7 @@ class MainViewModel(private val c: AppContainer) : ViewModel() {
         // search or the picker had left the map, which the search screen doesn't even show.)
         val near: my.gimano.app.data.repo.GeoPointLite? = null
         val got = runCatching { repo.searchFull(q, me.lat, me.lng, 20, exact = _ui.value.exactSearch, near = near) }
+        (got.exceptionOrNull() as? kotlinx.coroutines.CancellationException)?.let { throw it }   // superseded by a newer query
         val full = got.getOrDefault(SearchResponse())
         if (_ui.value.query == q) _ui.update {
             it.copy(results = full.results.withDistanceFrom(me), localHits = localHits, searching = false, searchedOnce = true, searchFailed = got.isFailure,
