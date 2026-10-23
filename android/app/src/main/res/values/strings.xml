@@ -525,4 +525,5 @@
     <string name="recovery_unknown_key">No Gimano account uses this recovery code. Check the words; a code stops working after the key is replaced.</string>
     <string name="recovery_rate_limited">Too many attempts. Wait a minute and try again.</string>
     <string name="recovery_offline">Can\'t reach the Gimano server. Check your connection and try again.</string>
+    <string name="waiting_for_gps">Waiting for a precise GPS fix…</string>
 </resources>

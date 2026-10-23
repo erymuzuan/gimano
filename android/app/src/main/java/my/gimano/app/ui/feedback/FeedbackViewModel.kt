@@ -61,7 +61,7 @@ class FeedbackViewModel(private val c: AppContainer) : ViewModel() {
     fun open(screen: String, screenshot: ByteArray?, routeId: String?, placeId: String?) {
         _draft.value = FeedbackDraft(
             open = true, screen = screen, screenshot = screenshot, includeScreenshot = screenshot != null,
-            includeDevice = c.settings.current.feedbackDiagnostics, routeId = routeId, placeId = placeId,
+            includeDevice = c.settings.current.feedbackDevice, routeId = routeId, placeId = placeId,
         )
     }
 
@@ -73,7 +73,7 @@ class FeedbackViewModel(private val c: AppContainer) : ViewModel() {
         if (!d.canSend) return
         _draft.update { it.copy(sending = true) }
         viewModelScope.launch {
-            c.settings.setFeedbackDiagnostics(d.includeDevice)
+            c.settings.setFeedbackDevice(d.includeDevice)
             val contact = (d.contact as? my.gimano.app.core.feedback.ContactRules.State.Ok)?.let { my.gimano.app.data.model.ContactDetails(it.email, it.whatsapp, consent = true) }
             val req = FeedbackRequest(
                 category = d.category!!, message = d.message.trim().take(FeedbackRules.MAX_MESSAGE), rating = d.rating, screen = d.screen,

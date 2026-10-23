@@ -204,8 +204,10 @@ class MainViewModel(private val c: AppContainer) : ViewModel() {
         viewModelScope.launch {
             c.navigation.state.collect { s ->
                 val p = s.progress
-                if (s.active && p != null && _ui.value.following && _ui.value.screen == Screen.Navigating) {
-                    _ui.update { it.copy(camera = CameraCommand.Follow(s.puck ?: p.snapped, s.puckBearing, zoom = if (s.mode.isMotorised) 17.0 else 18.0, tilt = 50.0, bottomDp = 170, topDp = 420)) }
+                // Follow the puck even before there is route progress (poor fixes), so it never sits off-screen.
+                val target = s.puck ?: p?.snapped
+                if (s.active && target != null && _ui.value.following && _ui.value.screen == Screen.Navigating) {
+                    _ui.update { it.copy(camera = CameraCommand.Follow(target, s.puckBearing, zoom = if (p == null) 15.0 else if (s.mode.isMotorised) 17.0 else 18.0, tilt = if (p == null) 0.0 else 50.0, bottomDp = 170, topDp = 420)) }
                 }
             }
         }
@@ -335,6 +337,11 @@ class MainViewModel(private val c: AppContainer) : ViewModel() {
             _ui.update { it.copy(camera = CameraCommand.Reset2D(here(), 15.5)) }
         }
     }
+
+    /** Height of the collapsed home sheet: the map's bottom inset on Home, so the puck is never under it. */
+    private val _homeSheetDp = kotlinx.coroutines.flow.MutableStateFlow(0)
+    val homeSheetDp: kotlinx.coroutines.flow.StateFlow<Int> = _homeSheetDp
+    fun setHomeSheetDp(dp: Int) { _homeSheetDp.value = dp }
 
     private var lastPanMs: Long? = null
     private var followResumeJob: Job? = null

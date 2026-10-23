@@ -43,7 +43,8 @@ data class AppSettings(
     val lastBackupDest: String? = null,
     val legacyMigrated: Boolean = false,
     val privacyCardDismissed: Boolean = false,
-    val feedbackDiagnostics: Boolean = false,
+    /** "Sertakan maklumat peranti" (default ON per docs/api.md; previewed). Replaces 0.1.0's opt-in diagnostics. */
+    val feedbackDevice: Boolean = true,
     val theme: String = "light",
     val inboxRead: Set<String> = emptySet(),
 )
@@ -85,7 +86,7 @@ class SettingsStore(private val context: Context, private val scope: CoroutineSc
         val lastBackupDest = stringPreferencesKey("lastBackupDest")
         val legacyMigrated = booleanPreferencesKey("legacyMigrated")
         val privacyCardDismissed = booleanPreferencesKey("privacyCardDismissed")
-        val feedbackDiagnostics = booleanPreferencesKey("feedbackDiagnostics")
+        val feedbackDevice = booleanPreferencesKey("feedbackDevice")
         val theme = stringPreferencesKey("theme")
         val inboxRead = androidx.datastore.preferences.core.stringSetPreferencesKey("inboxRead")
     }
@@ -129,7 +130,7 @@ class SettingsStore(private val context: Context, private val scope: CoroutineSc
         lastBackupDest = p[K.lastBackupDest],
         legacyMigrated = p[K.legacyMigrated] ?: false,
         privacyCardDismissed = p[K.privacyCardDismissed] ?: false,
-        feedbackDiagnostics = p[K.feedbackDiagnostics] ?: false,
+        feedbackDevice = p[K.feedbackDevice] ?: true,
         theme = p[K.theme] ?: "light",
         inboxRead = p[K.inboxRead] ?: emptySet(),
     )
@@ -169,7 +170,7 @@ class SettingsStore(private val context: Context, private val scope: CoroutineSc
     }
     suspend fun setLegacyMigrated() = context.dataStore.edit { it[K.legacyMigrated] = true }
     suspend fun setPrivacyCardDismissed() = context.dataStore.edit { it[K.privacyCardDismissed] = true }
-    suspend fun setFeedbackDiagnostics(v: Boolean) = context.dataStore.edit { it[K.feedbackDiagnostics] = v }
+    suspend fun setFeedbackDevice(v: Boolean) = context.dataStore.edit { it[K.feedbackDevice] = v }
     suspend fun setTheme(v: String) = context.dataStore.edit { it[K.theme] = v }
     /** Local read/unread state for the inbox (kept to the last 500 ids). */
     suspend fun markInboxRead(ids: Collection<String>) = context.dataStore.edit { p ->

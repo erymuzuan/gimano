@@ -51,11 +51,13 @@ fun GimanoRoot(vm: MainViewModel, onMic: () -> Unit, onExit: () -> Unit, onReque
     val nav by vm.nav.collectAsStateWithLifecycle()
     val settings by vm.settingsState.collectAsStateWithLifecycle()
     val upd by container.updater.ui.collectAsStateWithLifecycle()
+    val homeSheetDp by vm.homeSheetDp.collectAsStateWithLifecycle()
     var updateSheetOpen by remember { mutableStateOf(true) }
     var forceUpdateSheet by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) { container.updater.check() }   // on launch; at most every 6 h
     LaunchedEffect(Unit) { container.crashes.onAppStart() }
-    LaunchedEffect(ui.screen) { container.crashes.screen = ui.screen::class.simpleName?.lowercase() }
+    // data objects' toString() is a compile-time constant (survives R8); data classes → "Search(purpose=…)".
+    LaunchedEffect(ui.screen) { container.crashes.screen = ui.screen.toString().substringBefore('(').lowercase() }
     val crashPending by container.crashes.pending.collectAsStateWithLifecycle()
     val fallback by vm.fallbackActive.collectAsStateWithLifecycle()
     val handle = remember { MapHandle() }
@@ -194,6 +196,7 @@ fun GimanoRoot(vm: MainViewModel, onMic: () -> Unit, onExit: () -> Unit, onReque
                 state = renderState,
                 camera = ui.camera,
                 handle = handle,
+                bottomInsetDp = if (screen == Screen.Home) homeSheetDp else 0,
                 modifier = Modifier.fillMaxSize(),
                 onCameraIdle = vm::onCameraIdle,
                 onMapClick = { if (screen == Screen.Home) vm.selectAlert(null) },
