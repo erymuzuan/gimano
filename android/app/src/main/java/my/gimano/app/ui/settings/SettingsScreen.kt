@@ -74,6 +74,7 @@ fun SettingsScreen(s: AppSettings, vm: MainViewModel, fallback: Boolean, display
 
             Spacer(Modifier.height(8.dp))
             SwitchRow(stringResource(R.string.clock_24h), null, s.use24h, vm::setUse24h)
+            SwitchRow(stringResource(R.string.auto_start_nav), stringResource(R.string.auto_start_nav_desc), s.autoStartNav, vm::setAutoStartNav)
             SwitchRow(stringResource(R.string.demo_mode), stringResource(R.string.demo_mode_desc), s.demoMode, vm::setDemoMode)
             // Developer settings: debug builds only.
             if (BuildConfig.DEBUG) {

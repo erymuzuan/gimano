@@ -27,13 +27,21 @@ class SwitchingRepository(
         _fallbackActive.value = false
     }
 
+    private val policy = my.gimano.app.core.net.FallbackPolicy()
+
+    /**
+     * Demo data only after repeated failures while the app is on screen (FallbackPolicy); a failure in the background
+     * (network blocked by the OS) just fails that call. The first foreground failures fail the call too, so screens
+     * show their own "couldn't load" state and retry.
+     */
     private suspend fun <T> pick(block: suspend GimanoRepository.() -> T): T {
         if (isDemo) return demo.block()
         return try {
-            remote.block()
+            remote.block().also { policy.onSuccess() }
         } catch (e: retrofit2.HttpException) {
             // The proxy answers but the API behind it is down (500/502/503/504 HTML page): same as unreachable.
-            if (!my.gimano.app.core.net.Reachability.isGatewayDown(e.code())) throw e
+            if (!my.gimano.app.core.net.Reachability.isGatewayDown(e.code())) { policy.onSuccess(); throw e }
+            if (!policy.onFailure(my.gimano.app.core.net.AppForeground.foreground, System.currentTimeMillis())) throw e
             lastFallbackReason = e.response()?.raw()?.request?.let { "${it.method} ${it.url.encodedPath} → HTTP ${e.code()}" } ?: "HTTP ${e.code()}"
             _fallbackActive.value = true
             demo.block()
@@ -41,10 +49,11 @@ class SwitchingRepository(
             // A dropped keep-alive connection ("unexpected end of stream") is not an outage: retry once.
             try {
                 kotlinx.coroutines.delay(300)
-                remote.block()
+                remote.block().also { policy.onSuccess() }
             } catch (e2: IOException) {
                 if (!isUnreachable(e2)) throw e2
-                // Server unreachable (wrong base URL, no backend, no Tailscale, offline): keep the app usable.
+                if (!policy.onFailure(my.gimano.app.core.net.AppForeground.foreground, System.currentTimeMillis())) throw e2
+                // Server unreachable for a while (wrong base URL, no backend, offline): keep the app usable.
                 lastFallbackReason = e2.javaClass.simpleName
                 _fallbackActive.value = true
                 demo.block()
@@ -59,7 +68,7 @@ class SwitchingRepository(
     fun isUnreachable(e: IOException): Boolean = my.gimano.app.core.net.Reachability.isUnreachable(e)
 
     /** While falling back, the app probes the server and switches back as soon as it answers. */
-    suspend fun probeRemote(): Boolean = try { remote.ensureAuth(); _fallbackActive.value = false; true } catch (e: Exception) { false }
+    suspend fun probeRemote(): Boolean = try { remote.ensureAuth(); policy.onSuccess(); _fallbackActive.value = false; true } catch (e: Exception) { false }
 
     /**
      * Writes the user expects to reach the real server (feedback, places, reviews, photos) never

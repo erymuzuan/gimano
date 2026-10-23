@@ -36,6 +36,8 @@ data class AppSettings(
     val showAlerts: Boolean = true,
     val showDrivers: Boolean = true,
     val use24h: Boolean = false,
+    /** Route preview "Go" countdown (10 s) for one-tap destinations. Default off. */
+    val autoStartNav: Boolean = false,
     val autoBackup: Boolean = false,
     val lastBackupAt: String? = null,
     val lastBackupBytes: Long = 0,
@@ -82,6 +84,7 @@ class SettingsStore(private val context: Context, private val scope: CoroutineSc
         val showAlerts = booleanPreferencesKey("showAlerts")
         val showDrivers = booleanPreferencesKey("showDrivers")
         val use24h = booleanPreferencesKey("use24h")
+        val autoStartNav = booleanPreferencesKey("autoStartNav")
         val autoBackup = booleanPreferencesKey("autoBackup")
         val lastBackupAt = stringPreferencesKey("lastBackupAt")
         val lastBackupBytes = stringPreferencesKey("lastBackupBytes")
@@ -128,6 +131,7 @@ class SettingsStore(private val context: Context, private val scope: CoroutineSc
         showAlerts = p[K.showAlerts] ?: true,
         showDrivers = p[K.showDrivers] ?: true,
         use24h = p[K.use24h] ?: false,
+        autoStartNav = p[K.autoStartNav] ?: false,
         autoBackup = p[K.autoBackup] ?: false,
         lastBackupAt = p[K.lastBackupAt],
         lastBackupBytes = p[K.lastBackupBytes]?.toLongOrNull() ?: 0,
@@ -171,6 +175,7 @@ class SettingsStore(private val context: Context, private val scope: CoroutineSc
         it[K.showTraffic] = traffic; it[K.showAlerts] = alerts; it[K.showDrivers] = drivers
     }
     suspend fun setUse24h(v: Boolean) = context.dataStore.edit { it[K.use24h] = v }
+    suspend fun setAutoStartNav(v: Boolean) = context.dataStore.edit { it[K.autoStartNav] = v }
     suspend fun setAutoBackup(v: Boolean) = context.dataStore.edit { it[K.autoBackup] = v }
     suspend fun setLastBackup(at: String, bytes: Long, fingerprint: String, dest: String) = context.dataStore.edit {
         it[K.lastBackupAt] = at; it[K.lastBackupBytes] = bytes.toString(); it[K.lastBackupFingerprint] = fingerprint; it[K.lastBackupDest] = dest
