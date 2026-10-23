@@ -49,7 +49,13 @@ CREATE TABLE planned_drives (
   id TEXT PRIMARY KEY, name TEXT, origin_json TEXT, destination_json TEXT NOT NULL,
   waypoints_json TEXT, vehicle TEXT NOT NULL, depart_at TEXT, created_at TEXT NOT NULL);
 
-CREATE TABLE settings (key TEXT PRIMARY KEY, value TEXT NOT NULL);  -- units, voice, avoid prefs, vehicle…
+CREATE TABLE settings (key TEXT PRIMARY KEY, value TEXT NOT NULL);
+
+CREATE TABLE identity (                -- the contributor pseudonym's signing key (single row)
+  user_id TEXT PRIMARY KEY, display_name TEXT,
+  seed_b64 TEXT NOT NULL,              -- 32-byte Ed25519 seed; at rest wrapped with Keystore/Keychain key,
+                                       -- in a backup protected only by the backup's own passphrase encryption
+  created_at TEXT NOT NULL);  -- units, voice, avoid prefs, vehicle…
 
 -- Not backed up (device-local queues):
 CREATE TABLE outbox (id TEXT PRIMARY KEY, kind TEXT NOT NULL, payload_json TEXT NOT NULL,

@@ -13,7 +13,11 @@ Errors: RFC 7807 `application/problem+json`.
 ## Auth & profile
 
 ```
-POST /auth/device            {deviceId, platform:"android"|"ios", locale}
+POST /auth/register          {publicKey: base64 Ed25519, platform:"android"|"ios", locale}
+  → 200 {token, userId, displayName}          (new; see identity-and-reputation.md)
+POST /auth/token             {userId, ts, sig}   sig = Ed25519 over "GIMANO-AUTH\n"+userId+"\n"+ts → {token}
+POST /me/keys                {publicKey, sigByOldKey?}  attach/rotate the signing key (legacy accounts: JWT only)
+POST /auth/device            {deviceId, platform:"android"|"ios", locale}   (legacy, kept for old app versions)
   → 200 {token, userId, displayName}
 
 GET  /me                     → User
@@ -42,6 +46,10 @@ DELETE /me                → 204   (deletes the account; the user's reports are
 Legacy shapes (migration only): `SavedPlace = {id, kind, name, icon, lat, lng, address, placeId?, sortOrder}`,
 `Recent = {id, name, address, lat, lng, placeId?, lastUsedAt}`. Favourite labels/icons:
 `home, work, kampung, mertua, star, heart, school, surau, food, gym, shop, hospital`.
+
+**Contributor identity, signed requests, trust tiers and vetting rules:** see
+[identity-and-reputation.md](identity-and-reputation.md). `User` gains
+`tier: "baharu"|"perak"|"emas", accuracy: number|null, placesAccepted, verifierVotes, nextTier: {name, missing: string[]}`.
 
 ## Search & places
 
@@ -92,7 +100,10 @@ POST   /places                        → 201 Place
 PATCH  /places/{id}                   → Place        (owner only, community places only)
 DELETE /places/{id}                   → 204          (owner only; published places become "closed", not deleted)
 POST   /places/{id}/suggest-edit      → 202 {suggestionId}   (any user; any place incl. OSM → stored as a map-data suggestion)
-POST   /places/{id}/verify            {exists: true|false, correctLocation?: bool} → 200 Place
+POST   /places/{id}/verify  (signed)  {answer: yes|no|unsure, nameCorrect?, locationCorrect?,
+                                      proximity:{cell, withinM}, attestation?:{platform, token}}
+                                      → 200 {status, confirmationsWeighted, required}
+GET    /places/pending-nearby?cell=<geohash6>   → PlaceSummary[] (pending, excludes own)
 GET    /me/places/contributed         → PlaceSummary[]
 ```
 

@@ -38,10 +38,16 @@ the product does.
    GitHub.
    *Tiada iklan, tiada penjejak, kod sumber terbuka.*
 
+## We never know who you are
+
+*Kami tidak pernah tahu siapa anda.* Your contributions are credited to a random pseudonym that only your
+phone (and your own backup) can sign for. No email, phone number, name or Google/Apple login, ever. Your
+reputation (Baharu, Perak, Emas) describes your public work, not you.
+
 ## What we do keep (be upfront)
 
-Only what you choose to share with everyone: road reports, public places, reviews and photos,
-and feedback. You can delete your account at any time; your public contributions are then
+Only what you choose to share with everyone (road reports, public places, reviews and photos,
+and feedback), credited to your pseudonym and its reputation counters. You can delete your account at any time; your public contributions are then
 anonymised.
 
 *Kami hanya menyimpan apa yang anda kongsi secara terbuka: laporan jalan, tempat awam, ulasan,
