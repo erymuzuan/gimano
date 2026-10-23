@@ -601,8 +601,7 @@
     <string name="search_failed">Couldn\'t search right now. Check your connection.</string>
     <string name="photo_take">Take photo</string>
     <string name="photo_choose">Choose from gallery</string>
-    <string name="formerly_gimano">Dahulu Gimano · Formerly Gimano</string>
-    <string name="restore_from_gimano">Restore from a backup</string>
+    <string name="restore_from_gimano">Restore from backup</string>
     <string name="backup_this_phone">this phone</string>
     <string name="origin_unknown">Your location unknown</string>
     <string name="origin_locating">Finding your location…</string>
