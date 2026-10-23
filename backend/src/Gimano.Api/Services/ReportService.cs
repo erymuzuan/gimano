@@ -5,13 +5,14 @@ using Gimano.Core.Domain;
 using Gimano.Core.Geo;
 using Gimano.Core.Messaging;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Caching.Memory;
 
 namespace Gimano.Api.Services;
 
 public sealed class NotFoundException(string message) : Exception(message);
 public sealed class ConflictException(string message) : Exception(message);
 
-public sealed class ReportService(GimanoDbContext db, IEventPublisher bus, GeoLookup geo, TimeProvider clock)
+public sealed class ReportService(GimanoDbContext db, IEventPublisher bus, GeoLookup geo, TimeProvider clock, IMemoryCache cache)
 {
     public async Task<(ReportDto Report, bool Merged)> CreateAsync(Guid userId, CreateReportRequest req, CancellationToken ct)
     {
@@ -72,6 +73,7 @@ public sealed class ReportService(GimanoDbContext db, IEventPublisher bus, GeoLo
 
         var voter = await db.Users.FirstOrDefaultAsync(u => u.Id == userId, ct) ?? throw new UnauthorizedAccessException("This account was deleted.");
         var existing = await db.ReportVotes.FindAsync([reportId, userId], ct);
+        var effect = AlertRules.OnVote(existing?.StillThere, stillThere);
         if (existing is not null)
         {
             // Changing your mind is allowed, but a repeated identical vote does nothing.
@@ -87,14 +89,14 @@ public sealed class ReportService(GimanoDbContext db, IEventPublisher bus, GeoLo
                 Weight = AlertRules.VoteWeight(voter.Reputation), CreatedAt = now,
             });
         }
-        voter.Points += AlertRules.Points.Vote;
+        if (effect.AwardPoints) voter.Points += AlertRules.Points.Vote;
+        report.Confirmations = Math.Max(0, report.Confirmations + effect.ConfirmationsDelta);
 
         var expired = false;
         if (stillThere)
         {
-            report.Confirmations++;
-            report.ExpiresAt = AlertRules.ExtendOnStillThere(report.Type, report.CreatedAt, report.ExpiresAt, now);
-            if (report.Reporter is not null && report.ReporterId != userId) report.Reporter.Points += AlertRules.Points.Confirmed;
+            if (effect.ExtendExpiry) report.ExpiresAt = AlertRules.ExtendOnStillThere(report.Type, report.CreatedAt, report.ExpiresAt, now);
+            if (effect.AwardPoints && report.Reporter is not null && report.ReporterId != userId) report.Reporter.Points += AlertRules.Points.Confirmed;
         }
         else
         {
@@ -121,11 +123,30 @@ public sealed class ReportService(GimanoDbContext db, IEventPublisher bus, GeoLo
     {
         var report = await db.Reports.Include(r => r.Reporter).FirstOrDefaultAsync(r => r.Id == reportId, ct)
                      ?? throw new NotFoundException($"Report {reportId} not found.");
+        // One thanks per pseudonym per report: repeating it is a no-op (no count, points or inbox bump).
+        if (!FirstThanks(cache, reportId, userId, report.ExpiresAt, clock.GetUtcNow())) return;
         report.Thanks++;
         if (report.Reporter is not null && report.ReporterId != userId) report.Reporter.Points += AlertRules.Points.Thanked;
         await db.SaveChangesAsync(ct);
         await bus.PublishAsync(RoutingKeys.ReportUpdated, report.ToDto(), ct);
         if (report.ReporterId != userId) await bus.PublishAsync(RoutingKeys.ReportThanked, new ReportThankedEvent(reportId), ct);
+    }
+
+    private static readonly Lock ThanksLock = new();
+
+    /// <summary>
+    /// True the first time this pseudonym thanks this report. Remembered in memory until the report expires (reports live
+    /// hours, at most 3× their base TTL), so no per-user thanks rows are stored.
+    /// </summary>
+    internal static bool FirstThanks(IMemoryCache cache, Guid reportId, Guid userId, DateTimeOffset reportExpiresAt, DateTimeOffset now)
+    {
+        var key = $"thanks:{reportId:N}:{userId:N}";
+        lock (ThanksLock)
+        {
+            if (cache.TryGetValue(key, out _)) return false;
+            cache.Set(key, true, reportExpiresAt > now ? reportExpiresAt : now.AddHours(1));
+            return true;
+        }
     }
 
     public async Task<IReadOnlyList<ReportDto>> ActiveInBBoxAsync(BBox bbox, CancellationToken ct)

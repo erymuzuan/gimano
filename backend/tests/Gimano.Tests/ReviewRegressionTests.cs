@@ -122,6 +122,47 @@ public class ExceptionMappingRegressionTests
     }
 }
 
+public class ReportVoteRegressionTests
+{
+    [Fact]
+    public void Flip_flopping_a_vote_earns_points_once_and_keeps_confirmations_honest()
+    {
+        // Simulates ReportService.VoteAsync: true → false → true → false → true by one voter.
+        bool? previous = null;
+        int confirmations = 0, awards = 0;
+        foreach (var answer in new[] { true, false, true, false, true })
+        {
+            var e = Gimano.Core.Alerts.AlertRules.OnVote(previous, answer);
+            confirmations = Math.Max(0, confirmations + e.ConfirmationsDelta);
+            if (e.AwardPoints) awards++;
+            previous = answer;
+        }
+        Assert.Equal(1, confirmations);   // before: 3 (every switch back to "still there" counted again)
+        Assert.Equal(1, awards);          // before: 5 voter awards and 3 reporter "confirmed" awards
+    }
+
+    [Theory]
+    [InlineData(null, true, 1, true, true)]
+    [InlineData(null, false, 0, false, true)]
+    [InlineData(false, true, 1, true, false)]
+    [InlineData(true, false, -1, false, false)]
+    [InlineData(true, true, 0, false, false)]
+    public void Vote_effects(bool? previous, bool stillThere, int delta, bool extend, bool award) =>
+        Assert.Equal(new Gimano.Core.Alerts.AlertRules.VoteEffect(delta, extend, award), Gimano.Core.Alerts.AlertRules.OnVote(previous, stillThere));
+
+    [Fact]
+    public void One_thanks_per_pseudonym_per_report()
+    {
+        var cache = new MemoryCache(new MemoryCacheOptions());
+        var now = DateTimeOffset.UtcNow;
+        Guid report = Guid.NewGuid(), a = Guid.NewGuid(), b = Guid.NewGuid();
+        Assert.True(ReportService.FirstThanks(cache, report, a, now.AddHours(1), now));
+        Assert.False(ReportService.FirstThanks(cache, report, a, now.AddHours(1), now));   // before: every repeat added points + an inbox bump
+        Assert.True(ReportService.FirstThanks(cache, report, b, now.AddHours(1), now));
+        Assert.True(ReportService.FirstThanks(cache, Guid.NewGuid(), a, now.AddHours(1), now));
+    }
+}
+
 public class IssueDirectoryExpiryRegressionTests
 {
     private static readonly DateTimeOffset Now = new(2026, 10, 23, 10, 0, 0, TimeSpan.Zero);

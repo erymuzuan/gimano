@@ -78,6 +78,22 @@ public static class AlertRules
             : $"Invalid subtype '{subtype}' for '{GimanoJson.ToWire(type)}'. Allowed: {string.Join(", ", allowed)}.";
     }
 
+    /// <summary>What a "still there?" vote changes.</summary>
+    /// <param name="ConfirmationsDelta">+1 when it becomes a "still there", −1 when a "still there" is withdrawn.</param>
+    /// <param name="AwardPoints">Voter (and, for "still there", reporter) points: only for a pseudonym's first vote on the report,
+    /// so changing your mind back and forth earns nothing.</param>
+    public readonly record struct VoteEffect(int ConfirmationsDelta, bool ExtendExpiry, bool AwardPoints);
+
+    /// <param name="previous">The voter's earlier answer on this report (null = first vote).</param>
+    public static VoteEffect OnVote(bool? previous, bool stillThere) => (previous, stillThere) switch
+    {
+        (null, true) => new(1, true, true),
+        (null, false) => new(0, false, true),
+        (false, true) => new(1, true, false),
+        (true, false) => new(-1, false, false),
+        _ => new(0, false, false),
+    };
+
     /// <summary>Points awarded to a reporter.</summary>
     public static class Points
     {

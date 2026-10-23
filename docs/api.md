@@ -459,6 +459,9 @@ POST /reports/{id}/votes     {"stillThere": true}   → Report
 POST /reports/{id}/thanks                           → 204
 ```
 
+One vote per pseudonym per report: voting again changes the answer (a withdrawn "still there" no longer counts in
+`confirmations`) but earns no more points. Thanking a report again is a no-op (still 204).
+
 ```
 Report = { id, type, subtype?, lat, lng, heading?, street?,
            reportedBy:{displayName, mood}, createdAt, expiresAt,
