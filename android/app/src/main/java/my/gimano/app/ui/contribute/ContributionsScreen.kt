@@ -82,7 +82,7 @@ fun ContributionsScreen(c: AppContainer, cvm: ContributeViewModel, vm: MainViewM
                 val next = user?.nextTier
                 Text(
                     if (tier == "emas" || next == null || next.name.isBlank()) stringResource(R.string.top_tier)
-                    else stringResource(R.string.next_tier, tierName(next.name), next.missing.joinToString(", ").ifBlank { "—" }),
+                    else stringResource(R.string.next_tier, tierName(next.name), next.missing.map { my.gimano.app.ui.common.Labels.tierNeed(it) }.joinToString(", ").ifBlank { "—" }),
                     color = col.brandOn.copy(alpha = 0.85f), fontSize = 13.sp, fontWeight = FontWeight.Bold,
                 )
             }

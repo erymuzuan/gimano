@@ -65,10 +65,31 @@ object Labels {
         "ev_charging" -> stringResource(R.string.cat_ev)
         "rest_area" -> stringResource(R.string.cat_rest_area)
         "parking" -> stringResource(R.string.cat_parking)
-        "restaurant", "cafe", "fast_food" -> stringResource(R.string.cat_food)
-        "mosque", "surau" -> stringResource(R.string.cat_mosque)
-        "hospital", "clinic" -> stringResource(R.string.cat_hospital)
+        "restaurant" -> stringResource(R.string.cat_food)
+        "cafe" -> stringResource(R.string.cat_cafe)
+        "fast_food" -> stringResource(R.string.cat_fast_food)
+        "mosque" -> stringResource(R.string.cat_mosque)
+        "surau" -> stringResource(R.string.cat_surau)
+        "hospital" -> stringResource(R.string.cat_hospital)
+        "clinic" -> stringResource(R.string.cat_clinic)
         "mall" -> stringResource(R.string.cat_mall)
+        "supermarket" -> stringResource(R.string.cat_supermarket)
+        "convenience" -> stringResource(R.string.cat_convenience)
+        "pharmacy" -> stringResource(R.string.cat_pharmacy)
+        "school" -> stringResource(R.string.cat_school)
+        "hotel" -> stringResource(R.string.cat_hotel)
+        "atm" -> stringResource(R.string.cat_atm)
+        "bank" -> stringResource(R.string.cat_bank)
+        "car_repair" -> stringResource(R.string.cat_car_repair)
+        "car_wash" -> stringResource(R.string.cat_car_wash)
+        "temple" -> stringResource(R.string.cat_temple)
+        "church" -> stringResource(R.string.cat_church)
+        "tourism" -> stringResource(R.string.cat_tourism)
+        "transit_station" -> stringResource(R.string.cat_transit)
+        "university" -> stringResource(R.string.cat_university)
+        "government" -> stringResource(R.string.cat_government)
+        "airport" -> stringResource(R.string.cat_airport)
+        "other" -> stringResource(R.string.cat_other)
         "police" -> stringResource(R.string.rt_police)
         "toll_booth" -> stringResource(R.string.avoid_tolls)
         else -> c.replace('_', ' ').replaceFirstChar { it.uppercase() }
@@ -81,5 +102,47 @@ object Labels {
         "Heavier than usual" -> stringResource(R.string.traffic_heavier)
         "Light traffic" -> stringResource(R.string.traffic_light)
         else -> desc
+    }
+
+    @Composable
+    fun amenity(a: String): String = when (a) {
+        "toilets" -> stringResource(R.string.am_toilets)
+        "surau" -> stringResource(R.string.am_surau)
+        "parking" -> stringResource(R.string.am_parking)
+        "wifi" -> stringResource(R.string.am_wifi)
+        "card_payment" -> stringResource(R.string.am_card_payment)
+        "ewallet" -> stringResource(R.string.am_ewallet)
+        "wheelchair" -> stringResource(R.string.am_wheelchair)
+        "air_conditioning" -> stringResource(R.string.am_air_conditioning)
+        "ev_charging" -> stringResource(R.string.am_ev_charging)
+        "atm" -> stringResource(R.string.am_atm)
+        "food" -> stringResource(R.string.am_food)
+        "air_pump" -> stringResource(R.string.am_air_pump)
+        else -> a.replace('_', ' ').replaceFirstChar { it.uppercase() }
+    }
+
+    /** OSM day code (Mo…Su) → "Isn"/"Mon"… */
+    @Composable
+    fun day(code: String): String = when (code) {
+        "Mo" -> stringResource(R.string.day_mo); "Tu" -> stringResource(R.string.day_tu); "We" -> stringResource(R.string.day_we)
+        "Th" -> stringResource(R.string.day_th); "Fr" -> stringResource(R.string.day_fr); "Sa" -> stringResource(R.string.day_sa)
+        "Su" -> stringResource(R.string.day_su); else -> code
+    }
+
+    /**
+     * Next-tier requirement from the server ("placesAccepted:7", "accuracy:95", "accountAgeDays:40",
+     * "noUpheldDisputes") as a readable phrase; unknown items are shown as sent.
+     */
+    @Composable
+    fun tierNeed(item: String): String {
+        val key = item.substringBefore(':').trim()
+        val n = item.substringAfter(':', "").trim().filter { it.isDigit() }.toIntOrNull()
+        return when {
+            key.equals("placesAccepted", true) && n != null -> stringResource(R.string.tier_need_places, n)
+            key.equals("accuracy", true) && n != null -> stringResource(R.string.tier_need_accuracy, n)
+            (key.equals("accountAgeDays", true) || key.equals("accountAge", true)) && n != null -> stringResource(R.string.tier_need_age, n)
+            key.startsWith("noUpheldDispute", true) || key.equals("disputes", true) -> stringResource(R.string.tier_need_disputes)
+            else -> item
+        }
     }
 }

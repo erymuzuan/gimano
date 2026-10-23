@@ -170,7 +170,7 @@ private fun DetailsStep(s: AddPlaceState, cvm: ContributeViewModel) {
             FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 AMENITIES.forEach { a ->
                     FilterChip(selected = a in s.amenities, onClick = { cvm.update { it.copy(amenities = if (a in it.amenities) it.amenities - a else it.amenities + a) } },
-                        label = { Text(a.replace('_', ' ').replaceFirstChar { it.uppercase() }) }, shape = RoundedCornerShape(Radius.pill))
+                        label = { Text(my.gimano.app.ui.common.Labels.amenity(a)) }, shape = RoundedCornerShape(Radius.pill))
                 }
             }
             HoursEditor(s, cvm)
@@ -202,7 +202,7 @@ private fun HoursEditor(s: AddPlaceState, cvm: ContributeViewModel) {
         OpeningHours.DAYS.forEach { d ->
             val ranges = s.week[d].orEmpty()
             Row(Modifier.fillMaxWidth().padding(vertical = 3.dp), verticalAlignment = Alignment.CenterVertically) {
-                Text(d, Modifier.width(36.dp), fontWeight = FontWeight.Black, color = c.text)
+                Text(my.gimano.app.ui.common.Labels.day(d), Modifier.width(44.dp), fontWeight = FontWeight.Black, color = c.text)
                 if (ranges.isEmpty()) {
                     Text(stringResource(R.string.closed), Modifier.weight(1f), color = c.textMuted)
                     TextButton(onClick = { cvm.update { it.copy(week = it.week + (d to listOf(Range("09:00", "18:00")))) } }) { Text(stringResource(R.string.open_verb)) }
