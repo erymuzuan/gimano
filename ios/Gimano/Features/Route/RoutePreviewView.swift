@@ -8,6 +8,7 @@ struct RoutePreviewView: View {
     @State private var countdownActive = false
     @State private var countdownToken = 0
     @State private var showLeaveLater = false
+    @State private var showStartPicker = false
     @State private var showTolls = false
     @State private var showStops = false
 
@@ -39,7 +40,10 @@ struct RoutePreviewView: View {
                     bottomCard(planner)
                 }
             }
-            .sheet(isPresented: $showLeaveLater) {
+            .sheet(isPresented: $showStartPicker) {
+            if let planner = model.planner { StartPickerSheet(planner: planner).presentationDetents([.medium, .large]) }
+        }
+        .sheet(isPresented: $showLeaveLater) {
                 LeaveLaterSheet(planner: planner) { date in
                     stopCountdown()
                     planner.departAt = date
@@ -57,7 +61,9 @@ struct RoutePreviewView: View {
             }
             .onChange(of: planner.isLoading) { _, loading in
                 // `-GimanoNoAutoStart YES` (UI tests) disables the auto-start countdown.
-                if !loading, planner.selected != nil, planner.departAt == nil, !UserDefaults.standard.bool(forKey: "GimanoNoAutoStart") { startCountdown() }
+                // Auto-start only from a fresh GPS fix (never from a chosen start).
+                if !loading, planner.selected != nil, planner.departAt == nil, planner.start.isGPS,
+                   !UserDefaults.standard.bool(forKey: "GimanoNoAutoStart") { startCountdown() }
             }
             .task(id: countdownToken) {
                 guard countdownActive else { return }
@@ -100,16 +106,27 @@ struct RoutePreviewView: View {
             }
             .accessibilityLabel(Text("Back"))
             VStack(alignment: .leading, spacing: 6) {
-                HStack(spacing: 8) {
-                    Circle().fill(Color.brand).frame(width: 10, height: 10)
-                    Text("Your location").font(Tokens.Font.caption).foregroundStyle(Color.textMuted)
+                Button { stopCountdown(); showStartPicker = true } label: {
+                    HStack(spacing: 8) {
+                        Circle().fill(planner.start.isGPS ? Color.brand : Color(uiColor: Tokens.Palette.traffic2)).frame(width: 10, height: 10)
+                        Text(startLabel(planner.start)).font(Tokens.Font.caption).foregroundStyle(Color.textMuted).lineLimit(1)
+                        Image(systemName: "chevron.down").font(.system(size: 10, weight: .bold)).foregroundStyle(Color.textMuted)
+                    }
                 }
+                .buttonStyle(.plain)
+                .accessibilityIdentifier("routeStart")
                 HStack(spacing: 8) {
                     Image(systemName: "mappin.circle.fill").foregroundStyle(Color.report).font(.system(size: 12))
                     Text(planner.destination.name).font(Tokens.Font.bodyBold).lineLimit(1)
                 }
             }
             Spacer()
+            Button { stopCountdown(); model.swapRouteEnds() } label: {
+                Image(systemName: "arrow.up.arrow.down").font(.system(size: 18, weight: .bold)).frame(width: 40, height: 40)
+            }
+            .disabled(planner.start.point == nil)
+            .accessibilityLabel(Text("Swap start and destination"))
+            .accessibilityIdentifier("routeSwap")
             Menu {
                 Button { stopCountdown(); model.openFeedback(from: .routePreview, placeId: planner.destination.placeId) } label: {
                     Label("Add feedback", systemImage: "bubble.left.and.text.bubble.right")
@@ -223,7 +240,17 @@ struct RoutePreviewView: View {
                 showStops = true
             })
 
-            if planner.isLoading && planner.routes.isEmpty {
+            if planner.start == .locating {
+                HStack(spacing: 10) { ProgressView(); Text("Finding your location…").font(Tokens.Font.bodyBold) }
+                    .frame(maxWidth: .infinity, minHeight: 90)
+                    .accessibilityIdentifier("startLocating")
+            } else if planner.start == .unknown {
+                unknownStart
+            } else if planner.alreadyHere {
+                Label("You're already here", systemImage: "mappin.and.ellipse")
+                    .font(Tokens.Font.title).frame(maxWidth: .infinity, minHeight: 90)
+                    .accessibilityIdentifier("alreadyHere")
+            } else if planner.isLoading && planner.routes.isEmpty {
                 HStack { Spacer(); ProgressView(); Spacer() }.frame(height: 90)
             } else if let error = planner.error, planner.routes.isEmpty {
                 Text(error).foregroundStyle(Color.speeding).frame(maxWidth: .infinity, minHeight: 90)
@@ -232,6 +259,27 @@ struct RoutePreviewView: View {
                 routeSummary(r, planner: planner)
             }
 
+            if case .chosen(let name, _, _) = planner.start, planner.selected != nil {
+                // A chosen start is previewed only; navigation starts from where the phone is.
+                Label("This route starts at \(name), not where you are. Navigation can only start from your location.",
+                      systemImage: "exclamationmark.triangle.fill")
+                    .font(Tokens.Font.caption)
+                    .foregroundStyle(Color.amberInk)
+                    .padding(12)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(Color.amberMist, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                    .accessibilityIdentifier("chosenStartNote")
+                HStack(spacing: 12) {
+                    Button("Save trip") {
+                        model.editingDrive = model.newPlannedDrive(from: planner)
+                    }
+                    .buttonStyle(SecondaryButtonStyle())
+                    .accessibilityIdentifier("saveTrip")
+                    Button("Drive to \(name) first") { model.driveToStartFirst() }
+                        .buttonStyle(PrimaryButtonStyle())
+                        .accessibilityIdentifier("driveToStartFirst")
+                }
+            } else if planner.start.isGPS && !planner.alreadyHere {
             HStack(spacing: 12) {
                 Button {
                     stopCountdown()
@@ -261,6 +309,7 @@ struct RoutePreviewView: View {
                 .disabled(planner.selected == nil)
                 .accessibilityIdentifier("goNow")
             }
+            }
         }
         .padding(Tokens.Space.gutter)
         .background(
@@ -269,6 +318,44 @@ struct RoutePreviewView: View {
                 .shadow(color: .black.opacity(0.15), radius: 10, y: -2)
                 .ignoresSafeArea(edges: .bottom)
         )
+    }
+
+    private func startLabel(_ start: RouteStart) -> String {
+        switch start {
+        case .gps: String(localized: "Your location")
+        case .locating: String(localized: "Finding your location…")
+        case .unknown: String(localized: "Your location unknown")
+        case .chosen(let name, _, _): name
+        }
+    }
+
+    /// No fresh GPS fix: no route request; three ways forward.
+    private var unknownStart: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Label("Your location unknown", systemImage: "location.slash")
+                .font(Tokens.Font.title)
+                .accessibilityIdentifier("startUnknown")
+            Text("We only start routes from where you really are, or from a place you choose.")
+                .font(Tokens.Font.caption).foregroundStyle(Color.textMuted)
+            Button {
+                if model.location.needsPermission { model.location.requestPermission() }
+                else if let u = URL(string: UIApplication.openSettingsURLString) { UIApplication.shared.open(u) }
+            } label: { Label("Allow location", systemImage: "location.fill") }
+                .buttonStyle(PrimaryButtonStyle())
+                .accessibilityIdentifier("startAllowLocation")
+            HStack(spacing: 10) {
+                Button { model.startPinPick(.setOrigin, start: model.planner?.destination.location) } label: {
+                    Label("Choose start on map", systemImage: "map")
+                }
+                .buttonStyle(SecondaryButtonStyle())
+                .accessibilityIdentifier("startChooseOnMap")
+                Button { model.go(.search(.setOrigin)) } label: {
+                    Label("Search for a start", systemImage: "magnifyingglass")
+                }
+                .buttonStyle(SecondaryButtonStyle())
+                .accessibilityIdentifier("startSearch")
+            }
+        }
     }
 
     private func routeSummary(_ r: Route, planner: RoutePlanner) -> some View {
@@ -606,5 +693,57 @@ struct LeaveLaterSheet: View {
             slots = (try? await model.repo.departureTimes(origin: model.position, destination: planner.destination.location, date: .now, vehicle: planner.vehicle)) ?? []
             loading = false
         }
+    }
+}
+
+/// Start picker: Your location, Home, Work, favourites, recents, search, choose on map.
+struct StartPickerSheet: View {
+    @Environment(AppModel.self) private var model
+    @Environment(\.dismiss) private var dismiss
+    let planner: RoutePlanner
+
+    var body: some View {
+        NavigationStack {
+            List {
+                Section {
+                    Button { pick(.locating) } label: { Label("Your location", systemImage: "location.fill") }
+                        .accessibilityIdentifier("startPick.gps")
+                    Button { dismiss(); model.go(.search(.setOrigin)) } label: { Label("Search for a start", systemImage: "magnifyingglass") }
+                    Button {
+                        dismiss()
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { model.startPinPick(.setOrigin, start: planner.destination.location) }
+                    } label: { Label("Choose start on map", systemImage: "map") }
+                        .accessibilityIdentifier("startPick.map")
+                }
+                let saved = model.savedPlaces
+                if !saved.isEmpty {
+                    Section("Saved") {
+                        ForEach(saved) { s in
+                            Button { pick(.chosen(name: s.name, location: s.location, placeId: s.placeId)) } label: {
+                                Label { Text(verbatim: s.name) } icon: { GimanoIcon(icon: model.icon(for: s).gIcon, size: 22) }
+                            }
+                            .accessibilityIdentifier("startPick.saved")
+                        }
+                    }
+                }
+                if !model.recents.isEmpty {
+                    Section("Recent") {
+                        ForEach(model.recents.prefix(8)) { r in
+                            Button { pick(.chosen(name: r.name, location: r.location, placeId: r.placeId)) } label: {
+                                Label { Text(verbatim: r.name) } icon: { Image(systemName: "clock") }
+                            }
+                        }
+                    }
+                }
+            }
+            .navigationTitle("Start from")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar { ToolbarItem(placement: .topBarLeading) { Button("Cancel") { dismiss() } } }
+        }
+    }
+
+    private func pick(_ s: RouteStart) {
+        dismiss()
+        model.setRouteStart(s)
     }
 }

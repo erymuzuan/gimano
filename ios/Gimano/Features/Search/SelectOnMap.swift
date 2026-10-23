@@ -2,7 +2,7 @@ import SwiftUI
 
 /// Where a "Choose on map" was started from (decides what the chosen point becomes).
 enum PinPurpose: String, Equatable, Sendable {
-    case destination, addStop, favorite, setHome, setWork
+    case destination, addStop, favorite, setHome, setWork, setOrigin
 }
 
 struct PinPickRequest: Identifiable, Equatable {

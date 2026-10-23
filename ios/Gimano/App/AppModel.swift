@@ -17,6 +17,8 @@ enum Screen: Equatable {
 enum SearchPurpose: Equatable {
     case destination
     case addStop
+    /// "Search for a start" from the route preview.
+    case setOrigin
     case setHome
     case setWork
 }
@@ -35,6 +37,10 @@ final class RoutePlanner {
     var error: String?
     /// Intermediate stops, in order (≤ 5).
     var stops: [TripStop] = []
+    /// Where the route starts (only a fresh GPS fix is "Your location").
+    var start: RouteStart = .locating
+    /// The start is under 50 m from the destination: "You're already here", no route.
+    var alreadyHere = false
 
     init(destination: Destination, vehicle: Vehicle) {
         self.destination = destination
@@ -396,7 +402,10 @@ final class AppModel {
         let dest = planner?.destination
         var arrival = Calendar.current.date(bySettingHour: 8, minute: 30, second: 0, of: .now.addingTimeInterval(24 * 3600)) ?? .now
         if let d = planner?.departAt { arrival = d.addingTimeInterval(planner?.selected?.effectiveDurationS ?? 1800) }
-        return PlannedDrive(id: UUID().uuidString.lowercased(), name: dest?.name, origin: nil,
+        let origin: PlannedDrive.Place? = if case .chosen(let n, let p, let id) = planner?.start {
+            PlannedDrive.Place(lat: p.lat, lng: p.lng, name: n, address: nil, placeId: id)
+        } else { nil }
+        return PlannedDrive(id: UUID().uuidString.lowercased(), name: dest?.name, origin: origin,
                             destination: PlannedDrive.Place(lat: dest?.location.lat ?? home?.lat ?? position.lat, lng: dest?.location.lng ?? home?.lng ?? position.lng,
                                                             name: dest?.name ?? home?.name, address: dest?.address ?? home?.address, placeId: dest?.placeId),
                             waypoints: planner?.stops ?? [], vehicle: planner?.vehicle ?? vehicle, departAt: nil,
@@ -505,6 +514,7 @@ final class AppModel {
         map.puck = fix.coordinate
         map.puckHeading = heading
         map.puckAccuracyM = fix.accuracyM
+        retryStartIfWaiting()
         gpsQuality.update(accuracyM: fix.accuracyM, at: fix.timestamp)
         // Poor fixes (> 100 m, e.g. approximate location) never advance instructions or trigger reroutes.
         if GpsQuality.usableForGuidance(fix) { navigation?.handle(fix) }
@@ -652,6 +662,9 @@ final class AppModel {
         case .destination:
             if let id = p.placeId, !id.hasPrefix("pin:") { openPlace(p.summary) } else { pinActions = p }
         case .addStop: addStop(p.summary)
+        case .setOrigin:
+            setRouteStart(.chosen(name: p.title, location: p.location, placeId: p.placeId))
+            go(.routePreview)
         case .favorite: savingPlace = p.favoriteSummary
         case .setHome: setSaved(kind: .home, place: p.summary); go(.home)
         case .setWork: setSaved(kind: .work, place: p.summary); go(.home)
@@ -674,7 +687,69 @@ final class AppModel {
         planner.stops = stops
         self.planner = planner
         go(.routePreview)
-        Task { await fetchRoutes() }
+        Task { await resolveStartAndFetch(planner) }
+    }
+
+    // MARK: route start (never the map centre)
+
+    /// GPS as the route-start rules see it: a DEBUG fixed location counts as a fresh fix.
+    func currentGPS(now: Date = .now) -> RouteOrigin.GPS {
+        if let f = fixedLocation { return .fresh(f) }
+        return RouteOrigin.classify(fix: location.lastFix?.coordinate, at: location.lastFix?.timestamp, now: now)
+    }
+
+    /// Fresh fix → route from it. Otherwise wait up to 8 s for one ("Finding your location…"), then "unknown"
+    /// with no route request. A start the user chose is kept.
+    func resolveStartAndFetch(_ planner: RoutePlanner) async {
+        if case .chosen = planner.start { await fetchRoutes(); return }
+        if case .fresh(let p) = currentGPS() {
+            planner.start = .gps(p)
+        } else if location.isAuthorized || location.needsPermission {
+            planner.start = .locating
+            let deadline = Date().addingTimeInterval(RouteOrigin.waitForFix)
+            while Date() < deadline, self.planner === planner {
+                if case .fresh(let p) = currentGPS() { planner.start = .gps(p); break }
+                try? await Task.sleep(for: .milliseconds(250))
+            }
+            if planner.start == .locating { planner.start = .unknown }
+        } else {
+            planner.start = .unknown
+        }
+        guard self.planner === planner else { return }
+        await fetchRoutes()
+    }
+
+    /// The user picked a start (or Your location again).
+    func setRouteStart(_ start: RouteStart) {
+        guard let planner else { return }
+        planner.start = start
+        planner.routes = []
+        planner.selectedId = nil
+        Task { await resolveStartAndFetch(planner) }
+    }
+
+    /// ⇅: the start becomes the destination and vice versa.
+    func swapRouteEnds() {
+        guard let planner, let from = planner.start.point else { return }
+        let oldDest = planner.destination
+        let fromName = planner.start.chosenName ?? String(localized: "Your location")
+        let fromId: String? = if case .chosen(_, _, let id) = planner.start { id } else { nil }
+        planner.destination = Destination(name: fromName, address: "", location: from, placeId: fromId, isPin: fromId == nil)
+        planner.start = .chosen(name: oldDest.name, location: oldDest.location, placeId: oldDest.placeId)
+        planner.routes = []
+        Task { await resolveStartAndFetch(planner) }
+    }
+
+    /// "Drive to {start} first": navigation only ever starts from GPS, so plan a trip to the chosen start.
+    func driveToStartFirst() {
+        guard let planner, case .chosen(let name, let p, let id) = planner.start else { return }
+        planRoute(to: Destination(name: name, address: "", location: p, placeId: id))
+    }
+
+    /// A fix arriving after "unknown" retries the route.
+    private func retryStartIfWaiting() {
+        guard let planner, planner.start == .unknown, screen == .routePreview, case .fresh = currentGPS() else { return }
+        Task { await resolveStartAndFetch(planner) }
     }
 
     /// Travel mode tabs: remembered locally and on the profile (`PATCH /me vehicle`).
@@ -704,10 +779,26 @@ final class AppModel {
 
     func fetchRoutes() async {
         guard let planner else { return }
-        planner.isLoading = true
         planner.error = nil
+        planner.alreadyHere = false
+        // No known start → no route request (never the map centre).
+        guard let origin = planner.start.point else {
+            planner.routes = []
+            planner.isLoading = false
+            syncRouteLayers()
+            return
+        }
+        let firstTarget = planner.stops.first?.location ?? planner.destination.location
+        if RouteOrigin.sameSpot(origin, firstTarget) {
+            planner.routes = []
+            planner.alreadyHere = true
+            planner.isLoading = false
+            syncRouteLayers()
+            return
+        }
+        planner.isLoading = true
         let req = RouteRequest(
-            origin: RouteEndpoint(lat: position.lat, lng: position.lng),
+            origin: RouteEndpoint(lat: origin.lat, lng: origin.lng),
             destination: RouteEndpoint(lat: planner.destination.location.lat, lng: planner.destination.location.lng, placeId: planner.destination.placeId),
             waypoints: planner.stops.map(\.endpoint),
             vehicle: planner.vehicle, avoid: planner.vehicle.isMotorized ? planner.avoid : AvoidOptions(),
@@ -725,7 +816,7 @@ final class AppModel {
         syncRouteLayers()
         if let r = planner.selected, let bbox = BBox(array: r.bbox) {
             let all = planner.routes.compactMap { BBox(array: $0.bbox) }
-            let union = BBox.around(all.flatMap { [LatLng(lat: $0.minLat, lng: $0.minLng), LatLng(lat: $0.maxLat, lng: $0.maxLng)] } + [position]) ?? bbox
+            let union = BBox.around(all.flatMap { [LatLng(lat: $0.minLat, lng: $0.minLng), LatLng(lat: $0.maxLat, lng: $0.maxLng)] } + [origin]) ?? bbox
             map.overviewInsets = (top: 170, bottom: 400)
             map.setCamera(.overview(union))
         }
@@ -737,7 +828,8 @@ final class AppModel {
     }
 
     func startNavigation() {
-        guard let planner, planner.selected != nil else { return }
+        // Navigation only ever starts from a fresh GPS fix, never from a chosen start.
+        guard let planner, planner.selected != nil, planner.start.isGPS else { return }
         Task {
             // Approximate location: ask once for precise location for this drive.
             if !shouldSimulate { await location.requestTemporaryPrecision() }

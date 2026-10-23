@@ -27,7 +27,7 @@ struct SearchView: View {
             HStack(spacing: 10) {
                 Button {
                     if model.navigation != nil { model.screen = .navigating }
-                    else if purpose == .addStop, model.planner != nil { model.screen = .routePreview }
+                    else if purpose == .addStop || purpose == .setOrigin, model.planner != nil { model.screen = .routePreview }
                     else { model.go(.home) }
                 } label: {
                     Image(systemName: "chevron.left")
@@ -166,6 +166,7 @@ struct SearchView: View {
         switch purpose {
         case .destination: .destination
         case .addStop: .addStop
+        case .setOrigin: .setOrigin
         case .setHome: .setHome
         case .setWork: .setWork
         }
@@ -362,6 +363,7 @@ struct SearchView: View {
         switch purpose {
         case .destination: String(localized: "Where to?")
         case .addStop: String(localized: "Add a stop")
+        case .setOrigin: String(localized: "Search for a start")
         case .setHome: String(localized: "Set home address")
         case .setWork: String(localized: "Set work address")
         }
@@ -438,6 +440,9 @@ struct SearchView: View {
             }
         case .addStop:
             model.addStop(p)
+        case .setOrigin:
+            model.setRouteStart(.chosen(name: p.name, location: p.location, placeId: p.isSearchOnly || p.id.hasPrefix("pin:") ? nil : p.id))
+            model.screen = .routePreview
         case .setHome:
             model.setSaved(kind: .home, place: p)
             model.go(.home)

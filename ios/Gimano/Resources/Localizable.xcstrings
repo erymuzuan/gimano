@@ -495,6 +495,16 @@
         }
       }
     },
+    "Allow location": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Benarkan lokasi"
+          }
+        }
+      }
+    },
     "Alternative routes": {
       "localizations": {
         "ms": {
@@ -1231,6 +1241,16 @@
         }
       }
     },
+    "Choose start on map": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pilih titik mula pada peta"
+          }
+        }
+      }
+    },
     "Choose this point": {
       "localizations": {
         "ms": {
@@ -1793,6 +1813,16 @@
         }
       }
     },
+    "Drive to %@ first": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pandu ke %@ dahulu"
+          }
+        }
+      }
+    },
     "Dropped pin": {
       "localizations": {
         "ms": {
@@ -2093,6 +2123,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Mencari alamat…"
+          }
+        }
+      }
+    },
+    "Finding your location…": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mencari lokasi anda…"
           }
         }
       }
@@ -4808,6 +4848,16 @@
         }
       }
     },
+    "Save trip": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Simpan perjalanan"
+          }
+        }
+      }
+    },
     "Saved": {
       "localizations": {
         "ms": {
@@ -4900,6 +4950,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Carian"
+          }
+        }
+      }
+    },
+    "Search for a start": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cari tempat mula"
           }
         }
       }
@@ -5484,6 +5544,16 @@
         }
       }
     },
+    "Start from": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mula dari"
+          }
+        }
+      }
+    },
     "Start walking": {
       "localizations": {
         "ms": {
@@ -5600,6 +5670,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Surau"
+          }
+        }
+      }
+    },
+    "Swap start and destination": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tukar titik mula dan destinasi"
           }
         }
       }
@@ -6056,6 +6136,16 @@
         }
       }
     },
+    "This route starts at %@, not where you are. Navigation can only start from your location.": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Laluan ini bermula di %@, bukan di tempat anda berada. Navigasi hanya boleh bermula dari lokasi anda."
+          }
+        }
+      }
+    },
     "This spot": {
       "localizations": {
         "ms": {
@@ -6502,6 +6592,16 @@
         }
       }
     },
+    "We only start routes from where you really are, or from a place you choose.": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kami hanya memulakan laluan dari tempat anda sebenarnya berada, atau dari tempat yang anda pilih."
+          }
+        }
+      }
+    },
     "Weak GPS signal ±%lld m": {
       "localizations": {
         "ms": {
@@ -6788,6 +6888,16 @@
         }
       }
     },
+    "You're already here": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Anda sudah di sini"
+          }
+        }
+      }
+    },
     "You've arrived": {
       "localizations": {
         "ms": {
@@ -6804,6 +6914,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Lokasi anda"
+          }
+        }
+      }
+    },
+    "Your location unknown": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lokasi anda tidak diketahui"
           }
         }
       }
