@@ -59,7 +59,7 @@ public sealed class IssueService(GimanoDbContext db, IEventPublisher bus, IssueD
         };
 
         // Dedupe: the same open issue on the same segment / place (or within 50 m for anything else) gets a supporting vote.
-        if (!IssueRules.IsFeedbackOnly(kind) && await FindDuplicateAsync(kind, snap, placeId, at, ct) is { } existing)
+        if (!IssueRules.IsFeedbackOnly(kind) && await FindDuplicateAsync(kind, snap, placeId, at, direction, ct) is { } existing)
         {
             await VoteInternalAsync(existing, user, IssueAnswer.Still, now, isReport: false, ct);
             await PublishAsync(existing, existing.State, ct);
@@ -245,10 +245,15 @@ public sealed class IssueService(GimanoDbContext db, IEventPublisher bus, IssueD
     private static IReadOnlyDictionary<string, string> PublicPayload(Issue i) =>
         i.Kind is IssueKind.NewRoad or IssueKind.OddRoute ? new Dictionary<string, string>() : i.Payload;
 
-    private async Task<Issue?> FindDuplicateAsync(IssueKind kind, Snapped? snap, string? placeId, GeoPoint at, CancellationToken ct)
+    private async Task<Issue?> FindDuplicateAsync(IssueKind kind, Snapped? snap, string? placeId, GeoPoint at, IssueDirection direction, CancellationToken ct)
     {
         var open = db.Issues.Where(i => i.Kind == kind && (i.State == IssueState.Suspected || i.State == IssueState.Confirmed));
         if (placeId is not null) return await open.FirstOrDefaultAsync(i => i.PlaceId == placeId, ct);
+        // One-way corrections are about one direction of one way: "northbound can't drive" is not a vote for "southbound can't
+        // drive" on the same two-way segment, and direction is relative to a way's digitisation, so no 50 m merge across ways.
+        if (kind is IssueKind.OnewayWrongClosedDir or IssueKind.OnewayWrongOpenDir)
+            return snap is null ? null
+                : await open.FirstOrDefaultAsync(i => i.WayId == snap.WayId && i.Seq == snap.Seq && i.Direction == direction, ct);
         if (snap is not null)
         {
             var same = await open.FirstOrDefaultAsync(i => i.WayId == snap.WayId && i.Seq == snap.Seq, ct);

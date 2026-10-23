@@ -145,6 +145,26 @@ public sealed class PostgresIntegrationIssueTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task One_way_reports_for_opposite_directions_are_not_merged()
+    {
+        if (_ds is null) { Assert.Skip("GIMANO_PG_TEST not set"); return; }
+        var users = await SeedAsync(3);
+        var (svc, _, _) = Service(new Clock(T0));
+        CreateIssueRequest OneWay(double heading) =>
+            new(IssueKind.OnewayWrongClosedDir, null, Lat, Lng + 0.00003, heading, null, null, null, IssueSource.Report, null);
+
+        var north = await svc.CreateAsync(users[0].Id, OneWay(0), "en", default);
+        var south = await svc.CreateAsync(users[1].Id, OneWay(180), "en", default);
+        Assert.False(south.Merged);   // before: merged into the northbound issue as a "still" vote for the wrong direction
+        Assert.NotEqual(north.Id, south.Id);
+        Assert.Equal((IssueDirection.Forward, IssueDirection.Backward), (north.Direction, south.Direction));
+
+        var north2 = await svc.CreateAsync(users[2].Id, OneWay(5), "en", default);
+        Assert.True(north2.Merged);
+        Assert.Equal(north.Id, north2.Id);
+    }
+
+    [Fact]
     public async Task Votes_need_proximity_and_new_accounts_weigh_nothing()
     {
         if (_ds is null) { Assert.Skip("GIMANO_PG_TEST not set"); return; }
