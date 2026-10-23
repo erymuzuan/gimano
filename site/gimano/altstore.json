@@ -8,10 +8,10 @@
   "tintColor": "0047AB",
   "apps": [
     {
-      "name": "Manotu (legacy Gimano preview)",
+      "name": "Manotu",
       "bundleIdentifier": "my.gimano.app",
       "developerName": "Manotu contributors",
-      "localizedDescription": "Formerly Gimano. This legacy IPA still displays the Gimano name and icon on your phone. Open-source community navigation for Malaysia. Favourites and planned drives stay on your phone. This preview uses file backups; iCloud and Google Drive sign-in are unavailable in the sideload build. Requires AltStore Classic or Sideloadly. Free accounts need a refresh every seven days.",
+      "localizedDescription": "This is an early iPhone preview; on-device branding may differ from the current website. Open-source community navigation for Malaysia. Favourites and planned drives stay on your phone. This preview uses file backups; iCloud and Google Drive sign-in are unavailable in the sideload build. Requires AltStore Classic or Sideloadly. Free accounts need a refresh every seven days.",
       "iconURL": "https://manotu.app/logo.png",
       "tintColor": "0047AB",
       "category": "utilities",

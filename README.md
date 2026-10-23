@@ -4,7 +4,7 @@
 
 *"Ma’no tu?"* — “Where are you going?” in our local dialect, with **Ma** slightly stressed.
 
-Formerly Gimano. [Download Manotu](https://manotu.app/download/) · [Website](https://manotu.app/)
+[Download Manotu](https://manotu.app/download/) · [Website](https://manotu.app/)
 
 **Open-source, community-driven navigation for Malaysia.** Manotu works the way
 drivers who use Waze already expect: search "Where to?", compare routes, drive
