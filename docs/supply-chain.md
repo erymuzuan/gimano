@@ -1,7 +1,7 @@
 # What Gimano is built from
 
-Public, checkable list behind the website claims **"100% open source"** and **"No Israeli
-technology"**. Every component, its licence and its origin. Update this file in the same PR that
+Public dependency inventory for Gimano. Gimano-authored code is MIT-licensed; the distributed
+apps also use proprietary platform libraries and services, listed below. Update this file in the same PR that
 adds or changes a dependency; a reviewer checks it against the rule in `AGENTS.md`.
 
 | Layer | Component | Licence | Maintainer / origin |
@@ -15,7 +15,8 @@ adds or changes a dependency; a reviewer checks it against the rule in `AGENTS.m
 | Search | OpenSearch | Apache-2.0 | OpenSearch Software Foundation (Linux Foundation) |
 | Messaging | RabbitMQ | MPL-2.0 | RabbitMQ open-source project |
 | Android app | Kotlin, Jetpack Compose, Room | Apache-2.0 | JetBrains, Android Open Source Project |
-| iOS app | Swift, SwiftUI, GRDB.swift | Apache-2.0 / MIT | swift.org, GRDB community |
+| iOS language / database | Swift, GRDB.swift | Apache-2.0 / MIT | swift.org, GRDB community |
+| iOS UI framework | SwiftUI | proprietary Apple platform framework | Apple |
 | Encryption | libsodium | ISC | libsodium project |
 | Signatures (backend) | NSec.Cryptography (Ed25519 over libsodium; NuGet `libsodium` 1.0.22, ISC) | MIT | Klaus Hartke (open source) |
 | CBOR (backend, App Attest) | System.Formats.Cbor | MIT | .NET Foundation |
@@ -34,4 +35,21 @@ the user's own accounts. Gimano stores nothing there that it can read.
 
 New dependencies must be open source with an OSI-approved licence (fonts: OFL). Record their
 origin here. Do not add technology from Israeli companies or Israeli-government-funded
-projects, and do not add closed-source SDKs. When in doubt, raise it in the PR before merging.
+projects. Closed-source SDKs require an explicit, documented exception; the approved exceptions
+below do not authorize other SDKs. When in doubt, raise it in the PR before merging.
+
+## Approved Google exceptions (23 October 2026)
+
+The product owner approved retaining these proprietary Android libraries for now:
+
+| Library / service | Purpose | Boundary |
+|---|---|---|
+| Google Play services Location | Device location for navigation | Does not authorize storing private location history on Gimano servers |
+| Google sign-in / authorization libraries | User-authorized Google Drive backup access | Backups go directly to the user’s own Drive; credentials and backup contents are not proxied through Gimano |
+| Google Play Integrity | App / device integrity checks | Integrity verification does not authorize uploading favourites, trip history or other private app data |
+
+These dependencies remain subject to Google's terms; the MIT licence covers Gimano's own code,
+not these libraries. Apple platform frameworks and services are also proprietary. Do not market
+the complete app binary or dependency stack as “100% open source” or “no closed-source SDKs”.
+No advertising or tracking SDKs are approved. The private-data rules in `AGENTS.md` remain in force.
+A Google-free build is not promised by this decision. Revisit these exceptions when dependencies change.

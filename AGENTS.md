@@ -141,3 +141,12 @@ must be rejected in review.
 - APK/IPA and AltStore instructions: `docs/sideloading.md`.
 - Gimano TestFlight and App Store ownership must use Erymuzuan Mustapa's **individual** Apple Developer team, never STAFY COMPANY LIMITED. Verify the selected team before any identifier, signing or upload operation.
 - AltStore builds have no team-bound iCloud/Google configuration; publish the limitation and retain file backup/restore. Never distribute personal provisioning profiles.
+
+## Approved proprietary platform dependencies
+
+On 23 October 2026 the product owner approved Google Play services Location, Google sign-in /
+authorization for direct-to-user Drive backups, and Play Integrity as documented exceptions for
+now. See `docs/supply-chain.md`. This is not permission to add other proprietary SDKs, advertising
+or tracking. Private data must still never be stored on Gimano servers. Gimano-authored code
+remains MIT-licensed; marketing must disclose these exceptions and Apple platform dependencies,
+and must not claim the entire app or dependency stack is “100% open source” or has “no closed-source SDKs”.
