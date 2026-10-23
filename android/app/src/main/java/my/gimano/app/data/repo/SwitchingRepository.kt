@@ -76,6 +76,7 @@ class SwitchingRepository(
     override suspend fun nearby(lat: Double, lng: Double, category: String, radius: Int) = pick { nearby(lat, lng, category, radius) }
     override suspend fun place(id: String, lat: Double?, lng: Double?) = pick { place(id, lat, lng) }
     override suspend fun reverse(lat: Double, lng: Double) = pick { reverse(lat, lng) }
+    override suspend fun searchFull(q: String, lat: Double?, lng: Double?, limit: Int, exact: Boolean) = pick { searchFull(q, lat, lng, limit, exact) }
     override suspend fun routes(req: RouteRequest) = pick { routes(req) }
     override suspend fun reroute(routeId: String, req: RerouteRequest) = pick { reroute(routeId, req) }
     override suspend fun departureTimes(oLat: Double, oLng: Double, dLat: Double, dLng: Double, vehicle: String?) = pick { departureTimes(oLat, oLng, dLat, dLng, vehicle) }

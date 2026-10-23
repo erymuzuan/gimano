@@ -119,10 +119,32 @@ data class PlaceSummary(
     val rural: Boolean = false,
     /** Tier of the contributor (only "emas" is shown, as a badge). */
     val contributorTier: String? = null,
+    /** Chain/brand group key (e.g. "familymart"); the app groups results that share it. */
+    val chainGroup: String? = null,
+    val openNow: Boolean? = null,
 )
 
 @Serializable
-data class SearchResponse(val results: List<PlaceSummary> = emptyList())
+data class SearchResponse(
+    val results: List<PlaceSummary> = emptyList(),
+    /** Set when the server corrected the spelling ("famly mart" → "FamilyMart"); re-ask with exact=true to undo. */
+    val correctedQuery: String? = null,
+    /** "Mungkin anda maksudkan": shown when there are no (or few) results. */
+    val suggestions: List<SearchSuggestion> = emptyList(),
+)
+
+/** A suggestion is either a new query (e.g. a category) or a place. Parsed leniently. */
+@Serializable
+data class SearchSuggestion(
+    val label: String,
+    val query: String? = null,
+    val category: String? = null,
+    val placeId: String? = null,
+    val lat: Double? = null,
+    val lng: Double? = null,
+    val distanceM: Double? = null,
+    val count: Int? = null,
+)
 
 @Serializable
 data class Place(
@@ -335,7 +357,14 @@ data class FeedbackCreated(val id: String, val createdAt: String = "")
 data class FeedbackSummary(val id: String, val category: String, val message: String, val status: String = "received", val createdAt: String = "", val hasContact: Boolean = false)
 
 @Serializable
-data class ReverseGeocode(val name: String, val address: String = "", val lat: Double, val lng: Double)
+data class ReverseGeocode(
+    val name: String,
+    val address: String = "",
+    val lat: Double,
+    val lng: Double,
+    /** Known places near the point (newer servers); "Adakah ini …?" offers those within 50 m. */
+    val nearby: List<PlaceSummary> = emptyList(),
+)
 
 @Serializable
 data class LatLngDto(val lat: Double, val lng: Double, val placeId: String? = null, val name: String? = null)

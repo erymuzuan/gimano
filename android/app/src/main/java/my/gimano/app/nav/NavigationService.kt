@@ -29,6 +29,9 @@ import java.time.ZoneId
 
 /** Keeps an active drive alive in the background and shows the next turn in a notification. */
 class NavigationService : Service() {
+    /** Notification texts in the in-app language on Android < 13 too. */
+    override fun attachBaseContext(newBase: android.content.Context) = super.attachBaseContext(my.gimano.app.core.format.AppLocale.wrap(newBase))
+
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
 
     override fun onBind(intent: Intent?): IBinder? = null

@@ -19,9 +19,10 @@ import my.gimano.app.core.identity.RequestSigning
 class RemoteRepository(
     private val settings: SettingsStore,
     private val identity: my.gimano.app.data.identity.IdentityService,
+    private val acceptLanguage: () -> String = { ApiFactory.acceptLanguage(false) },
 ) : GimanoRepository {
     val signer = my.gimano.app.data.remote.SigningInterceptor({ m, pq, ts, body -> identity.signRequest(m, pq, ts, body) })
-    private val client = ApiFactory.okHttp({ settings.current.token }, signer)
+    private val client = ApiFactory.okHttp({ settings.current.token }, signer, acceptLanguage)
     private var apiBase: String? = null
     private var apiInstance: GimanoApi? = null
     private val authLock = Mutex()
@@ -138,6 +139,8 @@ class RemoteRepository(
     override suspend fun nearby(lat: Double, lng: Double, category: String, radius: Int) = authed { nearby(lat, lng, category, radius).results }
     override suspend fun place(id: String, lat: Double?, lng: Double?) = authed { place(id, lat, lng) }
     override suspend fun reverse(lat: Double, lng: Double) = authed { reverse(lat, lng) }
+    override suspend fun searchFull(q: String, lat: Double?, lng: Double?, limit: Int, exact: Boolean) =
+        authed { search(q, lat, lng, limit, null, if (exact) true else null) }
     override suspend fun routes(req: RouteRequest) = authed { routes(req).routes }
     override suspend fun reroute(routeId: String, req: RerouteRequest) = authed { reroute(routeId, req).routes }
     override suspend fun departureTimes(oLat: Double, oLng: Double, dLat: Double, dLng: Double, vehicle: String?) =

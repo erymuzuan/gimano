@@ -154,6 +154,7 @@ fun GimanoRoot(vm: MainViewModel, onMic: () -> Unit, onExit: () -> Unit, onReque
         puckAccuracyM = if (navigating) nav.accuracyM ?: nav.fix?.accuracyM?.toDouble() else ui.myLocation?.accuracyM?.toDouble(),
         pin = when (screen) {
             Screen.PlaceCard -> ui.place?.summary?.let { my.gimano.app.core.geo.GeoPoint(it.lat, it.lng) }
+            Screen.PinActions -> ui.pin?.place?.let { my.gimano.app.core.geo.GeoPoint(it.lat, it.lng) }
             Screen.RoutePreview -> ui.plan?.destination?.point
             else -> if (navigating) nav.destination?.point else null
         },
@@ -210,6 +211,11 @@ fun GimanoRoot(vm: MainViewModel, onMic: () -> Unit, onExit: () -> Unit, onReque
                     MapTopControls(ui, settings, vm, vm.isDemo || fallback, showMenu = true, onMenu = { scope.launch { drawer.open() } })
                     HomeOverlay(ui, settings, vm, onMic)
                 }
+                is Screen.PickOnMap -> ui.pick?.let { my.gimano.app.ui.pick.PickOnMapOverlay(it, vm) }
+                Screen.PinActions -> {
+                    MapTopControls(ui, settings, vm, vm.isDemo || fallback, showMenu = false, onMenu = {})
+                    ui.pin?.let { my.gimano.app.ui.pick.PinActionsSheet(it, vm, Modifier.align(Alignment.BottomCenter)) }
+                }
                 Screen.PlaceCard -> {
                     MapTopControls(ui, settings, vm, vm.isDemo || fallback, showMenu = false, onMenu = {})
                     ui.place?.let { PlaceCard(it, vm, cvm, settings.apiBaseUrl, Modifier.align(Alignment.BottomCenter)) }
@@ -262,6 +268,7 @@ fun GimanoRoot(vm: MainViewModel, onMic: () -> Unit, onExit: () -> Unit, onReque
             my.gimano.app.ui.common.ApproximateBanner(Modifier.align(Alignment.TopCenter))
         }
     }
+    ui.namePin?.let { my.gimano.app.ui.pick.NamePinDialog(onName = vm::nameArrivedPin) }
     ui.vetPrompt?.let { if (ui.screen == Screen.Home) my.gimano.app.ui.contribute.NearbyVerifySheet(it, vm, cvm) }
     ui.tollSheet?.let { r ->
         my.gimano.app.ui.sheets.TollSheet(r, onDismiss = { vm.openTolls(null) }, onAvoidTolls = {

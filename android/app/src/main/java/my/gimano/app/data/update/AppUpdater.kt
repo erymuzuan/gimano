@@ -242,8 +242,8 @@ class AppUpdater(private val context: Context) {
         val open = PendingIntent.getActivity(context, 7, Intent(context, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK), PendingIntent.FLAG_IMMUTABLE)
         val n = NotificationCompat.Builder(context, CHANNEL)
             .setSmallIcon(R.drawable.ic_stat_gimano)
-            .setContentTitle(context.getString(R.string.updated_to, BuildConfig.VERSION_NAME))
-            .setContentText(context.getString(R.string.updated_tap_to_open))
+            .setContentTitle(my.gimano.app.core.format.AppLocale.wrap(context).getString(R.string.updated_to, BuildConfig.VERSION_NAME))
+            .setContentText(my.gimano.app.core.format.AppLocale.wrap(context).getString(R.string.updated_tap_to_open))
             .setContentIntent(open).setAutoCancel(true).build()
         runCatching { nm.notify(7001, n) }
     }

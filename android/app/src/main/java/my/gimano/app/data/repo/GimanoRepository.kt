@@ -15,6 +15,9 @@ interface GimanoRepository : my.gimano.app.data.share.ShareApi {
     suspend fun deleteMyData()
 
     suspend fun search(q: String, lat: Double?, lng: Double?, limit: Int = 10, category: String? = null): List<PlaceSummary>
+    /** Full response: results plus spelling correction and suggestions. [exact] = don't correct ("cari 'x' sahaja"). */
+    suspend fun searchFull(q: String, lat: Double?, lng: Double?, limit: Int = 20, exact: Boolean = false): SearchResponse =
+        SearchResponse(search(q, lat, lng, limit, null))
     suspend fun nearby(lat: Double, lng: Double, category: String, radius: Int = 5000): List<PlaceSummary>
     suspend fun place(id: String, lat: Double? = null, lng: Double? = null): Place
     suspend fun reverse(lat: Double, lng: Double): ReverseGeocode

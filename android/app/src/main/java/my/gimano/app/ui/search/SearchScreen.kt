@@ -26,6 +26,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import my.gimano.app.R
 import my.gimano.app.core.format.Formatters
 import my.gimano.app.data.model.PlaceSummary
@@ -94,7 +97,14 @@ fun SearchScreen(ui: UiState, purpose: SearchPurpose, vm: MainViewModel, onMic: 
         if (ui.searching) LinearProgressIndicator(Modifier.fillMaxWidth().height(2.dp), color = c.brand, trackColor = c.surfaceAlt)
         else Spacer(Modifier.height(2.dp))
 
-        LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 24.dp)) {
+        val showingResults = ui.query.isNotBlank() || ui.activeCategory != null
+        val noResults = vm.canAddPlaceFromSearch() && ui.activeCategory == null
+        if (noResults) {
+            NoResults(ui, vm, onPick = { kb?.hide(); vm.openPickOnMap() }, onAdd = { kb?.hide(); vm.addPlaceFromSearch() })
+            return@Column
+        }
+        Box(Modifier.fillMaxSize()) {
+        LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = (if (showingResults) 110.dp else 24.dp) + WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding())) {
             if (ui.query.isBlank()) {
                 item {
                     LazyRow(contentPadding = PaddingValues(horizontal = 16.dp, vertical = 10.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -112,7 +122,7 @@ fun SearchScreen(ui: UiState, purpose: SearchPurpose, vm: MainViewModel, onMic: 
                     }
                 }
             }
-            if (ui.query.isBlank() && ui.activeCategory == null) {
+            if (!showingResults) {
                 item { SectionTitle(stringResource(R.string.recents)) }
                 items(ui.recents, key = { "r" + it.id }) { r ->
                     RecentRow(r, ui.myLocation?.point) {
@@ -120,6 +130,21 @@ fun SearchScreen(ui: UiState, purpose: SearchPurpose, vm: MainViewModel, onMic: 
                     }
                 }
             } else {
+                if (ui.results.isNotEmpty()) item { SortChips(ui, vm) }
+                ui.correctedQuery?.let { cq ->
+                    item {
+                        Row(Modifier.padding(horizontal = 16.dp, vertical = 4.dp).fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(Color(0xFFFFF6DB))
+                            .clickable { vm.searchExact() }.padding(horizontal = 14.dp, vertical = 10.dp)) {
+                            Text(
+                                androidx.compose.ui.text.buildAnnotatedString {
+                                    append(stringResource(R.string.search_corrected, cq)); append(" · ")
+                                    pushStyle(androidx.compose.ui.text.SpanStyle(color = c.brand)); append(stringResource(R.string.search_exact, ui.query.trim())); pop()
+                                },
+                                fontSize = 14.sp, fontWeight = FontWeight.ExtraBold, color = Color(0xFF4A3600),
+                            )
+                        }
+                    }
+                }
                 // On-device matches (favourites, private places) come first.
                 items(ui.localHits, key = { "l" + it.id }) { h ->
                     Column {
@@ -129,24 +154,115 @@ fun SearchScreen(ui: UiState, purpose: SearchPurpose, vm: MainViewModel, onMic: 
                         Divider(Modifier.padding(start = 70.dp))
                     }
                 }
-                items(ui.results, key = { "s" + it.id }) { p -> ResultRow(p) { kb?.hide(); vm.pickResult(p) } }
-                if (vm.canAddPlaceFromSearch()) {
-                    item {
-                        Column(Modifier.fillMaxWidth().padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text(stringResource(R.string.no_results), color = c.textMuted)
-                            Spacer(Modifier.height(12.dp))
-                            Button(
-                                onClick = { kb?.hide(); vm.addPlaceFromSearch() }, modifier = Modifier.height(56.dp), shape = RoundedCornerShape(Radius.md),
-                                colors = ButtonDefaults.buttonColors(containerColor = c.brand, contentColor = c.brandOn),
-                            ) {
-                                Icon(Icons.Filled.AddLocationAlt, null); Spacer(Modifier.width(8.dp))
-                                Text(stringResource(R.string.cant_find_add), fontWeight = FontWeight.ExtraBold)
-                            }
-                        }
+                val sort = if (ui.activeCategory != null) my.gimano.app.core.search.ResultSort.NEAREST else ui.resultSort
+                val rows = my.gimano.app.core.search.ResultGrouping.rows(ui.results, sort)
+                if (sort == my.gimano.app.core.search.ResultSort.OPEN_NOW && rows.isEmpty() && ui.results.isNotEmpty()) item {
+                    Text(stringResource(R.string.open_now_unknown), Modifier.padding(24.dp), color = c.textMuted, fontWeight = FontWeight.Bold)
+                }
+                rows.forEach { row ->
+                    when (row) {
+                        is my.gimano.app.core.search.ResultRow.Single -> item(key = "s" + row.place.id) { ResultRow(row.place) { kb?.hide(); vm.pickResult(row.place) } }
+                        is my.gimano.app.core.search.ResultRow.Chain -> item(key = "g" + row.key) { ChainGroup(row) { p -> kb?.hide(); vm.pickResult(p) } }
                     }
                 }
             }
         }
+        if (showingResults) {
+            // "Pilih pada peta": always a way out of a search (secondary while there are results).
+            OutlinedPickButton(Modifier.align(Alignment.BottomCenter).padding(16.dp).navigationBarsPadding()) { kb?.hide(); vm.openPickOnMap() }
+        }
+        }
+    }
+}
+
+@Composable
+private fun SortChips(ui: UiState, vm: MainViewModel) {
+    val c = Gimano.colors
+    Row(Modifier.padding(horizontal = 16.dp, vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        listOf(
+            my.gimano.app.core.search.ResultSort.NEAREST to R.string.sort_nearest,
+            my.gimano.app.core.search.ResultSort.RELEVANT to R.string.sort_relevant,
+            my.gimano.app.core.search.ResultSort.OPEN_NOW to R.string.sort_open_now,
+        ).forEach { (s, l) ->
+            val on = ui.resultSort == s
+            Text(stringResource(l), Modifier.height(36.dp).clip(RoundedCornerShape(999.dp)).background(if (on) c.brand else c.brandMist)
+                .clickable { vm.setResultSort(s) }.padding(horizontal = 14.dp, vertical = 8.dp),
+                fontSize = 13.sp, fontWeight = FontWeight.Black, color = if (on) c.brandOn else c.brandInk)
+        }
+    }
+}
+
+@Composable
+private fun ChainGroup(g: my.gimano.app.core.search.ResultRow.Chain, onPick: (PlaceSummary) -> Unit) {
+    val c = Gimano.colors
+    var open by rememberSaveable(g.key) { mutableStateOf(false) }
+    Column {
+        Row(Modifier.padding(horizontal = 16.dp, vertical = 4.dp).fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(c.surfaceAlt)
+            .clickable { open = !open }.padding(horizontal = 14.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+            CategoryBadge(g.nearest.category)
+            Spacer(Modifier.width(12.dp))
+            Column(Modifier.weight(1f)) {
+                Text(g.name, fontSize = 17.sp, fontWeight = FontWeight.Black, color = c.text)
+                Text(stringResource(R.string.chain_nearby, g.branches.size), fontSize = 13.sp, fontWeight = FontWeight.ExtraBold, color = c.textMuted)
+            }
+            g.nearest.distanceM?.let { Text(Formatters.distance(it), fontSize = 15.sp, fontWeight = FontWeight.Black, color = c.brand) }
+            Icon(if (open) Icons.Filled.ExpandLess else Icons.Filled.ExpandMore, null, tint = c.brand)
+        }
+        if (open) g.branches.forEach { p ->
+            Row(Modifier.fillMaxWidth().clickable { onPick(p) }.padding(start = 78.dp, end = 20.dp, top = 12.dp, bottom = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text(p.name, fontSize = 15.sp, fontWeight = FontWeight.Black, color = c.text)
+                    if (p.address.isNotBlank()) Text(p.address, fontSize = 13.sp, fontWeight = FontWeight.Bold, color = c.textMuted, maxLines = 1)
+                }
+                p.distanceM?.let { Text(Formatters.distance(it), fontSize = 15.sp, fontWeight = FontWeight.Black, color = c.brand) }
+            }
+            Divider(Modifier.padding(start = 78.dp))
+        }
+    }
+}
+
+@Composable
+private fun OutlinedPickButton(modifier: Modifier, onClick: () -> Unit) {
+    val c = Gimano.colors
+    Row(modifier.fillMaxWidth().height(64.dp).clip(RoundedCornerShape(20.dp)).background(c.brandMist).clickable(onClick = onClick),
+        horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
+        Icon(Icons.Filled.Map, null, tint = c.brandInk, modifier = Modifier.size(26.dp)); Spacer(Modifier.width(10.dp))
+        Text(stringResource(R.string.pick_on_map), fontSize = 18.sp, fontWeight = FontWeight.Black, color = c.brandInk)
+    }
+}
+
+/** Canvas CariTiada: never a dead end. */
+@Composable
+private fun NoResults(ui: UiState, vm: MainViewModel, onPick: () -> Unit, onAdd: () -> Unit) {
+    val c = Gimano.colors
+    Column(Modifier.fillMaxSize().navigationBarsPadding().padding(horizontal = 16.dp)) {
+        Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(top = 32.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Icon(Icons.Filled.SearchOff, null, tint = c.brandTint, modifier = Modifier.size(96.dp))
+            Text(stringResource(R.string.no_results_title, ui.query.trim()), fontSize = 22.sp, fontWeight = FontWeight.Black, color = c.text, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+            Text(stringResource(R.string.no_results_body), fontSize = 15.sp, fontWeight = FontWeight.Bold, color = c.textMuted, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+            if (ui.suggestions.isNotEmpty()) {
+                Spacer(Modifier.height(12.dp))
+                Text(stringResource(R.string.did_you_mean), Modifier.fillMaxWidth(), fontSize = 14.sp, fontWeight = FontWeight.Black, color = c.textMuted)
+                @OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
+                FlowRow(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    ui.suggestions.take(6).forEach { s ->
+                        val extra = s.count?.let { " · $it" } ?: s.distanceM?.let { " · " + Formatters.distance(it) } ?: ""
+                        Text(s.label + extra, Modifier.height(40.dp).clip(RoundedCornerShape(999.dp)).background(c.brandMist).clickable { vm.pickSuggestion(s) }
+                            .padding(horizontal = 14.dp, vertical = 10.dp), fontSize = 14.sp, fontWeight = FontWeight.Black, color = c.brandInk)
+                    }
+                }
+            }
+        }
+        Row(Modifier.fillMaxWidth().height(72.dp).clip(RoundedCornerShape(20.dp)).background(c.brand).clickable(onClick = onPick),
+            horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
+            Icon(Icons.Filled.Map, null, tint = c.brandOn, modifier = Modifier.size(28.dp)); Spacer(Modifier.width(10.dp))
+            Text(stringResource(R.string.pick_on_map), fontSize = 19.sp, fontWeight = FontWeight.Black, color = c.brandOn)
+        }
+        Spacer(Modifier.height(10.dp))
+        Box(Modifier.fillMaxWidth().height(56.dp).clip(RoundedCornerShape(18.dp)).background(c.surfaceAlt).clickable(onClick = onAdd), contentAlignment = Alignment.Center) {
+            Text(stringResource(R.string.add_missing_place), fontSize = 16.sp, fontWeight = FontWeight.Black, color = c.brandInk)
+        }
+        Spacer(Modifier.height(16.dp))
     }
 }
 

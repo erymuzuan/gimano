@@ -6,6 +6,13 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class CrashScrubberTest {
+    // Token-shaped fixtures are built at runtime so no literal JWT / key material sits in the source.
+    private val b64url = java.util.Base64.getUrlEncoder().withoutPadding()
+    private fun seg(json: String) = b64url.encodeToString(json.toByteArray())
+    private val fakeJwt = listOf(seg("{\"alg\":\"none\"}"), seg("{\"sub\":\"test\"}"), "c2lnbmF0dXJl").joinToString(".")
+    private val fakeSig = java.util.Base64.getEncoder().encodeToString(ByteArray(64) { (it * 7 + 3).toByte() })
+    private val fakeHex = java.util.Random(42).let { r -> (1..32).joinToString("") { "%02x".format(r.nextInt(256)) } }
+
     private fun s(t: String) = Scrubber.scrub(t)!!
     private fun gone(t: String, vararg secrets: String) {
         val out = s(t)
@@ -28,10 +35,10 @@ class CrashScrubberTest {
         gone("call 012-345 6789", "012-345")
         gone("wa +6591234567", "6591234567")
         gone("Authorization: Bearer abc.def.ghi-123", "abc.def")
-        gone("jwt eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjMifQ.abc_DEF-123xyz", "eyJhbGciOiJIUzI1NiJ9")
+        gone("jwt $fakeJwt", fakeJwt.take(12))
         gone("token=s3cr3tValue&x=1", "s3cr3tValue")
-        gone("sig: SM344tg3ihSuOjuD04CgBIgHDy6Ov4zJMkh8gm6PPAtb8BixNMX8wAZ4xhOX160PfhZ3OFfi/u6wRlfPtbzKAA==", "SM344tg3ih")
-        gone("key 6c091ee7b6a05d273cedfd0ada1a4a1c113a2ef99a1ed14c35f8d87f36019821", "6c091ee7b6a0")
+        gone("sig: $fakeSig", fakeSig.take(10))
+        gone("key $fakeHex", fakeHex.take(12))
     }
 
     @Test fun queryStringsAndPaths() {
