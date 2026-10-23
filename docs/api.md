@@ -118,11 +118,13 @@ GET    /places/{id}/photos?cursor=    → {photos: Photo[], next?}
 DELETE /photos/{id}                   (uploader only)
 POST   /photos/{id}/flag              {reason}
 GET    /media/{key}.webp              (public, immutable, Cache-Control: max-age=31536000)
+GET    /photos/{id}                   → Photo   (poll after upload: status processing → published | rejected)
 ```
 
 `Review = {id, placeId, rating, text?, photos: Photo[], author: {displayName, level, reviewCount},
 helpfulCount, createdAt, editedAt?, status: "published"|"hidden"}`
-`Photo = {id, url, thumbUrl, width, height, caption?, uploadedBy: {displayName}, createdAt}`
+`Photo = {id, url, thumbUrl, width, height, caption?, uploadedBy: {displayName}, createdAt, status}`
+(`url`/`thumbUrl` are null while `status` is `processing`; uploads of HEIC or other undecodable images get `415`.)
 
 **Photo processing (server):** apply EXIF orientation → **strip all metadata (incl. GPS)** →
 resize to max 1600 px on the long edge → encode **WebP** (quality 80) + a 400 px thumbnail (WebP

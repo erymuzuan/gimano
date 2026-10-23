@@ -50,7 +50,7 @@ public class SearchQueryBuilderTests
     {
         var body = SearchQueryBuilder.Build(new SearchQuery("changi", null, null));
         var b = body["query"]!["function_score"]!["query"]!["bool"]!;
-        Assert.Empty(b["filter"]!.AsArray());
+        Assert.DoesNotContain(b["filter"]!.AsArray(), f => f!["term"]?["country"] is not null);
         Assert.Contains(b["should"]!.AsArray(), s => s!["term"]?["country"] is not null);
     }
 

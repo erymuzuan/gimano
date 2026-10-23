@@ -30,6 +30,11 @@ public sealed class OsmImporter(GimanoDbContext db, NpgsqlDataSource dataSource,
     private sealed record RoadWay(long Id, long[] Nodes, string Highway, string? Name, string? Ref, bool Oneway, double FreeFlowKmh);
     private sealed record PoiWay(long Id, long[] Nodes, PlaceCategory Category, Dictionary<string, string> Tags);
 
+    /// <summary>Closed ways that are inland water (lakes, reservoirs, river areas): used to reject community places "in water".</summary>
+    internal static bool IsWaterArea(IReadOnlyDictionary<string, string> tags) =>
+        tags.GetValueOrDefault("natural") == "water" || tags.GetValueOrDefault("waterway") == "riverbank"
+        || tags.GetValueOrDefault("landuse") is "reservoir" or "basin";
+
     public async Task RunAsync(ImportOptions o, CancellationToken ct)
     {
         var sw = Stopwatch.StartNew();
@@ -46,6 +51,7 @@ public sealed class OsmImporter(GimanoDbContext db, NpgsqlDataSource dataSource,
             // ---- Pass 1: ways -------------------------------------------------
             var roads = new List<RoadWay>();
             var poiWays = new List<PoiWay>();
+            var waterWays = new List<(long Id, long[] Nodes)>();
             var needed = new List<long>();
             await using (var fs = File.OpenRead(o.PbfPath))
             {
@@ -69,6 +75,11 @@ public sealed class OsmImporter(GimanoDbContext db, NpgsqlDataSource dataSource,
                     if (o.Places && OsmCategoryMapper.Map(tags) is { } cat && OsmCategoryMapper.ShouldImport(cat, tags))
                     {
                         poiWays.Add(new PoiWay(w.Id!.Value, w.Nodes, cat, tags));
+                        needed.AddRange(w.Nodes);
+                    }
+                    if (o.Places && w.Nodes.Length >= 4 && w.Nodes[0] == w.Nodes[^1] && IsWaterArea(tags))
+                    {
+                        waterWays.Add((w.Id!.Value, w.Nodes));
                         needed.AddRange(w.Nodes);
                     }
                 }
@@ -130,6 +141,7 @@ public sealed class OsmImporter(GimanoDbContext db, NpgsqlDataSource dataSource,
                     logger.LogInformation("  sample: {Id} {Name} [{Cat}] {Country} '{Address}' ({Lat:F2},{Lng:F2})", p.Id, p.Name, p.Category, p.Country, p.Address, p.Location.Y, p.Location.X);
                 return;
             }
+            if (o.Places) await WriteWaterAsync(waterWays, TryCoord, ct);
             if (o.Roads) await WriteRoadsAsync(roads, TryCoord, ct);
             if (o.Places) await UpsertPlacesAsync(places, ct);
             if (o.Places && o.Roads) await EnrichAddressesAsync(ct);
@@ -204,6 +216,31 @@ public sealed class OsmImporter(GimanoDbContext db, NpgsqlDataSource dataSource,
         }
         await using (var analyze = new NpgsqlCommand("ANALYZE road_segments;", conn)) await analyze.ExecuteNonQueryAsync(ct);
         logger.LogInformation("Wrote {Count} road segments from {Ways} ways", count, roads.Count);
+    }
+
+    private async Task WriteWaterAsync(List<(long Id, long[] Nodes)> ways, CoordLookup coord, CancellationToken ct)
+    {
+        await using var conn = await dataSource.OpenConnectionAsync(ct);
+        await using (var trunc = new NpgsqlCommand("TRUNCATE water_areas RESTART IDENTITY;", conn)) await trunc.ExecuteNonQueryAsync(ct);
+        var count = 0;
+        await using (var writer = await conn.BeginBinaryImportAsync("COPY water_areas (osm_way_id, geom) FROM STDIN (FORMAT BINARY)", ct))
+        {
+            foreach (var (id, nodes) in ways)
+            {
+                var pts = new List<NetTopologySuite.Geometries.Coordinate>(nodes.Length);
+                foreach (var n in nodes) if (coord(n, out var p)) pts.Add(new(p.Lng, p.Lat));
+                if (pts.Count < 4 || !pts[0].Equals2D(pts[^1])) continue;
+                var poly = GeoMath.Factory.CreatePolygon(pts.ToArray());
+                if (!poly.IsValid) continue; // self-intersecting outlines: skip rather than misclassify land
+                if (!poly.Shell.IsCCW) poly = (NetTopologySuite.Geometries.Polygon)poly.Reverse();
+                await writer.StartRowAsync(ct);
+                await writer.WriteAsync(id, NpgsqlDbType.Bigint, ct);
+                await writer.WriteAsync(poly, NpgsqlDbType.Geography, ct);
+                count++;
+            }
+            await writer.CompleteAsync(ct);
+        }
+        logger.LogInformation("Wrote {Count} inland water areas", count);
     }
 
     private static async Task WriteNullableAsync(NpgsqlBinaryImporter w, string? s, CancellationToken ct)
@@ -382,6 +419,8 @@ public sealed class OsmImporter(GimanoDbContext db, NpgsqlDataSource dataSource,
     private async Task IndexSearchAsync(bool recreate, CancellationToken ct)
     {
         await index.EnsureIndexAsync(recreate, ct);
+        // Reviews/photos aggregates and community places must survive a re-import (the index is rebuilt).
+        var aggregates = await PlaceDocuments.AggregatesAsync(db, null, ct);
         const int batch = 5000;
         var total = 0;
         string? lastId = null;
@@ -391,11 +430,13 @@ public sealed class OsmImporter(GimanoDbContext db, NpgsqlDataSource dataSource,
             if (lastId is not null) q = q.Where(p => string.Compare(p.Id, lastId) > 0);
             var rows = await q.Take(batch).ToListAsync(ct);
             if (rows.Count == 0) break;
-            total += await index.BulkIndexAsync(rows, ct);
+            total += await index.BulkIndexAsync(rows.Select(p => SearchQueryBuilder.ToDocument(p, aggregates.GetValueOrDefault(p.Id))), ct);
             lastId = rows[^1].Id;
             logger.LogInformation("Indexed {Total} places…", total);
         }
+        var community = await db.CommunityPlaces.AsNoTracking().ToListAsync(ct);
+        total += await index.BulkIndexAsync(community.Select(p => SearchQueryBuilder.ToDocument(p, aggregates.GetValueOrDefault(p.Id))), ct);
         await index.RefreshAsync(ct);
-        logger.LogInformation("OpenSearch '{Index}' now has {Total} documents", PlaceSearchIndex.Index, total);
+        logger.LogInformation("OpenSearch '{Index}' now has {Total} documents ({Community} community)", PlaceSearchIndex.Index, total, community.Count);
     }
 }

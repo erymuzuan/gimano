@@ -17,12 +17,58 @@ public sealed record RecentDto(Guid Id, string Name, string Address, double Lat,
 
 // ---- Search & places ------------------------------------------------------
 
-public sealed record PlaceSummary(string Id, string Name, PlaceCategory Category, string Address, double Lat, double Lng, double? DistanceM, string? Brand);
+public sealed record PlaceSummary(
+    string Id, string Name, PlaceCategory Category, string Address, double Lat, double Lng, double? DistanceM, string? Brand,
+    PlaceSource Source = PlaceSource.Osm, PlaceStatus? Status = null, double? Rating = null, int ReviewCount = 0, string? ThumbnailUrl = null);
 
 public sealed record PlaceDto(
     string Id, string Name, PlaceCategory Category, string Address, double Lat, double Lng, double? DistanceM, string? Brand,
     string? Phone, string? Website, string? OpeningHours, bool? OpenNow,
-    IReadOnlyList<string> Amenities, IReadOnlyDictionary<string, string> Tags, string OsmType, long OsmId);
+    IReadOnlyList<string> Amenities, IReadOnlyDictionary<string, string> Tags, string? OsmType, long? OsmId,
+    PlaceSource Source = PlaceSource.Osm, PlaceStatus? Status = null, double? Rating = null, int ReviewCount = 0, string? ThumbnailUrl = null,
+    string? Description = null, AddedBy? AddedBy = null, int VerifiedCount = 0, IReadOnlyList<PhotoDto>? Photos = null);
+
+public sealed record AddedBy(string DisplayName);
+
+// ---- Community places --------------------------------------------------------
+
+public sealed record CreatePlaceRequest(
+    string Name, PlaceCategory? Category, double Lat, double Lng, string? Address, string? Description,
+    string? Phone, string? Website, string? OpeningHours, IReadOnlyList<string>? Amenities);
+
+public sealed record PatchCommunityPlaceRequest(
+    string? Name, PlaceCategory? Category, double? Lat, double? Lng, string? Address, string? Description,
+    string? Phone, string? Website, string? OpeningHours, IReadOnlyList<string>? Amenities);
+
+public sealed record SuggestEditRequest(
+    string? Name, PlaceCategory? Category, double? Lat, double? Lng, string? Address, string? Phone, string? Website,
+    string? OpeningHours, string? Description, bool? Closed, string? Comment);
+
+public sealed record SuggestionAccepted(Guid SuggestionId);
+
+public sealed record VerifyPlaceRequest(bool Exists, bool? CorrectLocation);
+
+// ---- Reviews & photos ----------------------------------------------------------
+
+public sealed record ReviewAuthor(string DisplayName, int Level, int ReviewCount);
+
+public sealed record ReviewDto(
+    Guid Id, string PlaceId, int Rating, string? Text, IReadOnlyList<PhotoDto> Photos, ReviewAuthor Author,
+    int HelpfulCount, DateTimeOffset CreatedAt, DateTimeOffset? EditedAt, ReviewStatus Status);
+
+public sealed record ReviewsPage(IReadOnlyList<ReviewDto> Reviews, string? Next);
+
+public sealed record CreateReviewRequest(int Rating, string? Text, IReadOnlyList<Guid>? PhotoIds);
+
+public sealed record PatchReviewRequest(int? Rating, string? Text, IReadOnlyList<Guid>? PhotoIds);
+
+public sealed record FlagRequest(FlagReason Reason);
+
+public sealed record PhotoDto(
+    Guid Id, string? Url, string? ThumbUrl, int Width, int Height, string? Caption, AddedBy UploadedBy, DateTimeOffset CreatedAt,
+    PhotoStatus Status = PhotoStatus.Published);
+
+public sealed record PhotosPage(IReadOnlyList<PhotoDto> Photos, string? Next);
 
 public sealed record SearchResponse(IReadOnlyList<PlaceSummary> Results);
 public sealed record ReverseGeocodeResponse(string Name, string Address, double Lat, double Lng);

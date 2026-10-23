@@ -26,6 +26,109 @@ namespace Gimano.Core.Data.Migrations
             NpgsqlModelBuilderExtensions.HasPostgresExtension(modelBuilder, "postgis");
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
+            modelBuilder.Entity("Gimano.Core.Domain.CommunityPlace", b =>
+                {
+                    b.Property<string>("Id")
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)")
+                        .HasColumnName("id");
+
+                    b.Property<string>("Address")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("address");
+
+                    b.PrimitiveCollection<List<string>>("Amenities")
+                        .IsRequired()
+                        .HasColumnType("text[]")
+                        .HasColumnName("amenities");
+
+                    b.Property<string>("Category")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("category");
+
+                    b.Property<string>("Country")
+                        .IsRequired()
+                        .HasMaxLength(2)
+                        .HasColumnType("character varying(2)")
+                        .HasColumnName("country");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)")
+                        .HasColumnName("description");
+
+                    b.Property<Point>("Location")
+                        .IsRequired()
+                        .HasColumnType("geography (point, 4326)")
+                        .HasColumnName("location");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("name");
+
+                    b.Property<string>("OpeningHours")
+                        .HasColumnType("text")
+                        .HasColumnName("opening_hours");
+
+                    b.Property<Guid?>("OwnerId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("owner_id");
+
+                    b.Property<string>("Phone")
+                        .HasColumnType("text")
+                        .HasColumnName("phone");
+
+                    b.Property<int>("RejectedCount")
+                        .HasColumnType("integer")
+                        .HasColumnName("rejected_count");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(12)
+                        .HasColumnType("character varying(12)")
+                        .HasColumnName("status");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<int>("VerifiedCount")
+                        .HasColumnType("integer")
+                        .HasColumnName("verified_count");
+
+                    b.Property<string>("Website")
+                        .HasColumnType("text")
+                        .HasColumnName("website");
+
+                    b.HasKey("Id")
+                        .HasName("pk_community_places");
+
+                    b.HasIndex("Location")
+                        .HasDatabaseName("ix_community_places_location");
+
+                    NpgsqlIndexBuilderExtensions.HasMethod(b.HasIndex("Location"), "gist");
+
+                    b.HasIndex("Name")
+                        .HasDatabaseName("ix_community_places_name");
+
+                    NpgsqlIndexBuilderExtensions.HasMethod(b.HasIndex("Name"), "gin");
+                    NpgsqlIndexBuilderExtensions.HasOperators(b.HasIndex("Name"), new[] { "gin_trgm_ops" });
+
+                    b.HasIndex("OwnerId", "CreatedAt")
+                        .HasDatabaseName("ix_community_places_owner_id_created_at");
+
+                    b.ToTable("community_places", (string)null);
+                });
+
             modelBuilder.Entity("Gimano.Core.Domain.Feedback", b =>
                 {
                     b.Property<Guid>("Id")
@@ -145,6 +248,113 @@ namespace Gimano.Core.Data.Migrations
                     b.ToTable("jams", (string)null);
                 });
 
+            modelBuilder.Entity("Gimano.Core.Domain.Photo", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<string>("Caption")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("caption");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<int>("FlagCount")
+                        .HasColumnType("integer")
+                        .HasColumnName("flag_count");
+
+                    b.Property<int>("Height")
+                        .HasColumnType("integer")
+                        .HasColumnName("height");
+
+                    b.Property<string>("Key")
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)")
+                        .HasColumnName("key");
+
+                    b.Property<string>("PlaceId")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)")
+                        .HasColumnName("place_id");
+
+                    b.Property<string>("RejectReason")
+                        .HasColumnType("text")
+                        .HasColumnName("reject_reason");
+
+                    b.Property<Guid?>("ReviewId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("review_id");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(12)
+                        .HasColumnType("character varying(12)")
+                        .HasColumnName("status");
+
+                    b.Property<string>("ThumbKey")
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)")
+                        .HasColumnName("thumb_key");
+
+                    b.Property<string>("UploadKey")
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)")
+                        .HasColumnName("upload_key");
+
+                    b.Property<Guid?>("UserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("user_id");
+
+                    b.Property<int>("Width")
+                        .HasColumnType("integer")
+                        .HasColumnName("width");
+
+                    b.HasKey("Id")
+                        .HasName("pk_photos");
+
+                    b.HasIndex("ReviewId")
+                        .HasDatabaseName("ix_photos_review_id");
+
+                    b.HasIndex("UserId")
+                        .HasDatabaseName("ix_photos_user_id");
+
+                    b.HasIndex("PlaceId", "Status", "Id")
+                        .HasDatabaseName("ix_photos_place_id_status_id");
+
+                    b.ToTable("photos", (string)null);
+                });
+
+            modelBuilder.Entity("Gimano.Core.Domain.PhotoFlag", b =>
+                {
+                    b.Property<Guid>("PhotoId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("photo_id");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("user_id");
+
+                    b.Property<string>("Reason")
+                        .IsRequired()
+                        .HasMaxLength(24)
+                        .HasColumnType("character varying(24)")
+                        .HasColumnName("reason");
+
+                    b.HasKey("PhotoId", "UserId")
+                        .HasName("pk_photo_flags");
+
+                    b.HasIndex("UserId")
+                        .HasDatabaseName("ix_photo_flags_user_id");
+
+                    b.ToTable("photo_flags", (string)null);
+                });
+
             modelBuilder.Entity("Gimano.Core.Domain.Place", b =>
                 {
                     b.Property<string>("Id")
@@ -241,6 +451,81 @@ namespace Gimano.Core.Data.Migrations
                     NpgsqlIndexBuilderExtensions.HasOperators(b.HasIndex("Name"), new[] { "gin_trgm_ops" });
 
                     b.ToTable("places", (string)null);
+                });
+
+            modelBuilder.Entity("Gimano.Core.Domain.PlaceSuggestion", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<int>("Confirmations")
+                        .HasColumnType("integer")
+                        .HasColumnName("confirmations");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("PlaceId")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)")
+                        .HasColumnName("place_id");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(10)
+                        .HasColumnType("character varying(10)")
+                        .HasColumnName("status");
+
+                    b.Property<Guid?>("UserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("user_id");
+
+                    b.HasKey("Id")
+                        .HasName("pk_place_suggestions");
+
+                    b.HasIndex("UserId")
+                        .HasDatabaseName("ix_place_suggestions_user_id");
+
+                    b.HasIndex("PlaceId", "Status")
+                        .HasDatabaseName("ix_place_suggestions_place_id_status");
+
+                    b.ToTable("place_suggestions", (string)null);
+                });
+
+            modelBuilder.Entity("Gimano.Core.Domain.PlaceVerification", b =>
+                {
+                    b.Property<string>("PlaceId")
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)")
+                        .HasColumnName("place_id");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("user_id");
+
+                    b.Property<bool?>("CorrectLocation")
+                        .HasColumnType("boolean")
+                        .HasColumnName("correct_location");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<bool>("Exists")
+                        .HasColumnType("boolean")
+                        .HasColumnName("exists");
+
+                    b.HasKey("PlaceId", "UserId")
+                        .HasName("pk_place_verifications");
+
+                    b.HasIndex("UserId")
+                        .HasDatabaseName("ix_place_verifications_user_id");
+
+                    b.ToTable("place_verifications", (string)null);
                 });
 
             modelBuilder.Entity("Gimano.Core.Domain.RecentDestination", b =>
@@ -401,6 +686,118 @@ namespace Gimano.Core.Data.Migrations
                         .HasName("pk_report_votes");
 
                     b.ToTable("report_votes", (string)null);
+                });
+
+            modelBuilder.Entity("Gimano.Core.Domain.Review", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<DateTimeOffset?>("EditedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("edited_at");
+
+                    b.Property<int>("FlagCount")
+                        .HasColumnType("integer")
+                        .HasColumnName("flag_count");
+
+                    b.Property<int>("HelpfulCount")
+                        .HasColumnType("integer")
+                        .HasColumnName("helpful_count");
+
+                    b.Property<string>("PlaceId")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)")
+                        .HasColumnName("place_id");
+
+                    b.Property<int>("Rating")
+                        .HasColumnType("integer")
+                        .HasColumnName("rating");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(10)
+                        .HasColumnType("character varying(10)")
+                        .HasColumnName("status");
+
+                    b.Property<string>("Text")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)")
+                        .HasColumnName("text");
+
+                    b.Property<Guid?>("UserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("user_id");
+
+                    b.HasKey("Id")
+                        .HasName("pk_reviews");
+
+                    b.HasIndex("PlaceId", "UserId")
+                        .IsUnique()
+                        .HasDatabaseName("ix_reviews_place_id_user_id");
+
+                    b.HasIndex("UserId", "CreatedAt")
+                        .HasDatabaseName("ix_reviews_user_id_created_at");
+
+                    b.HasIndex("PlaceId", "Status", "Id")
+                        .HasDatabaseName("ix_reviews_place_id_status_id");
+
+                    b.ToTable("reviews", (string)null);
+                });
+
+            modelBuilder.Entity("Gimano.Core.Domain.ReviewFlag", b =>
+                {
+                    b.Property<Guid>("ReviewId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("review_id");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("user_id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("Reason")
+                        .IsRequired()
+                        .HasMaxLength(24)
+                        .HasColumnType("character varying(24)")
+                        .HasColumnName("reason");
+
+                    b.HasKey("ReviewId", "UserId")
+                        .HasName("pk_review_flags");
+
+                    b.HasIndex("UserId")
+                        .HasDatabaseName("ix_review_flags_user_id");
+
+                    b.ToTable("review_flags", (string)null);
+                });
+
+            modelBuilder.Entity("Gimano.Core.Domain.ReviewHelpful", b =>
+                {
+                    b.Property<Guid>("ReviewId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("review_id");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("user_id");
+
+                    b.HasKey("ReviewId", "UserId")
+                        .HasName("pk_review_helpfuls");
+
+                    b.HasIndex("UserId")
+                        .HasDatabaseName("ix_review_helpfuls_user_id");
+
+                    b.ToTable("review_helpfuls", (string)null);
                 });
 
             modelBuilder.Entity("Gimano.Core.Domain.RoadSegment", b =>
@@ -727,6 +1124,46 @@ namespace Gimano.Core.Data.Migrations
                     b.ToTable("users", (string)null);
                 });
 
+            modelBuilder.Entity("Gimano.Core.Domain.WaterArea", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint")
+                        .HasColumnName("id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+
+                    b.Property<Polygon>("Geom")
+                        .IsRequired()
+                        .HasColumnType("geography (polygon, 4326)")
+                        .HasColumnName("geom");
+
+                    b.Property<long>("OsmWayId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("osm_way_id");
+
+                    b.HasKey("Id")
+                        .HasName("pk_water_areas");
+
+                    b.HasIndex("Geom")
+                        .HasDatabaseName("ix_water_areas_geom");
+
+                    NpgsqlIndexBuilderExtensions.HasMethod(b.HasIndex("Geom"), "gist");
+
+                    b.ToTable("water_areas", (string)null);
+                });
+
+            modelBuilder.Entity("Gimano.Core.Domain.CommunityPlace", b =>
+                {
+                    b.HasOne("Gimano.Core.Domain.User", "Owner")
+                        .WithMany()
+                        .HasForeignKey("OwnerId")
+                        .OnDelete(DeleteBehavior.SetNull)
+                        .HasConstraintName("fk_community_places_users_owner_id");
+
+                    b.Navigation("Owner");
+                });
+
             modelBuilder.Entity("Gimano.Core.Domain.Feedback", b =>
                 {
                     b.HasOne("Gimano.Core.Domain.User", null)
@@ -773,6 +1210,108 @@ namespace Gimano.Core.Data.Migrations
                     b.Navigation("Context");
                 });
 
+            modelBuilder.Entity("Gimano.Core.Domain.Photo", b =>
+                {
+                    b.HasOne("Gimano.Core.Domain.Review", null)
+                        .WithMany()
+                        .HasForeignKey("ReviewId")
+                        .OnDelete(DeleteBehavior.SetNull)
+                        .HasConstraintName("fk_photos_reviews_review_id");
+
+                    b.HasOne("Gimano.Core.Domain.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.SetNull)
+                        .HasConstraintName("fk_photos_users_user_id");
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("Gimano.Core.Domain.PhotoFlag", b =>
+                {
+                    b.HasOne("Gimano.Core.Domain.Photo", null)
+                        .WithMany()
+                        .HasForeignKey("PhotoId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_photo_flags_photos_photo_id");
+
+                    b.HasOne("Gimano.Core.Domain.User", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_photo_flags_users_user_id");
+                });
+
+            modelBuilder.Entity("Gimano.Core.Domain.PlaceSuggestion", b =>
+                {
+                    b.HasOne("Gimano.Core.Domain.User", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.SetNull)
+                        .HasConstraintName("fk_place_suggestions_users_user_id");
+
+                    b.OwnsOne("Gimano.Core.Contracts.SuggestEditRequest", "Changes", b1 =>
+                        {
+                            b1.Property<Guid>("PlaceSuggestionId");
+
+                            b1.Property<string>("Address");
+
+                            b1.Property<int?>("Category");
+
+                            b1.Property<bool?>("Closed");
+
+                            b1.Property<string>("Comment");
+
+                            b1.Property<string>("Description");
+
+                            b1.Property<double?>("Lat");
+
+                            b1.Property<double?>("Lng");
+
+                            b1.Property<string>("Name");
+
+                            b1.Property<string>("OpeningHours");
+
+                            b1.Property<string>("Phone");
+
+                            b1.Property<string>("Website");
+
+                            b1.HasKey("PlaceSuggestionId");
+
+                            b1.ToTable("place_suggestions");
+
+                            b1
+                                .ToJson("changes")
+                                .HasColumnType("jsonb");
+
+                            b1.WithOwner()
+                                .HasForeignKey("PlaceSuggestionId")
+                                .HasConstraintName("fk_place_suggestions_place_suggestions_id");
+                        });
+
+                    b.Navigation("Changes")
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Gimano.Core.Domain.PlaceVerification", b =>
+                {
+                    b.HasOne("Gimano.Core.Domain.CommunityPlace", null)
+                        .WithMany()
+                        .HasForeignKey("PlaceId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_place_verifications_community_places_place_id");
+
+                    b.HasOne("Gimano.Core.Domain.User", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_place_verifications_users_user_id");
+                });
+
             modelBuilder.Entity("Gimano.Core.Domain.RecentDestination", b =>
                 {
                     b.HasOne("Gimano.Core.Domain.User", null)
@@ -802,6 +1341,51 @@ namespace Gimano.Core.Data.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
                         .HasConstraintName("fk_report_votes_reports_report_id");
+                });
+
+            modelBuilder.Entity("Gimano.Core.Domain.Review", b =>
+                {
+                    b.HasOne("Gimano.Core.Domain.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.SetNull)
+                        .HasConstraintName("fk_reviews_users_user_id");
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("Gimano.Core.Domain.ReviewFlag", b =>
+                {
+                    b.HasOne("Gimano.Core.Domain.Review", null)
+                        .WithMany()
+                        .HasForeignKey("ReviewId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_review_flags_reviews_review_id");
+
+                    b.HasOne("Gimano.Core.Domain.User", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_review_flags_users_user_id");
+                });
+
+            modelBuilder.Entity("Gimano.Core.Domain.ReviewHelpful", b =>
+                {
+                    b.HasOne("Gimano.Core.Domain.Review", null)
+                        .WithMany()
+                        .HasForeignKey("ReviewId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_review_helpfuls_reviews_review_id");
+
+                    b.HasOne("Gimano.Core.Domain.User", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_review_helpfuls_users_user_id");
                 });
 
             modelBuilder.Entity("Gimano.Core.Domain.SavedPlace", b =>

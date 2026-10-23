@@ -1,0 +1,31 @@
+# English profanity / slurs (normalised matching, whole tokens; see README.md)
+fuck
+fucker
+fucking
+motherfucker
+shit
+bullshit
+bitch
+bastard
+asshole
+arsehole
+cunt
+dick
+dickhead
+pussy
+whore
+slut
+wanker
+twat
+cock
+cocksucker
+nigger
+nigga
+faggot
+fag
+retard
+porn
+sex shop
+escort service
+viagra
+casino online

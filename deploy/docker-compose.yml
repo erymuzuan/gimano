@@ -6,6 +6,7 @@
 name: gimano
 
 x-dotnet-env: &dotnet-env
+  Media__Root: /data/media
   ConnectionStrings__Postgres: "Host=postgis;Port=5432;Database=${POSTGRES_DB:-gimano};Username=${POSTGRES_USER:-gimano};Password=${POSTGRES_PASSWORD:-gimano};Command Timeout=1800;GSS Encryption Mode=Disable"
   OpenSearch__Url: "http://opensearch:9200"
   RabbitMq__Host: "rabbitmq"
@@ -110,6 +111,7 @@ services:
       # Feedback screenshots are base64 (≤ 1.5 MB decoded ≈ 2 MB JSON).
       Kestrel__Limits__MaxRequestBodySize: "4194304"
     ports: ["${API_PORT:-5080}:8080"]
+    volumes: ["media:/data/media"]
     depends_on:
       postgis: { condition: service_healthy }
       rabbitmq: { condition: service_healthy }
@@ -127,6 +129,7 @@ services:
       # Optional GitHub-issue sink for feedback (off unless both are set).
       Feedback__GitHubRepo: ${FEEDBACK_GITHUB_REPO:-}
       Feedback__GitHubToken: ${FEEDBACK_GITHUB_TOKEN:-}
+    volumes: ["media:/data/media"]
     depends_on:
       api: { condition: service_started }   # the API applies EF migrations on start
       rabbitmq: { condition: service_healthy }
@@ -149,6 +152,7 @@ services:
       opensearch: { condition: service_healthy }
 
 volumes:
+  media:      # photos (content-addressed WebP); set Media__Provider=s3 + Media__S3__* to use object storage instead
   pgdata:
   osdata:
   rabbitdata:

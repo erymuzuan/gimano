@@ -143,7 +143,7 @@ public sealed class LocationStreamConsumer(
             using var proc = Process.GetCurrentProcess();
             logger.LogInformation(
                 "Traffic: {Rate:n0} pings/s ({Batches:n0} batches in {Msgs:n0} msgs), snap hit {Hit:n1}%, no-index {NoIndex}, malformed {Bad}; " +
-                "drivers {Drivers:n0}; snapshots {Flushes} (last {Rows:n0} dots total) avg {Avg:n1} ms max {Max:n1} ms; working set {WS:n0} MB",
+                "drivers {Drivers:n0}; {Rows:n0} dots over {Flushes} snapshots, avg {Avg:n1} ms max {Max:n1} ms; working set {WS:n0} MB",
                 s.Pings / secs, s.Batches, s.Messages, hit, s.NoIndex, s.Malformed, drivers.Count, s.FlushRows, s.FlushCount,
                 s.FlushMsAvg, s.FlushMsMax, proc.WorkingSet64 / 1_048_576.0);
         }

@@ -1,3 +1,4 @@
+using Gimano.Api.Auth;
 using Gimano.Api.Services;
 using Gimano.Core.Contracts;
 using Gimano.Core.Geo;
@@ -20,7 +21,7 @@ public static class PlaceEndpoints
     }
 
     private static async Task<Results<Ok<SearchResponse>, ValidationProblem>> Search(
-        string? q, double? lat, double? lng, int? limit, string? category, string? country, PlaceService places, CancellationToken ct)
+        string? q, double? lat, double? lng, int? limit, string? category, string? country, HttpContext http, PlaceService places, CancellationToken ct)
     {
         if (string.IsNullOrWhiteSpace(q)) return Validation.Problem("q", "q is required.");
         if (q.Length > 100) return Validation.Problem("q", "q is too long (max 100).");
@@ -35,12 +36,12 @@ public static class PlaceEndpoints
         if (country is not null && country.ToUpperInvariant() is not ("MY" or "SG" or "BN"))
             return Validation.Problem("country", "country must be MY, SG or BN.");
 
-        var results = await places.SearchAsync(new SearchQuery(q, lat, lng, limit ?? 10, cat, country?.ToUpperInvariant()), ct);
+        var results = await places.SearchAsync(new SearchQuery(q, lat, lng, limit ?? 10, cat, country?.ToUpperInvariant(), http.User.UserId()), ct);
         return TypedResults.Ok(new SearchResponse(results));
     }
 
     private static async Task<Results<Ok<SearchResponse>, ValidationProblem>> Nearby(
-        double lat, double lng, string? category, double? radius, int? limit, PlaceService places, CancellationToken ct)
+        double lat, double lng, string? category, double? radius, int? limit, HttpContext http, PlaceService places, CancellationToken ct)
     {
         if (Validation.LatLng(lat, lng) is { } p) return p;
         PlaceCategory? cat = null;
@@ -50,13 +51,13 @@ public static class PlaceEndpoints
             cat = c;
         }
         var r = Math.Clamp(radius ?? 5000, 50, 50_000);
-        var results = await places.NearbyAsync(new GeoPoint(lat, lng), cat, r, Math.Clamp(limit ?? 20, 1, 100), ct);
+        var results = await places.NearbyAsync(new GeoPoint(lat, lng), cat, r, Math.Clamp(limit ?? 20, 1, 100), http.User.UserId(), ct);
         return TypedResults.Ok(new SearchResponse(results));
     }
 
-    private static async Task<Results<Ok<PlaceDto>, NotFound>> GetPlace(string id, double? lat, double? lng, PlaceService places, CancellationToken ct)
+    private static async Task<Results<Ok<PlaceDto>, NotFound>> GetPlace(string id, double? lat, double? lng, HttpContext http, PlaceService places, CancellationToken ct)
     {
-        var p = await places.GetAsync(id, lat, lng, ct);
+        var p = await places.GetAsync(id, lat, lng, http.User.UserId(), ct);
         return p is null ? TypedResults.NotFound() : TypedResults.Ok(p);
     }
 

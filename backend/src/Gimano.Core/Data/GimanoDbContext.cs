@@ -18,6 +18,15 @@ public sealed class GimanoDbContext(DbContextOptions<GimanoDbContext> options) :
     public DbSet<Jam> Jams => Set<Jam>();
     public DbSet<Feedback> Feedback => Set<Feedback>();
     public DbSet<TollRate> TollRates => Set<TollRate>();
+    public DbSet<CommunityPlace> CommunityPlaces => Set<CommunityPlace>();
+    public DbSet<PlaceVerification> PlaceVerifications => Set<PlaceVerification>();
+    public DbSet<PlaceSuggestion> PlaceSuggestions => Set<PlaceSuggestion>();
+    public DbSet<Review> Reviews => Set<Review>();
+    public DbSet<ReviewHelpful> ReviewHelpfuls => Set<ReviewHelpful>();
+    public DbSet<ReviewFlag> ReviewFlags => Set<ReviewFlag>();
+    public DbSet<Photo> Photos => Set<Photo>();
+    public DbSet<PhotoFlag> PhotoFlags => Set<PhotoFlag>();
+    public DbSet<WaterArea> WaterAreas => Set<WaterArea>();
 
     protected override void OnModelCreating(ModelBuilder b)
     {
@@ -122,6 +131,93 @@ public sealed class GimanoDbContext(DbContextOptions<GimanoDbContext> options) :
             e.OwnsOne(x => x.Context, o => o.ToJson());
             e.HasIndex(x => new { x.UserId, x.CreatedAt });
             e.HasOne<User>().WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.SetNull);
+        });
+
+        b.Entity<CommunityPlace>(e =>
+        {
+            e.Property(x => x.Id).HasMaxLength(40);
+            e.Property(x => x.Name).HasMaxLength(100);
+            e.Property(x => x.Category).HasConversion<string>().HasMaxLength(20);
+            e.Property(x => x.Status).HasConversion<string>().HasMaxLength(12);
+            e.Property(x => x.Country).HasMaxLength(2);
+            e.Property(x => x.Description).HasMaxLength(1000);
+            e.Property(x => x.Location).HasColumnType("geography (point, 4326)");
+            e.HasIndex(x => x.Location).HasMethod("gist");
+            e.HasIndex(x => x.Name).HasMethod("gin").HasOperators("gin_trgm_ops");
+            e.HasIndex(x => new { x.OwnerId, x.CreatedAt });
+            e.HasOne(x => x.Owner).WithMany().HasForeignKey(x => x.OwnerId).OnDelete(DeleteBehavior.SetNull);
+        });
+
+        b.Entity<PlaceVerification>(e =>
+        {
+            e.HasKey(x => new { x.PlaceId, x.UserId });
+            e.Property(x => x.PlaceId).HasMaxLength(40);
+            e.Ignore(x => x.Positive);
+            e.HasOne<CommunityPlace>().WithMany().HasForeignKey(x => x.PlaceId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne<User>().WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        b.Entity<PlaceSuggestion>(e =>
+        {
+            e.Property(x => x.PlaceId).HasMaxLength(40);
+            e.Property(x => x.Status).HasConversion<string>().HasMaxLength(10);
+            e.OwnsOne(x => x.Changes, o => o.ToJson());
+            e.HasIndex(x => new { x.PlaceId, x.Status });
+            e.HasOne<User>().WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.SetNull);
+        });
+
+        b.Entity<Review>(e =>
+        {
+            e.Property(x => x.PlaceId).HasMaxLength(40);
+            e.Property(x => x.Text).HasMaxLength(2000);
+            e.Property(x => x.Status).HasConversion<string>().HasMaxLength(10);
+            e.HasIndex(x => new { x.PlaceId, x.UserId }).IsUnique();
+            e.HasIndex(x => new { x.PlaceId, x.Status, x.Id });
+            e.HasIndex(x => new { x.UserId, x.CreatedAt });
+            e.HasOne(x => x.User).WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.SetNull);
+        });
+
+        b.Entity<ReviewHelpful>(e =>
+        {
+            e.HasKey(x => new { x.ReviewId, x.UserId });
+            e.HasOne<Review>().WithMany().HasForeignKey(x => x.ReviewId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne<User>().WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        b.Entity<ReviewFlag>(e =>
+        {
+            e.HasKey(x => new { x.ReviewId, x.UserId });
+            e.Property(x => x.Reason).HasConversion<string>().HasMaxLength(24);
+            e.HasOne<Review>().WithMany().HasForeignKey(x => x.ReviewId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne<User>().WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        b.Entity<Photo>(e =>
+        {
+            e.Property(x => x.PlaceId).HasMaxLength(40);
+            e.Property(x => x.Status).HasConversion<string>().HasMaxLength(12);
+            e.Property(x => x.Caption).HasMaxLength(200);
+            e.Property(x => x.Key).HasMaxLength(80);
+            e.Property(x => x.ThumbKey).HasMaxLength(80);
+            e.Property(x => x.UploadKey).HasMaxLength(80);
+            e.HasIndex(x => new { x.PlaceId, x.Status, x.Id });
+            e.HasIndex(x => x.ReviewId);
+            e.HasOne(x => x.User).WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.SetNull);
+            e.HasOne<Review>().WithMany().HasForeignKey(x => x.ReviewId).OnDelete(DeleteBehavior.SetNull);
+        });
+
+        b.Entity<PhotoFlag>(e =>
+        {
+            e.HasKey(x => new { x.PhotoId, x.UserId });
+            e.Property(x => x.Reason).HasConversion<string>().HasMaxLength(24);
+            e.HasOne<Photo>().WithMany().HasForeignKey(x => x.PhotoId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne<User>().WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        b.Entity<WaterArea>(e =>
+        {
+            e.Property(x => x.Geom).HasColumnType("geography (polygon, 4326)");
+            e.HasIndex(x => x.Geom).HasMethod("gist");
         });
 
         b.Entity<TollRate>(e =>

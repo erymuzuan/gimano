@@ -1,3 +1,4 @@
+using Gimano.Core.Community;
 using Gimano.Core.Infrastructure;
 using Gimano.Worker.Alerts;
 using Gimano.Worker.Feedback;
@@ -20,6 +21,8 @@ builder.Services.AddHostedService<JamPublisher>();
 builder.Services.AddHostedService<AlertLifecycle>();
 builder.Services.AddHostedService<AlertExpirySweeper>();
 builder.Services.AddHostedService<SearchIndexer>();
+builder.Services.AddGimanoMedia(builder.Configuration);
+builder.Services.AddHostedService<Gimano.Worker.Photos.PhotoProcessor>();
 
 builder.Services.Configure<GitHubFeedbackOptions>(builder.Configuration.GetSection(GitHubFeedbackOptions.Section));
 if (builder.Configuration.GetSection(GitHubFeedbackOptions.Section).Get<GitHubFeedbackOptions>() is { Enabled: true })

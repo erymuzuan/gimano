@@ -23,8 +23,9 @@ public sealed class SearchIndexer(RabbitMqConnection connection, IServiceScopeFa
         }
         await using var scope = scopes.CreateAsyncScope();
         var db = scope.ServiceProvider.GetRequiredService<GimanoDbContext>();
-        var place = await db.Places.AsNoTracking().FirstOrDefaultAsync(p => p.Id == message.PlaceId, ct);
-        if (place is null) await index.DeleteAsync(message.PlaceId, ct);
-        else await index.BulkIndexAsync([place], ct);
+        // OSM or community place, with its rating/review count/thumbnail.
+        var doc = await PlaceDocuments.ForIdAsync(db, message.PlaceId, ct);
+        if (doc is null) await index.DeleteAsync(message.PlaceId, ct);
+        else await index.BulkIndexAsync([doc], ct);
     }
 }
