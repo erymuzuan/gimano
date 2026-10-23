@@ -95,6 +95,7 @@
 		E35D07FA087E065992A7004A /* libwebp in Frameworks */ = {isa = PBXBuildFile; productRef = C2C539BD2F351FB1D670A2CA /* libwebp */; };
 		E4BF9C18B9A5AF2FED0AA349 /* RoutePreviewView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 92B6ACBA56FD62A3A279DC94 /* RoutePreviewView.swift */; };
 		ED7BA0000490D551E66F5DFD /* SearchQueriesUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 56F7DF9A6F75182021A6A671 /* SearchQueriesUITests.swift */; };
+		EDA8B6E97E3C0F522E00C99D /* SearchRetestUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 27108E49D369D2E7E847F2D5 /* SearchRetestUITests.swift */; };
 		F030E3E4C727AB6F6551C32A /* ShareDrive.swift in Sources */ = {isa = PBXBuildFile; fileRef = 41614307C95440C6622D1E8C /* ShareDrive.swift */; };
 		F43F46EFEA44DC04DAF89F39 /* DriveBackupUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B87558CFB1FF80DBC5A662E7 /* DriveBackupUITests.swift */; };
 		F8B876ABC27695B2A7EA31B0 /* LocationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = CBC90672622F0ABA4D89CFEA /* LocationService.swift */; };
@@ -131,6 +132,7 @@
 		10C8980C61AB2C11DC29BA4A /* FavoritesViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FavoritesViews.swift; sourceTree = "<group>"; };
 		1C81FFCBA32722136F5E9C5B /* ReportSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReportSheet.swift; sourceTree = "<group>"; };
 		1E10D2741068A818F9DD4A47 /* GimanoApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GimanoApp.swift; sourceTree = "<group>"; };
+		27108E49D369D2E7E847F2D5 /* SearchRetestUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SearchRetestUITests.swift; sourceTree = "<group>"; };
 		2834FD72AD8E161736DD34BA /* BackupView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BackupView.swift; sourceTree = "<group>"; };
 		28F8D8E468983421C5B7ED97 /* Nunito.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = Nunito.ttf; sourceTree = "<group>"; };
 		290AD2E4977FFEDB651E4762 /* PlannedDriveTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlannedDriveTests.swift; sourceTree = "<group>"; };
@@ -285,6 +287,7 @@
 				6FBA37416C29B4B20D878BFB /* Round3UITests.swift */,
 				C5F669B6DCBAC9CDBDA48CAF /* Round4UITests.swift */,
 				56F7DF9A6F75182021A6A671 /* SearchQueriesUITests.swift */,
+				27108E49D369D2E7E847F2D5 /* SearchRetestUITests.swift */,
 				3B4338B4089BA06ED2E5A9CC /* VettingUITests.swift */,
 			);
 			path = GimanoUITests;
@@ -792,6 +795,7 @@
 				4F902BD3BD1138DEEAA5AB4E /* Round3UITests.swift in Sources */,
 				2CE151E5AF12C91658656725 /* Round4UITests.swift in Sources */,
 				ED7BA0000490D551E66F5DFD /* SearchQueriesUITests.swift in Sources */,
+				EDA8B6E97E3C0F522E00C99D /* SearchRetestUITests.swift in Sources */,
 				B6E2C6BFF61567EF072392D5 /* VettingUITests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

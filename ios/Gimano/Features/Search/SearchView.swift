@@ -202,6 +202,7 @@ struct SearchView: View {
         if let corrected, !exact {
             HStack(spacing: 4) {
                 Text("Showing results for \(Text(corrected).bold())")
+                    .accessibilityIdentifier("correctedHeader")
                 Text("·")
                 Button("Search “\(query)” only") { exact = true }
                     .foregroundStyle(Color.brand)
@@ -214,7 +215,6 @@ struct SearchView: View {
             .background(Color.amberMist, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
             .padding(.horizontal, Tokens.Space.gutter)
             .padding(.bottom, 6)
-            .accessibilityIdentifier("correctedHeader")
         }
     }
 
