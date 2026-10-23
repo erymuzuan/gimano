@@ -28,7 +28,7 @@ public static class RouteEndpoints
         if (req.Waypoints?.Any(w => !Validation.ValidLatLng(w.Lat, w.Lng)) == true) return Validation.Problem("waypoints", "Invalid waypoint.");
         if (req.Alternatives is < 0 or > 3) return Validation.Problem("alternatives", "alternatives must be 0–3.");
 
-        var routes = await svc.RouteAsync(req, http.User.UserId(), ct);
+        var routes = await svc.RouteAsync(req, http.User.UserId(), ct, lang: http.Lang());
         return TypedResults.Ok(new RoutesResponse(routes));
     }
 
@@ -37,7 +37,7 @@ public static class RouteEndpoints
     {
         if (Validation.LatLng(req.Lat, req.Lng) is { } p) return p;
         if (req.NextStopIndex is < 0 or > 5) return Validation.Problem("nextStopIndex", "nextStopIndex must be 0–5.");
-        return TypedResults.Ok(new RoutesResponse(await svc.RerouteAsync(id, req, http.User.UserId(), ct)));
+        return TypedResults.Ok(new RoutesResponse(await svc.RerouteAsync(id, req, http.User.UserId(), ct, http.Lang())));
     }
 
     private static async Task<Results<Ok<DepartureTimesResponse>, ValidationProblem>> DepartureTimes(

@@ -40,6 +40,9 @@ public class IssueRulesTests
         Assert.Equal(new DateTimeOffset(2026, 10, 30, 16, 0, 0, TimeSpan.Zero), IssueRules.ParseUntil("2026-10-30", T0));
         Assert.Null(IssueRules.ParseUntil("2026-10-01", T0));
         Assert.Equal(T0.AddDays(60), IssueRules.ParseUntil("2027-06-01", T0));   // capped at 60 days
+        // Npgsql only writes UTC timestamps: every expiry must have offset 0.
+        Assert.Equal(TimeSpan.Zero, IssueRules.ParseUntil("2026-10-30", T0)!.Value.Offset);
+        Assert.Equal(TimeSpan.Zero, IssueRules.InitialExpiry(IssueKind.RoadClosedTemp, null, "today", null, T0)!.Value.Offset);
         Assert.Equal(IssueState.Reported, IssueRules.InitialState(IssueKind.OddRoute));
         Assert.Equal(IssueState.Suspected, IssueRules.InitialState(IssueKind.RoadClosedTemp));
     }

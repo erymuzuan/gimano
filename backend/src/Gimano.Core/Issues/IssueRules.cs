@@ -70,7 +70,7 @@ public static class IssueRules
     private static DateTimeOffset EndOfMalaysianDay(DateTimeOffset now)
     {
         var my = now.ToOffset(TimeSpan.FromHours(8));
-        return new DateTimeOffset(my.Date.AddDays(1), TimeSpan.FromHours(8));
+        return new DateTimeOffset(my.Date.AddDays(1), TimeSpan.FromHours(8)).ToUniversalTime();   // Npgsql stores UTC only
     }
 
     /// <summary>Initial expiry; null = until refuted/resolved (long-lived kinds are swept after 180 days).</summary>
@@ -86,7 +86,7 @@ public static class IssueRules
     public static DateTimeOffset? ParseUntil(string? until, DateTimeOffset now)
     {
         if (!DateOnly.TryParseExact(until, "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out var d)) return null;
-        var end = new DateTimeOffset(d.ToDateTime(TimeOnly.MinValue).AddDays(1), TimeSpan.FromHours(8));
+        var end = new DateTimeOffset(d.ToDateTime(TimeOnly.MinValue).AddDays(1), TimeSpan.FromHours(8)).ToUniversalTime();
         if (end <= now) return null;
         return end - now > PlaceClosedTempMax ? now + PlaceClosedTempMax : end;
     }

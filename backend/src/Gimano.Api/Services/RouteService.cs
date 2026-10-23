@@ -20,7 +20,8 @@ public sealed class RouteService(
     private static readonly TimeSpan TariffCacheFor = TimeSpan.FromMinutes(10);
 
     /// <param name="cacheAs">The request stored for reroute (the original request, so <c>nextStopIndex</c> always indexes its waypoints).</param>
-    public async Task<IReadOnlyList<RouteDto>> RouteAsync(RouteRequest req, Guid? userId, CancellationToken ct, double? originHeading = null, RouteRequest? cacheAs = null)
+    public async Task<IReadOnlyList<RouteDto>> RouteAsync(RouteRequest req, Guid? userId, CancellationToken ct, double? originHeading = null, RouteRequest? cacheAs = null,
+        string lang = "en")
     {
         var vehicle = req.Vehicle ?? Vehicle.Car;
         var snapshot = await issues.GetAsync(ct);
@@ -55,7 +56,7 @@ public sealed class RouteService(
         }
 
         var routes = RouteDecorator.Decorate(candidates, activeReports, jams, () => Guid.CreateVersion7().ToString("N"), vehicle, plazas, tariffs)
-            .Select(r => r with { Issues = IssuesFor(r, excluded, snapshot, req.IgnoreIssues) }).ToList();
+            .Select(r => r with { Issues = IssuesFor(r, excluded, snapshot, req.IgnoreIssues, lang) }).ToList();
         foreach (var r in routes) cache.Set(CacheKey(r.Id), cacheAs ?? req, CacheFor);
 
         // Privacy rule: destinations/recents are never recorded server-side (they live on the device).
@@ -93,7 +94,7 @@ public sealed class RouteService(
 
     /// <summary>avoided: an applied exclusion within 1.5 km of the route; not avoided: any other open road issue on it (≤ 25 m).</summary>
     internal static List<RouteIssue> IssuesFor(RouteDto route, IReadOnlyList<IssueDirectory.RoadIssue> excluded, IssueDirectory.Snapshot s,
-        IReadOnlyList<Guid>? ignored, string lang = "ms")
+        IReadOnlyList<Guid>? ignored, string lang = "en")
     {
         var line = Polyline.Decode(route.Polyline);
         var result = new List<RouteIssue>();
@@ -112,12 +113,12 @@ public sealed class RouteService(
         return result;
     }
 
-    public async Task<IReadOnlyList<RouteDto>> RerouteAsync(string routeId, RerouteRequest r, Guid? userId, CancellationToken ct)
+    public async Task<IReadOnlyList<RouteDto>> RerouteAsync(string routeId, RerouteRequest r, Guid? userId, CancellationToken ct, string lang = "en")
     {
         if (!cache.TryGetValue(CacheKey(routeId), out RouteRequest? original) || original is null)
             throw new NotFoundException($"Route {routeId} is unknown or expired; request a new route.");
         var req = original with { Origin = new LatLng(r.Lat, r.Lng), Waypoints = RemainingStops(original.Waypoints, r.NextStopIndex), DepartAt = null };
-        return await RouteAsync(req, userId, ct, r.Heading, cacheAs: original);
+        return await RouteAsync(req, userId, ct, r.Heading, cacheAs: original, lang: lang);
     }
 
     /// <summary>Stops not yet reached: <c>waypoints[nextStopIndex..]</c> (out-of-range → none left, negative → all).</summary>
