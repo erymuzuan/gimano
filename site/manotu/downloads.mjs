@@ -1,8 +1,10 @@
-// Read-only consumer of the Android team's release manifest. Never infer a release from a build number.
+// Read-only consumer of the Manotu (my.manotu.app) release manifest, published at https://manotu.app/download/version.json.
+// The legacy Gimano manifest (/gimano/download/version.json) is for installed my.gimano.app apps only and is not read here.
+// Never infer a release from a build number.
 export function androidRelease(value) {
-  if (!value || !Number.isSafeInteger(value.versionCode) || value.versionCode < 2 ||
+  if (!value || !Number.isSafeInteger(value.versionCode) || value.versionCode < 6 ||
       !/^\d+\.\d+\.\d+$/.test(value.versionName) || !/^[a-f0-9]{64}$/i.test(value.sha256)) return null;
-  const expected = `https://www.bukitbunga.com/gimano/download/gimano-${value.versionName}.apk`;
+  const expected = `https://manotu.app/download/manotu-${value.versionName}.apk`;
   if (value.apkUrl !== expected) return null;
   if (value.sizeBytes !== undefined && (!Number.isSafeInteger(value.sizeBytes) || value.sizeBytes <= 0)) return null;
   return value;
@@ -16,10 +18,10 @@ export function renderAndroid(release, document) {
   const texts = {
     'android-release-label': `APK · ${release.versionName} · Android 8+`,
     'apk-version': release.versionName,
-    'apk-file': `gimano-${release.versionName}.apk`,
-    'apk-hash-file': `gimano-${release.versionName}.apk`,
+    'apk-file': `manotu-${release.versionName}.apk`,
+    'apk-hash-file': `manotu-${release.versionName}.apk`,
     'apk-sha256': release.sha256.toLowerCase(),
-    'apk-mirror': `gimano-${release.versionName}.apk`,
+    'apk-mirror': `manotu-${release.versionName}.apk`,
   };
   for (const [id, text] of Object.entries(texts)) {
     const node = document.getElementById(id);
@@ -32,7 +34,7 @@ export function renderAndroid(release, document) {
 }
 
 if (typeof document !== 'undefined') {
-  fetch('/gimano/download/version.json', {cache: 'no-store', credentials: 'omit'})
+  fetch(new URL('download/version.json', import.meta.url), {cache: 'no-store', credentials: 'omit'})
     .then(response => response.ok ? response.json() : null)
     .then(value => { const release = androidRelease(value); if (release) renderAndroid(release, document); })
     .catch(() => {}); // Offline, unavailable or invalid manifest: retain verified static preview links.
