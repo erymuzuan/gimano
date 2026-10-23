@@ -13,6 +13,7 @@ public sealed record PlaceAggregates(double? Rating, int ReviewCount, string? Th
 /// <summary>Builds OpenSearch request bodies for the <c>places</c> index.</summary>
 public static class SearchQueryBuilder
 {
+    /// <summary>Base name; the effective alias is <c>OpenSearch:IndexPrefix</c> + this (e.g. "gimano-places").</summary>
     public const string IndexName = "places";
     public const int MaxLimit = 50;
 

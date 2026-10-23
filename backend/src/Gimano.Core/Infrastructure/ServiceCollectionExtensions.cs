@@ -33,11 +33,12 @@ public static class ServiceCollectionExtensions
                 .ThrowExceptions(false);
             var user = config["OpenSearch:User"];
             if (!string.IsNullOrEmpty(user)) settings = settings.BasicAuthentication(user, config["OpenSearch:Password"]);
-            // Production runs OpenSearch with its security plugin (self-signed TLS) on an internal Docker network only.
-            if (config.GetValue("OpenSearch:SkipCertificateValidation", false))
+            // Only for this connection, and only when explicitly configured (shared OpenSearch with a demo/self-signed cert).
+            if (config.GetValue("OpenSearch:AllowInvalidCertificate", false))
                 settings = settings.ServerCertificateValidationCallback(CertificateValidations.AllowAll);
             return new OpenSearchLowLevelClient(settings);
         });
+        services.AddSingleton(new OpenSearchIndexOptions(config["OpenSearch:IndexPrefix"] ?? ""));
         services.AddSingleton<PlaceSearchIndex>();
         return services;
     }

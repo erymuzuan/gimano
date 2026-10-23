@@ -8,10 +8,11 @@ phone / browser ──TLS──▶ Cloudflare ──▶ 103.28.91.40 → IIS 172
                                               ▼
                                172.30.30.150:5080  (Docker, compose project "gimano")
                                api ─┬─ postgis   (internal network only)
-                                    ├─ rabbitmq  (internal)
-                                    ├─ opensearch(internal, security plugin on)
                                     └─ valhalla  (internal)
                                worker, importer (on demand)
+                                    │
+                                    ▼  shared services on 172.30.30.149
+                               RabbitMQ (vhost "gimano", port 5673) · OpenSearch 3.0 (TLS, user "gimano", indices "gimano-*")
 ```
 
 Privacy rule (AGENTS.md): the server only holds public contributions plus transient, anonymous
@@ -23,6 +24,7 @@ change to logging or proxies.
 | Host | Role | Notes |
 |---|---|---|
 | **172.30.30.150** (web50) | Docker host | Ubuntu 26.04, 6 vCPU, ~13 GiB free RAM, ~20 GB free on `/`. Shared with about 25 other prod containers: every service has a memory limit. Docker needs `sudo`. |
+| **172.30.30.149** | shared RabbitMQ + OpenSearch 3.0 | Provisioned per app: RabbitMQ vhost `gimano` + user; OpenSearch user `gimano` whose role only grants `gimano-*` (+ `indices:data/write/bulk`). |
 | **172.30.30.13** | IIS + ARR 3 + URL Rewrite + WebSockets | TLS termination (Let's Encrypt). `deploy/iis/gimano-api.ps1` configures it. |
 | WS556-SERVER / WS556 | image build | `deploy/build-push.ps1` (PowerShell) or `deploy/build-push.sh` (bash, also works on .150). |
 | `myhiro.azurecr.io` | registry | Images `gimano-api`, `gimano-worker`, `gimano-importer`. |
@@ -69,7 +71,8 @@ cp deploy/.env.prod.example deploy/.env.prod && chmod 600 deploy/.env.prod
 # Fill in every CHANGE_ME (generation commands are in the file). Set TAG to the sha printed by build-push.
 C="sudo docker compose -f deploy/docker-compose.prod.yml --env-file deploy/.env.prod"
 $C pull
-$C up -d postgis rabbitmq opensearch valhalla      # Valhalla downloads the extract and builds tiles (20–40 min, 2 threads)
+$C up -d postgis valhalla                          # Valhalla downloads the extract and builds tiles (20–40 min, 2 threads)
+# RabbitMQ/OpenSearch are the shared .149 instances (RABBITMQ_*/OPENSEARCH_* in .env.prod). Self-hosting: add --profile local-infra.
 $C up -d api worker                                # the API applies EF migrations on start
 ```
 
@@ -89,8 +92,8 @@ Once Valhalla reports healthy (`$C ps`), remove its copy of the extract. The til
 $C exec valhalla sh -c 'ls -la /custom_files; rm -f /custom_files/*.osm.pbf'
 ```
 
-Disk budget (target < 10 GB): Valhalla tiles for MY/SG/BN take about 1.5–2 GB, Postgres about 3 GB, OpenSearch
-about 0.3 GB. Media grows with photos. Check with `sudo docker system df -v | grep gimano`.
+Disk budget on .150 (target < 10 GB): Valhalla tiles for MY/SG/BN take about 1.5–2 GB and Postgres about 3 GB. Media grows
+with photos. The OpenSearch index (about 0.3 GB) lives on .149. Check with `sudo docker system df -v | grep gimano`.
 
 Smoke test from the LAN: `curl http://172.30.30.150:5080/readyz` should report all 4 checks healthy.
 
@@ -161,7 +164,12 @@ inside the postgis container, then run the importer for the OSM tables.
 - API docs (Scalar/OpenAPI) are off in Production (`Features__ApiDocs=false`).
 - Rate limit: `RATE_LIMIT_PER_MINUTE` per client IP (default 600) → 429 with `Retry-After`.
 - Request bodies are capped at 4 MB; photo uploads at 15 MB on `/api/v1/photos` only.
-- OpenSearch runs with its security plugin (TLS + admin password) and is reachable only on the `gimano` Docker network.
-  Its demo certificate is not trusted, so the API and worker skip certificate validation on that internal hop only.
+- OpenSearch is the shared 3.0 cluster on .149. Everything Gimano creates goes through `OPENSEARCH_INDEX_PREFIX`
+  (`gimano-`). The importer fills a new physical index `gimano-places-<timestamp>` and swaps the alias `gimano-places`
+  atomically, so search stays up during re-imports. `/readyz` uses `HEAD gimano-places` (no `cluster:monitor` needed).
+  `OPENSEARCH_ALLOW_INVALID_CERT=true` skips certificate validation for that connection only (demo cert). Set it to
+  false once .149 has a trusted certificate.
+- RabbitMQ is the shared broker on .149, vhost `gimano`: the durable `gimano.events` exchange plus queues `gimano.worker.*`,
+  and the transient `gimano.locations` exchange (exclusive auto-delete queue, 30 s TTL, drop-head).
 - Share links (`/api/v1/shares`) live in API memory: a single API instance is assumed. If the API ever scales out,
   move them to a shared store (Redis), still in memory and never persisted.

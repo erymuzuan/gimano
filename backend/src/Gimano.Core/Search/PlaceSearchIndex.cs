@@ -11,49 +11,115 @@ namespace Gimano.Core.Search;
 public sealed record PlaceHit(string Id, string Name, PlaceCategory Category, string Address, double Lat, double Lng, string? Brand, double Score,
     PlaceSource Source = PlaceSource.Osm, PlaceStatus? Status = null, double? Rating = null, int ReviewCount = 0, string? ThumbKey = null);
 
-/// <summary>Thin wrapper over the OpenSearch low-level client for the <c>places</c> index.</summary>
-public sealed class PlaceSearchIndex(IOpenSearchLowLevelClient client, ILogger<PlaceSearchIndex> logger)
+/// <summary>Index naming: every index and alias goes through <c>OpenSearch:IndexPrefix</c> (e.g. "gimano-").</summary>
+public sealed record OpenSearchIndexOptions(string Prefix = "")
 {
-    public const string Index = SearchQueryBuilder.IndexName;
+    /// <summary>The alias the API and worker read/write, e.g. "gimano-places".</summary>
+    public string PlacesAlias => Prefix + SearchQueryBuilder.IndexName;
+}
 
+/// <summary>
+/// Thin wrapper over the OpenSearch low-level client for the places alias. Works with OpenSearch 2.19 and 3.0 and with a
+/// restricted user that only has index permissions on the prefix (no cluster-level calls except bulk).
+/// Rebuilds go to a new physical index (<c>{alias}-{timestamp}</c>) and the alias is swapped atomically at the end.
+/// </summary>
+public sealed class PlaceSearchIndex(IOpenSearchLowLevelClient client, OpenSearchIndexOptions names, ILogger<PlaceSearchIndex> logger)
+{
+    public string Index => names.PlacesAlias;
+
+    /// <summary>
+    /// Reachability + auth check without cluster:monitor: HEAD on our own alias. 200 (exists) and 404 (not created yet)
+    /// both mean "reachable and authorised"; 401/403/5xx or no response mean not ready.
+    /// </summary>
     public async Task<bool> PingAsync(CancellationToken ct = default)
     {
-        var r = await client.PingAsync<StringResponse>(ctx: ct);
-        return r.Success;
+        var r = await client.Indices.ExistsAsync<StringResponse>(Index, ctx: ct);
+        return r.HttpStatusCode is 200 or 404;
     }
 
+    /// <summary>Creates the first physical index + alias if neither exists. With <paramref name="recreate"/> use <see cref="BeginRebuildAsync"/>.</summary>
     public async Task EnsureIndexAsync(bool recreate = false, CancellationToken ct = default)
     {
+        if (recreate) throw new InvalidOperationException("Use BeginRebuildAsync/CompleteRebuildAsync to rebuild.");
         var exists = await client.Indices.ExistsAsync<StringResponse>(Index, ctx: ct);
-        if (exists.HttpStatusCode == 200 && recreate)
-        {
-            await client.Indices.DeleteAsync<StringResponse>(Index, ctx: ct);
-            exists = await client.Indices.ExistsAsync<StringResponse>(Index, ctx: ct);
-        }
         if (exists.HttpStatusCode == 200) return;
-
-        var r = await client.Indices.CreateAsync<StringResponse>(Index, PostData.String(SearchQueryBuilder.IndexDefinition().ToJsonString()), ctx: ct);
-        if (!r.Success) throw new InvalidOperationException($"Creating index '{Index}' failed: {r.DebugInformation}");
-        logger.LogInformation("Created OpenSearch index {Index}", Index);
+        var physical = await CreatePhysicalAsync(ct);
+        await SwapAliasAsync(physical, ct);
     }
 
+    /// <summary>Creates a new physical index for a full rebuild and returns its name (bulk into it, then complete).</summary>
+    public Task<string> BeginRebuildAsync(CancellationToken ct = default) => CreatePhysicalAsync(ct);
+
+    /// <summary>Refreshes the new index and atomically points the alias at it; old physical indices are deleted.</summary>
+    public async Task CompleteRebuildAsync(string physical, CancellationToken ct = default)
+    {
+        await client.Indices.RefreshAsync<StringResponse>(physical, ctx: ct);
+        await SwapAliasAsync(physical, ct);
+    }
+
+    private async Task<string> CreatePhysicalAsync(CancellationToken ct)
+    {
+        var physical = $"{Index}-{DateTime.UtcNow:yyyyMMddHHmmss}";
+        var r = await client.Indices.CreateAsync<StringResponse>(physical, PostData.String(SearchQueryBuilder.IndexDefinition().ToJsonString()), ctx: ct);
+        if (!r.Success) throw new InvalidOperationException($"Creating index '{physical}' failed: {r.HttpStatusCode} {Trim(r.Body)}");
+        logger.LogInformation("Created OpenSearch index {Index}", physical);
+        return physical;
+    }
+
+    private async Task SwapAliasAsync(string physical, CancellationToken ct)
+    {
+        // Indices currently behind the alias (GET {alias}/_alias needs only index-level permissions on the prefix).
+        var current = new List<string>();
+        var get = await client.Indices.GetAliasAsync<StringResponse>(Index, ctx: ct);
+        if (get.HttpStatusCode == 200 && JsonNode.Parse(get.Body) is JsonObject o)
+        {
+            foreach (var (name, value) in o)
+            {
+                // Before aliases were used (dev stacks), the alias name itself may be a concrete index: replace it.
+                if (name == Index && value?["aliases"] is JsonObject al && !al.ContainsKey(Index))
+                {
+                    await client.Indices.DeleteAsync<StringResponse>(Index, ctx: ct);
+                    continue;
+                }
+                if (name != physical) current.Add(name);
+            }
+        }
+        else if ((await client.Indices.ExistsAsync<StringResponse>(Index, ctx: ct)).HttpStatusCode == 200)
+        {
+            await client.Indices.DeleteAsync<StringResponse>(Index, ctx: ct); // legacy concrete index with the alias's name
+        }
+
+        var actions = new JsonArray { new JsonObject { ["add"] = new JsonObject { ["index"] = physical, ["alias"] = Index } } };
+        foreach (var old in current) actions.Add(new JsonObject { ["remove"] = new JsonObject { ["index"] = old, ["alias"] = Index } });
+        var r = await client.DoRequestAsync<StringResponse>(OpenSearch.Net.HttpMethod.POST, "_aliases", ct, PostData.String(new JsonObject { ["actions"] = actions }.ToJsonString()));
+        if (!r.Success) throw new InvalidOperationException($"Alias swap {Index} → {physical} failed: {r.HttpStatusCode} {Trim(r.Body)}");
+        foreach (var old in current) await client.Indices.DeleteAsync<StringResponse>(old, ctx: ct);
+        logger.LogInformation("Alias {Alias} → {Index} (removed {Old})", Index, physical, current.Count);
+    }
+
+    private static string Trim(string? s) => s is null ? "" : s.Length > 300 ? s[..300] : s;
+
     public Task<int> BulkIndexAsync(IEnumerable<Place> places, CancellationToken ct = default) =>
-        BulkIndexAsync(places.Select(p => SearchQueryBuilder.ToDocument(p)), ct);
+        BulkIndexAsync(places.Select(p => SearchQueryBuilder.ToDocument(p)), null, ct);
+
+    public Task<int> BulkIndexAsync(IEnumerable<JsonObject> docs, CancellationToken ct = default) => BulkIndexAsync(docs, null, ct);
 
     /// <summary>Indexes prepared documents (each must have an "id").</summary>
-    public async Task<int> BulkIndexAsync(IEnumerable<JsonObject> docs, CancellationToken ct = default)
+    /// <param name="targetIndex">A physical index during a rebuild; default = the alias.</param>
+    public async Task<int> BulkIndexAsync(IEnumerable<JsonObject> docs, string? targetIndex, CancellationToken ct = default)
     {
+        var target = targetIndex ?? Index;
         var sb = new StringBuilder();
         var n = 0;
         foreach (var d in docs)
         {
-            sb.Append("{\"index\":{\"_index\":\"").Append(Index).Append("\",\"_id\":").Append(JsonSerializer.Serialize(d["id"]!.GetValue<string>())).Append("}}\n");
+            sb.Append("{\"index\":{\"_index\":\"").Append(target).Append("\",\"_id\":").Append(JsonSerializer.Serialize(d["id"]!.GetValue<string>())).Append("}}\n");
             sb.Append(d.ToJsonString()).Append('\n');
             n++;
         }
         if (n == 0) return 0;
         var r = await client.BulkAsync<StringResponse>(PostData.String(sb.ToString()), ctx: ct);
-        if (!r.Success) throw new InvalidOperationException($"Bulk index failed: {r.DebugInformation}");
+        if (!r.Success) throw new InvalidOperationException($"Bulk index failed: {r.HttpStatusCode} {Trim(r.Body)} {r.OriginalException?.Message}");
         if (r.Body.Contains("\"errors\":true", StringComparison.Ordinal))
             logger.LogWarning("Bulk index reported {Count} item errors", System.Text.RegularExpressions.Regex.Matches(r.Body, "\"error\":").Count);
         return n;

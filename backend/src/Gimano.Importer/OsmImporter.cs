@@ -418,8 +418,11 @@ public sealed class OsmImporter(GimanoDbContext db, NpgsqlDataSource dataSource,
 
     private async Task IndexSearchAsync(bool recreate, CancellationToken ct)
     {
-        await index.EnsureIndexAsync(recreate, ct);
-        // Reviews/photos aggregates and community places must survive a re-import (the index is rebuilt).
+        // A rebuild fills a new physical index and swaps the alias at the end, so search keeps working meanwhile.
+        string? target = null;
+        if (recreate) target = await index.BeginRebuildAsync(ct);
+        else await index.EnsureIndexAsync(ct: ct);
+        // Reviews/photos aggregates and community places must survive a re-import.
         var aggregates = await PlaceDocuments.AggregatesAsync(db, null, ct);
         const int batch = 2000;
         var total = 0;
@@ -430,13 +433,14 @@ public sealed class OsmImporter(GimanoDbContext db, NpgsqlDataSource dataSource,
             if (lastId is not null) q = q.Where(p => string.Compare(p.Id, lastId) > 0);
             var rows = await q.Take(batch).ToListAsync(ct);
             if (rows.Count == 0) break;
-            total += await index.BulkIndexAsync(rows.Select(p => SearchQueryBuilder.ToDocument(p, aggregates.GetValueOrDefault(p.Id))), ct);
+            total += await index.BulkIndexAsync(rows.Select(p => SearchQueryBuilder.ToDocument(p, aggregates.GetValueOrDefault(p.Id))), target, ct);
             lastId = rows[^1].Id;
-            logger.LogInformation("Indexed {Total} places…", total);
+            if (total % 20000 < batch) logger.LogInformation("Indexed {Total} places…", total);
         }
         var community = await db.CommunityPlaces.AsNoTracking().ToListAsync(ct);
-        total += await index.BulkIndexAsync(community.Select(p => SearchQueryBuilder.ToDocument(p, aggregates.GetValueOrDefault(p.Id))), ct);
-        await index.RefreshAsync(ct);
-        logger.LogInformation("OpenSearch '{Index}' now has {Total} documents ({Community} community)", PlaceSearchIndex.Index, total, community.Count);
+        total += await index.BulkIndexAsync(community.Select(p => SearchQueryBuilder.ToDocument(p, aggregates.GetValueOrDefault(p.Id))), target, ct);
+        if (target is not null) await index.CompleteRebuildAsync(target, ct);
+        else await index.RefreshAsync(ct);
+        logger.LogInformation("OpenSearch '{Index}' now has {Total} documents ({Community} community)", index.Index, total, community.Count);
     }
 }
