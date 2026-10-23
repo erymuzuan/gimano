@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">Gimano</string>
+    <string name="app_name" translatable="false">Gimano</string>
     <string name="where_to">Where to?</string>
     <string name="home">Home</string>
     <string name="work">Work</string>
@@ -556,4 +556,41 @@
     <string name="name_pin_body">Give it a name and it\'s saved to your favourites, on this phone only.</string>
     <string name="name_pin_hint">e.g. Gerai Pak Abu</string>
     <string name="not_now">Not now</string>
+    <string name="cat_cafe">Café</string>
+    <string name="cat_fast_food">Fast food</string>
+    <string name="cat_surau">Surau</string>
+    <string name="cat_clinic">Clinic</string>
+    <string name="cat_supermarket">Supermarket</string>
+    <string name="cat_convenience">Convenience store</string>
+    <string name="cat_pharmacy">Pharmacy</string>
+    <string name="cat_school">School</string>
+    <string name="cat_hotel">Hotel</string>
+    <string name="cat_atm">ATM</string>
+    <string name="cat_bank">Bank</string>
+    <string name="cat_car_repair">Car repair</string>
+    <string name="cat_car_wash">Car wash</string>
+    <string name="cat_temple">Temple</string>
+    <string name="cat_church">Church</string>
+    <string name="cat_tourism">Attraction</string>
+    <string name="cat_transit">Station</string>
+    <string name="cat_university">University</string>
+    <string name="cat_government">Government office</string>
+    <string name="cat_airport">Airport</string>
+    <string name="cat_other">Other</string>
+    <string name="am_toilets">Toilets</string>
+    <string name="am_surau">Surau</string>
+    <string name="am_parking">Parking</string>
+    <string name="am_wifi">Wi-Fi</string>
+    <string name="am_card_payment">Card payment</string>
+    <string name="am_ewallet">E-wallet</string>
+    <string name="am_wheelchair">Wheelchair access</string>
+    <string name="am_air_conditioning">Air-conditioned</string>
+    <string name="am_ev_charging">EV charging</string>
+    <string name="am_atm">ATM</string>
+    <string name="am_food">Food</string>
+    <string name="am_air_pump">Air pump</string>
+    <string name="tier_need_places">%1$d more accepted places</string>
+    <string name="tier_need_accuracy">accuracy %1$d%%</string>
+    <string name="tier_need_age">account %1$d days old</string>
+    <string name="tier_need_disputes">no upheld disputes for 90 days</string>
 </resources>

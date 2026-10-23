@@ -46,10 +46,10 @@ object ManeuverFormatter {
             "depart" -> if (en) "Head out" else "Mula bergerak"
             "arrive" -> if (en) "You have arrived" else "Anda telah tiba"
             "straight" -> if (en) "Continue straight" else "Terus lurus"
-            "slight_left" -> if (en) "Bear left" else "Condong ke kiri"
+            "slight_left" -> if (en) "Bear left" else "Belok sedikit ke kiri"
             "left" -> if (en) "Turn left" else "Belok kiri"
             "sharp_left" -> if (en) "Sharp left" else "Belok tajam ke kiri"
-            "slight_right" -> if (en) "Bear right" else "Condong ke kanan"
+            "slight_right" -> if (en) "Bear right" else "Belok sedikit ke kanan"
             "right" -> if (en) "Turn right" else "Belok kanan"
             "sharp_right" -> if (en) "Sharp right" else "Belok tajam ke kanan"
             "uturn_left", "uturn_right" -> if (en) "Make a U-turn" else "Buat pusingan U"
@@ -58,7 +58,7 @@ object ManeuverFormatter {
                 else -> if (en) "Enter the roundabout" else "Masuk ke bulatan"
             }
             "roundabout_exit" -> if (en) "Exit the roundabout" else "Keluar dari bulatan"
-            "merge" -> if (en) "Merge" else "Bergabung"
+            "merge" -> if (en) "Merge" else "Gabung"
             "ramp_left" -> if (en) "Take the ramp on the left" else "Ambil susur di sebelah kiri"
             "ramp_right" -> if (en) "Take the ramp on the right" else "Ambil susur di sebelah kanan"
             "exit_left" -> exitPhrase(exitNumber, en, left = true)
