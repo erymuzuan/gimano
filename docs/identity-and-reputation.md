@@ -37,7 +37,7 @@ The server verifies the signature against the user's current public key and keep
 | Account | `Identity:RequireSignatures` (kill switch, default false) | `Identity:AllowLegacyUnsigned` (default true) | Unsigned request |
 |---|---|---|---|
 | Has ≥ 1 registered public key | any | any | **rejected** (401). A stolen JWT alone can't post as a keyed pseudonym. |
-| Legacy, key-less (`POST /auth/device`, e.g. the 0.1.0 APK) | false | true | accepted. The account is **capped at baharu** (never promoted), its votes weigh **at most 1**, and its Inbox shows "Kemas kini Gimano untuk melindungi akaun anda" until a key is attached. |
+| Legacy, key-less (`POST /auth/device`, e.g. the 0.1.0 APK) | false | true | accepted. The account is **capped at baharu** (never promoted), its votes weigh **at most 1**, and its Inbox shows "Kemas kini Manotu untuk melindungi akaun anda" until a key is attached. |
 | Legacy, key-less | false | false | rejected (`no-key`) |
 | Legacy, key-less | **true** | any | rejected (`no-key`) |
 
@@ -116,7 +116,7 @@ POST /places/{id}/verify (signed)
 ## 6. Account deletion
 
 `DELETE /me` deletes the pseudonym's public keys, counters and tier. Places, reviews and photos stay, credited
-to "Pemandu Gimano". Pending votes by the user are removed; resolved votes are already unlinkable.
+to "Pemandu Manotu". Pending votes by the user are removed; resolved votes are already unlinkable.
 
 ## 7. Implementation notes (server)
 

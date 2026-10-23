@@ -121,7 +121,7 @@ public sealed class Report
 
     public ReportDto ToDto() => new(
         Id, Type, Subtype, Location.Y, Location.X, Heading, Street,
-        new ReportedBy(Reporter?.DisplayName ?? "Pemandu Gimano", Reporter?.Mood ?? "happy"),
+        new ReportedBy(Reporter?.DisplayName ?? "Pemandu Manotu", Reporter?.Mood ?? "happy"),
         CreatedAt, ExpiresAt, Confirmations, Thanks);
 }
 

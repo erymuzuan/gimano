@@ -106,5 +106,5 @@ public sealed class PhotoService(GimanoDbContext db, IMediaStore media, IEventPu
 
     public static PhotoDto ToDto(Photo p) => new(
         p.Id, MediaKeys.Url(p.Key), MediaKeys.Url(p.ThumbKey), p.Width, p.Height, p.Caption,
-        new AddedBy(p.User?.DisplayName ?? "Pemandu Gimano"), p.CreatedAt, p.Status);
+        new AddedBy(p.User?.DisplayName ?? "Pemandu Manotu"), p.CreatedAt, p.Status);
 }
