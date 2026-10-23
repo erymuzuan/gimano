@@ -53,7 +53,7 @@ object TwoTone {
     fun vector(name: String, base: Color, detail: Color): ImageVector {
         val key = "$name|${base.value}|${detail.value}"
         return cache.getOrPut(key) {
-            val p = TwoToneIconPaths.all[name] ?: TwoToneIconPaths.all.getValue("more")
+            val p = TwoToneIconPaths.all[name] ?: PlaceTwoToneIconPaths.all[name] ?: TwoToneIconPaths.all.getValue("more")
             ImageVector.Builder(name = "tt_$name", defaultWidth = 24.dp, defaultHeight = 24.dp, viewportWidth = 24f, viewportHeight = 24f).apply {
                 addPath(addPathNodes(p.base), fill = SolidColor(base))
                 addPath(addPathNodes(p.detail), fill = SolidColor(detail), fillAlpha = p.detailAlpha, pathFillType = PathFillType.EvenOdd)
@@ -62,8 +62,8 @@ object TwoTone {
     }
 }
 
-/** Pale cobalt (base) + cobalt (detail), or gold for saved places. */
-enum class TwoTonePalette { COBALT, GOLD }
+/** Pale cobalt (base) + cobalt (detail), gold for saved places, or muted grey for disabled actions. */
+enum class TwoTonePalette { COBALT, GOLD, MUTED }
 
 /** Draws a flat two-tone icon in the given palette for the current theme. */
 @Composable
@@ -72,6 +72,7 @@ fun TwoToneIcon(name: String, contentDescription: String?, modifier: Modifier = 
     val (base, detail) = when (palette) {
         TwoTonePalette.COBALT -> c.brandTint to c.brand
         TwoTonePalette.GOLD -> if (c.isDark) Color(0xFFB8902E) to Color(0xFF3D2A00) else Color(0xFFFFD466) to Color(0xFF7A5200)
+        TwoTonePalette.MUTED -> c.outline to c.textMuted.copy(alpha = 0.6f)
     }
     val v = remember(name, base, detail) { TwoTone.vector(name, base, detail) }
     Image(rememberVectorPainter(v), contentDescription, modifier.size(size))

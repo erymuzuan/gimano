@@ -189,6 +189,17 @@
     <string name="home_sheet_full">fully open. Swipe down or tap the map to collapse.</string>
     <string name="home_sheet_expand">Expand</string>
     <string name="home_sheet_collapse">Collapse</string>
+    <string name="place_sheet">Place card</string>
+    <string name="place_sheet_peek">collapsed. Swipe up for reviews and photos.</string>
+    <string name="place_sheet_full">fully open. Swipe down to collapse.</string>
+    <string name="recenter_on_place">Back to the place</string>
+    <string name="no_reviews_yet">No reviews yet. Be the first.</string>
+    <string name="all_reviews">All reviews (%1$d)</string>
+    <string name="fewer_reviews">Show fewer</string>
+    <plurals name="review_count_n">
+        <item quantity="one">%1$d review</item>
+        <item quantity="other">%1$d reviews</item>
+    </plurals>
     <string name="rs_traffic">Jam</string>
     <string name="rs_police">Police</string>
     <string name="rs_accident">Crash</string>

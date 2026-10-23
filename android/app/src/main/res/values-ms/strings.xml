@@ -188,6 +188,16 @@
     <string name="home_sheet_full">terbuka penuh. Leret ke bawah atau ketik peta untuk ciutkan.</string>
     <string name="home_sheet_expand">Kembangkan</string>
     <string name="home_sheet_collapse">Ciutkan</string>
+    <string name="place_sheet">Kad tempat</string>
+    <string name="place_sheet_peek">diciutkan. Leret ke atas untuk ulasan dan gambar.</string>
+    <string name="place_sheet_full">terbuka penuh. Leret ke bawah untuk ciutkan.</string>
+    <string name="recenter_on_place">Kembali ke tempat</string>
+    <string name="no_reviews_yet">Belum ada ulasan. Jadilah yang pertama.</string>
+    <string name="all_reviews">Semua ulasan (%1$d)</string>
+    <string name="fewer_reviews">Tunjuk kurang</string>
+    <plurals name="review_count_n">
+        <item quantity="other">%1$d ulasan</item>
+    </plurals>
     <string name="rs_traffic">Sesak</string>
     <string name="rs_police">Polis</string>
     <string name="rs_accident">Nahas</string>

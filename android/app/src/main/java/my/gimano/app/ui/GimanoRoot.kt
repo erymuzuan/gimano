@@ -52,6 +52,7 @@ fun GimanoRoot(vm: MainViewModel, onMic: () -> Unit, onExit: () -> Unit, onReque
     val settings by vm.settingsState.collectAsStateWithLifecycle()
     val upd by container.updater.ui.collectAsStateWithLifecycle()
     val homeSheetDp by vm.homeSheetDp.collectAsStateWithLifecycle()
+    val placeSheetDp by vm.placeSheetDp.collectAsStateWithLifecycle()
     var updateSheetOpen by remember { mutableStateOf(true) }
     var forceUpdateSheet by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) { container.updater.check() }   // on launch; at most every 6 h
@@ -197,7 +198,14 @@ fun GimanoRoot(vm: MainViewModel, onMic: () -> Unit, onExit: () -> Unit, onReque
                 state = renderState,
                 camera = ui.camera,
                 handle = handle,
-                bottomInsetDp = if (screen == Screen.Home) homeSheetDp else 0,
+                // The place card keeps its pin centred in the map left visible between the status bar and the card.
+                bottomInsetDp = when {
+                    screen == Screen.Home -> homeSheetDp
+                    screen == Screen.PlaceCard && placeSheetDp > 0 -> placeSheetDp
+                    else -> 0
+                },
+                topInsetDp = if (screen == Screen.PlaceCard && placeSheetDp > 0) WindowInsets.statusBars.asPaddingValues().calculateTopPadding().value.toInt() else 0,
+                focus = if (screen == Screen.PlaceCard && placeSheetDp > 0) ui.place?.summary?.let { my.gimano.app.core.geo.GeoPoint(it.lat, it.lng) } else null,
                 modifier = Modifier.fillMaxSize(),
                 onCameraIdle = vm::onCameraIdle,
                 onMapClick = { if (screen == Screen.Home) { vm.selectAlert(null); vm.collapseHomeSheet() } },
@@ -217,7 +225,8 @@ fun GimanoRoot(vm: MainViewModel, onMic: () -> Unit, onExit: () -> Unit, onReque
                     ui.pin?.let { my.gimano.app.ui.pick.PinActionsSheet(it, vm, Modifier.align(Alignment.BottomCenter)) }
                 }
                 Screen.PlaceCard -> {
-                    MapTopControls(ui, settings, vm, vm.isDemo || fallback, showMenu = false, onMenu = {})
+                    // The recentre button sits above the card (it goes back to the pin).
+                    MapTopControls(ui, settings, vm, vm.isDemo || fallback, showMenu = false, onMenu = {}, showRecenter = false)
                     ui.place?.let { PlaceCard(it, vm, cvm, settings.apiBaseUrl, Modifier.align(Alignment.BottomCenter)) }
                 }
                 Screen.RoutePreview -> ui.plan?.let { RoutePreviewOverlay(it, settings, vm, handle, onRequestLocation) }

@@ -425,6 +425,17 @@ class MainViewModel(private val c: AppContainer) : ViewModel() {
     val homeSheetDp: kotlinx.coroutines.flow.StateFlow<Int> = _homeSheetDp
     fun setHomeSheetDp(dp: Int) { _homeSheetDp.value = dp }
 
+    /** Resting height of the place card (peek or full): the map's bottom inset there, so the pin stays visible. */
+    private val _placeSheetDp = kotlinx.coroutines.flow.MutableStateFlow(0)
+    val placeSheetDp: kotlinx.coroutines.flow.StateFlow<Int> = _placeSheetDp
+    fun setPlaceSheetDp(dp: Int) { _placeSheetDp.value = dp }
+
+    /** The recentre button while a place card is open: back to the pin (centred above the card), not to "me". */
+    fun recenterOnPlace() {
+        val p = _ui.value.place?.summary ?: return recenter()
+        _ui.update { it.copy(following = false, camera = CameraCommand.MoveTo(GeoPoint(p.lat, p.lng), null)) }
+    }
+
     /** Home panel state: Peek by default, and again after a drive ends or the app comes back. */
     private val _homeSheet = kotlinx.coroutines.flow.MutableStateFlow(my.gimano.app.ui.home.HomeSheetState.PEEK)
     val homeSheet: kotlinx.coroutines.flow.StateFlow<my.gimano.app.ui.home.HomeSheetState> = _homeSheet

@@ -124,8 +124,15 @@ fun GimanoMap(
     onAlertClick: (String) -> Unit = {},
     onRouteClick: (String) -> Unit = {},
     onPrivateClick: (String) -> Unit = {},
-    /** Height (dp) of UI covering the bottom of the map (the home sheet): camera centres above it. */
+    /** Height (dp) of UI covering the bottom of the map (the home sheet, the place card): camera centres above it. */
     bottomInsetDp: Int = 0,
+    /** Height (dp) covered at the top (the status bar, on the place card): camera centres below it. */
+    topInsetDp: Int = 0,
+    /**
+     * A point the view stays centred on (the place card's pin): whenever the insets change (the card swiped between
+     * peek and full), the camera moves back to it, centred in the visible map. Otherwise only the padding changes.
+     */
+    focus: GeoPoint? = null,
 ) {
     val context = LocalContext.current
     val density = LocalDensity.current
@@ -235,13 +242,24 @@ fun GimanoMap(
     LaunchedEffect(camera?.id, handle.ready) {
         val map = handle.map ?: return@LaunchedEffect
         val cmd = camera ?: return@LaunchedEffect
-        applyCamera(map, cmd, density, bottomInsetDp)
+        applyCamera(map, cmd, density, bottomInsetDp, topInsetDp)
     }
-    // When the covered area changes (home sheet appears / grows), shift the view so its centre stays visible.
-    LaunchedEffect(bottomInsetDp, handle.ready) {
+    // When the covered area changes (home sheet appears / grows, place card swiped), shift the view so its centre
+    // (or the focus point) stays in the middle of the visible map.
+    LaunchedEffect(bottomInsetDp, topInsetDp, focus, handle.ready) {
         val map = handle.map ?: return@LaunchedEffect
         if (camera is CameraCommand.Follow) return@LaunchedEffect
-        map.animateCamera(CameraUpdateFactory.paddingTo(0.0, 0.0, 0.0, (bottomInsetDp * density.density).toDouble()), 300)
+        val top = (topInsetDp * density.density).toDouble()
+        val bottom = (bottomInsetDp * density.density).toDouble()
+        if (focus != null) {
+            // A pending MoveTo to the same point (the card just opened) keeps its zoom; this animation replaces it.
+            val zoom = (camera as? CameraCommand.MoveTo)?.takeIf { it.point == focus }?.zoom
+            val b = CameraPosition.Builder().target(LatLng(focus.lat, focus.lng)).padding(0.0, top, 0.0, bottom)
+            zoom?.let { b.zoom(it) }
+            map.animateCamera(CameraUpdateFactory.newCameraPosition(b.build()), 350)
+        } else {
+            map.animateCamera(CameraUpdateFactory.paddingTo(0.0, top, 0.0, bottom), 300)
+        }
     }
 
     Box(modifier) {
@@ -249,11 +267,11 @@ fun GimanoMap(
     }
 }
 
-private fun applyCamera(map: MapLibreMap, cmd: CameraCommand, density: Density, bottomInsetDp: Int = 0) {
+private fun applyCamera(map: MapLibreMap, cmd: CameraCommand, density: Density, bottomInsetDp: Int = 0, topInsetDp: Int = 0) {
     val px = { dp: Int -> (dp * density.density).toDouble() }
     when (cmd) {
         is CameraCommand.MoveTo -> {
-            val b = CameraPosition.Builder().target(LatLng(cmd.point.lat, cmd.point.lng)).padding(0.0, 0.0, 0.0, px(bottomInsetDp))
+            val b = CameraPosition.Builder().target(LatLng(cmd.point.lat, cmd.point.lng)).padding(0.0, px(topInsetDp), 0.0, px(bottomInsetDp))
             cmd.zoom?.let { b.zoom(it) }
             val u = CameraUpdateFactory.newCameraPosition(b.build())
             if (cmd.animate) map.animateCamera(u, 700) else map.moveCamera(u)
@@ -277,7 +295,7 @@ private fun applyCamera(map: MapLibreMap, cmd: CameraCommand, density: Density, 
         }
         is CameraCommand.Reset2D -> {
             val pos = CameraPosition.Builder().target(LatLng(cmd.point.lat, cmd.point.lng)).bearing(0.0).tilt(0.0).zoom(cmd.zoom)
-                .padding(0.0, 0.0, 0.0, px(bottomInsetDp)).build()
+                .padding(0.0, px(topInsetDp), 0.0, px(bottomInsetDp)).build()
             map.animateCamera(CameraUpdateFactory.newCameraPosition(pos), 700)
         }
     }
