@@ -4,6 +4,8 @@ import Foundation
 /// `DemoRepository` (offline canned Kuala Lumpur data) and `FallbackRepository` (live with demo fallback).
 protocol GimanoRepository: Sendable {
     func signIn() async throws -> DeviceAuthResponse
+    /// Legacy device accounts: attach a signing key (`POST /me/keys`). No-op once the pseudonym has a key.
+    func ensureIdentity() async
     func me() async throws -> User
     func updateMe(_ patch: UserPatch) async throws -> User
 
@@ -83,30 +85,86 @@ enum TokenStore {
 final class LiveRepository: GimanoRepository {
     let client: APIClient
     private let baseURL: URL
+    private let store: LocalStore
 
-    init(baseURL: URL) {
+    init(baseURL: URL, store: LocalStore = .shared) {
         self.baseURL = baseURL
+        self.store = store
         self.client = APIClient(baseURL: baseURL, token: TokenStore.load(for: baseURL))
+        let keys = (try? store.identity())?.keys
+        Task { [client] in await client.setSigner(keys) }
     }
 
-    // MARK: auth
+    private var locale: String { Locale.current.language.languageCode?.identifier ?? "en" }
 
+    // MARK: auth (docs/identity-and-reputation.md §1)
+
+    /// 1. Known pseudonym → signature login (`POST /auth/token`), e.g. after a restore.
+    /// 2. Otherwise → new key + `POST /auth/register`.
+    /// Servers without identity endpoints (404) → the legacy anonymous device login.
     func signIn() async throws -> DeviceAuthResponse {
-        let locale = Locale.current.language.languageCode?.identifier ?? "en"
-        let body = DeviceAuthRequest(deviceId: TokenStore.deviceId, locale: locale)
-        let res: DeviceAuthResponse = try await client.send("POST", "auth/device", body: body)
+        if let id = try? store.identity() {
+            let ts = Int64(Date().timeIntervalSince1970)
+            let req = TokenRequest(userId: id.userId, ts: ts, sig: id.keys.sign(Canonical.auth(userId: id.userId, ts: ts)))
+            do {
+                let res: TokenResponse = try await client.send("POST", "auth/token", body: req)
+                await adopt(token: res.token, keys: id.keys)
+                return DeviceAuthResponse(token: res.token, userId: id.userId, displayName: id.displayName ?? "")
+            } catch let e as APIError where e.isServerSideGap {
+                return try await legacyDeviceSignIn()
+            } catch APIError.http(status: 401, _) {
+                // This server doesn't know the pseudonym (e.g. a different backend): register the same key here.
+                return try await register(keys: id.keys, createdAt: id.createdAt)
+            }
+        }
+        do {
+            return try await register(keys: .generate(), createdAt: LocalStore.timestamp())
+        } catch let e as APIError where e.isServerSideGap {
+            return try await legacyDeviceSignIn()
+        }
+    }
+
+    private func register(keys: IdentityKeys, createdAt: String) async throws -> DeviceAuthResponse {
+        let res: DeviceAuthResponse = try await client.send("POST", "auth/register", body: RegisterRequest(publicKey: keys.publicKeyBase64, locale: locale))
+        try store.saveIdentity(StoredIdentity(userId: res.userId, displayName: res.displayName, keys: keys, createdAt: createdAt))
+        await adopt(token: res.token, keys: keys)
+        return res
+    }
+
+    private func legacyDeviceSignIn() async throws -> DeviceAuthResponse {
+        let res: DeviceAuthResponse = try await client.send("POST", "auth/device", body: DeviceAuthRequest(deviceId: TokenStore.deviceId, locale: locale))
         await client.setToken(res.token)
         TokenStore.save(res.token, for: baseURL)
         return res
     }
 
-    /// Ensures a token exists and retries once after re-registering on 401.
+    private func adopt(token: String, keys: IdentityKeys) async {
+        await client.setToken(token)
+        await client.setSigner(keys)
+        TokenStore.save(token, for: baseURL)
+    }
+
+    /// Upgrades a legacy device account (JWT only) by attaching a new key; keeps its pseudonym and reputation.
+    func ensureIdentity() async {
+        guard (try? store.identity()) == nil, await client.token != nil else { return }
+        let keys = IdentityKeys.generate()
+        do {
+            try await client.sendNoContent("POST", "me/keys", body: AttachKeyRequest(publicKey: keys.publicKeyBase64, sigByOldKey: nil))
+            let me: User = try await client.get("me")
+            try store.saveIdentity(StoredIdentity(userId: me.id, displayName: me.displayName, keys: keys, createdAt: LocalStore.timestamp()))
+            await client.setSigner(keys)
+        } catch {
+            // Server without identity support yet, or offline: try again next launch.
+        }
+    }
+
+    /// Ensures a token exists and retries once after signing in again on 401.
     private func authed<T: Sendable>(_ op: @Sendable () async throws -> T) async throws -> T {
         if await client.token == nil { _ = try await signIn() }
         do {
             return try await op()
-        } catch APIError.http(status: 401, _) {
-            _ = try await signIn()
+        } catch APIError.http(status: 401, let problem) {
+            if problem?.type?.hasSuffix("/no-key") == true { await ensureIdentity() } else { _ = try await signIn() }
             return try await op()
         }
     }
@@ -370,6 +428,7 @@ final class FallbackRepository: GimanoRepository {
     }
 
     func signIn() async throws -> DeviceAuthResponse { try await run({ try await $0.signIn() }, demoOp: { try await $0.signIn() }) }
+    func ensureIdentity() async { await live.ensureIdentity() }
     func me() async throws -> User { try await run({ try await $0.me() }, demoOp: { try await $0.me() }) }
     func updateMe(_ patch: UserPatch) async throws -> User { try await run(gapFallback: false, { try await $0.updateMe(patch) }, demoOp: { try await $0.updateMe(patch) }) }
     /// Migration calls go only to the real backend (never demo).

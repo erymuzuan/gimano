@@ -207,3 +207,23 @@ struct IdentityStorageTests {
         #expect(try dst.identity()?.keys == mine)
     }
 }
+
+@Suite("Identity: signing layer")
+struct SigningLayerTests {
+    @Test("APIClient signs only contribution endpoints, over the exact target and body")
+    func signsRequests() async throws {
+        let keys = IdentityKeys(seed: hex("000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f"))!
+        let client = APIClient(baseURL: URL(string: "https://gimano-api.bukitbunga.com/api/v1/")!, token: "t")
+        await client.setSigner(keys)
+        let body = Data(#"{"answer":"yes","nameCorrect":true,"locationCorrect":true,"proximity":{"cell":"w283f8","withinM":420}}"#.utf8)
+        let req = await client.preparedRequest(method: "POST", path: "places/c01a166b7f9c67924976aff1beb56c2cd/verify", body: body)
+        let ts = try #require(req.value(forHTTPHeaderField: "X-Gimano-Ts").flatMap { Int64($0) })
+        #expect(abs(Double(ts) - Date().timeIntervalSince1970) < 5)
+        let expected = keys.sign(Canonical.request(method: "POST", pathAndQuery: "/api/v1/places/c01a166b7f9c67924976aff1beb56c2cd/verify", ts: ts, body: body))
+        #expect(req.value(forHTTPHeaderField: "X-Gimano-Sig") == expected)
+        let get = await client.preparedRequest(method: "GET", path: "places/c01", body: nil)
+        #expect(get.value(forHTTPHeaderField: "X-Gimano-Sig") == nil)
+        let feedback = await client.preparedRequest(method: "POST", path: "feedback", body: Data("{}".utf8))
+        #expect(feedback.value(forHTTPHeaderField: "X-Gimano-Sig") == nil)
+    }
+}

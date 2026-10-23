@@ -50,6 +50,8 @@ actor DemoRepository: GimanoRepository {
 
     // MARK: auth/profile
 
+    func ensureIdentity() async {}
+
     func signIn() async throws -> DeviceAuthResponse {
         DeviceAuthResponse(token: "demo-token", userId: user.id, displayName: user.displayName)
     }

@@ -34,6 +34,30 @@ struct DeviceAuthResponse: Codable, Sendable {
     var displayName: String
 }
 
+/// docs/identity-and-reputation.md §1
+struct RegisterRequest: Codable, Sendable {
+    var publicKey: String
+    var platform: String = "ios"
+    var locale: String
+}
+struct TokenRequest: Codable, Sendable { var userId: String; var ts: Int64; var sig: String }
+struct TokenResponse: Codable, Sendable { var token: String }
+struct AttachKeyRequest: Codable, Sendable { var publicKey: String; var sigByOldKey: String? }
+
+/// Trust tier of the pseudonym (reputation describes public work, never the person).
+enum Tier: String, Codable, Sendable, CaseIterable {
+    case baharu, perak, emas
+    init(from decoder: any Decoder) throws {
+        self = Tier(rawValue: (try decoder.singleValueContainer().decode(String.self)).lowercased()) ?? .baharu
+    }
+}
+
+struct NextTier: Codable, Sendable, Equatable {
+    var name: Tier
+    /// e.g. "placesAccepted:7", "accuracy:90", "accountDays:42", "signingKey", "noUpheldDispute90d".
+    var missing: [String]
+}
+
 /// Travel mode (contract `vehicle`): car → auto, motorcycle, bicycle, walk → pedestrian.
 enum Vehicle: String, Codable, Sendable, CaseIterable, Identifiable {
     case car
@@ -59,6 +83,12 @@ struct User: Codable, Sendable, Equatable {
     var points: Int?
     var level: Int?
     var joinedAt: Date?
+    var tier: Tier?
+    var accuracy: Double?
+    var placesAccepted: Int?
+    var verifierVotes: Int?
+    var nextTier: NextTier?
+    var suspendedUntil: Date?
 }
 
 struct UserPatch: Codable, Sendable {

@@ -102,6 +102,28 @@ actor APIClient {
 
     func setToken(_ token: String?) { self.token = token }
 
+    /// Signs contribution requests (X-Gimano-Ts / X-Gimano-Sig) once the pseudonym has a key.
+    private(set) var signer: IdentityKeys?
+    func setSigner(_ keys: IdentityKeys?) { signer = keys }
+
+    /// Adds the signature headers when `path` is a signed endpoint (docs/identity-and-reputation.md §2).
+    private func sign(_ req: inout URLRequest, method: String, path: String, body: Data?, now: Date = .now) {
+        guard let signer, let url = req.url, SignedEndpoints.requiresSignature(method: method, path: path) else { return }
+        let ts = Int64(now.timeIntervalSince1970)
+        let canonical = Canonical.request(method: method, pathAndQuery: Canonical.pathAndQuery(of: url), ts: ts, body: body ?? Data())
+        req.setValue(String(ts), forHTTPHeaderField: "X-Gimano-Ts")
+        req.setValue(signer.sign(canonical), forHTTPHeaderField: "X-Gimano-Sig")
+    }
+
+    /// The request exactly as `perform` would send it (tests check the signature on it).
+    func preparedRequest(method: String, path: String, query: [URLQueryItem] = [], body: Data?) -> URLRequest {
+        var req = URLRequest(url: url(path, query: query))
+        req.httpMethod = method
+        req.httpBody = body
+        sign(&req, method: method, path: path, body: body)
+        return req
+    }
+
     func url(_ path: String, query: [URLQueryItem] = []) -> URL {
         let relative = path.hasPrefix("/") ? String(path.dropFirst()) : path
         var c = URLComponents(url: baseURL.appendingPathComponent(relative), resolvingAgainstBaseURL: false)!
@@ -145,6 +167,7 @@ actor APIClient {
         req.setValue("multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: "Content-Type")
         req.setValue("application/json", forHTTPHeaderField: "Accept")
         if let token { req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization") }
+        sign(&req, method: "POST", path: path, body: body)
         req.timeoutInterval = 120
         let delegate = UploadProgressDelegate(progress)
         let data: Data
@@ -182,6 +205,7 @@ actor APIClient {
         if let authorization { req.setValue(authorization, forHTTPHeaderField: "Authorization") }
         else if let token { req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization") }
         req.setValue(Locale.preferredLanguages.first ?? "en", forHTTPHeaderField: "Accept-Language")
+        sign(&req, method: method, path: path, body: body)
 
         let data: Data
         let response: URLResponse

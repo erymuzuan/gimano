@@ -276,6 +276,7 @@ final class AppModel {
         if config.dataMode != .demo, TokenStore.load(for: config.apiBaseURL) == nil {
             _ = try? await repo.signIn()
         }
+        if config.dataMode != .demo { await repo.ensureIdentity() }
         if let u = try? await repo.me() {
             user = u
             if let v = u.vehicle, UserDefaults.standard.string(forKey: "travelMode") == nil { vehicle = v }
