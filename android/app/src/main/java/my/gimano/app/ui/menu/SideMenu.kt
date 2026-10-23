@@ -112,10 +112,7 @@ private fun VersionLine() {
             taps++
             if (taps >= 7) {
                 taps = 0
-                val info = "Gimano ${my.gimano.app.BuildConfig.VERSION_NAME} (${my.gimano.app.BuildConfig.VERSION_CODE})\n" +
-                    "Android ${android.os.Build.VERSION.RELEASE} (API ${android.os.Build.VERSION.SDK_INT})\n" +
-                    "${android.os.Build.MANUFACTURER} ${android.os.Build.MODEL}\n" +
-                    "${java.util.Locale.getDefault().toLanguageTag()}"
+                val info = (ctx.applicationContext as my.gimano.app.GimanoApp).container.deviceInfo.diagnosticsText()
                 ctx.getSystemService(android.content.ClipboardManager::class.java)?.setPrimaryClip(android.content.ClipData.newPlainText("Gimano diagnostics", info))
                 android.widget.Toast.makeText(ctx, copied, android.widget.Toast.LENGTH_SHORT).show()
             }

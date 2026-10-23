@@ -131,7 +131,7 @@
     <string name="map_style">URL gaya peta</string>
     <string name="display_name">Nama paparan</string>
     <string name="about">Perihal</string>
-    <string name="about_text">Gimano ialah navigasi komuniti sumber terbuka (MIT) untuk Malaysia. Data peta © penyumbang OpenStreetMap (ODbL).</string>
+    <string name="about_text">Kod Gimano sumber terbuka (MIT): navigasi komuniti untuk Malaysia. Data peta © penyumbang OpenStreetMap (ODbL).</string>
     <string name="osm_attribution">© OpenStreetMap contributors</string>
     <string name="apply">Guna</string>
     <string name="location_needed">Gimano memerlukan lokasi anda untuk navigasi.</string>
@@ -506,7 +506,19 @@
     <string name="about_source">Sumber terbuka (GitHub)</string>
     <string name="about_licences">Lesen</string>
     <string name="about_map_credit">Peta © OpenStreetMap contributors</string>
-    <string name="licences_intro">Gimano ialah sumber terbuka (MIT). Ia dibina daripada komponen ini:</string>
+    <string name="licences_intro">Kod Gimano sumber terbuka (MIT). Ia dibina daripada komponen sumber terbuka ini:</string>
     <string name="licences_full_list">Senarai penuh: docs/supply-chain.md</string>
     <string name="diagnostics_copied">Maklumat diagnostik disalin</string>
+    <string name="precise_title">Navigasi perlukan lokasi tepat</string>
+    <string name="precise_body">Gimano hanya ada lokasi anggaran anda (kira-kira 1–3 km), jadi anak panah boleh berada di jalan yang salah dan arahan belok datang pada masa yang salah. Benarkan lokasi tepat untuk navigasi. Lokasi anda kekal dalam telefon; semasa navigasi hanya titik kelajuan tanpa nama dikongsi.</string>
+    <string name="precise_allow">Benarkan lokasi tepat</string>
+    <string name="precise_keep">Kekalkan anggaran</string>
+    <string name="approx_banner">Lokasi anggaran sahaja: arahan mungkin salah</string>
+    <string name="approx_change">Tukar</string>
+    <string name="weak_gps">Isyarat GPS lemah · ±%1$d m</string>
+    <string name="closed_title">Komponen bukan sumber terbuka</string>
+    <string name="closed_intro">Gimano menggunakan tiga perkhidmatan Google pada Android. Tiada satu pun menerima kegemaran, tempat atau perjalanan anda.</string>
+    <string name="closed_location">Lokasi Perkhidmatan Google Play: menukar isyarat GPS, Wi-Fi dan mudah alih kepada kedudukan anda dalam telefon, untuk peta dan navigasi.</string>
+    <string name="closed_drive">Log masuk Google dan kebenaran Drive: hanya bila anda memilih sandaran Google Drive. Drive hanya menerima sandaran yang ANDA hantar ke Drive anda sendiri.</string>
+    <string name="closed_integrity">Play Integrity: bila anda mengesahkan tempat berdekatan, menyemak undian datang dari telefon sebenar. Hanya keputusan lulus/gagal sampai ke Gimano.</string>
 </resources>

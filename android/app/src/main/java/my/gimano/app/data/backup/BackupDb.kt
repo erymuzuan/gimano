@@ -33,6 +33,8 @@ object BackupDb {
         snapshot.exec("DROP TABLE IF EXISTS outbox")
         snapshot.exec("DROP TABLE IF EXISTS room_master_table")
         snapshot.exec("DROP TABLE IF EXISTS android_metadata")
+        // The live DB carries Room's version; a backup carries the shared schema version (docs/privacy-and-backup.md).
+        snapshot.exec("PRAGMA user_version = ${GimanoSchema.VERSION}")
         snapshot.exec("VACUUM")
     }
 

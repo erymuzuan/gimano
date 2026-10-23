@@ -121,6 +121,7 @@ fun NavigationOverlay(nav: NavState, ui: UiState, settings: AppSettings, vm: Mai
             // Hidden while the trip sheet is expanded so it can't ride up over the sound/End buttons.
             if (!ui.navExpanded) Row(Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 10.dp), verticalAlignment = Alignment.Bottom) {
                 Column {
+                    nav.weakGpsM?.let { my.gimano.app.ui.common.WeakGpsChip(it); Spacer(Modifier.height(8.dp)) }
                     if (nav.simulated) {
                         Pill(stringResource(R.string.simulated), icon = Icons.Filled.Science)
                         Spacer(Modifier.height(8.dp))

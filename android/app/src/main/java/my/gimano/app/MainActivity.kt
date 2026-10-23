@@ -74,18 +74,31 @@ class MainActivity : AppCompatActivity() {
                 val permLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { res ->
                     vm.onLocationPermission(res[Manifest.permission.ACCESS_FINE_LOCATION] == true || res[Manifest.permission.ACCESS_COARSE_LOCATION] == true)
                 }
+                // "Navigasi perlukan lokasi tepat" → ask again; Android 12+ shows "Change to precise location".
+                val preciseLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { res ->
+                    vm.onLocationPermission(res.values.any { it } || ContextCompat.checkSelfPermission(this@MainActivity, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED)
+                    vm.onPreciseAnswered()
+                }
+                val owner = androidx.lifecycle.compose.LocalLifecycleOwner.current
+                androidx.compose.runtime.DisposableEffect(owner) {
+                    val obs = androidx.lifecycle.LifecycleEventObserver { _, e -> if (e == androidx.lifecycle.Lifecycle.Event.ON_RESUME) vm.refreshPrecision() }
+                    owner.lifecycle.addObserver(obs)
+                    onDispose { owner.lifecycle.removeObserver(obs) }
+                }
                 val micLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { r ->
                     val text = r.data?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)?.firstOrNull()
                     if (!text.isNullOrBlank()) vm.openSearch(SearchPurpose.NAVIGATE, text)
                 }
                 LaunchedEffect(Unit) {
                     val fine = ContextCompat.checkSelfPermission(this@MainActivity, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
+                    val coarse = ContextCompat.checkSelfPermission(this@MainActivity, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
                     val notif = Build.VERSION.SDK_INT < 33 ||
                         ContextCompat.checkSelfPermission(this@MainActivity, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
-                    if (fine) vm.onLocationPermission(true)
-                    if (!fine || !notif) {
+                    if (fine || coarse) vm.onLocationPermission(true)
+                    // Approximate-only users get our explainer (refreshPrecision) instead of the raw system dialog each launch.
+                    if (!coarse || !notif) {
                         val perms = buildList {
-                            if (!fine) { add(Manifest.permission.ACCESS_FINE_LOCATION); add(Manifest.permission.ACCESS_COARSE_LOCATION) }
+                            if (!coarse) { add(Manifest.permission.ACCESS_FINE_LOCATION); add(Manifest.permission.ACCESS_COARSE_LOCATION) }
                             if (!notif && Build.VERSION.SDK_INT >= 33) add(Manifest.permission.POST_NOTIFICATIONS)
                         }
                         permLauncher.launch(perms.toTypedArray())
@@ -99,6 +112,7 @@ class MainActivity : AppCompatActivity() {
                             .putExtra(RecognizerIntent.EXTRA_LANGUAGE, (application as GimanoApp).container.lang().tag)
                         runCatching { micLauncher.launch(i) }
                     },
+                    onRequestPrecise = { preciseLauncher.launch(arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION)) },
                     onExit = {
                         (application as GimanoApp).container.navigation.stop()
                         finishAndRemoveTask()

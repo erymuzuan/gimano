@@ -130,9 +130,15 @@ data class UiState(
     /** Private places drawn from the local DB only. */
     val privatePins: List<Pair<String, GeoPoint>> = emptyList(),
     val inbox: List<InboxItem> = emptyList(),
+    /** What the user granted (Android 12+ "Approximate" breaks turn-by-turn). Re-checked on every resume. */
+    val precision: my.gimano.app.core.location.LocationPrecision = my.gimano.app.core.location.LocationPrecision.PRECISE,
+    /** Show the "Navigasi perlukan lokasi tepat" explainer; [PreciseAsk.beforeNav] = start the drive afterwards. */
+    val askPrecise: PreciseAsk? = null,
     /** Nearby pending community place to confirm (shown only while parked; see VerifyPromptGate). */
     val vetPrompt: PlaceSummary? = null,
 )
+
+data class PreciseAsk(val beforeNav: Boolean)
 
 sealed interface UiEvent {
     data class Toast(@StringRes val res: Int) : UiEvent
@@ -269,6 +275,7 @@ class MainViewModel(private val c: AppContainer) : ViewModel() {
     private fun onFix(f: Fix) {
         val prev = _ui.value.myLocation
         c.lastFix = f.point
+        c.lastFixAccuracyM = f.accuracyM?.toInt()
         _ui.update { it.copy(myLocation = f) }
         maybeAskNearby(f, prev)
         if (!centeredOnce) {
@@ -329,8 +336,20 @@ class MainViewModel(private val c: AppContainer) : ViewModel() {
         }
     }
 
+    private var lastPanMs: Long? = null
+    private var followResumeJob: Job? = null
+
+    /** During navigation, follow resumes by itself 10 s after the last pan (the puck must not stay off-screen). */
     fun onUserPanned() {
         if (_ui.value.following) _ui.update { it.copy(following = false) }
+        lastPanMs = System.currentTimeMillis()
+        followResumeJob?.cancel()
+        followResumeJob = viewModelScope.launch {
+            delay(my.gimano.app.core.location.FixRules.FOLLOW_RESUME_MS)
+            val s = _ui.value
+            if (!s.following && s.screen == Screen.Navigating &&
+                my.gimano.app.core.location.FixRules.shouldResumeFollow(lastPanMs, System.currentTimeMillis(), nav.value.active)) recenter()
+        }
     }
 
     // --- Live map ---------------------------------------------------------------------------
@@ -770,7 +789,30 @@ class MainViewModel(private val c: AppContainer) : ViewModel() {
 
     // --- Navigation -------------------------------------------------------------------------
 
-    fun startNavigation() {
+    private var preciseAskedThisSession = false
+
+    /** Called on start and every resume (users can switch to Approximate in Settings at any time). */
+    fun refreshPrecision() {
+        val p = c.locations.precision()
+        _ui.update { it.copy(precision = p) }
+        if (p == my.gimano.app.core.location.LocationPrecision.APPROXIMATE && !preciseAskedThisSession && _ui.value.askPrecise == null) {
+            preciseAskedThisSession = true
+            _ui.update { it.copy(askPrecise = PreciseAsk(beforeNav = false)) }
+        }
+    }
+
+    /** The explainer was answered (after the system dialog, if the user chose to ask again). */
+    fun onPreciseAnswered() {
+        val ask = _ui.value.askPrecise
+        _ui.update { it.copy(askPrecise = null, precision = c.locations.precision()) }
+        if (ask?.beforeNav == true) startNavigation(skipPreciseCheck = true)
+    }
+
+    fun startNavigation(skipPreciseCheck: Boolean = false) {
+        if (!skipPreciseCheck && !repo.isDemo && c.locations.precision() == my.gimano.app.core.location.LocationPrecision.APPROXIMATE) {
+            _ui.update { it.copy(askPrecise = PreciseAsk(beforeNav = true), plan = it.plan?.copy(countdownRunning = false)) }
+            return
+        }
         val plan = _ui.value.plan ?: return
         val route = plan.selected ?: return
         // Release: never fake a drive just because GPS has no fix yet (debug keeps that for desk testing).
