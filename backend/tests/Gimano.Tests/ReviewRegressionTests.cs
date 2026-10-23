@@ -253,6 +253,21 @@ public class IssueVoteRetryTests
     }
 }
 
+public class LegacyVerifyBodyTests
+{
+    private static readonly VerifyPlaceRequest Legacy = new(null, null, null, null, null, Exists: true, CorrectLocation: true);
+    private static readonly VerifyPlaceRequest Current = new(VoteAnswer.Yes, true, true, new ProximityClaim("w283f8", 200), null);
+
+    [Fact]
+    public void The_legacy_body_is_only_for_keyless_accounts()
+    {
+        Assert.True(CommunityService.LegacyBodyAllowed(Legacy, hasKey: false));    // a real 0.1.0 app
+        Assert.False(CommunityService.LegacyBodyAllowed(Legacy, hasKey: true));    // before: a keyed (even Emas) account skipped proximity this way
+        Assert.True(CommunityService.LegacyBodyAllowed(Current, hasKey: true));
+        Assert.True(CommunityService.LegacyBodyAllowed(Current, hasKey: false));
+    }
+}
+
 public class BBoxRegressionTests
 {
     [Theory]

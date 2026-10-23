@@ -193,6 +193,8 @@ POST   /places/{id}/suggest-edit      → 202 {suggestionId}   (any user; any pl
 POST   /places/{id}/verify  (signed)  {answer: yes|no|unsure, nameCorrect?, locationCorrect?,
                                       proximity:{cell, withinM}, attestation?:{platform, token}}
                                       → 200 {status, confirmationsWeighted, required}
+                                      (the 0.1.0 body {exists, correctLocation} is accepted only from accounts with no
+                                       signing key; keyed accounts get 400 without answer + proximity)
 GET    /places/pending-nearby?cell=<geohash6>   → PlaceSummary[] (pending, excludes own)
 GET    /me/places/contributed         → PlaceSummary[]
 ```

@@ -119,6 +119,9 @@ public sealed class CommunityService(GimanoDbContext db, IEventPublisher bus, Gi
         var open = place.Status == PlaceStatus.Pending || (place.Status == PlaceStatus.Published && place.AuditOpen);
         if (!open) throw new ConflictException("This place is no longer waiting for verification.");
 
+        var hasKey = await db.UserKeys.AnyAsync(k => k.UserId == userId && k.RevokedAt == null, ct);
+        if (!LegacyBodyAllowed(req, hasKey))
+            throw new ValidationException("answer", "answer (yes, no or unsure) and proximity {cell, withinM} are required.");
         var answer = req.Answer ?? (req.Exists is { } ex ? (ex && req.CorrectLocation != false ? VoteAnswer.Yes : VoteAnswer.No) : (VoteAnswer?)null)
                      ?? throw new ValidationException("answer", "answer must be yes, no or unsure.");
         if (req.Proximity is { } prox)
@@ -130,11 +133,7 @@ public sealed class CommunityService(GimanoDbContext db, IEventPublisher bus, Gi
             if (!Reputation.WithinProximity(prox.WithinM, place.Rural))
                 throw new ForbiddenException($"You need to be within {(place.Rural ? Reputation.RuralWithinM : Reputation.TownWithinM)} m of this place to verify it.");
         }
-        // Deliberate: the legacy 0.1.0 body {exists, correctLocation} (no `answer`) has no proximity field, and installed 0.1.0
-        // apps can't send one, so that body is still accepted without a proximity check. 0.1.0 apps run key-less accounts, whose
-        // votes weigh at most 1 (Baharu cap, Reputation.CapForLegacy) and are rate-limited per day; Identity:RequireSignatures=true
-        // rejects their unsigned requests altogether. Note the branch keys on the body shape, not the account: a keyed client
-        // sending the old shape also skips the proximity check. Drop this branch once 0.1.0 is no longer in use.
+        // Only a key-less (0.1.0) account gets here without proximity, via the legacy body (see LegacyBodyAllowed).
         else if (req.Answer is not null) throw new ValidationException("proximity", "proximity {cell, withinM} is required.");
 
         if (await db.PlaceVotes.AnyAsync(v => v.PlaceId == id && v.VoterId == userId, ct))
@@ -145,7 +144,6 @@ public sealed class CommunityService(GimanoDbContext db, IEventPublisher bus, Gi
         if (attestationOk == false && attestation.Mode == AttestationMode.Enforce)
             throw new ForbiddenException("Device check failed; votes from this device can't be counted.");
 
-        var hasKey = await db.UserKeys.AnyAsync(k => k.UserId == userId && k.RevokedAt == null, ct);
         var weight = Reputation.VoteWeight(Reputation.CapForLegacy(voter.Tier, hasKey), voter.JoinedAt, now, answer, hasKey);
         db.PlaceVotes.Add(new PlaceVote
         {
@@ -190,6 +188,15 @@ public sealed class CommunityService(GimanoDbContext db, IEventPublisher bus, Gi
         if (place.Status != before) await bus.PublishAsync(RoutingKeys.PlaceVerified, new PlaceVerifiedEvent(id, place.Status), ct);
         return new VerifyResult(place.Status, Math.Round(place.WeightedYes, 2), RequiredFor(place));
     }
+
+    /// <summary>
+    /// The legacy 0.1.0 body {exists, correctLocation} has no `answer` and no proximity field, and installed 0.1.0 apps can't
+    /// send them, so it is still accepted, without a proximity check, but only from accounts with no signing key (what 0.1.0
+    /// apps run): their votes weigh at most 1 (Baharu cap, Reputation.CapForLegacy), are rate-limited per day, and
+    /// Identity:RequireSignatures=true rejects them altogether. A keyed account is a current app: it must send `answer` and
+    /// pass the proximity check, so the old shape can't be used to skip it. Drop the legacy shape once 0.1.0 is gone.
+    /// </summary>
+    internal static bool LegacyBodyAllowed(VerifyPlaceRequest req, bool hasKey) => req.Answer is not null || !hasKey;
 
     /// <summary>Pending (and audit-open) places in a geohash-6 cell and its 8 neighbours, excluding the caller's own and ones they voted on.</summary>
     /// <summary>Weighted confirmations a place needs: its creation-tier requirement, or baharu's while a random audit is open.</summary>

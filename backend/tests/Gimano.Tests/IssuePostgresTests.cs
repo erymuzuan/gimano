@@ -210,6 +210,32 @@ public sealed class PostgresIntegrationIssueTests : IAsyncLifetime
         Assert.Equal(9, await check.IssueVotes.CountAsync(v => v.IssueId == a.Id));
     }
 
+    // (Place verification lives here too: it needs the same throwaway PostGIS database.)
+    [Fact]
+    public async Task Legacy_verify_body_is_accepted_only_from_keyless_accounts()
+    {
+        if (_ds is null) { Assert.Skip("GIMANO_PG_TEST not set"); return; }
+        var users = await SeedAsync(3, emasFirst: true);   // users[0] Emas (keyed), users[1..2] key-less
+        await using (var seed = NewDb())
+        {
+            seed.CommunityPlaces.Add(new CommunityPlace { Id = "c" + new string('a', 32), Name = "Warung Mak Som", OwnerId = users[2].Id,
+                Location = new GeoPoint(Lat, Lng).ToPoint(), CreatedAt = T0, UpdatedAt = T0 });
+            await seed.SaveChangesAsync();
+        }
+        var legacy = new VerifyPlaceRequest(null, null, null, null, null, Exists: true, CorrectLocation: true);
+        Gimano.Api.Services.CommunityService Svc(GimanoDbContext db) => new(db, new Bus(),
+            new Gimano.Api.Identity.AttestationService(new Microsoft.Extensions.Configuration.ConfigurationBuilder().Build(), null!, db, new Clock(T0),
+                NullLogger<Gimano.Api.Identity.AttestationService>.Instance), new Clock(T0));
+
+        await using (var db = NewDb())
+            await Assert.ThrowsAsync<ValidationException>(() => Svc(db).VerifyAsync(users[0].Id, "c" + new string('a', 32), legacy, null, default));
+        await using (var db = NewDb())
+        {
+            var r = await Svc(db).VerifyAsync(users[1].Id, "c" + new string('a', 32), legacy, null, default);   // a real 0.1.0 app
+            Assert.Equal(1, r.ConfirmationsWeighted);
+        }
+    }
+
     // (Crash grouping lives here because this class owns the throwaway PostGIS database.)
     [Fact]
     public async Task Crash_groups_count_concurrent_reports_exactly_and_reopen_when_closed()
