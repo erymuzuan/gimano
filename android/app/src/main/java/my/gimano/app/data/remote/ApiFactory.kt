@@ -4,7 +4,6 @@ import kotlinx.serialization.json.Json
 import my.gimano.app.BuildConfig
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
-import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
 import retrofit2.converter.kotlinx.serialization.asConverterFactory
 import java.util.concurrent.TimeUnit
@@ -35,7 +34,14 @@ object ApiFactory {
         }
         .apply { if (signer != null) addInterceptor(signer) }
         .apply {
-            if (BuildConfig.DEBUG) addInterceptor(HttpLoggingInterceptor().setLevel(HttpLoggingInterceptor.Level.BASIC))
+            // Debug only, and never a precise coordinate in a log line (AGENTS.md: ≤ 2 dp): method, redacted URL, status, time.
+            if (BuildConfig.DEBUG) addInterceptor { chain ->
+                val r = chain.request()
+                val t0 = System.nanoTime()
+                val resp = chain.proceed(r)
+                android.util.Log.d("OkHttp", "${r.method} ${LogRedaction.url(r.url.toString())} → ${resp.code} (${(System.nanoTime() - t0) / 1_000_000} ms)")
+                resp
+            }
         }
         .build()
 
@@ -45,4 +51,17 @@ object ApiFactory {
         .addConverterFactory(GimanoJson.asConverterFactory("application/json".toMediaType()))
         .build()
         .create(GimanoApi::class.java)
+}
+
+/**
+ * Log lines never carry precise coordinates (every decimal number with more than 2 dp is rounded to 2 dp) or what
+ * the user typed (the search text `q` is dropped).
+ */
+object LogRedaction {
+    private val PRECISE = Regex("""-?\d+\.\d{3,}""")
+    private val QUERY_TEXT = Regex("""([?&]q=)[^&]*""")
+
+    fun url(u: String): String = PRECISE.replace(QUERY_TEXT.replace(u, "$1…")) { m ->
+        java.math.BigDecimal(m.value).setScale(2, java.math.RoundingMode.HALF_UP).toPlainString()
+    }
 }

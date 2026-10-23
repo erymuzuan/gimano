@@ -63,6 +63,8 @@ data class NavState(
     val weakGpsM: Int? = null,
     /** Complaints v1: the driver left the route at a decision point and didn't rejoin (asked about later, on the phone). */
     val deviation: my.gimano.app.core.issues.Deviation? = null,
+    /** One trip (kept when a stop is added mid-drive); "Share my drive" belongs to it and ends with it. */
+    val tripId: String? = null,
 )
 
 /**
@@ -106,8 +108,12 @@ class NavigationController(
     /** Debug: the simulated drive leaves the route at the first turn and the off-route / deviation checks run on it. */
     private var simDetour = false
 
-    fun start(route: Route, destination: NavDestination, request: RouteRequest?, simulate: Boolean, stops: List<NavDestination> = emptyList(), detour: Boolean = false) {
-        stopInternal(flush = false)
+    fun start(
+        route: Route, destination: NavDestination, request: RouteRequest?, simulate: Boolean, stops: List<NavDestination> = emptyList(), detour: Boolean = false,
+        tripId: String = java.util.UUID.randomUUID().toString(),
+    ) {
+        // No idle state in between: watchers (share, notification) must not see a drive "end" when it is re-planned.
+        stopInternal(flush = false, publishIdle = false)
         simDetour = detour && simulate && BuildConfig.DEBUG
         lastRequest = request
         stopsVisited = 0
@@ -117,7 +123,7 @@ class NavigationController(
         planner = VoicePromptPlanner(mode.wire)
         offRoute.reset(); announcedAlerts.clear(); dismissedAlerts.clear()
         deviation.reset(); lastOnRoute = null; trace.clear()
-        _state.value = NavState(active = true, route = route, destination = destination, stops = stops, simulated = simulate, startedAt = Instant.now(), mode = mode)
+        _state.value = NavState(active = true, route = route, destination = destination, stops = stops, simulated = simulate, startedAt = Instant.now(), mode = mode, tripId = tripId)
         gpsQuality.reset()
         val lang = langProvider()
         val first = tracker!!.maneuvers.firstOrNull()
@@ -300,7 +306,7 @@ class NavigationController(
             // never resurrect it.
             val now = _state.value
             if (!now.active || now.arrived || now.startedAt != s.startedAt) return false
-            start(r, dest, req, s.simulated, stops)
+            start(r, dest, req, s.simulated, stops, tripId = s.tripId ?: java.util.UUID.randomUUID().toString())
             true
         } catch (e: kotlinx.coroutines.CancellationException) {
             throw e
@@ -328,14 +334,14 @@ class NavigationController(
         service.stop()
     }
 
-    private fun stopInternal(flush: Boolean) {
+    private fun stopInternal(flush: Boolean, publishIdle: Boolean = true) {
         trace.clear()
         job?.cancel()
         job = null
         voice.stop()
         if (flush) batcher.drain()?.let { send(it) }
         val wasActive = _state.value.active
-        _state.value = NavState()
+        if (publishIdle) _state.value = NavState()
         if (wasActive) service.stop()
     }
 

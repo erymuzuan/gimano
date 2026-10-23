@@ -1160,7 +1160,9 @@ class MainViewModel(private val c: AppContainer) : ViewModel() {
 
     /** The user's own position for routing: a fix no older than 2 min, else null. Never the camera centre. */
     private fun gpsFix(nowMs: Long = System.currentTimeMillis()): RouteOrigin.Gps {
-        val f = nav.value.fix ?: _ui.value.myLocation
+        val n = nav.value
+        // After arrival the drive's fix is frozen (GPS tracking stopped): the live location is the user's position.
+        val f = if (n.active && !n.arrived) n.fix ?: _ui.value.myLocation else _ui.value.myLocation ?: n.fix
         if (f != null && f.simulated && !repo.isDemo && !debugSim()) return RouteOrigin.Gps.None
         return RouteOrigin.classify(f?.point, f?.timeMs, nowMs)
     }

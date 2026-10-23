@@ -264,6 +264,7 @@
     <string name="passphrase_confirm">Taip sekali lagi</string>
     <string name="pass_too_short">Gunakan sekurang-kurangnya 8 aksara</string>
     <string name="pass_mismatch">Kedua-dua frasa laluan tidak sepadan</string>
+    <string name="pass_lost">Frasa laluan terpadam semasa anda memilih fail, jadi tiada apa-apa disimpan. Masukkan semula.</string>
     <string name="pass_wrong">Frasa laluan salah (atau fail rosak)</string>
     <string name="ok">OK</string>
     <string name="privacy_title">Tempat anda kekal dalam telefon anda</string>

@@ -265,6 +265,7 @@
     <string name="passphrase_confirm">Type it again</string>
     <string name="pass_too_short">Use at least 8 characters</string>
     <string name="pass_mismatch">The two passphrases don\'t match</string>
+    <string name="pass_lost">The passphrase was cleared while you chose the file, so nothing was saved. Enter it again.</string>
     <string name="pass_wrong">Wrong passphrase (or the file is damaged)</string>
     <string name="ok">OK</string>
     <string name="privacy_title">Your places stay on your phone</string>

@@ -4,7 +4,9 @@ import android.app.PendingIntent
 import android.content.Intent
 import android.net.Uri
 import androidx.core.content.FileProvider
+import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.createSavedStateHandle
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.Dispatchers
@@ -58,7 +60,20 @@ sealed interface BackupEvent {
     data class DriveConsent(val intent: PendingIntent) : BackupEvent
 }
 
-class BackupViewModel(private val c: AppContainer) : ViewModel() {
+/**
+ * "Save to file" goes through the system picker, and the process may die meanwhile. The passphrase lives only in
+ * memory, so a file backup that asked for one is written only while it is still there; otherwise abort and ask again.
+ */
+object FileBackupGuard {
+    /** [encryptionRequested]: what the user chose before the picker (null = unknown, e.g. a stale picker result). */
+    fun mayWrite(encryptionRequested: Boolean?, passphrase: String?): Boolean = when (encryptionRequested) {
+        true -> passphrase != null
+        false -> passphrase == null
+        null -> false
+    }
+}
+
+class BackupViewModel(private val c: AppContainer, private val saved: SavedStateHandle = SavedStateHandle()) : ViewModel() {
     private val _ui = MutableStateFlow(BackupUi())
     val ui: StateFlow<BackupUi> = _ui.asStateFlow()
     private val _events = MutableSharedFlow<BackupEvent>(extraBufferCapacity = 4)
@@ -97,7 +112,11 @@ class BackupViewModel(private val c: AppContainer) : ViewModel() {
     private fun runBackup(purpose: PassphrasePurpose, pass: String?) {
         sessionPassphrase = pass
         when (purpose) {
-            PassphrasePurpose.BACKUP_FILE -> _events.tryEmit(BackupEvent.CreateFile(fileName()))
+            PassphrasePurpose.BACKUP_FILE -> {
+                // Survives process death (the choice only, never the passphrase).
+                saved[KEY_FILE_ENCRYPTED] = pass != null
+                _events.tryEmit(BackupEvent.CreateFile(fileName()))
+            }
             PassphrasePurpose.BACKUP_SHARE -> shareBackup()
             PassphrasePurpose.BACKUP_DRIVE -> withDrive { token -> uploadToDrive(token) }
             PassphrasePurpose.RESTORE -> Unit
@@ -105,7 +124,19 @@ class BackupViewModel(private val c: AppContainer) : ViewModel() {
     }
 
     /** SAF "Save to file" result. */
-    fun writeTo(uri: Uri) = work {
+    fun writeTo(uri: Uri) {
+        val requested = saved.remove<Boolean>(KEY_FILE_ENCRYPTED)
+        if (!FileBackupGuard.mayWrite(requested, sessionPassphrase)) {
+            // Never an unencrypted file the user asked to encrypt: remove the empty file and ask again.
+            sessionPassphrase = null
+            viewModelScope.launch { withContext(Dispatchers.IO) { runCatching { android.provider.DocumentsContract.deleteDocument(c.app.contentResolver, uri) } } }
+            _ui.update { it.copy(usePassphrase = true, passphrasePrompt = PassphrasePrompt(PassphrasePurpose.BACKUP_FILE, R.string.pass_lost)) }
+            return
+        }
+        writeFile(uri)
+    }
+
+    private fun writeFile(uri: Uri) = work {
         val bytes = backupBytes()
         withContext(Dispatchers.IO) { c.app.contentResolver.openOutputStream(uri)?.use { it.write(bytes) } }
         record(bytes.size.toLong(), "file")
@@ -210,8 +241,13 @@ class BackupViewModel(private val c: AppContainer) : ViewModel() {
         }
     }
 
+    companion object {
+        private const val KEY_FILE_ENCRYPTED = "fileBackupEncrypted"
+    }
+
     class Factory(private val c: AppContainer) : ViewModelProvider.Factory {
         @Suppress("UNCHECKED_CAST")
-        override fun <T : ViewModel> create(modelClass: Class<T>): T = BackupViewModel(c) as T
+        override fun <T : ViewModel> create(modelClass: Class<T>, extras: androidx.lifecycle.viewmodel.CreationExtras): T =
+            BackupViewModel(c, extras.createSavedStateHandle()) as T
     }
 }

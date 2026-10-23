@@ -2,7 +2,8 @@ package my.gimano.app.data.share
 
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -47,15 +48,18 @@ class ShareSession(
     private var token: String? = null
     /** Last payload sent; the final "arrived"/"ended" update reuses it when navigation state is gone. */
     private var last: SharePayload? = null
+    /** The trip this share belongs to: another drive never inherits it. */
+    private var tripId: String? = null
 
     /** Starts sharing (or returns the running share). Lasts until arrival, max 12 h. */
     suspend fun start(): ActiveShare {
         _active.value?.let { return it }
         val remainingS = nav.value.progress?.remainingS ?: 3600.0
         val minutes = ((remainingS / 60) * 2 + 30).toInt().coerceIn(15, 720)
+        val trip = nav.value.tripId
         val created = api.createShare(minutes)
         val k = crypto.newKey()
-        key = k; token = created.writeToken
+        key = k; token = created.writeToken; tripId = trip
         val share = ActiveShare(created.shareId, ShareCrypto.link(created.shareId, k), runCatching { Instant.parse(created.expiresAt) }.getOrElse { now().plusSeconds(minutes * 60L) })
         _active.value = share
         job = scope.launch { loop(share) }
@@ -66,12 +70,14 @@ class ShareSession(
         while (scope.isActive) {
             val s = nav.value
             when {
-                !s.active -> { finish("ended"); return }
+                !s.active || s.tripId != tripId -> { finish("ended"); return }
                 s.arrived -> { push(share, "arrived"); finish(null); return }
                 !now().isBefore(share.expiresAt) -> { finish(null); return }
                 else -> push(share, "driving")
             }
-            delay(intervalMs)
+            // Wake at once when the drive ends (End, notification Stop, swipe away), arrives, or is replaced.
+            val trip = tripId
+            withTimeoutOrNull(intervalMs) { nav.first { !it.active || it.arrived || it.tripId != trip } }
         }
     }
 
@@ -99,7 +105,7 @@ class ShareSession(
         if (finalStatus != null) push(share, finalStatus)
         if (t != null) runCatching { api.deleteShare(share.shareId, t) }
         _active.value = null
-        key?.fill(0); key = null; token = null; last = null
+        key?.fill(0); key = null; token = null; last = null; tripId = null
         val j = job; job = null
         if (j != null && j != kotlinx.coroutines.currentCoroutineContext()[Job]) j.cancel()
     }

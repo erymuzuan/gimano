@@ -2,6 +2,7 @@ package my.gimano.app.trip
 
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.async
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.runCurrent
@@ -149,5 +150,30 @@ class MultiStopNavigationTest {
         gate.complete(Unit); runCurrent()
         assertFalse(added.await())
         assertEquals(NavState(), c.state.value)
+    }
+
+    @Test fun addingAStopKeepsTheTripAndNeverShowsAnIdleState() = runTest {
+        val fixes = MutableSharedFlow<Fix>(extraBufferCapacity = 64)
+        val repo = object : GimanoRepository by DemoRepository() {
+            override suspend fun routes(req: RouteRequest): List<Route> = listOf(route)
+            override suspend fun postLocations(batch: LocationBatch) {}
+        }
+        val c = NavigationController(backgroundScope, repo, FixSource { fixes }, Speaker2(), Svc(), { SoundMode.OFF }, { Lang.EN })
+        c.start(route, dest, RouteRequest(LatLngDto(start.lat, start.lng), dest.toDto()), simulate = false)
+        runCurrent()
+        val trip = c.state.value.tripId
+        assertNotNull(trip)
+        fixes.emit(Fix(GeoMath.offset(start, 0.0, 300.0), 10f, 0f, 5f)); runCurrent()
+        val seen = ArrayList<NavState>()
+        val watch = backgroundScope.launch(kotlinx.coroutines.test.UnconfinedTestDispatcher(testScheduler)) { c.state.collect { seen += it } }
+        assertTrue(c.addStop(stop))
+        runCurrent()
+        assertEquals(trip, c.state.value.tripId)
+        assertTrue("watchers never see the drive end", seen.all { it.active })
+        watch.cancel()
+        c.stop()
+        c.start(route, dest, null, simulate = false)
+        assertNotEquals("a new drive is a new trip", trip, c.state.value.tripId)
+        c.stop()
     }
 }

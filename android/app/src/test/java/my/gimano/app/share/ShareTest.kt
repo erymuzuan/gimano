@@ -113,4 +113,39 @@ class ShareSessionTest {
         assertNull(s.active.value)
         assertEquals(listOf("s1"), api.deleted)
     }
+
+    @Test fun endingFromTheNotificationEndsTheShareAtOnce() = runTest {
+        val nav = MutableStateFlow(driving.copy(tripId = "trip-1"))
+        val api = FakeApi()
+        val s = ShareSession(backgroundScope, api, crypto, nav, now = { Instant.parse("2026-10-23T01:00:00Z") })
+        val share = s.start(); runCurrent()
+        nav.value = NavState()   // notification "Stop": no 15 s wait
+        runCurrent()
+        assertEquals(listOf("driving", "ended"), statuses(api, share.link))
+        assertNull(s.active.value)
+    }
+
+    @Test fun aNewDriveNeverInheritsTheShare() = runTest {
+        val nav = MutableStateFlow(driving.copy(tripId = "trip-1"))
+        val api = FakeApi()
+        val s = ShareSession(backgroundScope, api, crypto, nav, now = { Instant.parse("2026-10-23T01:00:00Z") })
+        val share = s.start(); runCurrent()
+        nav.value = driving.copy(tripId = "trip-2", puck = GeoPoint(3.5, 101.9))   // another drive, no idle state seen
+        runCurrent()
+        assertEquals(listOf("driving", "ended"), statuses(api, share.link))
+        assertNull(s.active.value)
+        advanceTimeBy(60_000); runCurrent()
+        assertEquals("nothing about the new drive is sent", 2, api.updates.size)
+    }
+
+    @Test fun addingAStopKeepsTheShare() = runTest {
+        val nav = MutableStateFlow(driving.copy(tripId = "trip-1"))
+        val api = FakeApi()
+        val s = ShareSession(backgroundScope, api, crypto, nav, now = { Instant.parse("2026-10-23T01:00:00Z") })
+        s.start(); runCurrent()
+        nav.value = driving.copy(tripId = "trip-1", speedKmh = 30)   // re-planned with a stop: same trip
+        advanceTimeBy(15_000); runCurrent()
+        assertNotNull(s.active.value)
+        assertEquals(2, api.updates.size)
+    }
 }
