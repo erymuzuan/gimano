@@ -34,10 +34,18 @@ public static partial class SearchAliases
 
     private static Regex R(string pattern) => new(pattern, RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
 
-    public static string? For(string name, string? brand)
+    /// <summary>OSM name variants indexed for areas ("Wilayah Persekutuan Putrajaya", "KL", "Kuala Lumpur" for name:en …).</summary>
+    public static readonly string[] AreaNameTags = ["official_name", "alt_name", "short_name", "old_name", "name:en", "name:ms"];
+
+    public static string? For(string name, string? brand, IReadOnlyDictionary<string, string>? areaTags = null)
     {
         var text = brand is null ? name : name + " " + brand;
-        var hits = Rules.Where(r => r.Match.IsMatch(text)).Select(r => r.Aliases).Distinct().ToList();
+        var hits = Rules.Where(r => r.Match.IsMatch(text)).Select(r => r.Aliases).ToList();
+        if (areaTags is not null)
+            hits.AddRange(AreaNameTags.Select(t => areaTags.GetValueOrDefault(t)).OfType<string>()
+                .SelectMany(v => v.Split(';', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries))
+                .Where(v => !string.Equals(v, name, StringComparison.OrdinalIgnoreCase)));
+        hits = hits.Distinct(StringComparer.OrdinalIgnoreCase).ToList();
         return hits.Count == 0 ? null : string.Join(' ', hits);
     }
 }

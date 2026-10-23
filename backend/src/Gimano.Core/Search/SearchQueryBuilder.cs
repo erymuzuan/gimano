@@ -228,7 +228,7 @@ public static class SearchQueryBuilder
         ["id"] = p.Id,
         ["name"] = p.Name,
         ["brand"] = p.Brand,
-        ["aliases"] = SearchAliases.For(p.Name, p.Brand),
+        ["aliases"] = SearchAliases.For(p.Name, p.Brand, p.Category == PlaceCategory.Area ? p.Tags : null),
         ["address"] = p.Address,
         ["category"] = GimanoJson.ToWire(p.Category),
         ["country"] = p.Country,

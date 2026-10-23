@@ -147,7 +147,13 @@ public sealed class OsmImporter(GimanoDbContext db, NpgsqlDataSource dataSource,
                     var admin = ToPlace("r", a.Id, PlaceCategory.Area, a.Tags, p.Lat, p.Lng);
                     // "Putrajaya" the federal territory and "Putrajaya" the city are one search result: keep the place node
                     // (better centre) with the higher popularity of the two.
-                    if (MergeAdminInto(areaNodes, admin) is { } same) { same.Popularity = Math.Max(same.Popularity, admin.Popularity); continue; }
+                    if (MergeAdminInto(areaNodes, admin) is { } same)
+                    {
+                        same.Popularity = Math.Max(same.Popularity, admin.Popularity);
+                        foreach (var t in SearchAliases.AreaNameTags)
+                            if (admin.Tags.TryGetValue(t, out var v) && !same.Tags.ContainsKey(t)) same.Tags[t] = v;
+                        continue;
+                    }
                     places.Add(admin);
                 }
             logger.LogInformation("Areas: {Areas} named places/admin areas", places.Count(p => p.Category == PlaceCategory.Area));

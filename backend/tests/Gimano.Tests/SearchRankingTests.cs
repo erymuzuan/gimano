@@ -86,6 +86,15 @@ public class SearchRankingUnitTests
     public void No_alias_for_ordinary_names() => Assert.Null(SearchAliases.For("Kedai Runcit Ah Seng", null));
 
     [Fact]
+    public void Area_name_variants_are_aliases()
+    {
+        var a = SearchAliases.For("Putrajaya", null, T("official_name", "Wilayah Persekutuan Putrajaya", "name:en", "Putrajaya", "alt_name", "PJY;Pusat Pentadbiran"))!;
+        Assert.Contains("Wilayah Persekutuan Putrajaya", a);
+        Assert.Contains("Pusat Pentadbiran", a);
+        Assert.DoesNotContain("Putrajaya Putrajaya", a);
+    }
+
+    [Fact]
     public void Query_boosts_whole_name_exact_and_prefix_aliases_and_areas()
     {
         var body = SearchQueryBuilder.Build(new SearchQuery("Putrajaya", 3.1478, 101.6153, Limit: 5));
