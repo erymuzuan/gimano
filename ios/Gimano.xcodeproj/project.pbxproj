@@ -1,0 +1,753 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		044B98211B81AF731692E40A /* DemoRoutes.json in Resources */ = {isa = PBXBuildFile; fileRef = D7BB49955300A0C3A34FF073 /* DemoRoutes.json */; };
+		076CFE075D9F64B51ABB41A3 /* LiveMapStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5940B87EF1A5B5D7B27DFFFA /* LiveMapStore.swift */; };
+		0A3A0E4E9C3E8F453862E0AA /* PlaceCardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F05911F984BB3D0A8BDFE891 /* PlaceCardView.swift */; };
+		0B28D8E5D3675D9F8FB51686 /* RouteTracker.swift in Sources */ = {isa = PBXBuildFile; fileRef = AF979840E579CA036CC7B2B9 /* RouteTracker.swift */; };
+		0E53628577A2D0B3709B42FF /* Nunito-OFL.txt in Resources */ = {isa = PBXBuildFile; fileRef = 6F6B4DF5CF1897DB3B4B6CB4 /* Nunito-OFL.txt */; };
+		1213227CB2E9AC09E707002A /* VoiceGuide.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7C47FE94945188AC3C750DE0 /* VoiceGuide.swift */; };
+		12C0483DE6032187524DDA08 /* APIClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2E4FA99DFCD83AC93051F13 /* APIClient.swift */; };
+		1411F07311E084B2270AD2FE /* Polyline.swift in Sources */ = {isa = PBXBuildFile; fileRef = FBED0F8FE579F3B5F1450975 /* Polyline.swift */; };
+		199CF75A4CF80C7C9FB93394 /* ReportCatalog.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5916B174831C704E0FDA2144 /* ReportCatalog.swift */; };
+		1EAFFEBE1469CC11F939CF75 /* Localizable.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = 2E8135A9B3B01C9F1BAC02CD /* Localizable.xcstrings */; };
+		26661DE9BEC534AA68B52D83 /* PolylineTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E3820150BB82A2510C4945B2 /* PolylineTests.swift */; };
+		29575FD027DAA9EE93013315 /* Nunito.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 28F8D8E468983421C5B7ED97 /* Nunito.ttf */; };
+		2AA09D8DE0E38C1F2152DCC5 /* MapLibre in Frameworks */ = {isa = PBXBuildFile; productRef = 4791C2A1E4DB927E7924B45E /* MapLibre */; };
+		2CE943CA67FF097CEE1F896B /* Repository.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5ADB4D9750870AD43B247AC /* Repository.swift */; };
+		2DC3329DC097D6E688057BF1 /* ReportSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C81FFCBA32722136F5E9C5B /* ReportSheet.swift */; };
+		3E85A76CCED7E91564AAEBBC /* DriveSimulator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 07AC3F3D3189966A65C15D1C /* DriveSimulator.swift */; };
+		46136DA331D234749063A18F /* MapState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7CCD7755F233520667D922F4 /* MapState.swift */; };
+		476344D198C67608FFD33F05 /* Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4D9A99725AFCF5CA1B28EB82 /* Models.swift */; };
+		4823253E3469298C388F2D45 /* Formatters.swift in Sources */ = {isa = PBXBuildFile; fileRef = F6C8B1343BB36DDAC8D6166E /* Formatters.swift */; };
+		66F1A2BF8F235AE1F95CFA4A /* Geo.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC0CAAB16AB2BC4F7F3A4DEA /* Geo.swift */; };
+		6CBFA0B419583CF5ACDF5082 /* FormatterTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D54728F5506AB4817C165892 /* FormatterTests.swift */; };
+		6F24D8B870987FF57D0BAA5F /* DriveView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8E333AAFC271BC55DBE183BD /* DriveView.swift */; };
+		7461B15E7DCD48FF47137CAB /* SearchView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6CB95316F13D494A4B61DC61 /* SearchView.swift */; };
+		74DE001005991821B65AD8A8 /* GimanoMapView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2F9DFAA9B3D3726BC81365AE /* GimanoMapView.swift */; };
+		77C09E39905792ACB8545E43 /* IconData.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9872BA301C2D39E8614CD42B /* IconData.swift */; };
+		9479BDFB94242004B415BBDC /* Keychain.swift in Sources */ = {isa = PBXBuildFile; fileRef = FEBDD7794BF35380C8835FD5 /* Keychain.swift */; };
+		997A6F6EE64064654956768F /* HomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CD7F057954292BA508D976F5 /* HomeView.swift */; };
+		A5EEC9BEAC5DEBA6083B81A3 /* NavigationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D028E26C9546B7B894417E36 /* NavigationTests.swift */; };
+		AC660909C29CEC1666DB4070 /* AppModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = C3B2DDD99414433CDAF4242E /* AppModel.swift */; };
+		B0F6914BF17DA8396D847ECF /* SideMenu.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3F56F9F5C1405379C126E611 /* SideMenu.swift */; };
+		B6D56C4C7DCDCFC5C0D452D1 /* NavigationSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = 713DFCE9A4F204DE831154F1 /* NavigationSession.swift */; };
+		BA1E2852EC05C6323FEEE5F8 /* GimanoApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E10D2741068A818F9DD4A47 /* GimanoApp.swift */; };
+		BF701BBF6A58B2B0D60499E5 /* DebugSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0C5DE33A992A9D645FD22218 /* DebugSettingsView.swift */; };
+		CC5D10B9CACFC94A34A728D6 /* Components.swift in Sources */ = {isa = PBXBuildFile; fileRef = DC753CC7A0951DC08728D525 /* Components.swift */; };
+		CCB345D1D908EA86AA8B12B6 /* AppConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5C8E36DD818ECCF42E477DD0 /* AppConfig.swift */; };
+		CCD925FC6D043A60C16E6801 /* DemoRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC5F97752F0253FCE0E79086 /* DemoRepository.swift */; };
+		E1A7FA641ADA806D4FDD6A47 /* LiveHubClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 048F3F93B703ED18CCF2F483 /* LiveHubClient.swift */; };
+		E4BF9C18B9A5AF2FED0AA349 /* RoutePreviewView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 92B6ACBA56FD62A3A279DC94 /* RoutePreviewView.swift */; };
+		F8B876ABC27695B2A7EA31B0 /* LocationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = CBC90672622F0ABA4D89CFEA /* LocationService.swift */; };
+		FA50685C80C235AA22BC9EA2 /* GimanoIcon.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4CB027DE8A1892B964BDE866 /* GimanoIcon.swift */; };
+		FDF5F849BE123BCD3867E06E /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = C8950351547906452FDCEB79 /* Assets.xcassets */; };
+		FFE4C15C9F53974A46140A9A /* Tokens.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8049E321A75192B9AFC2354D /* Tokens.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		8A3740CFE57C06DAD93A1801 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = FF194712F66E74F16A7D794B /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 3C510A7951FA84252C95BEB3;
+			remoteInfo = Gimano;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXFileReference section */
+		048F3F93B703ED18CCF2F483 /* LiveHubClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiveHubClient.swift; sourceTree = "<group>"; };
+		07AC3F3D3189966A65C15D1C /* DriveSimulator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DriveSimulator.swift; sourceTree = "<group>"; };
+		0B0FDEC0B602F00798D871E7 /* GimanoTests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = GimanoTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		0C5DE33A992A9D645FD22218 /* DebugSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DebugSettingsView.swift; sourceTree = "<group>"; };
+		1C81FFCBA32722136F5E9C5B /* ReportSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReportSheet.swift; sourceTree = "<group>"; };
+		1E10D2741068A818F9DD4A47 /* GimanoApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GimanoApp.swift; sourceTree = "<group>"; };
+		28F8D8E468983421C5B7ED97 /* Nunito.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = Nunito.ttf; sourceTree = "<group>"; };
+		2E8135A9B3B01C9F1BAC02CD /* Localizable.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = Localizable.xcstrings; sourceTree = "<group>"; };
+		2F9DFAA9B3D3726BC81365AE /* GimanoMapView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GimanoMapView.swift; sourceTree = "<group>"; };
+		3F56F9F5C1405379C126E611 /* SideMenu.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SideMenu.swift; sourceTree = "<group>"; };
+		4CB027DE8A1892B964BDE866 /* GimanoIcon.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GimanoIcon.swift; sourceTree = "<group>"; };
+		4D9A99725AFCF5CA1B28EB82 /* Models.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Models.swift; sourceTree = "<group>"; };
+		5916B174831C704E0FDA2144 /* ReportCatalog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReportCatalog.swift; sourceTree = "<group>"; };
+		5940B87EF1A5B5D7B27DFFFA /* LiveMapStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiveMapStore.swift; sourceTree = "<group>"; };
+		5C8E36DD818ECCF42E477DD0 /* AppConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppConfig.swift; sourceTree = "<group>"; };
+		6CB95316F13D494A4B61DC61 /* SearchView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SearchView.swift; sourceTree = "<group>"; };
+		6F6B4DF5CF1897DB3B4B6CB4 /* Nunito-OFL.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = "Nunito-OFL.txt"; sourceTree = "<group>"; };
+		713DFCE9A4F204DE831154F1 /* NavigationSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NavigationSession.swift; sourceTree = "<group>"; };
+		7C47FE94945188AC3C750DE0 /* VoiceGuide.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VoiceGuide.swift; sourceTree = "<group>"; };
+		7CCD7755F233520667D922F4 /* MapState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MapState.swift; sourceTree = "<group>"; };
+		8049E321A75192B9AFC2354D /* Tokens.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Tokens.swift; sourceTree = "<group>"; };
+		8E333AAFC271BC55DBE183BD /* DriveView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DriveView.swift; sourceTree = "<group>"; };
+		92B6ACBA56FD62A3A279DC94 /* RoutePreviewView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RoutePreviewView.swift; sourceTree = "<group>"; };
+		9872BA301C2D39E8614CD42B /* IconData.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IconData.swift; sourceTree = "<group>"; };
+		A2E4FA99DFCD83AC93051F13 /* APIClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = APIClient.swift; sourceTree = "<group>"; };
+		AF979840E579CA036CC7B2B9 /* RouteTracker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RouteTracker.swift; sourceTree = "<group>"; };
+		B5ADB4D9750870AD43B247AC /* Repository.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Repository.swift; sourceTree = "<group>"; };
+		C3B2DDD99414433CDAF4242E /* AppModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppModel.swift; sourceTree = "<group>"; };
+		C8950351547906452FDCEB79 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		CBC90672622F0ABA4D89CFEA /* LocationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocationService.swift; sourceTree = "<group>"; };
+		CC0CAAB16AB2BC4F7F3A4DEA /* Geo.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Geo.swift; sourceTree = "<group>"; };
+		CC5F97752F0253FCE0E79086 /* DemoRepository.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DemoRepository.swift; sourceTree = "<group>"; };
+		CD7F057954292BA508D976F5 /* HomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeView.swift; sourceTree = "<group>"; };
+		D028E26C9546B7B894417E36 /* NavigationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NavigationTests.swift; sourceTree = "<group>"; };
+		D54728F5506AB4817C165892 /* FormatterTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FormatterTests.swift; sourceTree = "<group>"; };
+		D7BB49955300A0C3A34FF073 /* DemoRoutes.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = DemoRoutes.json; sourceTree = "<group>"; };
+		DBB721164B17E660AEA6E3E8 /* Gimano.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = Gimano.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		DC753CC7A0951DC08728D525 /* Components.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Components.swift; sourceTree = "<group>"; };
+		E3820150BB82A2510C4945B2 /* PolylineTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PolylineTests.swift; sourceTree = "<group>"; };
+		F05911F984BB3D0A8BDFE891 /* PlaceCardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaceCardView.swift; sourceTree = "<group>"; };
+		F6C8B1343BB36DDAC8D6166E /* Formatters.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Formatters.swift; sourceTree = "<group>"; };
+		FBED0F8FE579F3B5F1450975 /* Polyline.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Polyline.swift; sourceTree = "<group>"; };
+		FEBDD7794BF35380C8835FD5 /* Keychain.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Keychain.swift; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		3FEA02CF217C0EE6E4ADD87A /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				2AA09D8DE0E38C1F2152DCC5 /* MapLibre in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		057F8B6AE1A959D9588736E5 /* Report */ = {
+			isa = PBXGroup;
+			children = (
+				1C81FFCBA32722136F5E9C5B /* ReportSheet.swift */,
+			);
+			path = Report;
+			sourceTree = "<group>";
+		};
+		1B8FEE942905E9B653066840 /* DesignSystem */ = {
+			isa = PBXGroup;
+			children = (
+				DC753CC7A0951DC08728D525 /* Components.swift */,
+				4CB027DE8A1892B964BDE866 /* GimanoIcon.swift */,
+				9872BA301C2D39E8614CD42B /* IconData.swift */,
+				8049E321A75192B9AFC2354D /* Tokens.swift */,
+			);
+			path = DesignSystem;
+			sourceTree = "<group>";
+		};
+		1D8EFD64873B92D715B82C37 /* Features */ = {
+			isa = PBXGroup;
+			children = (
+				363BACBB85C050F8C058E994 /* Drive */,
+				CD68FE3391464FD15EDE5765 /* Home */,
+				6C1B4DF6216B76CBFF6934E3 /* Menu */,
+				6D0E2985A1C1DC9C497BBAB0 /* Place */,
+				057F8B6AE1A959D9588736E5 /* Report */,
+				5B3D04CFBE0642FAADD143B9 /* Route */,
+				4E329A7E10BDFE41876954AE /* Search */,
+				98175BC9A93CC329DAE96FD0 /* Settings */,
+			);
+			path = Features;
+			sourceTree = "<group>";
+		};
+		2C7FED9DAD4F04EAD06625D0 /* App */ = {
+			isa = PBXGroup;
+			children = (
+				5C8E36DD818ECCF42E477DD0 /* AppConfig.swift */,
+				C3B2DDD99414433CDAF4242E /* AppModel.swift */,
+				1E10D2741068A818F9DD4A47 /* GimanoApp.swift */,
+				5940B87EF1A5B5D7B27DFFFA /* LiveMapStore.swift */,
+			);
+			path = App;
+			sourceTree = "<group>";
+		};
+		33B1B315F6694A02CE3A1650 /* Map */ = {
+			isa = PBXGroup;
+			children = (
+				2F9DFAA9B3D3726BC81365AE /* GimanoMapView.swift */,
+				7CCD7755F233520667D922F4 /* MapState.swift */,
+			);
+			path = Map;
+			sourceTree = "<group>";
+		};
+		363BACBB85C050F8C058E994 /* Drive */ = {
+			isa = PBXGroup;
+			children = (
+				8E333AAFC271BC55DBE183BD /* DriveView.swift */,
+			);
+			path = Drive;
+			sourceTree = "<group>";
+		};
+		36BC8B6F05E4F0E564CF56DB /* Models */ = {
+			isa = PBXGroup;
+			children = (
+				4D9A99725AFCF5CA1B28EB82 /* Models.swift */,
+				5916B174831C704E0FDA2144 /* ReportCatalog.swift */,
+			);
+			path = Models;
+			sourceTree = "<group>";
+		};
+		3DB90E94562F917DF52BA46A /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				DBB721164B17E660AEA6E3E8 /* Gimano.app */,
+				0B0FDEC0B602F00798D871E7 /* GimanoTests.xctest */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		46AECC791B06F03216440F3A /* GimanoTests */ = {
+			isa = PBXGroup;
+			children = (
+				D54728F5506AB4817C165892 /* FormatterTests.swift */,
+				D028E26C9546B7B894417E36 /* NavigationTests.swift */,
+				E3820150BB82A2510C4945B2 /* PolylineTests.swift */,
+			);
+			path = GimanoTests;
+			sourceTree = "<group>";
+		};
+		4E329A7E10BDFE41876954AE /* Search */ = {
+			isa = PBXGroup;
+			children = (
+				6CB95316F13D494A4B61DC61 /* SearchView.swift */,
+			);
+			path = Search;
+			sourceTree = "<group>";
+		};
+		5B3D04CFBE0642FAADD143B9 /* Route */ = {
+			isa = PBXGroup;
+			children = (
+				92B6ACBA56FD62A3A279DC94 /* RoutePreviewView.swift */,
+			);
+			path = Route;
+			sourceTree = "<group>";
+		};
+		6C1B4DF6216B76CBFF6934E3 /* Menu */ = {
+			isa = PBXGroup;
+			children = (
+				3F56F9F5C1405379C126E611 /* SideMenu.swift */,
+			);
+			path = Menu;
+			sourceTree = "<group>";
+		};
+		6D0E2985A1C1DC9C497BBAB0 /* Place */ = {
+			isa = PBXGroup;
+			children = (
+				F05911F984BB3D0A8BDFE891 /* PlaceCardView.swift */,
+			);
+			path = Place;
+			sourceTree = "<group>";
+		};
+		7EF0D9A116380CA3AD216C1F /* Fonts */ = {
+			isa = PBXGroup;
+			children = (
+				6F6B4DF5CF1897DB3B4B6CB4 /* Nunito-OFL.txt */,
+				28F8D8E468983421C5B7ED97 /* Nunito.ttf */,
+			);
+			path = Fonts;
+			sourceTree = "<group>";
+		};
+		97CD2F31BB35B58717C381DE = {
+			isa = PBXGroup;
+			children = (
+				C5EEA278D8858CF14C25E45E /* Gimano */,
+				46AECC791B06F03216440F3A /* GimanoTests */,
+				3DB90E94562F917DF52BA46A /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		98175BC9A93CC329DAE96FD0 /* Settings */ = {
+			isa = PBXGroup;
+			children = (
+				0C5DE33A992A9D645FD22218 /* DebugSettingsView.swift */,
+			);
+			path = Settings;
+			sourceTree = "<group>";
+		};
+		9F5A7B903D9A68B1F5584D66 /* Networking */ = {
+			isa = PBXGroup;
+			children = (
+				A2E4FA99DFCD83AC93051F13 /* APIClient.swift */,
+				CC5F97752F0253FCE0E79086 /* DemoRepository.swift */,
+				FEBDD7794BF35380C8835FD5 /* Keychain.swift */,
+				048F3F93B703ED18CCF2F483 /* LiveHubClient.swift */,
+				B5ADB4D9750870AD43B247AC /* Repository.swift */,
+			);
+			path = Networking;
+			sourceTree = "<group>";
+		};
+		C5EEA278D8858CF14C25E45E /* Gimano */ = {
+			isa = PBXGroup;
+			children = (
+				2C7FED9DAD4F04EAD06625D0 /* App */,
+				1B8FEE942905E9B653066840 /* DesignSystem */,
+				1D8EFD64873B92D715B82C37 /* Features */,
+				33B1B315F6694A02CE3A1650 /* Map */,
+				36BC8B6F05E4F0E564CF56DB /* Models */,
+				D5A62C3983A1BB51D8542E03 /* Navigation */,
+				9F5A7B903D9A68B1F5584D66 /* Networking */,
+				EE2BDC931DCCF22252E41E9C /* Resources */,
+			);
+			path = Gimano;
+			sourceTree = "<group>";
+		};
+		CD68FE3391464FD15EDE5765 /* Home */ = {
+			isa = PBXGroup;
+			children = (
+				CD7F057954292BA508D976F5 /* HomeView.swift */,
+			);
+			path = Home;
+			sourceTree = "<group>";
+		};
+		D5A62C3983A1BB51D8542E03 /* Navigation */ = {
+			isa = PBXGroup;
+			children = (
+				07AC3F3D3189966A65C15D1C /* DriveSimulator.swift */,
+				F6C8B1343BB36DDAC8D6166E /* Formatters.swift */,
+				CC0CAAB16AB2BC4F7F3A4DEA /* Geo.swift */,
+				CBC90672622F0ABA4D89CFEA /* LocationService.swift */,
+				713DFCE9A4F204DE831154F1 /* NavigationSession.swift */,
+				FBED0F8FE579F3B5F1450975 /* Polyline.swift */,
+				AF979840E579CA036CC7B2B9 /* RouteTracker.swift */,
+				7C47FE94945188AC3C750DE0 /* VoiceGuide.swift */,
+			);
+			path = Navigation;
+			sourceTree = "<group>";
+		};
+		EE2BDC931DCCF22252E41E9C /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+				C8950351547906452FDCEB79 /* Assets.xcassets */,
+				D7BB49955300A0C3A34FF073 /* DemoRoutes.json */,
+				2E8135A9B3B01C9F1BAC02CD /* Localizable.xcstrings */,
+				7EF0D9A116380CA3AD216C1F /* Fonts */,
+			);
+			path = Resources;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		3C510A7951FA84252C95BEB3 /* Gimano */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = F8856D1E63C5F2585AF431BF /* Build configuration list for PBXNativeTarget "Gimano" */;
+			buildPhases = (
+				48B545798B8BF129CAA10B28 /* Sources */,
+				2EDC0012EFC9944CBC8A49FB /* Resources */,
+				3FEA02CF217C0EE6E4ADD87A /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = Gimano;
+			packageProductDependencies = (
+				4791C2A1E4DB927E7924B45E /* MapLibre */,
+			);
+			productName = Gimano;
+			productReference = DBB721164B17E660AEA6E3E8 /* Gimano.app */;
+			productType = "com.apple.product-type.application";
+		};
+		D984370A6FF58891719E4DD9 /* GimanoTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = A581AC49CAE2464AFBBB0B0F /* Build configuration list for PBXNativeTarget "GimanoTests" */;
+			buildPhases = (
+				36B865EDD52651141CABF2FB /* Sources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				7BB1D51F1B4932130D4863FF /* PBXTargetDependency */,
+			);
+			name = GimanoTests;
+			packageProductDependencies = (
+			);
+			productName = GimanoTests;
+			productReference = 0B0FDEC0B602F00798D871E7 /* GimanoTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		FF194712F66E74F16A7D794B /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = YES;
+				LastUpgradeCheck = 1430;
+				TargetAttributes = {
+					3C510A7951FA84252C95BEB3 = {
+						DevelopmentTeam = 98KY9PMPX3;
+						ProvisioningStyle = Automatic;
+					};
+					D984370A6FF58891719E4DD9 = {
+						DevelopmentTeam = 98KY9PMPX3;
+						ProvisioningStyle = Automatic;
+					};
+				};
+			};
+			buildConfigurationList = FC1C6C04304C18377F8E645B /* Build configuration list for PBXProject "Gimano" */;
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				Base,
+				en,
+				ms,
+			);
+			mainGroup = 97CD2F31BB35B58717C381DE;
+			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				7896264D59775EFFF0FDC78A /* XCRemoteSwiftPackageReference "maplibre-gl-native-distribution" */,
+			);
+			preferredProjectObjectVersion = 77;
+			productRefGroup = 3DB90E94562F917DF52BA46A /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				3C510A7951FA84252C95BEB3 /* Gimano */,
+				D984370A6FF58891719E4DD9 /* GimanoTests */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		2EDC0012EFC9944CBC8A49FB /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				FDF5F849BE123BCD3867E06E /* Assets.xcassets in Resources */,
+				044B98211B81AF731692E40A /* DemoRoutes.json in Resources */,
+				1EAFFEBE1469CC11F939CF75 /* Localizable.xcstrings in Resources */,
+				0E53628577A2D0B3709B42FF /* Nunito-OFL.txt in Resources */,
+				29575FD027DAA9EE93013315 /* Nunito.ttf in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		36B865EDD52651141CABF2FB /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				6CBFA0B419583CF5ACDF5082 /* FormatterTests.swift in Sources */,
+				A5EEC9BEAC5DEBA6083B81A3 /* NavigationTests.swift in Sources */,
+				26661DE9BEC534AA68B52D83 /* PolylineTests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		48B545798B8BF129CAA10B28 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				12C0483DE6032187524DDA08 /* APIClient.swift in Sources */,
+				CCB345D1D908EA86AA8B12B6 /* AppConfig.swift in Sources */,
+				AC660909C29CEC1666DB4070 /* AppModel.swift in Sources */,
+				CC5D10B9CACFC94A34A728D6 /* Components.swift in Sources */,
+				BF701BBF6A58B2B0D60499E5 /* DebugSettingsView.swift in Sources */,
+				CCD925FC6D043A60C16E6801 /* DemoRepository.swift in Sources */,
+				3E85A76CCED7E91564AAEBBC /* DriveSimulator.swift in Sources */,
+				6F24D8B870987FF57D0BAA5F /* DriveView.swift in Sources */,
+				4823253E3469298C388F2D45 /* Formatters.swift in Sources */,
+				66F1A2BF8F235AE1F95CFA4A /* Geo.swift in Sources */,
+				BA1E2852EC05C6323FEEE5F8 /* GimanoApp.swift in Sources */,
+				FA50685C80C235AA22BC9EA2 /* GimanoIcon.swift in Sources */,
+				74DE001005991821B65AD8A8 /* GimanoMapView.swift in Sources */,
+				997A6F6EE64064654956768F /* HomeView.swift in Sources */,
+				77C09E39905792ACB8545E43 /* IconData.swift in Sources */,
+				9479BDFB94242004B415BBDC /* Keychain.swift in Sources */,
+				E1A7FA641ADA806D4FDD6A47 /* LiveHubClient.swift in Sources */,
+				076CFE075D9F64B51ABB41A3 /* LiveMapStore.swift in Sources */,
+				F8B876ABC27695B2A7EA31B0 /* LocationService.swift in Sources */,
+				46136DA331D234749063A18F /* MapState.swift in Sources */,
+				476344D198C67608FFD33F05 /* Models.swift in Sources */,
+				B6D56C4C7DCDCFC5C0D452D1 /* NavigationSession.swift in Sources */,
+				0A3A0E4E9C3E8F453862E0AA /* PlaceCardView.swift in Sources */,
+				1411F07311E084B2270AD2FE /* Polyline.swift in Sources */,
+				199CF75A4CF80C7C9FB93394 /* ReportCatalog.swift in Sources */,
+				2DC3329DC097D6E688057BF1 /* ReportSheet.swift in Sources */,
+				2CE943CA67FF097CEE1F896B /* Repository.swift in Sources */,
+				E4BF9C18B9A5AF2FED0AA349 /* RoutePreviewView.swift in Sources */,
+				0B28D8E5D3675D9F8FB51686 /* RouteTracker.swift in Sources */,
+				7461B15E7DCD48FF47137CAB /* SearchView.swift in Sources */,
+				B0F6914BF17DA8396D847ECF /* SideMenu.swift in Sources */,
+				FFE4C15C9F53974A46140A9A /* Tokens.swift in Sources */,
+				1213227CB2E9AC09E707002A /* VoiceGuide.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		7BB1D51F1B4932130D4863FF /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 3C510A7951FA84252C95BEB3 /* Gimano */;
+			targetProxy = 8A3740CFE57C06DAD93A1801 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		0445DAE748D46E0CE590D923 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = "Gimano/Resources/Info-Debug.plist";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = my.gimano.app;
+				PRODUCT_NAME = Gimano;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Debug;
+		};
+		2D26DC22C66348B1BDB2F961 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = my.gimano.app.tests;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Gimano.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/Gimano";
+			};
+			name = Debug;
+		};
+		5F53A1F8186E29A3974F385D /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_STYLE = Automatic;
+				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 1;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				DEVELOPMENT_TEAM = 98KY9PMPX3;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
+					"DEBUG=1",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				GIMANO_API_BASE_URL = "http://100.101.150.9:5080/api/v1/";
+				GIMANO_MAP_STYLE_URL = "https://tiles.openfreemap.org/styles/liberty";
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MARKETING_VERSION = 0.1.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 6.0;
+			};
+			name = Debug;
+		};
+		AFD6A7D169B1513D8D079B38 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = my.gimano.app.tests;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Gimano.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/Gimano";
+			};
+			name = Release;
+		};
+		B6CDFE08E2F5BBD3CBE8891A /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = Gimano/Resources/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = my.gimano.app;
+				PRODUCT_NAME = Gimano;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Release;
+		};
+		DF1CE305BA8196C3BA09F501 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_STYLE = Automatic;
+				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 1;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				DEVELOPMENT_TEAM = 98KY9PMPX3;
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				GIMANO_API_BASE_URL = "http://localhost:5080/api/v1/";
+				GIMANO_MAP_STYLE_URL = "https://tiles.openfreemap.org/styles/liberty";
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MARKETING_VERSION = 0.1.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_VERSION = 6.0;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		A581AC49CAE2464AFBBB0B0F /* Build configuration list for PBXNativeTarget "GimanoTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				2D26DC22C66348B1BDB2F961 /* Debug */,
+				AFD6A7D169B1513D8D079B38 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		F8856D1E63C5F2585AF431BF /* Build configuration list for PBXNativeTarget "Gimano" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				0445DAE748D46E0CE590D923 /* Debug */,
+				B6CDFE08E2F5BBD3CBE8891A /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		FC1C6C04304C18377F8E645B /* Build configuration list for PBXProject "Gimano" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				5F53A1F8186E29A3974F385D /* Debug */,
+				DF1CE305BA8196C3BA09F501 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+/* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		7896264D59775EFFF0FDC78A /* XCRemoteSwiftPackageReference "maplibre-gl-native-distribution" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/maplibre/maplibre-gl-native-distribution";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 6.31.0;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		4791C2A1E4DB927E7924B45E /* MapLibre */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 7896264D59775EFFF0FDC78A /* XCRemoteSwiftPackageReference "maplibre-gl-native-distribution" */;
+			productName = MapLibre;
+		};
+/* End XCSwiftPackageProductDependency section */
+	};
+	rootObject = FF194712F66E74F16A7D794B /* Project object */;
+}

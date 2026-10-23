@@ -1,0 +1,2397 @@
+{
+  "sourceLanguage": "en",
+  "strings": {
+    "%@ ahead": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ di hadapan"
+          }
+        }
+      }
+    },
+    "%@ kilometres": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ kilometer"
+          }
+        }
+      }
+    },
+    "%@ reported ahead": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ dilaporkan di hadapan"
+          }
+        }
+      }
+    },
+    "%@ · %@": {
+      "shouldTranslate": false
+    },
+    "%@, %@": {
+      "shouldTranslate": false
+    },
+    "%@: %@": {
+      "shouldTranslate": false
+    },
+    "%lld": {
+      "shouldTranslate": false
+    },
+    "%lld h": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld j"
+          }
+        }
+      }
+    },
+    "%lld h %lld min": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld j %lld min"
+          }
+        }
+      }
+    },
+    "%lld kilometres": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld kilometer"
+          }
+        }
+      }
+    },
+    "%lld metres": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld meter"
+          }
+        }
+      }
+    },
+    "%lld min": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld min"
+          }
+        }
+      }
+    },
+    "A driver": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Seorang pemandu"
+          }
+        }
+      }
+    },
+    "API base URL": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "URL asas API"
+          }
+        }
+      }
+    },
+    "About": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Perihal"
+          }
+        }
+      }
+    },
+    "Accident": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kemalangan"
+          }
+        }
+      }
+    },
+    "Add a stop": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tambah hentian"
+          }
+        }
+      }
+    },
+    "Add to favourites": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tambah ke kegemaran"
+          }
+        }
+      }
+    },
+    "Alerts only": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Amaran sahaja"
+          }
+        }
+      }
+    },
+    "Alternative routes": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Laluan alternatif"
+          }
+        }
+      }
+    },
+    "Animal": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Haiwan"
+          }
+        }
+      }
+    },
+    "Apply": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Guna"
+          }
+        }
+      }
+    },
+    "Arrive %@": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tiba %@"
+          }
+        }
+      }
+    },
+    "Attribution": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Atribusi"
+          }
+        }
+      }
+    },
+    "Auto (fallback to demo)": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Auto (beralih ke demo)"
+          }
+        }
+      }
+    },
+    "Avoid": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Elak"
+          }
+        }
+      }
+    },
+    "Avoid (%lld)": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Elak (%lld)"
+          }
+        }
+      }
+    },
+    "Avoid ferries": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Elak feri"
+          }
+        }
+      }
+    },
+    "Avoid highways": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Elak lebuh raya"
+          }
+        }
+      }
+    },
+    "Avoid tolls": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Elak tol"
+          }
+        }
+      }
+    },
+    "Back": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kembali"
+          }
+        }
+      }
+    },
+    "Backend": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pelayan"
+          }
+        }
+      }
+    },
+    "Bad weather": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cuaca buruk"
+          }
+        }
+      }
+    },
+    "Bear left": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Condong ke kiri"
+          }
+        }
+      }
+    },
+    "Bear left onto %@": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Condong ke kiri ke %@"
+          }
+        }
+      }
+    },
+    "Bear right": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Condong ke kanan"
+          }
+        }
+      }
+    },
+    "Bear right onto %@": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Condong ke kanan ke %@"
+          }
+        }
+      }
+    },
+    "Best": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Terbaik"
+          }
+        }
+      }
+    },
+    "Best route": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Laluan terbaik"
+          }
+        }
+      }
+    },
+    "Best time to leave": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Masa terbaik untuk bertolak"
+          }
+        }
+      }
+    },
+    "Blocked lane": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lorong tersekat"
+          }
+        }
+      }
+    },
+    "Board the ferry": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Naik feri"
+          }
+        }
+      }
+    },
+    "Build default comes from the GimanoAPIBaseURL Info.plist key. The iPhone must be on Tailscale to reach WS556.": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lalai binaan datang daripada kunci Info.plist GimanoAPIBaseURL. iPhone mesti disambung ke Tailscale untuk mencapai WS556."
+          }
+        }
+      }
+    },
+    "Call": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Telefon"
+          }
+        }
+      }
+    },
+    "Car": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kereta"
+          }
+        }
+      }
+    },
+    "Center on me": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pusatkan pada saya"
+          }
+        }
+      }
+    },
+    "Centre": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tengah"
+          }
+        }
+      }
+    },
+    "Change app language (English / Bahasa Melayu)": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tukar bahasa aplikasi (English / Bahasa Melayu)"
+          }
+        }
+      }
+    },
+    "Clear": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kosongkan"
+          }
+        }
+      }
+    },
+    "Close": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tutup"
+          }
+        }
+      }
+    },
+    "Closed": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tutup"
+          }
+        }
+      }
+    },
+    "Closure": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Penutupan jalan"
+          }
+        }
+      }
+    },
+    "Connected": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bersambung"
+          }
+        }
+      }
+    },
+    "Connecting…": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Menyambung…"
+          }
+        }
+      }
+    },
+    "Continue": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Teruskan"
+          }
+        }
+      }
+    },
+    "Continue on %@": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Teruskan di %@"
+          }
+        }
+      }
+    },
+    "Continue straight": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Terus lurus"
+          }
+        }
+      }
+    },
+    "Couldn't send report": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Laporan gagal dihantar"
+          }
+        }
+      }
+    },
+    "Crash": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nahas"
+          }
+        }
+      }
+    },
+    "Data": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Data"
+          }
+        }
+      }
+    },
+    "Demo data": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Data demo"
+          }
+        }
+      }
+    },
+    "Demo mode": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mod demo"
+          }
+        }
+      }
+    },
+    "Demo mode — backend unreachable": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mod demo — pelayan tidak dapat dicapai"
+          }
+        }
+      }
+    },
+    "Developer settings": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tetapan pembangun"
+          }
+        }
+      }
+    },
+    "Device": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Peranti"
+          }
+        }
+      }
+    },
+    "Device ID": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ID peranti"
+          }
+        }
+      }
+    },
+    "Disconnected": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Terputus"
+          }
+        }
+      }
+    },
+    "Display name": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nama paparan"
+          }
+        }
+      }
+    },
+    "Distance": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Jarak"
+          }
+        }
+      }
+    },
+    "Done": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Selesai"
+          }
+        }
+      }
+    },
+    "Drive smarter with reports from drivers around you. Gimano needs your location to show where you are and guide you turn by turn.": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Memandu lebih bijak dengan laporan daripada pemandu di sekeliling anda. Gimano memerlukan lokasi anda untuk menunjukkan kedudukan anda dan memandu arah demi arah."
+          }
+        }
+      }
+    },
+    "Dropped pin": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pin dijatuhkan"
+          }
+        }
+      }
+    },
+    "EV": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "EV"
+          }
+        }
+      }
+    },
+    "Effective": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Berkesan"
+          }
+        }
+      }
+    },
+    "Enter the roundabout": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Masuk bulatan"
+          }
+        }
+      }
+    },
+    "Enter the roundabout toward %@": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Masuk bulatan menuju %@"
+          }
+        }
+      }
+    },
+    "Exit the roundabout": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Keluar bulatan"
+          }
+        }
+      }
+    },
+    "Exit the roundabout onto %@": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Keluar bulatan ke %@"
+          }
+        }
+      }
+    },
+    "Flood": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Banjir"
+          }
+        }
+      }
+    },
+    "Fog": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kabus"
+          }
+        }
+      }
+    },
+    "Food": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Makan"
+          }
+        }
+      }
+    },
+    "Fuel": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Minyak"
+          }
+        }
+      }
+    },
+    "Gimano %@": {
+      "shouldTranslate": false
+    },
+    "Gimano is an open-source, community-driven navigation app for Malaysia, built on OpenStreetMap data.": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gimano ialah aplikasi navigasi sumber terbuka yang dipacu komuniti untuk Malaysia, dibina menggunakan data OpenStreetMap."
+          }
+        }
+      }
+    },
+    "Go now": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pergi sekarang"
+          }
+        }
+      }
+    },
+    "Hazard": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bahaya"
+          }
+        }
+      }
+    },
+    "Haze": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Jerebu"
+          }
+        }
+      }
+    },
+    "Head out": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mula bergerak"
+          }
+        }
+      }
+    },
+    "Head out on %@": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mula bergerak di %@"
+          }
+        }
+      }
+    },
+    "Heavier than usual": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lebih sesak daripada biasa"
+          }
+        }
+      }
+    },
+    "Heavy": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sesak"
+          }
+        }
+      }
+    },
+    "Help and feedback": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bantuan dan maklum balas"
+          }
+        }
+      }
+    },
+    "Hi, %@": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hai, %@"
+          }
+        }
+      }
+    },
+    "Hidden": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tersembunyi"
+          }
+        }
+      }
+    },
+    "Home": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rumah"
+          }
+        }
+      }
+    },
+    "Hospital": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hospital"
+          }
+        }
+      }
+    },
+    "I'm driving to %@ with Gimano. ETA %@.": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Saya sedang memandu ke %@ dengan Gimano. Anggaran tiba %@."
+          }
+        }
+      }
+    },
+    "In %@, %@": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dalam %@, %@"
+          }
+        }
+      }
+    },
+    "In %@, you will arrive at your destination": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dalam %@, anda akan tiba di destinasi"
+          }
+        }
+      }
+    },
+    "Inbox": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Peti masuk"
+          }
+        }
+      }
+    },
+    "Inbox is empty": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Peti masuk kosong"
+          }
+        }
+      }
+    },
+    "Jam": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sesak"
+          }
+        }
+      }
+    },
+    "Keep left": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kekal di kiri"
+          }
+        }
+      }
+    },
+    "Keep left toward %@": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kekal di kiri menuju %@"
+          }
+        }
+      }
+    },
+    "Keep right": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kekal di kanan"
+          }
+        }
+      }
+    },
+    "Keep right toward %@": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kekal di kanan menuju %@"
+          }
+        }
+      }
+    },
+    "Lane": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lorong"
+          }
+        }
+      }
+    },
+    "Language": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bahasa"
+          }
+        }
+      }
+    },
+    "Layers": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lapisan"
+          }
+        }
+      }
+    },
+    "Leave later": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bertolak kemudian"
+          }
+        }
+      }
+    },
+    "Leave now": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bertolak sekarang"
+          }
+        }
+      }
+    },
+    "Left": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kiri"
+          }
+        }
+      }
+    },
+    "Level": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tahap"
+          }
+        }
+      }
+    },
+    "Light traffic": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Trafik lancar"
+          }
+        }
+      }
+    },
+    "Live backend only": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pelayan langsung sahaja"
+          }
+        }
+      }
+    },
+    "Live hub": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hab langsung"
+          }
+        }
+      }
+    },
+    "Major": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Teruk"
+          }
+        }
+      }
+    },
+    "Make a U-turn": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Buat pusingan U"
+          }
+        }
+      }
+    },
+    "Map": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Peta"
+          }
+        }
+      }
+    },
+    "Map issue": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Masalah peta"
+          }
+        }
+      }
+    },
+    "Map renderer: MapLibre Native": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pemapar peta: MapLibre Native"
+          }
+        }
+      }
+    },
+    "Map tiles: OpenFreeMap": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Jubin peta: OpenFreeMap"
+          }
+        }
+      }
+    },
+    "Menu": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Menu"
+          }
+        }
+      }
+    },
+    "Merge": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bergabung"
+          }
+        }
+      }
+    },
+    "Merge onto %@": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bergabung ke %@"
+          }
+        }
+      }
+    },
+    "Minor": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kecil"
+          }
+        }
+      }
+    },
+    "Mode": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mod"
+          }
+        }
+      }
+    },
+    "Moderate": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sederhana"
+          }
+        }
+      }
+    },
+    "Mood": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mood"
+          }
+        }
+      }
+    },
+    "Motorbike": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Motosikal"
+          }
+        }
+      }
+    },
+    "Name": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nama"
+          }
+        }
+      }
+    },
+    "No planned drives": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tiada perjalanan dirancang"
+          }
+        }
+      }
+    },
+    "No results": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tiada hasil"
+          }
+        }
+      }
+    },
+    "No route found": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tiada laluan ditemui"
+          }
+        }
+      }
+    },
+    "Not now": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bukan sekarang"
+          }
+        }
+      }
+    },
+    "Not there": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tiada lagi"
+          }
+        }
+      }
+    },
+    "Object": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Objek"
+          }
+        }
+      }
+    },
+    "Oil": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Minyak tumpah"
+          }
+        }
+      }
+    },
+    "Online": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dalam talian"
+          }
+        }
+      }
+    },
+    "Open now": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dibuka sekarang"
+          }
+        }
+      }
+    },
+    "Open source (MIT) · Map data © OpenStreetMap contributors": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sumber terbuka (MIT) · Data peta © penyumbang OpenStreetMap"
+          }
+        }
+      }
+    },
+    "Opposite": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Arah bertentangan"
+          }
+        }
+      }
+    },
+    "Parking": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Parkir"
+          }
+        }
+      }
+    },
+    "Place data © OpenStreetMap contributors": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Data tempat © penyumbang OpenStreetMap"
+          }
+        }
+      }
+    },
+    "Plan a drive from the route screen with “Leave later”.": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rancang perjalanan dari skrin laluan dengan “Bertolak kemudian”."
+          }
+        }
+      }
+    },
+    "Planned drives": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Perjalanan dirancang"
+          }
+        }
+      }
+    },
+    "Points": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mata"
+          }
+        }
+      }
+    },
+    "Police": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Polis"
+          }
+        }
+      }
+    },
+    "Pothole": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lubang jalan"
+          }
+        }
+      }
+    },
+    "Profile": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Profil"
+          }
+        }
+      }
+    },
+    "R&R": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "R&R"
+          }
+        }
+      }
+    },
+    "Rain": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hujan"
+          }
+        }
+      }
+    },
+    "Reachable ✓": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Boleh dicapai ✓"
+          }
+        }
+      }
+    },
+    "Recalculating route": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mengira semula laluan"
+          }
+        }
+      }
+    },
+    "Recalculating…": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mengira semula…"
+          }
+        }
+      }
+    },
+    "Recent": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Terkini"
+          }
+        }
+      }
+    },
+    "Recenter": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pusatkan semula"
+          }
+        }
+      }
+    },
+    "Refresh traffic & reports": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Muat semula trafik & laporan"
+          }
+        }
+      }
+    },
+    "Report": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lapor"
+          }
+        }
+      }
+    },
+    "Reset device token": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Set semula token peranti"
+          }
+        }
+      }
+    },
+    "Right": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kanan"
+          }
+        }
+      }
+    },
+    "Road": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Atas jalan"
+          }
+        }
+      }
+    },
+    "Roadblock": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sekatan jalan"
+          }
+        }
+      }
+    },
+    "Roadkill": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bangkai haiwan"
+          }
+        }
+      }
+    },
+    "Routes": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Laluan"
+          }
+        }
+      }
+    },
+    "Save": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Simpan"
+          }
+        }
+      }
+    },
+    "Save place": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Simpan tempat"
+          }
+        }
+      }
+    },
+    "Saved": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Disimpan"
+          }
+        }
+      }
+    },
+    "Send": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hantar"
+          }
+        }
+      }
+    },
+    "Set as Home": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tetapkan sebagai Rumah"
+          }
+        }
+      }
+    },
+    "Set as Work": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tetapkan sebagai Kerja"
+          }
+        }
+      }
+    },
+    "Set home address": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tetapkan alamat rumah"
+          }
+        }
+      }
+    },
+    "Set work address": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tetapkan alamat kerja"
+          }
+        }
+      }
+    },
+    "Settings": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tetapan"
+          }
+        }
+      }
+    },
+    "Settings applied": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tetapan digunakan"
+          }
+        }
+      }
+    },
+    "Share": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kongsi"
+          }
+        }
+      }
+    },
+    "Share drive": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kongsi perjalanan"
+          }
+        }
+      }
+    },
+    "Sharp left": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Belok tajam ke kiri"
+          }
+        }
+      }
+    },
+    "Sharp left onto %@": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Belok tajam ke kiri ke %@"
+          }
+        }
+      }
+    },
+    "Sharp right": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Belok tajam ke kanan"
+          }
+        }
+      }
+    },
+    "Sharp right onto %@": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Belok tajam ke kanan ke %@"
+          }
+        }
+      }
+    },
+    "Shoulder": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bahu jalan"
+          }
+        }
+      }
+    },
+    "Simulate drive (fake GPS)": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Simulasi pemanduan (GPS palsu)"
+          }
+        }
+      }
+    },
+    "Simulation": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Simulasi"
+          }
+        }
+      }
+    },
+    "Sound": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bunyi"
+          }
+        }
+      }
+    },
+    "Sound off": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bunyi dimatikan"
+          }
+        }
+      }
+    },
+    "Sound on": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bunyi dihidupkan"
+          }
+        }
+      }
+    },
+    "Speed": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kelajuan"
+          }
+        }
+      }
+    },
+    "Speed-up ×%lld": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pecutan ×%lld"
+          }
+        }
+      }
+    },
+    "Standstill": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tidak bergerak"
+          }
+        }
+      }
+    },
+    "Stats": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Statistik"
+          }
+        }
+      }
+    },
+    "Still there": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Masih ada"
+          }
+        }
+      }
+    },
+    "Still there?": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Masih ada?"
+          }
+        }
+      }
+    },
+    "Stop": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Henti"
+          }
+        }
+      }
+    },
+    "Stop added: %@": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hentian ditambah: %@"
+          }
+        }
+      }
+    },
+    "Stopped": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kenderaan berhenti"
+          }
+        }
+      }
+    },
+    "Surau": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Surau"
+          }
+        }
+      }
+    },
+    "Take exit %@": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ambil susur keluar %@"
+          }
+        }
+      }
+    },
+    "Take exit %@ toward %@": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ambil susur keluar %@ menuju %@"
+          }
+        }
+      }
+    },
+    "Take the ramp on the left": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ambil susur di sebelah kiri"
+          }
+        }
+      }
+    },
+    "Take the ramp on the right": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ambil susur di sebelah kanan"
+          }
+        }
+      }
+    },
+    "Take the ramp toward %@": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ambil susur menuju %@"
+          }
+        }
+      }
+    },
+    "Test connection (/healthz)": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Uji sambungan (/healthz)"
+          }
+        }
+      }
+    },
+    "Thanks %lld": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Terima kasih %lld"
+          }
+        }
+      }
+    },
+    "Thanks for confirming": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Terima kasih kerana mengesahkan"
+          }
+        }
+      }
+    },
+    "Thanks from other drivers and report updates will appear here.": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ucapan terima kasih daripada pemandu lain dan kemas kini laporan akan dipaparkan di sini."
+          }
+        }
+      }
+    },
+    "Thanks sent": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Terima kasih dihantar"
+          }
+        }
+      }
+    },
+    "Thanks! Your report is live.": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Terima kasih! Laporan anda kini aktif."
+          }
+        }
+      }
+    },
+    "Toll": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tol"
+          }
+        }
+      }
+    },
+    "Traffic": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Trafik"
+          }
+        }
+      }
+    },
+    "Turn left": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Belok kiri"
+          }
+        }
+      }
+    },
+    "Turn left onto %@": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Belok kiri ke %@"
+          }
+        }
+      }
+    },
+    "Turn right": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Belok kanan"
+          }
+        }
+      }
+    },
+    "Turn right onto %@": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Belok kanan ke %@"
+          }
+        }
+      }
+    },
+    "Typical traffic": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Trafik biasa"
+          }
+        }
+      }
+    },
+    "Units": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Unit"
+          }
+        }
+      }
+    },
+    "Unknown": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tidak diketahui"
+          }
+        }
+      }
+    },
+    "Unreachable — using demo data": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tidak dapat dicapai — menggunakan data demo"
+          }
+        }
+      }
+    },
+    "Unreachable ✗": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tidak dapat dicapai ✗"
+          }
+        }
+      }
+    },
+    "Use build default": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Guna lalai binaan"
+          }
+        }
+      }
+    },
+    "Vehicle": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kenderaan"
+          }
+        }
+      }
+    },
+    "View profile": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lihat profil"
+          }
+        }
+      }
+    },
+    "Visible": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kelihatan"
+          }
+        }
+      }
+    },
+    "Voice guidance": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Panduan suara"
+          }
+        }
+      }
+    },
+    "Voice search": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Carian suara"
+          }
+        }
+      }
+    },
+    "Weather": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cuaca"
+          }
+        }
+      }
+    },
+    "Website": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Laman web"
+          }
+        }
+      }
+    },
+    "Welcome to Gimano": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Selamat datang ke Gimano"
+          }
+        }
+      }
+    },
+    "What's wrong? (optional)": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Apa masalahnya? (pilihan)"
+          }
+        }
+      }
+    },
+    "Where to?": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ke mana?"
+          }
+        }
+      }
+    },
+    "Which road? (optional)": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Jalan mana? (pilihan)"
+          }
+        }
+      }
+    },
+    "Work": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kerja"
+          }
+        }
+      }
+    },
+    "Works": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kerja jalan"
+          }
+        }
+      }
+    },
+    "You have arrived": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Anda telah tiba"
+          }
+        }
+      }
+    },
+    "You have arrived at %@": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Anda telah tiba di %@"
+          }
+        }
+      }
+    },
+    "You've arrived": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Anda telah tiba"
+          }
+        }
+      }
+    },
+    "Your location": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lokasi anda"
+          }
+        }
+      }
+    },
+    "driver": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "pemandu"
+          }
+        }
+      }
+    },
+    "km/h": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "km/j"
+          }
+        }
+      }
+    },
+    "then": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "kemudian"
+          }
+        }
+      }
+    },
+    "© OpenStreetMap contributors": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "© penyumbang OpenStreetMap"
+          }
+        }
+      }
+    },
+    "© OpenStreetMap contributors (ODbL)": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "© penyumbang OpenStreetMap (ODbL)"
+          }
+        }
+      }
+    },
+    "·": {
+      "shouldTranslate": false
+    },
+    "· %@": {
+      "shouldTranslate": false
+    }
+  },
+  "version": "1.0"
+}
