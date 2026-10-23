@@ -92,6 +92,26 @@ class LocalStore(val db: GimanoDatabase, private val now: () -> Instant = Instan
         return if (near == null) all else all.sortedBy { GeoMath.distanceM(near, GeoPoint(it.lat, it.lng)) }
     }
 
+    // --- Private places ("Just for me": never sent to the server) ---------------------------------
+
+    val privatePlaces: Flow<List<PrivatePlaceEntity>> = db.privatePlaces().observeAll()
+
+    suspend fun addPrivatePlace(
+        name: String, category: String, lat: Double, lng: Double, address: String?, description: String?,
+        phone: String?, website: String?, openingHours: String?, amenities: List<String>, photoFiles: List<String>,
+    ): PrivatePlaceEntity {
+        val id = UUID.randomUUID().toString()
+        val amen = if (amenities.isEmpty()) null else my.gimano.app.data.remote.GimanoJson.encodeToString(kotlinx.serialization.builtins.ListSerializer(kotlinx.serialization.serializer<String>()), amenities)
+        val e = PrivatePlaceEntity(id, name, category, lat, lng, address, description, phone, website, openingHours, amen, ts(), ts())
+        db.privatePlaces().upsert(e)
+        photoFiles.forEach { f -> db.privatePlaces().upsertPhoto(PrivatePlacePhotoEntity(f.substringBefore('.'), id, f, ts())) }
+        return e
+    }
+
+    suspend fun privatePlace(id: String) = db.privatePlaces().byId(id)
+    suspend fun privatePhotos(id: String) = db.privatePlaces().photos(id)
+    suspend fun deletePrivatePlace(id: String) = db.privatePlaces().delete(id)
+
     // --- Settings (the backed-up, user-facing ones) -------------------------------------------
 
     suspend fun settings(): Map<String, String> = db.settings().all().associate { it.key to it.value }

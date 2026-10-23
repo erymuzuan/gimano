@@ -45,6 +45,7 @@ fun GimanoRoot(vm: MainViewModel, onMic: () -> Unit, onExit: () -> Unit) {
     val fvm: my.gimano.app.ui.feedback.FeedbackViewModel = androidx.lifecycle.viewmodel.compose.viewModel(factory = my.gimano.app.ui.feedback.FeedbackViewModel.Factory(container))
     val bvm: my.gimano.app.ui.backup.BackupViewModel = androidx.lifecycle.viewmodel.compose.viewModel(factory = my.gimano.app.ui.backup.BackupViewModel.Factory(container))
     val feedbackDraft by fvm.draft.collectAsStateWithLifecycle()
+    val cvm: my.gimano.app.ui.contribute.ContributeViewModel = androidx.lifecycle.viewmodel.compose.viewModel(factory = my.gimano.app.ui.contribute.ContributeViewModel.Factory(container))
     val pvm: my.gimano.app.ui.planned.PlannedViewModel = androidx.lifecycle.viewmodel.compose.viewModel(factory = my.gimano.app.ui.planned.PlannedViewModel.Factory(container))
     val ui by vm.ui.collectAsStateWithLifecycle()
     val nav by vm.nav.collectAsStateWithLifecycle()
@@ -82,7 +83,7 @@ fun GimanoRoot(vm: MainViewModel, onMic: () -> Unit, onExit: () -> Unit) {
                     val jpeg = shot?.let { my.gimano.app.ui.feedback.ScreenCapture.toJpeg(it) }
                     fvm.open(e.screen, jpeg, e.routeId, e.placeId)
                 }
-                is UiEvent.AddPlace -> vm.startAddPlace(e.at, e.name)
+                is UiEvent.AddPlace -> { vm.startAddPlace(e.at, e.name); cvm.startAdd(e.at, e.name) }
                 is UiEvent.PlanDrive -> pvm.newPlan(e.dest, e.origin, e.waypoints, e.vehicle)
                 is UiEvent.Dial -> runCatching { context.startActivity(Intent(Intent.ACTION_DIAL, Uri.parse("tel:${e.phone}"))) }
                 is UiEvent.Web -> runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(e.url))) }
@@ -90,6 +91,14 @@ fun GimanoRoot(vm: MainViewModel, onMic: () -> Unit, onExit: () -> Unit) {
         }
     }
 
+    LaunchedEffect(Unit) {
+        cvm.events.collect { e ->
+            when (e) {
+                is my.gimano.app.ui.contribute.ContribEvent.Message -> { snackbar.currentSnackbarData?.dismiss(); snackbar.showSnackbar(context.getString(e.res)) }
+                is my.gimano.app.ui.contribute.ContribEvent.ShowPlace -> vm.showPlace(e.summary)
+            }
+        }
+    }
     LaunchedEffect(Unit) {
         fvm.result.collect { r ->
             val msg = when (r) {
@@ -137,6 +146,7 @@ fun GimanoRoot(vm: MainViewModel, onMic: () -> Unit, onExit: () -> Unit) {
             Screen.RoutePreview -> ui.plan?.destination?.point
             else -> if (navigating) nav.destination?.point else null
         },
+        privatePins = if (screen == Screen.Home || screen == Screen.PlaceCard) ui.privatePins else emptyList(),
         stops = when {
             navigating -> nav.stops.map { it.point }
             screen == Screen.RoutePreview -> ui.plan?.stops.orEmpty().map { it.point }
@@ -160,7 +170,7 @@ fun GimanoRoot(vm: MainViewModel, onMic: () -> Unit, onExit: () -> Unit) {
                 onSettings = { scope.launch { drawer.close() }; vm.openSettings() },
                 onHelp = { scope.launch { drawer.close() }; vm.openWeb("https://github.com/erymuzuan/gimano") },
                 onExit = onExit,
-                onAddPlace = { scope.launch { drawer.close() }; vm.startAddPlace(vm.here(), "") },
+                onAddPlace = { scope.launch { drawer.close() }; vm.startAddPlace(vm.here(), ""); cvm.startAdd(vm.here(), "") },
                 onContributions = { scope.launch { drawer.close() }; vm.open(Screen.Contributions) },
                 onFeedback = { scope.launch { drawer.close() }; vm.requestFeedback("home") },
                 onMyFeedback = { scope.launch { drawer.close() }; vm.open(Screen.MyFeedback) },
@@ -180,6 +190,7 @@ fun GimanoRoot(vm: MainViewModel, onMic: () -> Unit, onExit: () -> Unit) {
                 onMapLongClick = vm::dropPin,
                 onAlertClick = { id -> if (screen == Screen.Home || screen == Screen.PlaceCard) { vm.goHome(); vm.selectAlert(id) } },
                 onRouteClick = { id -> if (screen == Screen.RoutePreview) vm.selectRoute(id) },
+                onPrivateClick = { id -> if (screen == Screen.Home || screen == Screen.PlaceCard) vm.showPrivate(id) },
             )
             when (screen) {
                 Screen.Home -> {
@@ -188,7 +199,7 @@ fun GimanoRoot(vm: MainViewModel, onMic: () -> Unit, onExit: () -> Unit) {
                 }
                 Screen.PlaceCard -> {
                     MapTopControls(ui, settings, vm, vm.isDemo || fallback, showMenu = false, onMenu = {})
-                    ui.place?.let { PlaceCard(it, vm, Modifier.align(Alignment.BottomCenter)) }
+                    ui.place?.let { PlaceCard(it, vm, cvm, settings.apiBaseUrl, Modifier.align(Alignment.BottomCenter)) }
                 }
                 Screen.RoutePreview -> ui.plan?.let { RoutePreviewOverlay(it, settings, vm, handle) }
                 Screen.Navigating -> NavigationOverlay(nav, ui, settings, vm)
@@ -196,8 +207,8 @@ fun GimanoRoot(vm: MainViewModel, onMic: () -> Unit, onExit: () -> Unit) {
                 Screen.Settings -> SettingsScreen(settings, vm, fallback, ui.user?.displayName, onBackup = { vm.open(Screen.Backup) }, onMyFeedback = { vm.open(Screen.MyFeedback) })
                 Screen.Backup -> my.gimano.app.ui.backup.BackupScreen(bvm, onBack = vm::back)
                 Screen.MyFeedback -> my.gimano.app.ui.feedback.MyFeedbackScreen(fvm, onBack = vm::back, onNew = { vm.requestFeedback("settings") })
-                Screen.Contributions -> my.gimano.app.ui.contribute.ContributionsScreen(container, vm)
-                Screen.AddPlace -> my.gimano.app.ui.contribute.AddPlaceScreen(container, vm, handle)
+                Screen.Contributions -> my.gimano.app.ui.contribute.ContributionsScreen(container, cvm, vm, ui.user)
+                Screen.AddPlace -> my.gimano.app.ui.contribute.AddPlaceScreen(cvm, handle, onBack = vm::back)
                 Screen.Planned -> my.gimano.app.ui.planned.PlannedDrivesScreen(pvm, settings.use24h, onBack = vm::back,
                     onAdd = { vm.openSearch(SearchPurpose.PLAN_DRIVE) }, onGo = vm::goPlanned)
             }

@@ -61,7 +61,7 @@ class AppContainer(val app: Application) {
     )
     val feedback = FeedbackService(db.outbox(), repo)
     val planned = my.gimano.app.data.planned.PlannedDrives(
-        app, db.plannedDrives(), repo,
+        app, db.plannedDrives(), db.settings(), repo,
         here = { navigation.state.value.fix?.point?.let { it.lat to it.lng } ?: lastFix?.let { it.lat to it.lng } },
         lang = ::lang, use24h = { settings.current.use24h },
     )

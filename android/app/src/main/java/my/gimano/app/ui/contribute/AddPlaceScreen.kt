@@ -1,0 +1,294 @@
+package my.gimano.app.ui.contribute
+
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.*
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.core.content.FileProvider
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import coil3.compose.AsyncImage
+import kotlinx.coroutines.delay
+import my.gimano.app.R
+import my.gimano.app.core.places.OpeningHours
+import my.gimano.app.core.places.OpeningHours.Range
+import my.gimano.app.ui.common.CategoryGlyph
+import my.gimano.app.ui.common.Labels
+import my.gimano.app.ui.common.SheetSurface
+import my.gimano.app.ui.map.MapHandle
+import my.gimano.app.ui.theme.Gimano
+import my.gimano.app.ui.theme.GimanoType
+import my.gimano.app.ui.theme.Radius
+import java.io.File
+
+/** Categories offered in the big icon grid (docs/api.md "Place categories"). */
+val PLACE_CATEGORIES = listOf(
+    "restaurant", "cafe", "fast_food", "fuel", "ev_charging", "parking", "mosque", "surau", "rest_area", "mall", "supermarket", "convenience",
+    "hospital", "clinic", "pharmacy", "school", "hotel", "atm", "bank", "car_repair", "car_wash", "police", "temple", "church",
+    "tourism", "transit_station", "toll_booth", "university", "government", "airport", "other",
+)
+
+val AMENITIES = listOf("toilets", "surau", "parking", "wifi", "card_payment", "ewallet", "wheelchair", "air_conditioning", "ev_charging", "atm", "food", "air_pump")
+
+@Composable
+fun AddPlaceScreen(cvm: ContributeViewModel, handle: MapHandle, onBack: () -> Unit) {
+    val s by cvm.add.collectAsStateWithLifecycle()
+    when (s.step) {
+        AddStep.PIN -> PinStep(s, cvm, handle, onBack)
+        AddStep.DETAILS -> DetailsStep(s, cvm)
+        AddStep.VISIBILITY -> VisibilityStep(s, cvm)
+    }
+}
+
+@Composable
+private fun TopBar(title: String, onBack: () -> Unit) {
+    val c = Gimano.colors
+    Surface(color = c.surface, shadowElevation = 6.dp) {
+        Row(Modifier.fillMaxWidth().windowInsetsPadding(WindowInsets.statusBars).padding(4.dp), verticalAlignment = Alignment.CenterVertically) {
+            IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, stringResource(R.string.back), tint = c.text) }
+            Text(title, style = GimanoType.title, color = c.text, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        }
+    }
+}
+
+/** Step 1: the map moves under a fixed centre pin. */
+@Composable
+private fun PinStep(s: AddPlaceState, cvm: ContributeViewModel, handle: MapHandle, onBack: () -> Unit) {
+    val c = Gimano.colors
+    LaunchedEffect(handle.cameraVersion) {
+        delay(250)
+        handle.bounds()?.center?.let { cvm.onPinMoved(it) }
+    }
+    Box(Modifier.fillMaxSize()) {
+        Column(Modifier.align(Alignment.TopStart).fillMaxWidth()) { TopBar(stringResource(R.string.move_map_to_place), onBack) }
+        Icon(
+            Icons.Filled.Place, stringResource(R.string.place_pin), tint = c.report,
+            modifier = Modifier.align(Alignment.Center).size(56.dp).offset(y = (-28).dp),
+        )
+        Box(Modifier.align(Alignment.Center).size(8.dp).clip(CircleShape).background(c.navBanner))
+        SheetSurface(Modifier.align(Alignment.BottomCenter).fillMaxWidth()) {
+            Column(Modifier.padding(16.dp).windowInsetsPadding(WindowInsets.navigationBars)) {
+                Text(s.address.ifBlank { "%.5f, %.5f".format(s.pin.lat, s.pin.lng) }, fontSize = 16.sp, fontWeight = FontWeight.Bold, color = c.text)
+                Spacer(Modifier.height(12.dp))
+                Button(onClick = { cvm.step(AddStep.DETAILS) }, Modifier.fillMaxWidth().height(56.dp), shape = RoundedCornerShape(Radius.md),
+                    colors = ButtonDefaults.buttonColors(containerColor = c.brand, contentColor = c.brandOn)) { Text(stringResource(R.string.next), style = GimanoType.button) }
+            }
+        }
+    }
+}
+
+/** Step 2: name, category, optional details, opening hours, photos. */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun DetailsStep(s: AddPlaceState, cvm: ContributeViewModel) {
+    val c = Gimano.colors
+    val context = LocalContext.current
+    var cameraUri by remember { mutableStateOf<Uri?>(null) }
+    val pick = rememberLauncherForActivityResult(ActivityResultContracts.PickMultipleVisualMedia(10)) { cvm.addPhotos(it) }
+    val camera = rememberLauncherForActivityResult(ActivityResultContracts.TakePicture()) { ok -> if (ok) cameraUri?.let { cvm.addPhotos(listOf(it)) } }
+    Column(Modifier.fillMaxSize().background(c.background)) {
+        TopBar(stringResource(R.string.add_a_place)) { cvm.step(AddStep.PIN) }
+        Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(16.dp).imePadding()) {
+            OutlinedTextField(s.name, { v -> cvm.update { it.copy(name = v.take(80)) } }, Modifier.fillMaxWidth(), singleLine = true,
+                label = { Text(stringResource(R.string.place_name_required)) }, shape = RoundedCornerShape(Radius.md),
+                textStyle = LocalTextStyle.current.copy(fontSize = 18.sp, fontWeight = FontWeight.ExtraBold))
+            Section(stringResource(R.string.category))
+            PLACE_CATEGORIES.chunked(4).forEach { row ->
+                Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    row.forEach { cat ->
+                        val sel = s.category == cat
+                        val label = Labels.category(cat)
+                        Column(
+                            Modifier.weight(1f).clip(RoundedCornerShape(Radius.tile)).background(if (sel) c.brandMist else c.surface)
+                                .then(if (sel) Modifier.border(2.dp, c.brand, RoundedCornerShape(Radius.tile)) else Modifier)
+                                .clickable { cvm.update { it.copy(category = cat) } }.semantics { contentDescription = label }.padding(vertical = 10.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                        ) {
+                            CategoryGlyph(cat, 34.dp)
+                            Text(label, fontSize = 11.sp, fontWeight = FontWeight.ExtraBold, color = c.text, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 4.dp, start = 2.dp, end = 2.dp))
+                        }
+                    }
+                    repeat(4 - row.size) { Spacer(Modifier.weight(1f)) }
+                }
+            }
+            Section(stringResource(R.string.photos))
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedButton(onClick = {
+                    val f = File(context.cacheDir, "shared").apply { mkdirs() }.resolve("camera-${System.currentTimeMillis()}.jpg")
+                    cameraUri = FileProvider.getUriForFile(context, "${context.packageName}.files", f)
+                    camera.launch(cameraUri!!)
+                }, shape = RoundedCornerShape(Radius.md)) { Icon(Icons.Filled.PhotoCamera, null); Spacer(Modifier.width(6.dp)); Text(stringResource(R.string.camera), fontWeight = FontWeight.ExtraBold) }
+                OutlinedButton(onClick = { pick.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) }, shape = RoundedCornerShape(Radius.md)) {
+                    Icon(Icons.Filled.PhotoLibrary, null); Spacer(Modifier.width(6.dp)); Text(stringResource(R.string.gallery), fontWeight = FontWeight.ExtraBold)
+                }
+            }
+            if (s.photos.isNotEmpty()) LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 8.dp)) {
+                items(s.photos) { u ->
+                    Box {
+                        AsyncImage(u, null, Modifier.size(84.dp).clip(RoundedCornerShape(Radius.md)), contentScale = ContentScale.Crop)
+                        Box(Modifier.align(Alignment.TopEnd).padding(4.dp).size(26.dp).clip(CircleShape).background(c.surface).clickable { cvm.removePhoto(u) }, contentAlignment = Alignment.Center) {
+                            Icon(Icons.Filled.Close, stringResource(R.string.remove_stop), Modifier.size(16.dp))
+                        }
+                    }
+                }
+            }
+            Section(stringResource(R.string.optional_details))
+            OutlinedTextField(s.phone, { v -> cvm.update { it.copy(phone = v.take(30)) } }, Modifier.fillMaxWidth(), singleLine = true, label = { Text(stringResource(R.string.phone)) },
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone), shape = RoundedCornerShape(Radius.md))
+            OutlinedTextField(s.website, { v -> cvm.update { it.copy(website = v.take(200)) } }, Modifier.fillMaxWidth().padding(top = 6.dp), singleLine = true, label = { Text(stringResource(R.string.website)) },
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri), shape = RoundedCornerShape(Radius.md))
+            OutlinedTextField(s.description, { v -> cvm.update { it.copy(description = v.take(500)) } }, Modifier.fillMaxWidth().padding(top = 6.dp), minLines = 2, label = { Text(stringResource(R.string.description)) }, shape = RoundedCornerShape(Radius.md))
+            Section(stringResource(R.string.amenities))
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                AMENITIES.forEach { a ->
+                    FilterChip(selected = a in s.amenities, onClick = { cvm.update { it.copy(amenities = if (a in it.amenities) it.amenities - a else it.amenities + a) } },
+                        label = { Text(a.replace('_', ' ').replaceFirstChar { it.uppercase() }) }, shape = RoundedCornerShape(Radius.pill))
+                }
+            }
+            HoursEditor(s, cvm)
+            Spacer(Modifier.height(80.dp))
+        }
+        Surface(color = c.surface, shadowElevation = 8.dp) {
+            Button(onClick = { cvm.step(AddStep.VISIBILITY) }, enabled = s.canContinue,
+                modifier = Modifier.fillMaxWidth().padding(16.dp).windowInsetsPadding(WindowInsets.navigationBars).height(56.dp), shape = RoundedCornerShape(Radius.md),
+                colors = ButtonDefaults.buttonColors(containerColor = c.brand, contentColor = c.brandOn)) { Text(stringResource(R.string.next), style = GimanoType.button) }
+        }
+    }
+}
+
+/** Day chips + time ranges, "Open 24 hours", "Closed" → OSM opening_hours. */
+@Composable
+private fun HoursEditor(s: AddPlaceState, cvm: ContributeViewModel) {
+    val c = Gimano.colors
+    var editing by remember { mutableStateOf<Triple<String, Int, Boolean>?>(null) }   // day, range index, editing "from"?
+    Row(Modifier.fillMaxWidth().padding(top = 16.dp), verticalAlignment = Alignment.CenterVertically) {
+        Text(stringResource(R.string.opening_hours), fontWeight = FontWeight.Black, fontSize = 16.sp, color = c.text, modifier = Modifier.weight(1f))
+        Switch(s.hoursEnabled, { v -> cvm.update { it.copy(hoursEnabled = v) } }, colors = SwitchDefaults.colors(checkedTrackColor = c.brand))
+    }
+    if (!s.hoursEnabled) return
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Text(stringResource(R.string.open_24h), Modifier.weight(1f), fontWeight = FontWeight.Bold, color = c.text)
+        Switch(s.open247, { v -> cvm.update { it.copy(open247 = v) } }, colors = SwitchDefaults.colors(checkedTrackColor = c.brand))
+    }
+    if (!s.open247) {
+        OpeningHours.DAYS.forEach { d ->
+            val ranges = s.week[d].orEmpty()
+            Row(Modifier.fillMaxWidth().padding(vertical = 3.dp), verticalAlignment = Alignment.CenterVertically) {
+                Text(d, Modifier.width(36.dp), fontWeight = FontWeight.Black, color = c.text)
+                if (ranges.isEmpty()) {
+                    Text(stringResource(R.string.closed), Modifier.weight(1f), color = c.textMuted)
+                    TextButton(onClick = { cvm.update { it.copy(week = it.week + (d to listOf(Range("09:00", "18:00")))) } }) { Text(stringResource(R.string.open_verb)) }
+                } else {
+                    Column(Modifier.weight(1f)) {
+                        ranges.forEachIndexed { i, r ->
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                TextButton(onClick = { editing = Triple(d, i, true) }) { Text(r.from, fontWeight = FontWeight.Black) }
+                                Text("–")
+                                TextButton(onClick = { editing = Triple(d, i, false) }) { Text(r.to, fontWeight = FontWeight.Black) }
+                                if (i == ranges.lastIndex && ranges.size < 3) IconButton(onClick = {
+                                    cvm.update { it.copy(week = it.week + (d to ranges + Range("14:00", "18:00".takeIf { r.to < "14:00" } ?: "23:00"))) }
+                                }, Modifier.size(36.dp)) { Icon(Icons.Filled.Add, stringResource(R.string.add_range), Modifier.size(18.dp)) }
+                            }
+                        }
+                    }
+                    TextButton(onClick = { cvm.update { it.copy(week = it.week - d) } }) { Text(stringResource(R.string.closed)) }
+                }
+            }
+        }
+        TextButton(onClick = { cvm.update { st -> st.copy(week = st.week + OpeningHours.DAYS.take(5).associateWith { st.week["Mo"].orEmpty() }) } }) {
+            Text(stringResource(R.string.copy_monday), fontWeight = FontWeight.Bold)
+        }
+    }
+    s.hours?.let { Text(it, fontSize = 13.sp, color = c.textMuted, modifier = Modifier.padding(top = 4.dp)) }
+    editing?.let { (d, i, from) ->
+        val r = s.week[d].orEmpty().getOrNull(i) ?: run { editing = null; return }
+        val t = (if (from) r.from else r.to).let { if (it == "24:00") "00:00" else it }
+        val st = rememberTimePickerState(t.substring(0, 2).toInt(), t.substring(3).toInt(), is24Hour = true)
+        AlertDialog(
+            onDismissRequest = { editing = null },
+            confirmButton = {
+                TextButton(onClick = {
+                    val v = "%02d:%02d".format(st.hour, st.minute)
+                    val nr = runCatching { if (from) Range(v, r.to) else Range(r.from, if (v == "00:00") "24:00" else v) }.getOrNull()
+                    if (nr != null) cvm.update { it.copy(week = it.week + (d to it.week[d].orEmpty().toMutableList().also { l -> l[i] = nr })) }
+                    editing = null
+                }) { Text(stringResource(R.string.ok)) }
+            },
+            text = { TimePicker(st) },
+        )
+    }
+}
+
+/** Step 3: "Just for me" or "Share with everyone". */
+@Composable
+private fun VisibilityStep(s: AddPlaceState, cvm: ContributeViewModel) {
+    val c = Gimano.colors
+    Column(Modifier.fillMaxSize().background(c.background)) {
+        TopBar(stringResource(R.string.who_can_see)) { cvm.step(AddStep.DETAILS) }
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+            Text(s.name, style = GimanoType.title, color = c.text)
+            BigChoice(Icons.Filled.Lock, stringResource(R.string.just_for_me), stringResource(R.string.just_for_me_desc), enabled = !s.saving) { cvm.savePrivate() }
+            BigChoice(Icons.Filled.Groups, stringResource(R.string.share_everyone), stringResource(R.string.share_everyone_desc), enabled = !s.saving) { cvm.savePublic() }
+            if (s.saving) LinearProgressIndicator(Modifier.fillMaxWidth(), color = c.brand, trackColor = c.surfaceAlt)
+            s.error?.let { Text(if (it == "duplicate") stringResource(R.string.duplicate_place) else it, color = c.report, fontWeight = FontWeight.Bold) }
+        }
+    }
+    s.duplicate?.let { p ->
+        AlertDialog(
+            onDismissRequest = { cvm.update { it.copy(duplicate = null) } },
+            title = { Text(stringResource(R.string.is_it_this_one), style = GimanoType.title) },
+            text = { Text("${p.name}\n${p.address}") },
+            confirmButton = { Button(onClick = { cvm.update { it.copy(duplicate = null) }; cvm.showExisting(p) }) { Text(stringResource(R.string.yes_thats_it)) } },
+            dismissButton = { TextButton(onClick = { cvm.update { it.copy(duplicate = null, step = AddStep.DETAILS) } }) { Text(stringResource(R.string.no_edit_mine)) } },
+        )
+    }
+}
+
+@Composable
+private fun BigChoice(icon: androidx.compose.ui.graphics.vector.ImageVector, title: String, desc: String, enabled: Boolean, onClick: () -> Unit) {
+    val c = Gimano.colors
+    Row(
+        Modifier.fillMaxWidth().clip(RoundedCornerShape(Radius.lg)).background(c.surface).clickable(enabled = enabled, onClick = onClick).padding(18.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Box(Modifier.size(64.dp).clip(RoundedCornerShape(Radius.tile)).background(c.brandMist), contentAlignment = Alignment.Center) { Icon(icon, null, tint = c.brand, modifier = Modifier.size(36.dp)) }
+        Spacer(Modifier.width(14.dp))
+        Column {
+            Text(title, fontSize = 19.sp, fontWeight = FontWeight.Black, color = c.text)
+            Text(desc, fontSize = 14.sp, color = c.textMuted)
+        }
+    }
+}
+
+@Composable
+private fun Section(t: String) {
+    Text(t, Modifier.padding(top = 18.dp, bottom = 6.dp), fontWeight = FontWeight.Black, fontSize = 16.sp, color = Gimano.colors.text)
+}

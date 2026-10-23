@@ -50,39 +50,52 @@ data class PlannedDrive(
 
 private val placeList = kotlinx.serialization.builtins.ListSerializer(PlacePoint.serializer())
 
-fun PlannedDriveEntity.toModel(): PlannedDrive? = runCatching {
+fun scheduleKey(id: String) = "planned_drive:$id"
+
+/** Row + its schedule (settings["planned_drive:<id>"]); falls back to depart_at as a one-off like iOS. */
+fun PlannedDriveEntity.toModel(scheduleJson: String?): PlannedDrive? = runCatching {
     PlannedDrive(
         id, name ?: "", originJson?.let { GimanoJson.decodeFromString(PlacePoint.serializer(), it) },
         GimanoJson.decodeFromString(PlacePoint.serializer(), destinationJson),
         waypointsJson?.let { GimanoJson.decodeFromString(placeList, it) }.orEmpty(),
         vehicle,
-        departAt?.let { GimanoJson.decodeFromString(PlannedSchedule.serializer(), it) } ?: PlannedSchedule("08:00"),
+        scheduleJson?.let { runCatching { GimanoJson.decodeFromString(PlannedSchedule.serializer(), it) }.getOrNull() } ?: PlannedSchedule(arriveAt = departAt),
         createdAt,
     )
 }.getOrNull()
 
-fun PlannedDrive.toEntity() = PlannedDriveEntity(
+/** depart_at = the computed leave-by for one-off drives (null for repeating), as on iOS. */
+fun PlannedDrive.toEntity(leaveBy: Instant? = null) = PlannedDriveEntity(
     id, name, origin?.let { GimanoJson.encodeToString(PlacePoint.serializer(), it) },
     GimanoJson.encodeToString(PlacePoint.serializer(), destination),
     waypoints.takeIf { it.isNotEmpty() }?.let { GimanoJson.encodeToString(placeList, it) },
-    vehicle, GimanoJson.encodeToString(PlannedSchedule.serializer(), schedule), createdAt,
+    vehicle, if (schedule.repeating) null else leaveBy?.toString(), createdAt,
 )
+
+fun PlannedDrive.scheduleJson(): String = GimanoJson.encodeToString(PlannedSchedule.serializer(), schedule)
 
 /** Planned drives: local table + "leave by" reminders (personal data: never sent to the server). */
 class PlannedDrives(
     private val context: Context,
     private val dao: PlannedDriveDao,
+    private val settingsDao: my.gimano.app.data.local.SettingDao,
     private val repo: GimanoRepository,
     private val here: () -> Pair<Double, Double>?,
     private val lang: () -> Lang,
     private val use24h: () -> Boolean,
 ) {
-    val all: Flow<List<PlannedDrive>> = dao.observeAll().map { l -> l.mapNotNull { it.toModel() } }
+    val all: Flow<List<PlannedDrive>> = dao.observeAll().map { l -> l.mapNotNull { it.toModel(settingsDao.get(scheduleKey(it.id))) } }
 
-    suspend fun save(d: PlannedDrive) { dao.upsert(d.toEntity()); schedule(d) }
+    suspend fun save(d: PlannedDrive) {
+        settingsDao.put(my.gimano.app.data.local.SettingEntity(scheduleKey(d.id), d.scheduleJson()))
+        val leave = leaveBy(d)?.second
+        dao.upsert(d.toEntity(leave))
+        schedule(d)
+    }
 
     suspend fun delete(id: String) {
         dao.delete(id)
+        settingsDao.delete(scheduleKey(id))
         alarms().cancel(pending(id))
     }
 
@@ -111,7 +124,7 @@ class PlannedDrives(
         else am.setWindow(AlarmManager.RTC_WAKEUP, at - 5 * 60_000, 10 * 60_000, pi)
     }
 
-    suspend fun rescheduleAll() = dao.all().mapNotNull { it.toModel() }.forEach { schedule(it) }
+    suspend fun rescheduleAll() = dao.all().mapNotNull { it.toModel(settingsDao.get(scheduleKey(it.id))) }.forEach { schedule(it) }
 
     private fun alarms() = context.getSystemService(AlarmManager::class.java)
 
@@ -140,7 +153,7 @@ class PlannedDrives(
             .setStyle(NotificationCompat.BigTextStyle().bigText(text)).setAutoCancel(true).setContentIntent(open).build())
     }
 
-    suspend fun byId(id: String): PlannedDrive? = dao.all().firstOrNull { it.id == id }?.toModel()
+    suspend fun byId(id: String): PlannedDrive? = dao.all().firstOrNull { it.id == id }?.toModel(settingsDao.get(scheduleKey(id)))
 
     companion object {
         const val ACTION = "my.gimano.app.PLANNED_DRIVE"

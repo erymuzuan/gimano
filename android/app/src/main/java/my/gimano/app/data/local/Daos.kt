@@ -112,6 +112,7 @@ interface SettingDao {
     @Query("SELECT * FROM settings") suspend fun all(): List<SettingEntity>
     @Query("SELECT value FROM settings WHERE `key` = :key") suspend fun get(key: String): String?
     @Upsert suspend fun put(e: SettingEntity)
+    @Query("DELETE FROM settings WHERE `key` = :key") suspend fun delete(key: String)
 }
 
 @Dao

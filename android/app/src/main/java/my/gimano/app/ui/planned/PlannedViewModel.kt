@@ -29,7 +29,7 @@ class PlannedViewModel(private val c: AppContainer) : ViewModel() {
     fun newPlan(dest: PlacePoint, origin: PlacePoint?, waypoints: List<PlacePoint>, vehicle: String) {
         val d = PlannedDrive(
             c.planned.newId(), dest.name, origin, dest, waypoints, vehicle,
-            PlannedSchedule("08:00", days = PlannedSchedule.WEEKDAYS), Instant.now().toString(),
+            PlannedSchedule.repeating("08:00", PlannedSchedule.WEEKDAYS), Instant.now().toString(),
         )
         _editor.value = PlanEditor(d, isNew = true)
         recompute()
@@ -43,10 +43,23 @@ class PlannedViewModel(private val c: AppContainer) : ViewModel() {
         recompute()
     }
 
-    fun setOneOff(date: LocalDate) = update { it.copy(schedule = it.schedule.copy(days = emptyList(), date = date.toString())) }
+    private val zone get() = java.time.ZoneId.systemDefault()
+
+    fun setTime(hhmm: String) = update { d ->
+        d.copy(schedule = if (d.schedule.repeating) d.schedule.copy(arriveBy = hhmm)
+        else PlannedSchedule.oneOff(oneOffDate(d.schedule), hhmm, zone))
+    }
+
+    fun setOneOff(date: LocalDate) = update { d -> d.copy(schedule = PlannedSchedule.oneOff(date, d.schedule.timeOfDay(zone), zone)) }
+
+    private fun oneOffDate(s: PlannedSchedule): LocalDate =
+        s.arriveAt?.let { runCatching { Instant.parse(it).atZone(zone).toLocalDate() }.getOrNull() } ?: LocalDate.now().plusDays(1)
+
     fun toggleDay(code: String) = update { d ->
-        val days = if (code in d.schedule.days) d.schedule.days - code else (d.schedule.days + code).sortedBy { PlannedSchedule.WEEK.indexOf(it) }
-        d.copy(schedule = d.schedule.copy(days = days, date = if (days.isEmpty()) LocalDate.now().plusDays(1).toString() else null))
+        val cur = d.schedule.days.orEmpty()
+        val days = if (code in cur) cur - code else (cur + code).sortedBy { PlannedSchedule.WEEK.indexOf(it) }
+        val time = d.schedule.timeOfDay(zone)
+        d.copy(schedule = if (days.isEmpty()) PlannedSchedule.oneOff(LocalDate.now().plusDays(1), time, zone) else PlannedSchedule.repeating(time, days))
     }
 
     private var job: Job? = null

@@ -21,6 +21,8 @@ data class MapRenderState(
     val puckBearing: Float = 0f,
     val pin: GeoPoint? = null,
     val stops: List<GeoPoint> = emptyList(),
+    /** "Just for me" places (local DB). */
+    val privatePins: List<Pair<String, GeoPoint>> = emptyList(),
     val showTraffic: Boolean = true,
     val showAlerts: Boolean = true,
     val showDrivers: Boolean = true,
