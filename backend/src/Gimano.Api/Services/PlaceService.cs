@@ -74,8 +74,9 @@ public sealed class PlaceService(GimanoDbContext db, PlaceSearchIndex index, Tim
 
         var ids = rows.Select(r => r.Id).Concat(crow.Select(r => r.Id)).ToList();
         var agg = await PlaceDocuments.AggregatesAsync(db, ids, ct);
-        return rows.Select(p => ToSummary(p, at.Lat, at.Lng, agg.GetValueOrDefault(p.Id)))
-            .Concat(crow.Select(p => ToSummary(p, at.Lat, at.Lng, agg.GetValueOrDefault(p.Id))))
+        var local = TimeZoneInfo.ConvertTime(clock.GetUtcNow(), ValhallaMapper.MalaysiaTime).DateTime;
+        return rows.Select(p => ToSummary(p, at.Lat, at.Lng, agg.GetValueOrDefault(p.Id)) with { OpenNow = OpeningHours.IsOpen(p.OpeningHours, local) })
+            .Concat(crow.Select(p => ToSummary(p, at.Lat, at.Lng, agg.GetValueOrDefault(p.Id)) with { OpenNow = OpeningHours.IsOpen(p.OpeningHours, local) }))
             .OrderBy(s => s.DistanceM).Take(limit).ToList();
     }
 

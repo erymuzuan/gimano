@@ -32,7 +32,10 @@ public sealed record RecentDto(Guid Id, string Name, string Address, double Lat,
 public sealed record PlaceSummary(
     string Id, string Name, PlaceCategory Category, string Address, double Lat, double Lng, double? DistanceM, string? Brand,
     PlaceSource Source = PlaceSource.Osm, PlaceStatus? Status = null, double? Rating = null, int ReviewCount = 0, string? ThumbnailUrl = null,
-    double? ConfirmationsWeighted = null, double? Required = null);
+    double? ConfirmationsWeighted = null, double? Required = null, ChainGroup? ChainGroup = null, bool? OpenNow = null);
+
+/// <summary>Several results of one chain ("FamilyMart · 12 berdekatan"): <c>countNearby</c> = outlets within 10 km of the search origin.</summary>
+public sealed record ChainGroup(string Key, string Name, int CountNearby);
 
 public sealed record PlaceDto(
     string Id, string Name, PlaceCategory Category, string Address, double Lat, double Lng, double? DistanceM, string? Brand,
@@ -89,8 +92,27 @@ public sealed record PhotoDto(
 
 public sealed record PhotosPage(IReadOnlyList<PhotoDto> Photos, string? Next);
 
-public sealed record SearchResponse(IReadOnlyList<PlaceSummary> Results);
-public sealed record ReverseGeocodeResponse(string Name, string Address, double Lat, double Lng);
+/// <param name="CorrectedQuery">Set when nothing matched the query as typed and the results are for this spelling instead (off with exact=true).</param>
+/// <param name="NoMatch">True when nothing matched (results empty); see suggestions.</param>
+public sealed record SearchResponse(IReadOnlyList<PlaceSummary> Results, string? CorrectedQuery = null,
+    IReadOnlyList<SearchSuggestion>? Suggestions = null, bool NoMatch = false, SearchInterpretation? Interpretation = null);
+
+/// <summary>
+/// A did-you-mean place (label, query, placeId, lat, lng, distanceM) or a nearby category (label, query, category, count within 5 km).
+/// </summary>
+public sealed record SearchSuggestion(string Label, string? Query = null, PlaceCategory? Category = null, string? PlaceId = null,
+    double? Lat = null, double? Lng = null, double? DistanceM = null, int? Count = null);
+
+/// <summary>
+/// How the query was understood. kind: text | category | brand_area | category_area | street | address | postcode | coordinates | plus_code.
+/// </summary>
+public sealed record SearchInterpretation(string Kind, string Normalized, IReadOnlyList<PlaceCategory>? Categories = null,
+    string? Area = null, double? AreaLat = null, double? AreaLng = null);
+
+/// <summary>GET /geocode/reverse ("Pilih pada peta"): name/address as before, plus the street-level label and places within 50 m.</summary>
+public sealed record ReverseGeocodeResponse(string Name, string Address, double Lat, double Lng,
+    string? Label = null, string? HouseNumber = null, string? Street = null, string? Area = null, string? City = null, string? Postcode = null,
+    IReadOnlyList<PlaceSummary>? Nearby = null);
 
 // ---- Routing --------------------------------------------------------------
 

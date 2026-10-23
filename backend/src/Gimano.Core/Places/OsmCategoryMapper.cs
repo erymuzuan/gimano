@@ -25,6 +25,7 @@ public static class OsmCategoryMapper
         ["college"] = PlaceCategory.University,
         ["university"] = PlaceCategory.University,
         ["atm"] = PlaceCategory.Atm,
+        ["toilets"] = PlaceCategory.Toilets,
         ["bank"] = PlaceCategory.Bank,
         ["car_wash"] = PlaceCategory.CarWash,
         ["townhall"] = PlaceCategory.Government,
@@ -119,13 +120,7 @@ public static class OsmCategoryMapper
     /// <summary>Address line for an area: "City · Selangor" style ("Bandar raya, Wilayah Persekutuan").</summary>
     public static string AreaAddress(IReadOnlyDictionary<string, string> tags, string? kindOverride = null)
     {
-        var kind = kindOverride ?? tags.GetValueOrDefault("place") switch
-        {
-            "city" => "Bandar raya", "town" => "Bandar", "suburb" => "Kawasan", "village" => "Kampung",
-            "neighbourhood" or "quarter" => "Kejiranan",
-            "admin" => tags.GetValueOrDefault("gimano:admin_level") == "4" ? "Negeri / Wilayah" : "Daerah",
-            _ => "Kawasan",
-        };
+        var kind = kindOverride ?? Community.L10n.AreaKindMs(tags.GetValueOrDefault("place"), tags.GetValueOrDefault("gimano:admin_level"));
         var state = tags.GetValueOrDefault("is_in:state") ?? tags.GetValueOrDefault("addr:state") ?? tags.GetValueOrDefault("is_in");
         state = state?.Split([';', ','], StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries).LastOrDefault();
         return string.IsNullOrWhiteSpace(state) ? kind : $"{kind}, {state}";
@@ -134,7 +129,8 @@ public static class OsmCategoryMapper
     /// <summary>Whether a mapped feature is worth importing (needs a name, except a few categories).</summary>
     public static bool ShouldImport(PlaceCategory category, IReadOnlyDictionary<string, string> tags) =>
         tags.ContainsKey("name") || tags.ContainsKey("brand") ||
-        category is PlaceCategory.Fuel or PlaceCategory.EvCharging or PlaceCategory.TollBooth or PlaceCategory.RestArea;
+        category is PlaceCategory.Fuel or PlaceCategory.EvCharging or PlaceCategory.TollBooth or PlaceCategory.RestArea
+            or PlaceCategory.Toilets or PlaceCategory.Atm or PlaceCategory.Parking;
 
     public static string DisplayName(PlaceCategory category, IReadOnlyDictionary<string, string> tags)
     {
@@ -147,12 +143,15 @@ public static class OsmCategoryMapper
             PlaceCategory.EvCharging => "EV charger",
             PlaceCategory.TollBooth => "Toll plaza",
             PlaceCategory.RestArea => "Rest area",
+            PlaceCategory.Toilets => "Toilet",
+            PlaceCategory.Atm => "ATM",
+            PlaceCategory.Parking => "Parking",
             _ => GimanoJson.ToWire(category).Replace('_', ' '),
         };
     }
 
     public static string? Brand(IReadOnlyDictionary<string, string> tags) =>
-        tags.TryGetValue("brand", out var b) ? b : tags.TryGetValue("operator", out var o) && tags.ContainsKey("amenity") && tags["amenity"] == "fuel" ? o : null;
+        tags.TryGetValue("brand", out var b) ? b : tags.TryGetValue("operator", out var o) && tags.GetValueOrDefault("amenity") is "fuel" or "atm" ? o : null;
 
     public static string BuildAddress(IReadOnlyDictionary<string, string> tags)
     {

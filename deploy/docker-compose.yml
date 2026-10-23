@@ -124,8 +124,10 @@ services:
       # Maintainer view (/api/v1/admin/*, header X-Admin-Key); empty = disabled
       Admin__Key: ${ADMIN_KEY:-}
       Attestation__Mode: ${ATTESTATION_MODE:-log}
+      # Search aliases: the repo file is mounted in dev, so edits apply within a minute (no rebuild)
+      Search__AliasesPath: /data/search/aliases.csv
     ports: ["${API_PORT:-5080}:8080"]
-    volumes: ["media:/data/media"]
+    volumes: ["media:/data/media", "../data/search:/data/search:ro"]
     depends_on:
       postgis: { condition: service_healthy }
       rabbitmq: { condition: service_healthy }

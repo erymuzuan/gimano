@@ -6,6 +6,7 @@ COPY backend/src/Gimano.Core/Gimano.Core.csproj src/Gimano.Core/
 COPY backend/src/Gimano.Api/Gimano.Api.csproj src/Gimano.Api/
 RUN dotnet restore src/Gimano.Api/Gimano.Api.csproj
 COPY data/moderation/ /data/moderation/
+COPY data/search/ /data/search/
 COPY backend/src/Gimano.Core/ src/Gimano.Core/
 COPY backend/src/Gimano.Api/ src/Gimano.Api/
 RUN dotnet publish src/Gimano.Api/Gimano.Api.csproj -c Release -o /app --no-restore /p:UseAppHost=false
@@ -13,6 +14,8 @@ RUN dotnet publish src/Gimano.Api/Gimano.Api.csproj -c Release -o /app --no-rest
 FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS final
 WORKDIR /app
 COPY --from=build /app .
+# Search aliases (data/search/README.md); re-read when the file changes.
+COPY --from=build /data/search /data/search
 ENV Urls=http://+:8080
 EXPOSE 8080
 RUN mkdir -p /data/media && chown $APP_UID /data/media

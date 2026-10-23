@@ -38,10 +38,15 @@ public static class InboxEndpoints
         }
         var items = await iq.OrderByDescending(i => i.CreatedAt).ThenByDescending(i => i.Id).Take(take).ToListAsync(ct);
         var anns = await aq.OrderByDescending(a => a.CreatedAt).ThenByDescending(a => a.Id).Take(take).ToListAsync(ct);
-        var ms = InboxRules.IsMalay(user.Locale);
+        var lang = http.Lang();
+        var ms = lang == Gimano.Core.Community.L10n.Ms;
 
         var (page, next) = InboxRules.Merge(
-            items.Select(i => new InboxItemDto(i.Id, i.Kind, i.Title, i.Body, i.RefType, i.RefId, i.CreatedAt, i.CreatedAt <= readUpTo, i.Count)),
+            items.Select(i =>
+            {
+                var (title, body) = InboxRules.Render(i, lang);
+                return new InboxItemDto(i.Id, i.Kind, title, body, i.RefType, i.RefId, i.CreatedAt, i.CreatedAt <= readUpTo, i.Count);
+            }),
             anns.Select(a => new InboxItemDto(a.Id, InboxKind.Announcement, ms ? a.TitleMs ?? a.Title : a.Title, ms ? a.BodyMs ?? a.Body : a.Body,
                 a.Url is null ? null : "url", a.Url, a.CreatedAt, a.CreatedAt <= readUpTo)));
 

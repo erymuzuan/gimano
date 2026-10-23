@@ -492,6 +492,11 @@ namespace Gimano.Core.Data.Migrations
                         .HasColumnType("character varying(20)")
                         .HasColumnName("ref_type");
 
+                    b.Property<string>("Subject")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("subject");
+
                     b.Property<string>("Title")
                         .IsRequired()
                         .HasMaxLength(200)
@@ -1404,6 +1409,33 @@ namespace Gimano.Core.Data.Migrations
                     b.ToTable("saved_places", (string)null);
                 });
 
+            modelBuilder.Entity("Gimano.Core.Domain.SearchMiss", b =>
+                {
+                    b.Property<string>("Week")
+                        .HasMaxLength(8)
+                        .HasColumnType("character varying(8)")
+                        .HasColumnName("week");
+
+                    b.Property<string>("Cell")
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)")
+                        .HasColumnName("cell");
+
+                    b.Property<string>("Query")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("query");
+
+                    b.Property<int>("Count")
+                        .HasColumnType("integer")
+                        .HasColumnName("count");
+
+                    b.HasKey("Week", "Cell", "Query")
+                        .HasName("pk_search_misses");
+
+                    b.ToTable("search_misses", (string)null);
+                });
+
             modelBuilder.Entity("Gimano.Core.Domain.SegmentSpeed", b =>
                 {
                     b.Property<long>("SegmentId")
@@ -1444,6 +1476,57 @@ namespace Gimano.Core.Data.Migrations
                         .HasDatabaseName("ix_segment_speeds_updated_at");
 
                     b.ToTable("segment_speeds", (string)null);
+                });
+
+            modelBuilder.Entity("Gimano.Core.Domain.StreetAddress", b =>
+                {
+                    b.Property<string>("Id")
+                        .HasMaxLength(24)
+                        .HasColumnType("character varying(24)")
+                        .HasColumnName("id");
+
+                    b.Property<string>("City")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("city");
+
+                    b.Property<string>("Country")
+                        .IsRequired()
+                        .HasMaxLength(2)
+                        .HasColumnType("character varying(2)")
+                        .HasColumnName("country");
+
+                    b.Property<string>("HouseNumber")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)")
+                        .HasColumnName("house_number");
+
+                    b.Property<Point>("Location")
+                        .IsRequired()
+                        .HasColumnType("geography (point, 4326)")
+                        .HasColumnName("location");
+
+                    b.Property<string>("Postcode")
+                        .HasMaxLength(12)
+                        .HasColumnType("character varying(12)")
+                        .HasColumnName("postcode");
+
+                    b.Property<string>("Street")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("street");
+
+                    b.HasKey("Id")
+                        .HasName("pk_street_addresses");
+
+                    b.HasIndex("Location")
+                        .HasDatabaseName("ix_street_addresses_location");
+
+                    NpgsqlIndexBuilderExtensions.HasMethod(b.HasIndex("Location"), "gist");
+
+                    b.ToTable("street_addresses", (string)null);
                 });
 
             modelBuilder.Entity("Gimano.Core.Domain.TollRate", b =>

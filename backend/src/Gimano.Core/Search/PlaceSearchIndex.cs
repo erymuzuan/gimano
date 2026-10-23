@@ -9,7 +9,8 @@ using OpenSearch.Net;
 namespace Gimano.Core.Search;
 
 public sealed record PlaceHit(string Id, string Name, PlaceCategory Category, string Address, double Lat, double Lng, string? Brand, double Score,
-    PlaceSource Source = PlaceSource.Osm, PlaceStatus? Status = null, double? Rating = null, int ReviewCount = 0, string? ThumbKey = null);
+    PlaceSource Source = PlaceSource.Osm, PlaceStatus? Status = null, double? Rating = null, int ReviewCount = 0, string? ThumbKey = null,
+    string? OpeningHours = null);
 
 /// <summary>Index naming: every index and alias goes through <c>OpenSearch:IndexPrefix</c> (e.g. "gimano-").</summary>
 public sealed record OpenSearchIndexOptions(string Prefix = "", int Replicas = 0)
@@ -131,12 +132,21 @@ public sealed class PlaceSearchIndex(IOpenSearchLowLevelClient client, OpenSearc
     public async Task RefreshAsync(CancellationToken ct = default) =>
         await client.Indices.RefreshAsync<StringResponse>(Index, ctx: ct);
 
-    public async Task<IReadOnlyList<PlaceHit>> SearchAsync(SearchQuery q, CancellationToken ct = default)
+    public Task<IReadOnlyList<PlaceHit>> SearchAsync(SearchQuery q, CancellationToken ct = default) => SearchAsync(SearchQueryBuilder.Build(q), ct);
+
+    /// <summary>Runs a prepared search body (see <see cref="SearchQueryBuilder"/>).</summary>
+    public async Task<IReadOnlyList<PlaceHit>> SearchAsync(JsonObject body, CancellationToken ct = default)
     {
-        var body = SearchQueryBuilder.Build(q).ToJsonString();
-        var r = await client.SearchAsync<StringResponse>(Index, PostData.String(body), ctx: ct);
+        var r = await client.SearchAsync<StringResponse>(Index, PostData.String(body.ToJsonString()), ctx: ct);
         if (!r.Success) throw new SearchUnavailableException($"OpenSearch query failed: {r.HttpStatusCode} {r.OriginalException?.Message}");
         return ParseHits(r.Body);
+    }
+
+    public async Task<int> CountAsync(JsonObject body, CancellationToken ct = default)
+    {
+        var r = await client.CountAsync<StringResponse>(Index, PostData.String(body.ToJsonString()), ctx: ct);
+        if (!r.Success) throw new SearchUnavailableException($"OpenSearch count failed: {r.HttpStatusCode} {r.OriginalException?.Message}");
+        return JsonNode.Parse(r.Body)?["count"]?.GetValue<int>() ?? 0;
     }
 
     public static IReadOnlyList<PlaceHit> ParseHits(string json)
@@ -162,7 +172,8 @@ public sealed class PlaceSearchIndex(IOpenSearchLowLevelClient client, OpenSearc
                 source, status,
                 s["rating"]?.GetValue<double>(),
                 s["reviewCount"]?.GetValue<int>() ?? 0,
-                s["thumbKey"]?.GetValue<string>()));
+                s["thumbKey"]?.GetValue<string>(),
+                s["openingHours"]?.GetValue<string>()));
         }
         return result;
     }

@@ -117,7 +117,7 @@ public class SearchVisibilityTests
     public void Search_query_always_applies_the_visibility_filter()
     {
         var body = SearchQueryBuilder.Build(new SearchQuery("mak teh", 3.1, 101.6, Viewer: Owner));
-        var filters = body["query"]!["function_score"]!["query"]!["bool"]!["filter"]!.AsArray();
+        var filters = body["query"]!["function_score"]!["query"]!["boosting"]!["positive"]!["bool"]!["filter"]!.AsArray();
         Assert.Contains(filters, f => f!.ToJsonString().Contains(Owner.ToString()));
     }
 

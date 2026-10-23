@@ -52,6 +52,18 @@ public static class InboxRules
 
     public const string LegacyUpdateKey = "legacy-update";
 
+    /// <summary>Kinds whose text needs the subject (place name/status); legacy rows without one keep their stored text.</summary>
+    private static bool NeedsSubject(InboxKind k) => k is InboxKind.ReviewHelpful or InboxKind.PlacePublished or InboxKind.PlaceRejected
+        or InboxKind.PlaceExpired or InboxKind.EditAccepted or InboxKind.FeedbackStatus;
+
+    /// <summary>Title/body in the reader's language ("en"/"ms", from Accept-Language), re-rendered from kind, count and subject.</summary>
+    public static (string Title, string Body) Render(Domain.InboxItem i, string lang)
+    {
+        if (i.AggregateKey == LegacyUpdateKey) return LegacyUpdateText(lang);
+        if (i.Kind == InboxKind.Announcement || (NeedsSubject(i.Kind) && i.Subject is null)) return (i.Title, i.Body);
+        return Text(i.Kind, i.Count, lang, i.Subject);
+    }
+
     /// <summary>Shown to key-less legacy accounts (0.1.0 apps can't sign requests).</summary>
     public static (string Title, string Body) LegacyUpdateText(string? locale) => IsMalay(locale)
         ? ("Kemas kini Gimano untuk melindungi akaun anda",

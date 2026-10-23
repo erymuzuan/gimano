@@ -18,7 +18,11 @@ public enum PlaceCategory
     Convenience, Mosque, Surau, Temple, Church, Hospital, Clinic, Pharmacy, Police, School, University,
     Hotel, Atm, Bank, CarRepair, CarWash, Tourism, TransitStation, Airport, Government, Other,
     /// <summary>A city, town, suburb, village, neighbourhood or administrative area (searchable by name).</summary>
-    Area
+    Area,
+    /// <summary>Public toilets (amenity=toilets).</summary>
+    Toilets,
+    /// <summary>Search-only result kinds: a named street, a house address, a postcode area, a coordinate / Plus Code point.</summary>
+    Street, Address, Postcode, Point
 }
 
 public enum ManeuverType

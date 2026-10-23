@@ -13,7 +13,7 @@ public class SearchQueryBuilderTests
     public void Builds_search_as_you_type_bool_prefix_query()
     {
         var body = SearchQueryBuilder.Build(new SearchQuery("petronas", 3.11, 101.62));
-        var mm = body["query"]!["function_score"]!["query"]!["bool"]!["must"]![0]!["bool"]!["should"]![0]!["multi_match"]!;
+        var mm = body["query"]!["function_score"]!["query"]!["boosting"]!["positive"]!["bool"]!["must"]![0]!["bool"]!["should"]![0]!["multi_match"]!;
         Assert.Equal("bool_prefix", mm["type"]!.GetValue<string>());
         Assert.Equal("petronas", mm["query"]!.GetValue<string>());
         var fields = mm["fields"]!.AsArray().Select(f => f!.GetValue<string>()).ToList();
@@ -39,8 +39,8 @@ public class SearchQueryBuilderTests
     public void Category_and_country_become_filters_and_limit_is_clamped()
     {
         var body = SearchQueryBuilder.Build(new SearchQuery("shell", null, null, 500, PlaceCategory.EvCharging, "sg"));
-        var filters = body["query"]!["function_score"]!["query"]!["bool"]!["filter"]!.AsArray();
-        Assert.Contains(filters, f => f!["term"]?["category"]?.GetValue<string>() == "ev_charging");
+        var filters = body["query"]!["function_score"]!["query"]!["boosting"]!["positive"]!["bool"]!["filter"]!.AsArray();
+        Assert.Contains(filters, f => f!["terms"]?["category"]?.AsArray().Any(c => c!.GetValue<string>() == "ev_charging") == true);
         Assert.Contains(filters, f => f!["term"]?["country"]?.GetValue<string>() == "SG");
         Assert.Equal(SearchQueryBuilder.MaxLimit, body["size"]!.GetValue<int>());
     }
@@ -49,7 +49,7 @@ public class SearchQueryBuilderTests
     public void Default_scope_prefers_malaysia_without_excluding_neighbours()
     {
         var body = SearchQueryBuilder.Build(new SearchQuery("changi", null, null));
-        var b = body["query"]!["function_score"]!["query"]!["bool"]!;
+        var b = body["query"]!["function_score"]!["query"]!["boosting"]!["positive"]!["bool"]!;
         Assert.DoesNotContain(b["filter"]!.AsArray(), f => f!["term"]?["country"] is not null);
         Assert.Contains(b["should"]!.AsArray(), s => s!["term"]?["country"] is not null);
     }
@@ -57,10 +57,11 @@ public class SearchQueryBuilderTests
     [Fact]
     public void Long_queries_also_get_a_fuzzy_whole_word_match()
     {
-        var should = SearchQueryBuilder.Build(new SearchQuery("petronaz", null, null))["query"]!["function_score"]!["query"]!["bool"]!["must"]![0]!["bool"]!["should"]!.AsArray();
-        Assert.Equal(2, should.Count);
+        var should = SearchQueryBuilder.Build(new SearchQuery("petronaz", null, null))["query"]!["function_score"]!["query"]!["boosting"]!["positive"]!["bool"]!["must"]![0]!["bool"]!["should"]!.AsArray();
         Assert.Equal("AUTO", should[1]!["multi_match"]!["fuzziness"]!.GetValue<string>());
-        Assert.Single(SearchQueryBuilder.Build(new SearchQuery("kfc", null, null))["query"]!["function_score"]!["query"]!["bool"]!["must"]![0]!["bool"]!["should"]!.AsArray());
+        Assert.Contains(should, x => x!["fuzzy"]?["nameKeys"] is not null);   // "famly mart" → FamilyMart
+        var shortQ = SearchQueryBuilder.Build(new SearchQuery("kfc", null, null))["query"]!["function_score"]!["query"]!["boosting"]!["positive"]!["bool"]!["must"]![0]!["bool"]!["should"]!.AsArray();
+        Assert.DoesNotContain(shortQ, x => x!["fuzzy"] is not null || x["multi_match"]?["fuzziness"]?.GetValue<string>() == "AUTO");
     }
 
     [Fact]
@@ -68,7 +69,7 @@ public class SearchQueryBuilderTests
     {
         Assert.Equal("0", Mm(SearchQueryBuilder.Build(new SearchQuery("kf", null, null)))["fuzziness"]!.GetValue<string>());
         Assert.Equal("AUTO", Mm(SearchQueryBuilder.Build(new SearchQuery("petronas", null, null)))["fuzziness"]!.GetValue<string>());
-        static JsonNode Mm(JsonObject b) => b["query"]!["function_score"]!["query"]!["bool"]!["must"]![0]!["bool"]!["should"]![0]!["multi_match"]!;
+        static JsonNode Mm(JsonObject b) => b["query"]!["function_score"]!["query"]!["boosting"]!["positive"]!["bool"]!["must"]![0]!["bool"]!["should"]![0]!["multi_match"]!;
     }
 
     [Fact]

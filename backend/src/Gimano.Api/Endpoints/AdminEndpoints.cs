@@ -16,6 +16,7 @@ public sealed record AdminCrashGroup(string Signature, string Exception, int Cou
 public sealed record AdminCrashReport(Guid Id, CrashKind Kind, string Exception, string? Message, string? Stack, string? Screen, long? UptimeS,
     DeviceInfo? Device, DateTimeOffset? OccurredAt, bool HasContact);
 public sealed record AdminStatusRequest(string Status);
+public sealed record AdminSearchMiss(string Query, string Cell, string Week, int Count);
 
 /// <summary>
 /// Minimal maintainer view, protected by an admin key (X-Admin-Key = Admin:Key; disabled when not configured).
@@ -33,7 +34,20 @@ public static class AdminEndpoints
         g.MapGet("/crash-groups/{signature}/reports", CrashReports);
         g.MapPatch("/crash-groups/{signature}", SetCrashStatus);
         g.MapPost("/contacts/{subject}/{id:guid}/reveal", RevealContact);
+        g.MapGet("/search-misses", SearchMissReport);
+        g.MapPost("/search/aliases/reload", (Services.AliasStore store) => TypedResults.Ok(new { rows = store.Reload() }));
         return api;
+    }
+
+    /// <summary>Anonymous zero-result counts: query, ~11 km cell, ISO week, count (nothing else exists to show).</summary>
+    private static async Task<Ok<List<AdminSearchMiss>>> SearchMissReport(string? week, int? minCount, int? take, GimanoDbContext db, TimeProvider clock, CancellationToken ct)
+    {
+        var w = string.IsNullOrEmpty(week) ? Core.Support.SearchMisses.Week(clock.GetUtcNow()) : week;
+        var min = Math.Max(1, minCount ?? 1);
+        var rows = await db.SearchMisses.AsNoTracking().Where(m => m.Week == w && m.Count >= min)
+            .OrderByDescending(m => m.Count).ThenBy(m => m.Query).Take(Math.Clamp(take ?? 200, 1, 1000))
+            .Select(m => new AdminSearchMiss(m.Query, m.Cell, m.Week, m.Count)).ToListAsync(ct);
+        return TypedResults.Ok(rows);
     }
 
     private static async Task<Ok<List<AdminFeedbackItem>>> ListFeedback(string? status, int? take, GimanoDbContext db, CancellationToken ct)

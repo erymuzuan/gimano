@@ -1,0 +1,115 @@
+alias,canonical,kind,locale,note
+# ---- brands: short names and nicknames -------------------------------------------------------
+mcd,McDonald's,brand,ms,common short form
+mekdi,McDonald's,brand,ms,colloquial
+mcdonald,McDonald's,brand,en,
+kentucky,KFC,brand,en,
+7e,7-Eleven,brand,ms,
+seven eleven,7-Eleven,brand,en,
+sbux,Starbucks,brand,en,
+speedmart,99 Speedmart,brand,ms,
+bhp,BHPetrol,brand,ms,
+ptrns,Petronas,brand,ms,
+mesra,Petronas,brand,ms,Kedai Mesra is the Petronas station shop
+caltex,Caltex,brand,ms,
+shell,Shell,brand,en,
+petron,Petron,brand,ms,
+giant hypermarket,Giant,brand,en,
+mvm,Mid Valley Megamall,brand,en,
+# ---- renames: the old name still in people's heads -------------------------------------------
+tesco,Lotus's,rename,en,Tesco Malaysia became Lotus's (2021)
+tesco extra,Lotus's,rename,en,Tesco Malaysia became Lotus's (2021)
+esso,Petron,rename,en,Esso Malaysia stations became Petron (2012)
+jusco,AEON,rename,en,Jusco became AEON (2012)
+aeon jusco,AEON,rename,en,Jusco became AEON (2012)
+carrefour,AEON BiG,rename,en,Carrefour Malaysia became AEON BiG (2012)
+pwtc,World Trade Centre Kuala Lumpur,rename,en,PWTC became WTCKL (2018)
+ppukm,Hospital Canselor Tuanku Muhriz,rename,ms,PPUKM renamed HCTM (2019)
+hukm,Hospital Canselor Tuanku Muhriz,rename,ms,HUKM/PPUKM renamed HCTM (2019)
+klinik 1malaysia,Klinik Komuniti,rename,ms,Klinik 1Malaysia renamed Klinik Komuniti
+# ---- hospitals, clinics, campuses, transport: abbreviations ----------------------------------
+hkl,Hospital Kuala Lumpur,rename,ms,
+ppum,Pusat Perubatan Universiti Malaya,rename,ms,
+ummc,Pusat Perubatan Universiti Malaya,rename,en,
+hsb,Hospital Sungai Buloh,rename,ms,
+htar,Hospital Tengku Ampuan Rahimah,rename,ms,
+hosp,hospital,rename,en,abbreviation
+kk,klinik kesihatan,rename,ms,also Kota Kinabalu (both are tried)
+kk,Kota Kinabalu,rename,ms,also klinik kesihatan (both are tried)
+um,Universiti Malaya,rename,ms,
+ukm,Universiti Kebangsaan Malaysia,rename,ms,
+upm,Universiti Putra Malaysia,rename,ms,
+uitm,Universiti Teknologi MARA,rename,ms,
+klia,Kuala Lumpur International Airport,rename,en,
+# ---- dialect and street/area abbreviations ---------------------------------------------------
+jln,jalan,dialect,ms,
+jl,jalan,dialect,ms,
+lrg,lorong,dialect,ms,
+psrn,persiaran,dialect,ms,
+tmn,taman,dialect,ms,
+kg,kampung,dialect,ms,
+kpg,kampung,dialect,ms,
+bdr,bandar,dialect,ms,
+bt,batu,dialect,ms,
+sg,sungai,dialect,ms,
+pj,Petaling Jaya,dialect,ms,
+jb,Johor Bahru,dialect,ms,
+kb,Kota Bharu,dialect,ms,
+# ---- category words (canonical = category ids separated by |) --------------------------------
+minyak,fuel,category,ms,
+stesen minyak,fuel,category,ms,
+pam minyak,fuel,category,ms,
+isi minyak,fuel,category,ms,
+petrol,fuel,category,en,
+petrol station,fuel,category,en,
+gas station,fuel,category,en,
+fuel,fuel,category,en,
+surau,surau|mosque,category,ms,
+masjid,mosque|surau,category,ms,
+mosque,mosque|surau,category,en,
+tempat solat,surau|mosque,category,ms,
+tandas,toilets,category,ms,
+tandas awam,toilets,category,ms,
+bilik air,toilets,category,ms,
+toilet,toilets,category,en,
+toilets,toilets,category,en,
+wc,toilets,category,en,
+atm,atm,category,en,
+mesin atm,atm,category,ms,
+parkir,parking,category,ms,
+parking,parking,category,en,
+tempat letak kereta,parking,category,ms,
+letak kereta,parking,category,ms,
+klinik,clinic,category,ms,
+clinic,clinic,category,en,
+farmasi,pharmacy,category,ms,
+pharmacy,pharmacy,category,en,
+kedai ubat,pharmacy,category,ms,
+kedai runcit,convenience,category,ms,
+runcit,convenience,category,ms,
+convenience store,convenience,category,en,
+hospital,hospital,category,en,
+bank,bank,category,en,
+restoran,restaurant|fast_food|cafe,category,ms,
+kedai makan,restaurant|fast_food|cafe,category,ms,
+makan,restaurant|fast_food|cafe,category,ms,
+restaurant,restaurant|fast_food|cafe,category,en,
+mamak,restaurant,category,ms,
+kopitiam,cafe,category,ms,
+kedai kopi,cafe,category,ms,
+cafe,cafe,category,en,
+pasar raya,supermarket,category,ms,
+supermarket,supermarket,category,en,
+balai polis,police,category,ms,
+police,police,category,en,
+hentian rehat,rest_area,category,ms,
+r dan r,rest_area,category,ms,R&R (normalised)
+rnr,rest_area,category,ms,
+plaza tol,toll_booth,category,ms,
+tol,toll_booth,category,ms,
+cas ev,ev_charging,category,ms,
+ev charger,ev_charging,category,en,
+bengkel,car_repair,category,ms,
+cuci kereta,car_wash,category,ms,
+car wash,car_wash,category,en,
+hotel,hotel,category,en,

@@ -187,6 +187,8 @@ public sealed class InboxItem
     public InboxKind Kind { get; set; }
     public required string Title { get; set; }
     public string Body { get; set; } = "";
+    /// <summary>The place name / status the text is about, so Title/Body can be re-rendered in the reader's language.</summary>
+    public string? Subject { get; set; }
     public string? RefType { get; set; }
     public string? RefId { get; set; }
     /// <summary>Daily aggregation key, e.g. "report_thanked:2026-10-23" ("24 drivers thanked you").</summary>
@@ -206,4 +208,31 @@ public sealed class Announcement
     public string? Url { get; set; }
     public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;
     public DateTimeOffset? ExpiresAt { get; set; }
+}
+
+/// <summary>An OSM house address (addr:housenumber + addr:street) for street-level search and reverse geocoding. Public map data.</summary>
+public sealed class StreetAddress
+{
+    /// <summary>OSM id with type prefix ("n123", "w456").</summary>
+    public required string Id { get; set; }
+    public required string HouseNumber { get; set; }
+    public required string Street { get; set; }
+    public string? Postcode { get; set; }
+    public string? City { get; set; }
+    public string Country { get; set; } = "MY";
+    public required Point Location { get; set; }
+}
+
+/// <summary>
+/// Anonymous zero-result search counts (docs/api.md "Search misses"): scrubbed query text, ~11 km cell, ISO week, count.
+/// No user, token, IP or exact location. Rows with count &lt; 5 are dropped after their week.
+/// </summary>
+public sealed class SearchMiss
+{
+    public required string Query { get; set; }
+    /// <summary>"3.1,101.6" (lat/lng floored to 0.1°) or "" when the search had no location.</summary>
+    public required string Cell { get; set; }
+    /// <summary>ISO week, "2026-W43".</summary>
+    public required string Week { get; set; }
+    public int Count { get; set; }
 }

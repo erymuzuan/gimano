@@ -36,6 +36,8 @@ public sealed class GimanoDbContext(DbContextOptions<GimanoDbContext> options) :
     public DbSet<CrashGroup> CrashGroups => Set<CrashGroup>();
     public DbSet<CrashReport> CrashReports => Set<CrashReport>();
     public DbSet<Announcement> Announcements => Set<Announcement>();
+    public DbSet<StreetAddress> StreetAddresses => Set<StreetAddress>();
+    public DbSet<SearchMiss> SearchMisses => Set<SearchMiss>();
 
     protected override void OnModelCreating(ModelBuilder b)
     {
@@ -294,6 +296,7 @@ public sealed class GimanoDbContext(DbContextOptions<GimanoDbContext> options) :
             e.Property(x => x.Kind).HasConversion<string>().HasMaxLength(20);
             e.Property(x => x.Title).HasMaxLength(200);
             e.Property(x => x.Body).HasMaxLength(1000);
+            e.Property(x => x.Subject).HasMaxLength(200);
             e.Property(x => x.RefType).HasMaxLength(20);
             e.Property(x => x.RefId).HasMaxLength(64);
             e.Property(x => x.AggregateKey).HasMaxLength(80);
@@ -311,6 +314,28 @@ public sealed class GimanoDbContext(DbContextOptions<GimanoDbContext> options) :
             e.Property(x => x.BodyMs).HasMaxLength(2000);
             e.Property(x => x.Url).HasMaxLength(300);
             e.HasIndex(x => x.CreatedAt);
+        });
+
+        b.Entity<StreetAddress>(e =>
+        {
+            e.ToTable("street_addresses");
+            e.Property(x => x.Id).HasMaxLength(24);
+            e.Property(x => x.HouseNumber).HasMaxLength(40);
+            e.Property(x => x.Street).HasMaxLength(200);
+            e.Property(x => x.Postcode).HasMaxLength(12);
+            e.Property(x => x.City).HasMaxLength(100);
+            e.Property(x => x.Country).HasMaxLength(2);
+            e.Property(x => x.Location).HasColumnType("geography (point, 4326)");
+            e.HasIndex(x => x.Location).HasMethod("gist");
+        });
+
+        b.Entity<SearchMiss>(e =>
+        {
+            e.ToTable("search_misses");
+            e.HasKey(x => new { x.Week, x.Cell, x.Query });
+            e.Property(x => x.Query).HasMaxLength(100);
+            e.Property(x => x.Cell).HasMaxLength(16);
+            e.Property(x => x.Week).HasMaxLength(8);
         });
 
         b.Entity<WaterArea>(e =>

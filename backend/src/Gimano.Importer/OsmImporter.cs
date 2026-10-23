@@ -53,6 +53,7 @@ public sealed class OsmImporter(GimanoDbContext db, NpgsqlDataSource dataSource,
             var poiWays = new List<PoiWay>();
             var waterWays = new List<(long Id, long[] Nodes)>();
             var adminAreas = new List<(long Id, long LabelNode, Dictionary<string, string> Tags)>();
+            var addrWays = new List<(long Id, long[] Nodes, Dictionary<string, string> Tags)>();
             var needed = new List<long>();
             await using (var fs = File.OpenRead(o.PbfPath))
             {
@@ -88,6 +89,11 @@ public sealed class OsmImporter(GimanoDbContext db, NpgsqlDataSource dataSource,
                         poiWays.Add(new PoiWay(w.Id!.Value, w.Nodes, cat, tags));
                         needed.AddRange(w.Nodes);
                     }
+                    if (o.Places && IsAddress(tags))
+                    {
+                        addrWays.Add((w.Id!.Value, w.Nodes, tags));
+                        needed.AddRange(w.Nodes);
+                    }
                     if (o.Places && w.Nodes.Length >= 4 && w.Nodes[0] == w.Nodes[^1] && IsWaterArea(tags))
                     {
                         waterWays.Add((w.Id!.Value, w.Nodes));
@@ -104,6 +110,7 @@ public sealed class OsmImporter(GimanoDbContext db, NpgsqlDataSource dataSource,
             var lat = new double[neededIds.Length];
             var lng = new double[neededIds.Length];
             var places = new List<Place>();
+            var addresses = new List<AddressPoint>();
             await using (var fs = File.OpenRead(o.PbfPath))
             {
                 foreach (var g in new PBFOsmStreamSource(fs))
@@ -119,6 +126,7 @@ public sealed class OsmImporter(GimanoDbContext db, NpgsqlDataSource dataSource,
                         var tags = ToDict(n.Tags);
                         if (OsmCategoryMapper.Map(tags) is { } cat && OsmCategoryMapper.ShouldImport(cat, tags))
                             places.Add(ToPlace("n", n.Id.Value, cat, tags, la, lo));
+                        if (IsAddress(tags)) addresses.Add(ToAddress("n" + n.Id.Value, tags, la, lo));
                     }
                 }
             }
@@ -139,6 +147,15 @@ public sealed class OsmImporter(GimanoDbContext db, NpgsqlDataSource dataSource,
                 if (pts.Count > 1 && pts[0] == pts[^1]) pts.RemoveAt(pts.Count - 1);
                 places.Add(ToPlace("w", w.Id, w.Category, w.Tags, pts.Average(p => p.Lat), pts.Average(p => p.Lng)));
             }
+
+            foreach (var w in addrWays)
+            {
+                var pts = w.Nodes.Select(id => TryCoord(id, out var p) ? p : (GeoPoint?)null).OfType<GeoPoint>().ToList();
+                if (pts.Count == 0) continue;
+                if (pts.Count > 1 && pts[0] == pts[^1]) pts.RemoveAt(pts.Count - 1);
+                addresses.Add(ToAddress("w" + w.Id, w.Tags, pts.Average(p => p.Lat), pts.Average(p => p.Lng)));
+            }
+            logger.LogInformation("Addresses: {Count} OSM house addresses", addresses.Count);
 
             var areaNodes = places.Where(p => p.Category == PlaceCategory.Area).ToList();
             foreach (var a in adminAreas)
@@ -173,6 +190,7 @@ public sealed class OsmImporter(GimanoDbContext db, NpgsqlDataSource dataSource,
             if (o.Places) await WriteWaterAsync(waterWays, TryCoord, ct);
             if (o.Roads) await WriteRoadsAsync(roads, TryCoord, ct);
             if (o.Places) await UpsertPlacesAsync(places, ct);
+            if (o.Places) await WriteAddressesAsync(addresses, ct);
             if (o.Places && o.Roads) await EnrichAddressesAsync(ct);
         }
 
@@ -288,6 +306,39 @@ public sealed class OsmImporter(GimanoDbContext db, NpgsqlDataSource dataSource,
             await writer.CompleteAsync(ct);
         }
         logger.LogInformation("Wrote {Count} inland water areas", count);
+    }
+
+    internal static bool IsAddress(IReadOnlyDictionary<string, string> tags) =>
+        tags.TryGetValue("addr:housenumber", out var hn) && hn.Length is > 0 and <= 40
+        && tags.TryGetValue("addr:street", out var st) && st.Length is > 0 and <= 200;
+
+    internal static AddressPoint ToAddress(string id, IReadOnlyDictionary<string, string> tags, double lat, double lng) => new(
+        id, tags["addr:housenumber"].Trim(), tags["addr:street"].Trim(),
+        tags.GetValueOrDefault("addr:postcode") is { Length: > 0 and <= 12 } pc ? pc.Trim() : null,
+        tags.GetValueOrDefault("addr:city") is { Length: > 0 and <= 100 } city ? city.Trim() : null,
+        lat, lng, CountryResolver.Resolve(lat, lng, tags.GetValueOrDefault("addr:country")));
+
+    private async Task WriteAddressesAsync(List<AddressPoint> addresses, CancellationToken ct)
+    {
+        await using var conn = await dataSource.OpenConnectionAsync(ct);
+        await using (var trunc = new NpgsqlCommand("TRUNCATE street_addresses;", conn)) await trunc.ExecuteNonQueryAsync(ct);
+        await using (var writer = await conn.BeginBinaryImportAsync(
+            "COPY street_addresses (id, house_number, street, postcode, city, country, location) FROM STDIN (FORMAT BINARY)", ct))
+        {
+            foreach (var a in addresses.DistinctBy(a => a.Id))
+            {
+                await writer.StartRowAsync(ct);
+                await writer.WriteAsync(a.Id, NpgsqlDbType.Text, ct);
+                await writer.WriteAsync(a.HouseNumber, NpgsqlDbType.Text, ct);
+                await writer.WriteAsync(a.Street, NpgsqlDbType.Text, ct);
+                await WriteNullableAsync(writer, a.Postcode, ct);
+                await WriteNullableAsync(writer, a.City, ct);
+                await writer.WriteAsync(a.Country, NpgsqlDbType.Text, ct);
+                await writer.WriteAsync(new GeoPoint(a.Lat, a.Lng).ToPoint(), NpgsqlDbType.Geography, ct);
+            }
+            await writer.CompleteAsync(ct);
+        }
+        logger.LogInformation("Wrote {Count} street addresses", addresses.Count);
     }
 
     private static async Task WriteNullableAsync(NpgsqlBinaryImporter w, string? s, CancellationToken ct)
@@ -463,6 +514,82 @@ public sealed class OsmImporter(GimanoDbContext db, NpgsqlDataSource dataSource,
         return sb.ToString();
     }
 
+    /// <summary>Area refs for labels ("SS2, Petaling Jaya") from the imported areas.</summary>
+    private async Task<AreaLocator> LoadAreasAsync(CancellationToken ct)
+    {
+        var rows = await db.Places.AsNoTracking().Where(p => p.Category == PlaceCategory.Area)
+            .Select(p => new { p.Id, p.Name, p.Tags, p.Location, p.Popularity }).ToListAsync(ct);
+        return new AreaLocator(rows.Select(r => new AreaRef(r.Id, r.Name, r.Tags.GetValueOrDefault("place") ?? "admin", r.Location.Y, r.Location.X, r.Popularity)));
+    }
+
+    /// <summary>Streets (from road segments), house addresses and postcode centroids as search documents.</summary>
+    private async Task<int> IndexStreetsAndAddressesAsync(string? target, CancellationToken ct)
+    {
+        var areas = await LoadAreasAsync(ct);
+        var total = 0;
+        await using var conn = await dataSource.OpenConnectionAsync(ct);
+
+        // One document per street name per geohash-4 cell (~20-40 km), snapped onto the road.
+        var streets = 0;
+        var buffer = new List<System.Text.Json.Nodes.JsonObject>(2000);
+        await using (var cmd = new NpgsqlCommand("""
+            SELECT 'st-' || gh || '-' || left(md5(name), 10), name, ST_Y(pt), ST_X(pt) FROM (
+              SELECT name, gh, ST_ClosestPoint(ST_Collect(g), ST_Centroid(ST_Collect(g))) AS pt FROM (
+                SELECT name, geom::geometry AS g, ST_GeoHash(ST_StartPoint(geom::geometry), 4) AS gh
+                FROM road_segments WHERE name IS NOT NULL AND name <> '') s
+              GROUP BY name, gh) t
+            """, conn) { CommandTimeout = 1800 })
+        await using (var r = await cmd.ExecuteReaderAsync(ct))
+        {
+            while (await r.ReadAsync(ct))
+            {
+                double lat = r.GetDouble(2), lng = r.GetDouble(3);
+                buffer.Add(SearchQueryBuilder.StreetDocument(r.GetString(0), r.GetString(1), lat, lng, areas.Label(lat, lng), CountryResolver.Resolve(lat, lng, null)));
+                if (buffer.Count == 2000) { streets += await index.BulkIndexAsync(buffer, target, ct); buffer.Clear(); }
+            }
+        }
+        streets += await index.BulkIndexAsync(buffer, target, ct); buffer.Clear();
+        total += streets;
+
+        // House addresses, and postcode centroids from addresses + places that carry addr:postcode.
+        var postcodes = new Dictionary<string, (double Lat, double Lng, int N, Dictionary<string, int> Cities, string Country)>();
+        void AddPostcode(string? pc, double lat, double lng, string? city, string country)
+        {
+            if (pc is null || !System.Text.RegularExpressions.Regex.IsMatch(pc, @"^\d{5,6}$")) return;
+            var e = postcodes.GetValueOrDefault(pc, (0, 0, 0, new Dictionary<string, int>(), country));
+            if (!string.IsNullOrWhiteSpace(city)) e.Cities[city] = e.Cities.GetValueOrDefault(city) + 1;
+            postcodes[pc] = (e.Lat + lat, e.Lng + lng, e.N + 1, e.Cities, e.Country);
+        }
+        var addresses = 0;
+        await foreach (var a in db.StreetAddresses.AsNoTracking().AsAsyncEnumerable().WithCancellation(ct))
+        {
+            var at = new AddressPoint(a.Id, a.HouseNumber, a.Street, a.Postcode, a.City, a.Location.Y, a.Location.X, a.Country);
+            AddPostcode(a.Postcode, at.Lat, at.Lng, a.City, a.Country);
+            buffer.Add(SearchQueryBuilder.AddressDocument(at, areas.Label(at.Lat, at.Lng)));
+            if (buffer.Count == 2000) { addresses += await index.BulkIndexAsync(buffer, target, ct); buffer.Clear(); }
+        }
+        addresses += await index.BulkIndexAsync(buffer, target, ct); buffer.Clear();
+        total += addresses;
+
+        await using (var cmd = new NpgsqlCommand("""
+            SELECT tags->>'addr:postcode', ST_Y(location::geometry), ST_X(location::geometry), tags->>'addr:city', country
+            FROM places WHERE tags ? 'addr:postcode'
+            """, conn) { CommandTimeout = 600 })
+        await using (var r = await cmd.ExecuteReaderAsync(ct))
+            while (await r.ReadAsync(ct))
+                AddPostcode(r.IsDBNull(0) ? null : r.GetString(0).Trim(), r.GetDouble(1), r.GetDouble(2), r.IsDBNull(3) ? null : r.GetString(3), r.GetString(4));
+
+        var pcs = postcodes.Where(kv => kv.Value.N >= 2).Select(kv =>
+        {
+            var (lat, lng) = (kv.Value.Lat / kv.Value.N, kv.Value.Lng / kv.Value.N);
+            var city = kv.Value.Cities.OrderByDescending(c => c.Value).Select(c => c.Key).FirstOrDefault();
+            return SearchQueryBuilder.PostcodeDocument(kv.Key, lat, lng, city ?? areas.Label(lat, lng), kv.Value.Country);
+        }).ToList();
+        total += await index.BulkIndexAsync(pcs, target, ct);
+        logger.LogInformation("Indexed {Streets} streets, {Addresses} addresses, {Postcodes} postcodes", streets, addresses, pcs.Count);
+        return total;
+    }
+
     private async Task IndexSearchAsync(bool recreate, CancellationToken ct)
     {
         // A rebuild fills a new physical index and swaps the alias at the end, so search keeps working meanwhile.
@@ -486,6 +613,7 @@ public sealed class OsmImporter(GimanoDbContext db, NpgsqlDataSource dataSource,
         }
         var community = await db.CommunityPlaces.AsNoTracking().ToListAsync(ct);
         total += await index.BulkIndexAsync(community.Select(p => SearchQueryBuilder.ToDocument(p, aggregates.GetValueOrDefault(p.Id))), target, ct);
+        total += await IndexStreetsAndAddressesAsync(target, ct);
         if (target is not null) await index.CompleteRebuildAsync(target, ct);
         else await index.RefreshAsync(ct);
         logger.LogInformation("OpenSearch '{Index}' now has {Total} documents ({Community} community)", index.Index, total, community.Count);

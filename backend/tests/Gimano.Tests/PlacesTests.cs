@@ -70,10 +70,14 @@ public class OsmCategoryMapperTests
     }
 
     [Fact]
-    public void Unnamed_features_import_only_for_driving_categories()
+    public void Unnamed_features_import_only_for_driving_and_need_categories()
     {
         Assert.True(OsmCategoryMapper.ShouldImport(PlaceCategory.Fuel, T("amenity", "fuel")));
-        Assert.False(OsmCategoryMapper.ShouldImport(PlaceCategory.Parking, T("amenity", "parking")));
+        // "tandas", "atm", "parkir" search the nearest one, named or not
+        Assert.True(OsmCategoryMapper.ShouldImport(PlaceCategory.Parking, T("amenity", "parking")));
+        Assert.True(OsmCategoryMapper.ShouldImport(PlaceCategory.Toilets, T("amenity", "toilets")));
+        Assert.Equal(PlaceCategory.Toilets, OsmCategoryMapper.Map(T("amenity", "toilets")));
+        Assert.False(OsmCategoryMapper.ShouldImport(PlaceCategory.Restaurant, T("amenity", "restaurant")));
         Assert.True(OsmCategoryMapper.ShouldImport(PlaceCategory.Cafe, T("amenity", "cafe", "brand", "ZUS Coffee")));
     }
 

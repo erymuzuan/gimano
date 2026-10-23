@@ -23,7 +23,11 @@ var config = builder.Configuration;
 builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.ConfigureHttpJsonOptions(o => GimanoJson.Configure(o.SerializerOptions));
 builder.Services.AddProblemDetails(o => o.CustomizeProblemDetails = c =>
-    c.ProblemDetails.Extensions["traceId"] = c.HttpContext.TraceIdentifier);
+{
+    c.ProblemDetails.Extensions["traceId"] = c.HttpContext.TraceIdentifier;
+    // problem+json titles follow Accept-Language (en default, ms when preferred).
+    c.ProblemDetails.Title = Gimano.Core.Community.L10n.ProblemTitle(c.ProblemDetails.Title, c.HttpContext.Lang());
+});
 builder.Services.AddExceptionHandler<ApiExceptionHandler>();
 builder.Services.AddOpenApi();
 builder.Services.AddMemoryCache();
@@ -39,7 +43,10 @@ builder.Services.AddHttpClient<ValhallaClient>(c =>
     c.Timeout = TimeSpan.FromSeconds(20);
 });
 builder.Services.AddScoped<GeoLookup>().AddScoped<ReportService>().AddScoped<RouteService>().AddScoped<PlaceService>()
-    .AddScoped<CommunityService>().AddScoped<ReviewService>().AddScoped<PhotoService>();
+    .AddScoped<CommunityService>().AddScoped<ReviewService>().AddScoped<PhotoService>()
+    .AddScoped<SearchService>().AddScoped<SearchMissRecorder>();
+builder.Services.AddSingleton<AliasStore>().AddHostedService(sp => sp.GetRequiredService<AliasStore>());
+builder.Services.AddSingleton<AreaDirectory>();
 builder.Services.AddGimanoMedia(config);
 
 // Auth: anonymous device JWTs (HS256)

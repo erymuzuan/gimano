@@ -19,6 +19,8 @@
   <ItemGroup>
     <!-- EN + MS moderation word lists (data/moderation/README.md). -->
     <EmbeddedResource Include="..\..\..\data\moderation\*.txt" LogicalName="moderation.%(Filename).txt" />
+    <!-- Search aliases (data/search/README.md); a file at Search:AliasesPath overrides this copy at runtime. -->
+    <EmbeddedResource Include="..\..\..\data\search\aliases.csv" LogicalName="search.aliases.csv" />
   </ItemGroup>
   <ItemGroup>
     <InternalsVisibleTo Include="Gimano.Tests" />

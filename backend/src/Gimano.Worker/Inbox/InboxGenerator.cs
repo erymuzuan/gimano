@@ -84,13 +84,14 @@ public sealed class InboxGenerator(RabbitMqConnection connection, IServiceScopeF
             var (title, body) = InboxRules.Text(kind, 1, user.Locale, subject);
             db.InboxItems.Add(new InboxItem
             {
-                UserId = userId, Kind = kind, Title = title, Body = body, RefType = key is null ? refType : null, RefId = key is null ? refId : null,
+                UserId = userId, Kind = kind, Title = title, Body = body, Subject = subject, RefType = key is null ? refType : null, RefId = key is null ? refId : null,
                 AggregateKey = key, CreatedAt = now,
             });
         }
         else
         {
             item.Count++;
+            item.Subject = subject;
             (item.Title, item.Body) = InboxRules.Text(kind, item.Count, user.Locale, subject);
             item.CreatedAt = now;
         }

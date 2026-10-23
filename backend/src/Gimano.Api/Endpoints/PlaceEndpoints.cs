@@ -12,16 +12,18 @@ public static class PlaceEndpoints
     public static RouteGroupBuilder MapPlaces(this RouteGroupBuilder api)
     {
         var search = api.MapGroup("/search").WithTags("Search").AllowAnonymous();
-        search.MapGet("", Search).WithSummary("Autocomplete search (OpenSearch, proximity-biased).");
+        search.MapGet("", Search).WithSummary("Finding places: text, brand+area, category words, streets/addresses, postcodes, coordinates, Plus Codes.");
         search.MapGet("/nearby", Nearby).WithSummary("Places of a category around a point (PostGIS).");
 
         api.MapGet("/places/{id}", GetPlace).WithTags("Search").AllowAnonymous();
         api.MapGet("/geocode/reverse", Reverse).WithTags("Search").AllowAnonymous();
+
         return api;
     }
 
     private static async Task<Results<Ok<SearchResponse>, ValidationProblem>> Search(
-        string? q, double? lat, double? lng, int? limit, string? category, string? country, HttpContext http, PlaceService places, CancellationToken ct)
+        string? q, double? lat, double? lng, int? limit, string? category, string? country, string? near, string? sort, bool? exact,
+        HttpContext http, SearchService search, CancellationToken ct)
     {
         if (string.IsNullOrWhiteSpace(q)) return Validation.Problem("q", "q is required.");
         if (q.Length > 100) return Validation.Problem("q", "q is too long (max 100).");
@@ -36,8 +38,21 @@ public static class PlaceEndpoints
         if (country is not null && country.ToUpperInvariant() is not ("MY" or "SG" or "BN"))
             return Validation.Problem("country", "country must be MY, SG or BN.");
 
-        var results = await places.SearchAsync(new SearchQuery(q, lat, lng, limit ?? 10, cat, country?.ToUpperInvariant(), http.User.UserId()), ct);
-        return TypedResults.Ok(new SearchResponse(results));
+        double? nearLat = null, nearLng = null;
+        if (!string.IsNullOrEmpty(near))
+        {
+            var parts = near.Split(',', StringSplitOptions.TrimEntries);
+            if (parts.Length != 2 || !double.TryParse(parts[0], System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var nl)
+                || !double.TryParse(parts[1], System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var ng)
+                || !Validation.ValidLatLng(nl, ng))
+                return Validation.Problem("near", "near must be \"lat,lng\".");
+            (nearLat, nearLng) = (nl, ng);
+        }
+        if (sort is not (null or "" or "relevance" or "nearest")) return Validation.Problem("sort", "sort must be relevance or nearest.");
+
+        var response = await search.SearchAsync(new SearchRequest(q, lat, lng, nearLat, nearLng, limit ?? 10, cat, country?.ToUpperInvariant(),
+            http.User.UserId(), sort == "nearest", http.Lang(), exact ?? false), ct);
+        return TypedResults.Ok(response);
     }
 
     private static async Task<Results<Ok<SearchResponse>, ValidationProblem>> Nearby(
@@ -61,9 +76,11 @@ public static class PlaceEndpoints
         return p is null ? TypedResults.NotFound() : TypedResults.Ok(p);
     }
 
-    private static async Task<Results<Ok<ReverseGeocodeResponse>, ValidationProblem>> Reverse(double lat, double lng, GeoLookup geo, CancellationToken ct)
+    /// <summary>"Pilih pada peta": name/address, street-level label and places within 50 m. Anonymous, not cached; coordinates never logged.</summary>
+    private static async Task<Results<Ok<ReverseGeocodeResponse>, ValidationProblem>> Reverse(double lat, double lng, HttpContext http, SearchService search, CancellationToken ct)
     {
         if (Validation.LatLng(lat, lng) is { } p) return p;
-        return TypedResults.Ok(await geo.ReverseAsync(new GeoPoint(lat, lng), ct));
+        http.Response.Headers.CacheControl = "no-store";
+        return TypedResults.Ok(await search.ReverseAsync(new GeoPoint(lat, lng), http.Lang(), http.User.UserId(), ct));
     }
 }
