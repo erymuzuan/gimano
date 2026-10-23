@@ -4,7 +4,11 @@ using Gimano.Core.Domain;
 
 namespace Gimano.Core.Search;
 
-public sealed record SearchQuery(string Q, double? Lat, double? Lng, int Limit = 10, PlaceCategory? Category = null, string? Country = null);
+/// <param name="Viewer">The caller (if signed in): their own pending community places are included.</param>
+public sealed record SearchQuery(string Q, double? Lat, double? Lng, int Limit = 10, PlaceCategory? Category = null, string? Country = null, Guid? Viewer = null);
+
+/// <summary>Per-place review/photo aggregates carried on search documents.</summary>
+public sealed record PlaceAggregates(double? Rating, int ReviewCount, string? ThumbKey);
 
 /// <summary>Builds OpenSearch request bodies for the <c>places</c> index.</summary>
 public static class SearchQueryBuilder
@@ -45,7 +49,7 @@ public static class SearchQueryBuilder
         if (q.Country is null)
             should.Add(new JsonObject { ["term"] = new JsonObject { ["country"] = new JsonObject { ["value"] = "MY", ["boost"] = 0.5 } } });
 
-        var filter = new JsonArray();
+        var filter = new JsonArray { Visibility(q.Viewer) };
         if (q.Category is { } cat)
             filter.Add(new JsonObject { ["term"] = new JsonObject { ["category"] = GimanoJson.ToWire(cat) } });
         if (q.Country is { } country)
@@ -82,7 +86,7 @@ public static class SearchQueryBuilder
         var body = new JsonObject
         {
             ["size"] = limit,
-            ["_source"] = new JsonArray("id", "name", "category", "address", "location", "brand", "country"),
+            ["_source"] = new JsonArray("id", "name", "category", "address", "location", "brand", "country", "source", "status", "rating", "reviewCount", "thumbKey"),
             ["query"] = new JsonObject
             {
                 ["function_score"] = new JsonObject
@@ -98,6 +102,30 @@ public static class SearchQueryBuilder
             },
         };
         return body;
+    }
+
+    /// <summary>
+    /// Visibility (docs/api.md): OSM places, published community places, and the viewer's own pending places.
+    /// Hidden/closed community places never match.
+    /// </summary>
+    public static JsonObject Visibility(Guid? viewer)
+    {
+        var should = new JsonArray
+        {
+            new JsonObject { ["term"] = new JsonObject { ["source"] = "osm" } },
+            new JsonObject { ["term"] = new JsonObject { ["status"] = "published" } },
+        };
+        if (viewer is { } v)
+            should.Add(new JsonObject
+            {
+                ["bool"] = new JsonObject
+                {
+                    ["filter"] = new JsonArray(
+                        new JsonObject { ["term"] = new JsonObject { ["status"] = "pending" } },
+                        new JsonObject { ["term"] = new JsonObject { ["ownerId"] = v.ToString("D") } }),
+                }
+            });
+        return new JsonObject { ["bool"] = new JsonObject { ["should"] = should, ["minimum_should_match"] = 1 } };
     }
 
     /// <summary>Index definition: search_as_you_type on name, geo_point location.</summary>
@@ -148,11 +176,17 @@ public static class SearchQueryBuilder
                 ["country"] = new JsonObject { ["type"] = "keyword" },
                 ["location"] = new JsonObject { ["type"] = "geo_point" },
                 ["popularity"] = new JsonObject { ["type"] = "float" },
+                ["source"] = new JsonObject { ["type"] = "keyword" },
+                ["status"] = new JsonObject { ["type"] = "keyword" },
+                ["ownerId"] = new JsonObject { ["type"] = "keyword" },
+                ["rating"] = new JsonObject { ["type"] = "float" },
+                ["reviewCount"] = new JsonObject { ["type"] = "integer" },
+                ["thumbKey"] = new JsonObject { ["type"] = "keyword", ["index"] = false },
             }
         }
     };
 
-    public static JsonObject ToDocument(Place p) => new()
+    public static JsonObject ToDocument(Place p, PlaceAggregates? agg = null) => new()
     {
         ["id"] = p.Id,
         ["name"] = p.Name,
@@ -161,6 +195,31 @@ public static class SearchQueryBuilder
         ["category"] = GimanoJson.ToWire(p.Category),
         ["country"] = p.Country,
         ["location"] = new JsonObject { ["lat"] = p.Location.Y, ["lon"] = p.Location.X },
-        ["popularity"] = p.Popularity,
+        ["popularity"] = p.Popularity + Boost(agg),
+        ["source"] = "osm",
+        ["rating"] = agg?.Rating,
+        ["reviewCount"] = agg?.ReviewCount ?? 0,
+        ["thumbKey"] = agg?.ThumbKey,
     };
+
+    public static JsonObject ToDocument(CommunityPlace p, PlaceAggregates? agg = null) => new()
+    {
+        ["id"] = p.Id,
+        ["name"] = p.Name,
+        ["brand"] = null,
+        ["address"] = p.Address,
+        ["category"] = GimanoJson.ToWire(p.Category),
+        ["country"] = p.Country,
+        ["location"] = new JsonObject { ["lat"] = p.Location.Y, ["lon"] = p.Location.X },
+        ["popularity"] = 1 + Boost(agg),
+        ["source"] = "community",
+        ["status"] = GimanoJson.ToWire(p.Status),
+        ["ownerId"] = p.OwnerId?.ToString("D"),
+        ["rating"] = agg?.Rating,
+        ["reviewCount"] = agg?.ReviewCount ?? 0,
+        ["thumbKey"] = agg?.ThumbKey,
+    };
+
+    /// <summary>Well-reviewed places rank a little higher.</summary>
+    private static double Boost(PlaceAggregates? a) => a is { ReviewCount: >= 3, Rating: { } r } ? Math.Round((r - 3) * 0.5 + Math.Log10(a.ReviewCount), 2) : 0;
 }

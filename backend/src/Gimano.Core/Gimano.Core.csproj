@@ -8,8 +8,15 @@
     <PackageReference Include="NetTopologySuite" />
     <PackageReference Include="OpenSearch.Net" />
     <PackageReference Include="RabbitMQ.Client" />
+    <PackageReference Include="SkiaSharp" />
+    <PackageReference Include="Microsoft.Extensions.Http" />
+    <PackageReference Include="SkiaSharp.NativeAssets.Linux.NoDependencies" />
     <PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" />
     <PackageReference Include="Microsoft.Extensions.Options.ConfigurationExtensions" />
+  </ItemGroup>
+  <ItemGroup>
+    <!-- EN + MS moderation word lists (data/moderation/README.md). -->
+    <EmbeddedResource Include="..\..\..\data\moderation\*.txt" LogicalName="moderation.%(Filename).txt" />
   </ItemGroup>
   <ItemGroup>
     <InternalsVisibleTo Include="Gimano.Tests" />

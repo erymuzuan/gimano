@@ -5,6 +5,7 @@ COPY backend/global.json backend/Directory.Build.props backend/Directory.Package
 COPY backend/src/Gimano.Core/Gimano.Core.csproj src/Gimano.Core/
 COPY backend/src/Gimano.Importer/Gimano.Importer.csproj src/Gimano.Importer/
 RUN dotnet restore src/Gimano.Importer/Gimano.Importer.csproj
+COPY data/moderation/ /data/moderation/
 COPY backend/src/Gimano.Core/ src/Gimano.Core/
 COPY backend/src/Gimano.Importer/ src/Gimano.Importer/
 RUN dotnet publish src/Gimano.Importer/Gimano.Importer.csproj -c Release -o /app --no-restore /p:UseAppHost=false

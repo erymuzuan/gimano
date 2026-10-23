@@ -5,6 +5,7 @@ using Gimano.Api.Endpoints;
 using Gimano.Api.Health;
 using Gimano.Api.Live;
 using Gimano.Api.Services;
+using Gimano.Core.Community;
 using Gimano.Core.Contracts;
 using Gimano.Core.Data;
 using Gimano.Core.Infrastructure;
@@ -35,7 +36,9 @@ builder.Services.AddHttpClient<ValhallaClient>(c =>
     c.BaseAddress = new Uri((config["Valhalla:Url"] ?? "http://localhost:8002").TrimEnd('/') + "/");
     c.Timeout = TimeSpan.FromSeconds(20);
 });
-builder.Services.AddScoped<GeoLookup>().AddScoped<ReportService>().AddScoped<RouteService>().AddScoped<PlaceService>();
+builder.Services.AddScoped<GeoLookup>().AddScoped<ReportService>().AddScoped<RouteService>().AddScoped<PlaceService>()
+    .AddScoped<CommunityService>().AddScoped<ReviewService>().AddScoped<PhotoService>();
+builder.Services.AddGimanoMedia(config);
 
 // Auth: anonymous device JWTs (HS256)
 builder.Services.Configure<JwtOptions>(config.GetSection(JwtOptions.Section));
@@ -118,7 +121,8 @@ app.MapHealthChecks("/healthz", new HealthCheckOptions { Predicate = _ => false,
 app.MapHealthChecks("/readyz", new HealthCheckOptions { Predicate = c => c.Tags.Contains("ready"), ResponseWriter = HealthWriter.WriteAsync });
 
 var api = app.MapGroup("/api/v1");
-api.MapAuthAndMe().MapPlaces().MapRoutes().MapLive().MapFeedback().MapPrivacy();
+api.MapAuthAndMe().MapPlaces().MapRoutes().MapLive().MapFeedback().MapPrivacy().MapCommunity();
+app.MapMedia();
 
 app.MapHub<LiveHub>("/hubs/live");
 app.MapGet("/", () => Results.Redirect("/scalar/v1")).ExcludeFromDescription();

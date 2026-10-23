@@ -139,7 +139,7 @@ public static partial class TollCalculator
         var s = name.Normalize(NormalizationForm.FormD);
         var sb = new StringBuilder(s.Length);
         foreach (var c in s)
-            if (CharUnicodeInfo.GetUnicodeCategory(c) != UnicodeCategory.NonSpacingMark) sb.Append(char.ToLowerInvariant(c));
+            if (CharUnicodeInfo.GetUnicodeCategory(c) != UnicodeCategory.NonSpacingMark) sb.Append(Community.TextFilter.FoldLatin(char.ToLowerInvariant(c)));
         s = sb.ToString();
         s = Parenthesised().Replace(s, " ");
         s = NonAlnum().Replace(s, " ");

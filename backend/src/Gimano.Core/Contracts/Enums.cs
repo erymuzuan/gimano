@@ -34,3 +34,16 @@ public enum FeedbackCategory { Bug, Idea, MapData, Route, Search, Other }
 public enum FeedbackScreen { Home, Search, Place, RoutePreview, Navigation, Report, Settings, Other }
 
 public enum FeedbackStatus { Received, Triaged, Planned, Done, WontFix }
+
+public enum PlaceSource { Osm, Community }
+
+/// <summary>Community place lifecycle. Only <c>pending</c>/<c>published</c> appear in PlaceSummary.status.</summary>
+public enum PlaceStatus { Pending, Published, Hidden, Closed }
+
+public enum ReviewStatus { Published, Hidden }
+
+public enum ReviewSort { Recent, Helpful }
+
+public enum FlagReason { Spam, Offensive, OffTopic, ConflictOfInterest, Other }
+
+public enum PhotoStatus { Processing, Published, Rejected }

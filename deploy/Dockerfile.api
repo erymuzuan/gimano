@@ -5,6 +5,7 @@ COPY backend/global.json backend/Directory.Build.props backend/Directory.Package
 COPY backend/src/Gimano.Core/Gimano.Core.csproj src/Gimano.Core/
 COPY backend/src/Gimano.Api/Gimano.Api.csproj src/Gimano.Api/
 RUN dotnet restore src/Gimano.Api/Gimano.Api.csproj
+COPY data/moderation/ /data/moderation/
 COPY backend/src/Gimano.Core/ src/Gimano.Core/
 COPY backend/src/Gimano.Api/ src/Gimano.Api/
 RUN dotnet publish src/Gimano.Api/Gimano.Api.csproj -c Release -o /app --no-restore /p:UseAppHost=false
@@ -14,5 +15,6 @@ WORKDIR /app
 COPY --from=build /app .
 ENV Urls=http://+:8080
 EXPOSE 8080
+RUN mkdir -p /data/media && chown $APP_UID /data/media
 USER $APP_UID
 ENTRYPOINT ["dotnet", "Gimano.Api.dll"]

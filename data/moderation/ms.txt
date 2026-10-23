@@ -1,0 +1,23 @@
+# Malay profanity / slurs (normalised matching, whole tokens; see README.md)
+puki
+pukimak
+kimak
+pantat
+lancau
+butoh
+konek
+jubur
+sundal
+pelacur
+celaka
+sial
+bodoh
+haram jadah
+anak haram
+keparat
+bangsat
+pundek
+cibai
+ci bai
+kepala bapak
+judi online
