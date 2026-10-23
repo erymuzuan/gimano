@@ -87,6 +87,10 @@ class NavigationController(
     private val offRoute = OffRouteDetector()
     private val deviation = my.gimano.app.core.issues.DeviationTracker()
     private var lastOnRoute: NavProgress? = null
+    /** "Jalan baharu" opt-in: the last ~1.5 km driven, in memory only (never stored, sent only if the user reports a new road). */
+    private val trace = my.gimano.app.core.issues.RecentTrace()
+
+    fun recentTrace(): List<GeoPoint> = trace.points()
     private var planner = VoicePromptPlanner()
     private val batcher = LocationBatcher()
     private val announcedAlerts = HashSet<String>()
@@ -108,7 +112,7 @@ class NavigationController(
         tracker = NavigationTracker(route)
         planner = VoicePromptPlanner(mode.wire)
         offRoute.reset(); announcedAlerts.clear(); dismissedAlerts.clear()
-        deviation.reset(); lastOnRoute = null
+        deviation.reset(); lastOnRoute = null; trace.clear()
         _state.value = NavState(active = true, route = route, destination = destination, stops = stops, simulated = simulate, startedAt = Instant.now(), mode = mode)
         gpsQuality.reset()
         val lang = langProvider()
@@ -148,7 +152,10 @@ class NavigationController(
             }
             return
         }
-        if (!fix.simulated) deviation.onFix(fix.point)?.let { d -> _state.update { it.copy(deviation = d) } }
+        if (!fix.simulated) {
+            deviation.onFix(fix.point)?.let { d -> _state.update { it.copy(deviation = d) } }
+            trace.add(fix.point)
+        }
         val p = t.update(fix.point) ?: return
         if (p.distanceFromRouteM < 20) lastOnRoute = p
         val speed = ((fix.speedMps ?: 0f) * 3.6f).toInt()
@@ -300,6 +307,7 @@ class NavigationController(
     }
 
     private fun stopInternal(flush: Boolean) {
+        trace.clear()
         job?.cancel()
         job = null
         voice.stop()

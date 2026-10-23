@@ -1,7 +1,11 @@
 package my.gimano.app.data.model
 
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonNames
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.contentOrNull
 
 /*
  * Complaints v1 (docs/complaints.md, docs/api.md "Issues"). Public contributions under the pseudonym; deviation answers
@@ -43,12 +47,12 @@ data class CreateIssueRequest(
     val heading: Double? = null,
     val placeId: String? = null,
     val vehicle: String? = null,
-    /** unknown | today | days | long_works (road_closed_temp). */
+    /** unknown | today | few_days | long_roadworks (road_closed_temp; docs/api.md). */
     val durationHint: String? = null,
     /** report | deviation | place_edit */
     val source: String,
-    /** String map, same keys as iOS: routeId, roadName, until, openingHours, navLat/navLng, comment. */
-    val payload: Map<String, String>? = null,
+    /** Per kind (docs/api.md "Issues"): until, openingHours, navLat/navLng(+kind), toLat/toLng, trace, from/to, comment… */
+    val payload: JsonObject? = null,
 )
 
 @Serializable
@@ -62,19 +66,54 @@ data class Issue(
     val heading: Double? = null,
     val placeId: String? = null,
     @JsonNames("road", "street", "segmentName") val roadName: String? = null,
+    val segment: IssueSegment? = null,
     val summary: String? = null,
     @JsonNames("confirmationsWeighted", "votes", "confirmedBy") val confirmations: Double = 0.0,
+    val required: Double? = null,
     val createdAt: String = "",
     val expiresAt: String? = null,
     val lastEvidenceAt: String? = null,
-    /** place_closed_temp: closed until (ISO date). */
+    /** place_closed_temp: closed until (ISO date); also read from payload.until. */
     val until: String? = null,
+    val payload: JsonObject? = null,
+    val mine: Boolean = false,
+    val myVote: String? = null,
+) {
+    val road: String? get() = roadName ?: segment?.name
+    val untilDate: String? get() = until ?: (payload?.get("until") as? JsonPrimitive)?.contentOrNull
+}
+
+@Serializable
+data class IssueSegment(val wayId: Long? = null, val seq: Int? = null, val name: String? = null, val highway: String? = null, val direction: String? = null)
+
+/** POST /issues/{id}/votes → the issue's tallies. */
+@Serializable
+data class IssueVoteResult(
+    val state: String = IssueState.SUSPECTED,
+    val confirmationsWeighted: Double = 0.0,
+    val refutationsWeighted: Double = 0.0,
+    val required: Double? = null,
 )
+
+/** `PlaceSummary.badge` / `Place.badge` (open place_closed_perm / place_closed_temp / place_hours_wrong). */
+@Serializable
+data class PlaceBadge(
+    val issueId: String,
+    val kind: String,
+    val state: String = IssueState.SUSPECTED,
+    /** In the request language: "Dilaporkan tutup · sahkan?", "Tutup sementara sehingga 2026-11-01", … */
+    val label: String? = null,
+    val until: String? = null,
+) {
+    fun toIssue(lat: Double, lng: Double) = Issue(issueId, kind, state = state, lat = lat, lng = lng, until = until, summary = label)
+}
 
 @Serializable
 data class IssueVoteRequest(
     /** still | cleared | unsure */
     val answer: String,
+    /** Like place vetting: geohash-6 cell + how close (≤ 1000 m). */
+    val proximity: VerifyRequest.Proximity,
 )
 
 @Serializable
@@ -92,12 +131,15 @@ data class RouteIssue(
     /** Older alias: "avoided" | "on_route". */
     @JsonNames("effect") val relation: String? = null,
     @JsonNames("road", "street", "segmentName") val roadName: String? = null,
+    val segment: IssueSegment? = null,
     val summary: String? = null,
     @JsonNames("confirmationsWeighted", "votes", "confirmedBy") val confirmations: Double = 0.0,
     val createdAt: String? = null,
     val lastEvidenceAt: String? = null,
     val lat: Double? = null,
     val lng: Double? = null,
+    val distanceAlongRouteM: Double? = null,
 ) {
     val isAvoided: Boolean get() = avoided == true || relation == "avoided"
+    val road: String? get() = roadName ?: segment?.name
 }

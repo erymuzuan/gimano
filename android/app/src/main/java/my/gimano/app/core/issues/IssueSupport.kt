@@ -25,7 +25,18 @@ object IssueSupport {
     )
 
     /** Duration chips for "Ditutup" → durationHint. */
-    val closureDurations = listOf("unknown", "today", "days", "long_works")
+    val closureDurations = listOf("unknown", "today", "few_days", "long_roadworks")
+
+    /** `withinM` for a vote (like place vetting): 100 / 300 / 1000, or null when too far to answer. */
+    fun voteWithinM(distanceM: Double): Int? = when {
+        distanceM <= 100 -> 100
+        distanceM <= 300 -> 300
+        distanceM <= 1_000 -> 1_000
+        else -> null
+    }
+
+    /** Coordinates kept coarse on the phone for odd_route ends (server stores 2 dp anyway). */
+    fun round2(v: Double) = Math.round(v * 100) / 100.0
 
     /** "Kenapa tak ikut laluan?" answer → issue kind; null = nothing is sent (jam / my own choice). */
     fun deviationKind(answer: String): String? = when (answer) {

@@ -62,9 +62,40 @@ class IssueSupportTest {
         val plain = my.gimano.app.data.model.RouteRequest(my.gimano.app.data.model.LatLngDto(3.0, 101.0), my.gimano.app.data.model.LatLngDto(3.1, 101.1))
         assertFalse(GimanoJson.encodeToString(my.gimano.app.data.model.RouteRequest.serializer(), plain).contains("ignoreIssues"))
         val issue = my.gimano.app.data.model.CreateIssueRequest("place_entrance_wrong", lat = 3.0, lng = 101.0, placeId = "p", source = "place_edit",
-            payload = mapOf("navLat" to "3.000100", "navLng" to "101.000200"))
+            payload = kotlinx.serialization.json.buildJsonObject {
+                put("navLat", kotlinx.serialization.json.JsonPrimitive("3.000100")); put("navLng", kotlinx.serialization.json.JsonPrimitive("101.000200"))
+            })
         val j = GimanoJson.encodeToString(my.gimano.app.data.model.CreateIssueRequest.serializer(), issue)
         assertTrue(j.contains("\"navLat\":\"3.000100\"")); assertTrue(j.contains("\"source\":\"place_edit\""))
+    }
+
+    @Test fun apiMdShapes() {
+        // Issue with segment + payload.until; vote result; place badge.
+        val i = GimanoJson.decodeFromString(Issue.serializer(), """{"id":"x","kind":"place_closed_temp","state":"suspected","source":"place_edit","lat":3,"lng":101,
+            "direction":"both","segment":{"wayId":1,"seq":2,"name":"Jln Ipoh"},"confirmationsWeighted":1.5,"required":2,"payload":{"until":"2026-11-01"},"mine":true}""")
+        assertEquals("Jln Ipoh", i.road); assertEquals("2026-11-01", i.untilDate); assertEquals(1.5, i.confirmations, 0.0)
+        val v = GimanoJson.decodeFromString(my.gimano.app.data.model.IssueVoteResult.serializer(), """{"state":"confirmed","confirmationsWeighted":2,"refutationsWeighted":0,"required":2}""")
+        assertEquals("confirmed", v.state)
+        val p = GimanoJson.decodeFromString(my.gimano.app.data.model.PlaceSummary.serializer(),
+            """{"id":"p","name":"Kedai","lat":3,"lng":101,"badge":{"issueId":"x","kind":"place_closed_perm","state":"suspected","label":"Dilaporkan tutup · sahkan?"}}""")
+        assertEquals("x", p.badge?.issueId); assertEquals("Dilaporkan tutup · sahkan?", p.badge?.toIssue(3.0, 101.0)?.summary)
+        val vote = my.gimano.app.data.model.IssueVoteRequest("still", my.gimano.app.data.model.VerifyRequest.Proximity("w283k2", 300))
+        assertTrue(GimanoJson.encodeToString(my.gimano.app.data.model.IssueVoteRequest.serializer(), vote).contains("\"proximity\":{\"cell\":\"w283k2\",\"withinM\":300}"))
+        assertEquals(listOf("unknown", "today", "few_days", "long_roadworks"), IssueSupport.closureDurations)
+    }
+
+    @Test fun voteWithinBuckets() {
+        assertEquals(100, IssueSupport.voteWithinM(40.0)); assertEquals(300, IssueSupport.voteWithinM(250.0))
+        assertEquals(1000, IssueSupport.voteWithinM(999.0)); assertNull(IssueSupport.voteWithinM(1200.0))
+    }
+
+    @Test fun recentTraceKeepsOnlyTheLastStretch() {
+        val t = my.gimano.app.core.issues.RecentTrace(maxM = 1_000.0, stepM = 15.0)
+        val start = GeoPoint(3.0, 101.0)
+        (0..300).forEach { t.add(my.gimano.app.core.geo.GeoMath.offset(start, 0.0, it * 10.0)) }   // 3 km north, 10 m steps
+        assertTrue(t.lengthM() in 990.0..1_040.0)
+        assertTrue(my.gimano.app.core.geo.GeoMath.distanceM(t.points().last(), my.gimano.app.core.geo.GeoMath.offset(start, 0.0, 3_000.0)) < 25)
+        t.clear(); assertTrue(t.points().isEmpty())
     }
 
     @Test fun bboxAroundPoint() {

@@ -103,7 +103,7 @@ interface GimanoApi {
     suspend fun issue(@Path("id") id: String): Issue
 
     @POST("issues/{id}/votes")
-    suspend fun voteIssue(@Path("id") id: String, @Body body: IssueVoteRequest): Issue
+    suspend fun voteIssue(@Path("id") id: String, @Body body: IssueVoteRequest): IssueVoteResult
 
     @POST("reports/{id}/votes")
     suspend fun vote(@Path("id") id: String, @Body body: VoteRequest): Report

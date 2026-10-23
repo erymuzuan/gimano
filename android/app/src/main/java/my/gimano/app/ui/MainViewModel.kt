@@ -516,13 +516,51 @@ class MainViewModel(private val c: AppContainer) : ViewModel() {
         val fix = nav.value.fix ?: _ui.value.myLocation
         val p = myFreshLocation() ?: run { _events.tryEmit(UiEvent.Toast(R.string.report_needs_location)); return }
         val heading = fix?.bearing?.toDouble() ?: nav.value.progress?.bearing
-        val payload = buildMap {
-            nav.value.route?.id?.let { put("routeId", it) }
-            nav.value.progress?.nextManeuver?.streetName?.takeIf { it.isNotBlank() }?.let { put("roadName", it) }
+        val s = nav.value
+        val route = s.route
+        val prog = s.progress
+        val K = my.gimano.app.data.model.IssueKind
+        val payload = kotlinx.serialization.json.buildJsonObject {
+            route?.id?.let { put("routeId", kotlinx.serialization.json.JsonPrimitive(it)) }
+            when (kind) {
+                K.TURN_NOT_ALLOWED -> if (route != null && prog != null && prog.distanceToNextM <= 200) {
+                    // Where the route wanted to go: just past the next turn.
+                    val g = my.gimano.app.core.nav.RouteGeometry(my.gimano.app.core.geo.Polyline.decode(route.polyline))
+                    val to = g.pointAt(prog.distanceAlongM + prog.distanceToNextM + 30).first
+                    put("toLat", kotlinx.serialization.json.JsonPrimitive(round5(to.lat))); put("toLng", kotlinx.serialization.json.JsonPrimitive(round5(to.lng)))
+                }
+                K.ODD_ROUTE -> {
+                    // Ends kept coarse (2 dp ≈ 1 km) on the phone.
+                    put("fromLat", kotlinx.serialization.json.JsonPrimitive(my.gimano.app.core.issues.IssueSupport.round2(p.lat)))
+                    put("fromLng", kotlinx.serialization.json.JsonPrimitive(my.gimano.app.core.issues.IssueSupport.round2(p.lng)))
+                    s.destination?.point?.let { d ->
+                        put("toLat", kotlinx.serialization.json.JsonPrimitive(my.gimano.app.core.issues.IssueSupport.round2(d.lat)))
+                        put("toLng", kotlinx.serialization.json.JsonPrimitive(my.gimano.app.core.issues.IssueSupport.round2(d.lng)))
+                    }
+                    route?.summary?.takeIf { it.isNotBlank() }?.let { put("chosen", kotlinx.serialization.json.JsonPrimitive(it)) }
+                }
+                K.NEW_ROAD -> {
+                    // The user chose to send the road they are on: the last ~1.5 km (server trims 200 m at each end).
+                    val t = c.navigation.recentTrace()
+                    put("trace", kotlinx.serialization.json.JsonArray(t.map { q -> kotlinx.serialization.json.JsonArray(listOf(
+                        kotlinx.serialization.json.JsonPrimitive(round5(q.lat)), kotlinx.serialization.json.JsonPrimitive(round5(q.lng)))) }))
+                }
+                else -> prog?.nextManeuver?.streetName?.takeIf { it.isNotBlank() }?.let { put("roadName", kotlinx.serialization.json.JsonPrimitive(it)) }
+            }
         }
-        sendIssue(CreateIssueRequest(kind, lat = round5(p.lat), lng = round5(p.lng), heading = heading, vehicle = nav.value.mode.wire,
-            durationHint = durationHint.takeIf { kind == my.gimano.app.data.model.IssueKind.ROAD_CLOSED_TEMP }, source = "report",
-            payload = payload.ifEmpty { null }), R.string.issue_sent)
+        sendIssue(CreateIssueRequest(kind, lat = round5(p.lat), lng = round5(p.lng), heading = heading, vehicle = s.mode.wire,
+            durationHint = durationHint.takeIf { kind == K.ROAD_CLOSED_TEMP }, source = "report",
+            payload = payload.takeIf { it.isNotEmpty() }), R.string.issue_sent)
+    }
+
+    private fun jsonOf(m: Map<String, String>?): kotlinx.serialization.json.JsonObject? =
+        m?.takeIf { it.isNotEmpty() }?.let { kotlinx.serialization.json.JsonObject(it.mapValues { (_, v) -> kotlinx.serialization.json.JsonPrimitive(v) }) }
+
+    /** Vote proximity like place vetting: my geohash-6 cell + 100/300/1000 m; null = no fix or too far. */
+    private fun voteProximity(target: GeoPoint): VerifyRequest.Proximity? {
+        val me = myFreshLocation() ?: c.lastFix ?: return null
+        val within = my.gimano.app.core.issues.IssueSupport.voteWithinM(GeoMath.distanceM(me, target)) ?: return null
+        return VerifyRequest.Proximity(my.gimano.app.core.vetting.Geohash.encode(me.lat, me.lng, 6), within)
     }
 
     private fun round5(v: Double) = my.gimano.app.core.issues.IssueSupport.round5(v)
@@ -564,7 +602,7 @@ class MainViewModel(private val c: AppContainer) : ViewModel() {
         }
         if (_ui.value.stillClosed == null) {
             val fromRoute = s.route?.issues.orEmpty().filter { it.lat != null && it.lng != null && !it.isAvoided }
-                .map { my.gimano.app.data.model.Issue(it.id, it.kind, it.subtype, it.state, it.lat!!, it.lng!!, roadName = it.roadName, confirmations = it.confirmations, createdAt = it.createdAt ?: "") }
+                .map { my.gimano.app.data.model.Issue(it.id, it.kind, it.subtype, it.state, it.lat!!, it.lng!!, roadName = it.road, confirmations = it.confirmations, createdAt = it.createdAt ?: "") }
             my.gimano.app.core.issues.IssueText.stillClosedCandidate(navIssues + fromRoute, me, answeredIssues)?.let { i ->
                 answeredIssues += i.id   // once per issue per trip
                 _ui.update { it.copy(stillClosed = i) }
@@ -590,8 +628,15 @@ class MainViewModel(private val c: AppContainer) : ViewModel() {
         val kind = answer?.let(my.gimano.app.core.issues.IssueSupport::deviationKind) ?: run {
             if (answer != null) _events.tryEmit(UiEvent.Toast(R.string.thanks_noted)); return
         }
-        sendIssue(CreateIssueRequest(kind, lat = round5(d.point.lat), lng = round5(d.point.lng), heading = d.heading, vehicle = settings.current.vehicle,
-            source = "deviation", payload = d.road?.let { mapOf("roadName" to it) }), R.string.issue_sent)
+        // A turn is reported at the junction with where the route wanted to go; the rest at the segment not taken.
+        val turn = kind == my.gimano.app.data.model.IssueKind.TURN_NOT_ALLOWED
+        val at = if (turn) d.junction else d.point
+        val payload = buildMap {
+            d.road?.let { put("roadName", it) }
+            if (turn) { put("toLat", "%.5f".format(java.util.Locale.US, d.point.lat)); put("toLng", "%.5f".format(java.util.Locale.US, d.point.lng)) }
+        }
+        sendIssue(CreateIssueRequest(kind, lat = round5(at.lat), lng = round5(at.lng), heading = d.heading, vehicle = settings.current.vehicle,
+            source = "deviation", payload = jsonOf(payload)), R.string.issue_sent)
     }
 
     /** "Masih ditutup?" answers: still | cleared | unsure. */
@@ -599,8 +644,9 @@ class MainViewModel(private val c: AppContainer) : ViewModel() {
         val i = _ui.value.stillClosed ?: return
         _ui.update { it.copy(stillClosed = null) }
         if (answer == null) return
+        val prox = voteProximity(GeoPoint(i.lat, i.lng)) ?: return
         viewModelScope.launch {
-            if (c.issues.call(collection = false) { voteIssue(i.id, answer) } != null) _events.tryEmit(UiEvent.Toast(R.string.thanks_vote))
+            if (c.issues.call(collection = false) { voteIssue(i.id, my.gimano.app.data.model.IssueVoteRequest(answer, prox)) } != null) _events.tryEmit(UiEvent.Toast(R.string.thanks_vote))
         }
     }
 
@@ -613,8 +659,11 @@ class MainViewModel(private val c: AppContainer) : ViewModel() {
 
     /** Badges for the place on the card: issues about it within a small box. */
     private fun loadPlaceIssues(placeId: String, at: GeoPoint) {
-        _ui.update { it.copy(placeIssues = emptyList()) }
-        if (!_ui.value.issuesAvailable || placeId.startsWith("pin:") || placeId.startsWith("private:")) return
+        // The server puts an open place issue on the place itself (badge); fall back to /issues/nearby.
+        val sel = _ui.value.place
+        val badge = sel?.detail?.badge ?: sel?.summary?.badge
+        _ui.update { it.copy(placeIssues = listOfNotNull(badge?.toIssue(at.lat, at.lng))) }
+        if (badge != null || !_ui.value.issuesAvailable || placeId.startsWith("pin:") || placeId.startsWith("private:")) return
         viewModelScope.launch {
             val b = my.gimano.app.core.issues.IssueSupport.bbox(at, 150.0)
             val list = c.issues.call { issuesNearby(b[0], b[1], b[2], b[3], null) }.orEmpty()
@@ -627,14 +676,18 @@ class MainViewModel(private val c: AppContainer) : ViewModel() {
     fun reportPlaceIssue(kind: String, payload: Map<String, String>? = null, at: GeoPoint? = null) {
         val p = _ui.value.place?.summary ?: return
         val pt = at ?: GeoPoint(p.lat, p.lng)
-        sendIssue(CreateIssueRequest(kind, lat = round5(pt.lat), lng = round5(pt.lng), placeId = p.id, source = "place_edit", payload = payload), R.string.issue_sent) {
+        sendIssue(CreateIssueRequest(kind, lat = round5(pt.lat), lng = round5(pt.lng), placeId = p.id, source = "place_edit", payload = jsonOf(payload)), R.string.issue_sent) {
             loadPlaceIssues(p.id, GeoPoint(p.lat, p.lng))
         }
     }
 
     fun votePlaceIssue(i: my.gimano.app.data.model.Issue, answer: String) {
+        val prox = voteProximity(GeoPoint(i.lat, i.lng)) ?: run { _events.tryEmit(UiEvent.Toast(R.string.vote_need_near)); return }
         viewModelScope.launch {
-            if (c.issues.call(collection = false) { voteIssue(i.id, answer) } != null) _events.tryEmit(UiEvent.Toast(R.string.thanks_vote))
+            if (c.issues.call(collection = false) { voteIssue(i.id, my.gimano.app.data.model.IssueVoteRequest(answer, prox)) } != null) {
+                _events.tryEmit(UiEvent.Toast(R.string.thanks_vote))
+                _ui.update { s -> s.copy(placeIssues = s.placeIssues.filterNot { it.id == i.id }) }
+            }
         }
     }
 
@@ -873,7 +926,7 @@ class MainViewModel(private val c: AppContainer) : ViewModel() {
             SearchPurpose.ENTRANCE -> {
                 _ui.update { it.copy(screen = Screen.PlaceCard) }
                 reportPlaceIssue(my.gimano.app.data.model.IssueKind.PLACE_ENTRANCE_WRONG,
-                    mapOf("navLat" to "%.6f".format(java.util.Locale.US, p.lat), "navLng" to "%.6f".format(java.util.Locale.US, p.lng)))
+                    mapOf("navLat" to "%.6f".format(java.util.Locale.US, p.lat), "navLng" to "%.6f".format(java.util.Locale.US, p.lng), "kind" to "entrance"))
             }
             SearchPurpose.SET_ORIGIN -> {
                 _ui.update { it.copy(screen = Screen.RoutePreview) }

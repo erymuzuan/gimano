@@ -27,6 +27,7 @@ class DeviationTest {
         assertTrue(GeoMath.distanceM(d!!.point, GeoMath.offset(corner, 90.0, 30.0)) < 5)
         assertEquals(90.0, d.heading, 2.0)
         assertEquals("Jalan Ditutup", d.road)
+        assertTrue("junction = the corner", GeoMath.distanceM(d.junction, corner) < 5)
         assertNull("only once", t.onFix(GeoMath.offset(corner, 0.0, 900.0)))
         assertEquals(d, t.confirmed)
     }

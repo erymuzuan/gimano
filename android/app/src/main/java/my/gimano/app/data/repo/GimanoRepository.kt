@@ -33,7 +33,7 @@ interface GimanoRepository : my.gimano.app.data.share.ShareApi {
     // Complaints v1. Callers go through IssueGate (hides the features when the server has no /issues).
     suspend fun createIssue(body: CreateIssueRequest): Issue
     suspend fun issuesNearby(minLng: Double, minLat: Double, maxLng: Double, maxLat: Double, kinds: List<String>? = null): List<Issue>
-    suspend fun voteIssue(id: String, answer: String): Issue
+    suspend fun voteIssue(id: String, body: IssueVoteRequest): IssueVoteResult
 
     /** Inbox (public-contribution news); empty when the server has no inbox yet. */
     suspend fun inbox(): List<InboxItem>
