@@ -65,7 +65,8 @@ final class PhotoAndBrandUITests: XCTestCase {
         let about = app.buttons["settingsAbout"]
         for _ in 0..<8 where !(about.exists && about.isHittable) { app.swipeUp() }
         about.tap()
-        wait(app.staticTexts["formerlyGimano"])
+        wait(app.staticTexts["aboutVersion"])
+        XCTAssertFalse(app.staticTexts.matching(NSPredicate(format: "label CONTAINS[c] 'Gimano'")).firstMatch.exists, "no former brand in the UI")
         shot("about")
         XCUIDevice.shared.press(.home)
         sleep(2)

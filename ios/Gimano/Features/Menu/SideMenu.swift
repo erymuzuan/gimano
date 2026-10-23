@@ -313,7 +313,7 @@ struct OnboardingView: View {
                     model.restoreOnFirstRun = true
                     model.menuSheet = .backup
                 } label: {
-                    Label("Restore from Gimano or a backup", systemImage: "arrow.uturn.backward.circle")
+                    Label("Restore from backup", systemImage: "arrow.uturn.backward.circle")
                         .font(Tokens.Font.label)
                 }
                 .accessibilityIdentifier("onboardingRestore")
@@ -551,8 +551,6 @@ struct AboutView: View {
                         .background(Color.brandMist, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
                     VStack(alignment: .leading, spacing: 2) {
                         Text(verbatim: AppInfo.name).font(Tokens.Font.title)
-                        Text("Formerly Gimano").font(Tokens.Font.small).foregroundStyle(Color.textMuted)
-                            .accessibilityIdentifier("formerlyGimano")
                         Text(verbatim: AppInfo.versionString).font(Tokens.Font.caption).foregroundStyle(Color.textMuted)
                             .accessibilityIdentifier("aboutVersion")
                     }

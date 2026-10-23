@@ -66,7 +66,7 @@ struct BackupView: View {
         Form {
             if model.restoreOnFirstRun {
                 Section {
-                    Label("Restore your places from Gimano or Manotu: choose where your backup is (a file, Google Drive or iCloud), then pick it. Nothing on this phone changes until you choose Merge or Replace and confirm.",
+                    Label("Restore your places from a backup: choose where it is (a file, Google Drive or iCloud), then pick it. Nothing on this phone changes until you choose Merge or Replace and confirm.",
                           systemImage: "arrow.uturn.backward.circle")
                         .font(Tokens.Font.caption)
                         .accessibilityIdentifier("firstRunRestoreNote")

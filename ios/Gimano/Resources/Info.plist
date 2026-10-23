@@ -28,7 +28,7 @@
 		</dict>
 		<dict>
 			<key>CFBundleTypeName</key>
-			<string>Gimano backup</string>
+			<string>Manotu backup</string>
 			<key>CFBundleTypeRole</key>
 			<string>Viewer</string>
 			<key>LSHandlerRank</key>
@@ -158,7 +158,7 @@
 				<string>public.data</string>
 			</array>
 			<key>UTTypeDescription</key>
-			<string>Gimano backup</string>
+			<string>Manotu backup</string>
 			<key>UTTypeIdentifier</key>
 			<string>my.gimano.backup</string>
 			<key>UTTypeTagSpecification</key>
