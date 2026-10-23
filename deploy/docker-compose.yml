@@ -116,6 +116,9 @@ services:
       # Dev: the share viewer may be opened from anywhere (file://, LAN); production restricts to www.bukitbunga.com.
       Cors__ShareViewerOrigins: ${SHARE_VIEWER_ORIGINS:-*}
       Features__ApiDocs: "true"
+      # Signed contribution requests: off in dev until both apps ship signing (docs/identity-and-reputation.md)
+      Identity__RequireSignatures: ${REQUIRE_SIGNATURES:-false}
+      Attestation__Mode: ${ATTESTATION_MODE:-log}
     ports: ["${API_PORT:-5080}:8080"]
     volumes: ["media:/data/media"]
     depends_on:

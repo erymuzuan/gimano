@@ -149,6 +149,12 @@ services:
       # (no container healthcheck: the runtime image has no curl; monitor https://…/readyz instead)
       Features__ApiDocs: "false"
       Features__LegacySavedPlaces: ${LEGACY_SAVED_PLACES:-true}
+      # Signed contributions (default on in production; set false until the apps that sign are released)
+      Identity__RequireSignatures: ${REQUIRE_SIGNATURES:-true}
+      Attestation__Mode: ${ATTESTATION_MODE:-log}
+      Attestation__Android__PackageName: ${ATTESTATION_ANDROID_PACKAGE:-}
+      Attestation__Android__ServiceAccountJson: ${ATTESTATION_ANDROID_SA_JSON:-}
+      Attestation__Ios__AppId: ${ATTESTATION_IOS_APP_ID:-}
       Logging__LogLevel__Microsoft.AspNetCore: Warning
     ports: ["${API_BIND:?Set API_BIND (the host's LAN IP) in deploy/.env.prod}:${API_PORT:-5080}:8080"]
     volumes: ["media:/data/media"]
