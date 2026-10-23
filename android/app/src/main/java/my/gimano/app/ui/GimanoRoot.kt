@@ -211,7 +211,7 @@ fun GimanoRoot(vm: MainViewModel, onMic: () -> Unit, onExit: () -> Unit, onReque
                     MapTopControls(ui, settings, vm, vm.isDemo || fallback, showMenu = true, onMenu = { scope.launch { drawer.open() } })
                     HomeOverlay(ui, settings, vm, onMic)
                 }
-                is Screen.PickOnMap -> ui.pick?.let { my.gimano.app.ui.pick.PickOnMapOverlay(it, vm) }
+                is Screen.PickOnMap -> ui.pick?.let { my.gimano.app.ui.pick.PickOnMapOverlay(it, vm, (ui.screen as Screen.PickOnMap).purpose) }
                 Screen.PinActions -> {
                     MapTopControls(ui, settings, vm, vm.isDemo || fallback, showMenu = false, onMenu = {})
                     ui.pin?.let { my.gimano.app.ui.pick.PinActionsSheet(it, vm, Modifier.align(Alignment.BottomCenter)) }
@@ -290,8 +290,10 @@ fun GimanoRoot(vm: MainViewModel, onMic: () -> Unit, onExit: () -> Unit, onReque
             } else null,
         )
     }
+    ui.deviationAsk?.let { d -> my.gimano.app.ui.issues.DeviationSheet(d, vm::answerDeviation) }
     if (ui.reportOpen) {
-        ReportSheet(onDismiss = { vm.openReport(false) }, onSubmit = vm::submitReport)
+        ReportSheet(onDismiss = { vm.openReport(false) }, onSubmit = vm::submitReport,
+            onRoadProblem = if (ui.issuesAvailable && screen == Screen.Navigating) vm::submitRoadProblem else null)
     }
     ui.departureSlots?.let { slots -> DepartureDialog(slots, settings.use24h, vm) }
 }

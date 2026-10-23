@@ -62,12 +62,21 @@ fun InboxScreen(items: List<InboxItem>, read: Set<String>, onBack: () -> Unit, o
                             "review_helpful" -> GIcon("star", null, size = 28.dp)
                             "feedback_status" -> GIcon("feedback", null, size = 28.dp)
                             "edit_accepted" -> GIcon("map", null, size = 28.dp)
+                            "issue_confirmed", "issue_refuted", "issue_resolved" -> GIcon("map", null, size = 28.dp)
                             else -> Icon(Icons.Filled.Campaign, null, tint = c.brandInk, modifier = Modifier.size(26.dp))
                         }
                     }
                     Spacer(Modifier.width(12.dp))
                     Column(Modifier.weight(1f)) {
-                        Text(m.title, fontSize = 16.sp, fontWeight = FontWeight.Black, color = c.text)
+                        val title = m.title.ifBlank {
+                            when (m.kind) {
+                                "issue_confirmed" -> stringResource(R.string.inbox_issue_confirmed)
+                                "issue_refuted" -> stringResource(R.string.inbox_issue_refuted)
+                                "issue_resolved" -> stringResource(R.string.inbox_issue_resolved)
+                                else -> ""
+                            }
+                        }
+                        Text(title, fontSize = 16.sp, fontWeight = FontWeight.Black, color = c.text)
                         if (m.body.isNotBlank()) Text(m.body, fontSize = 14.sp, fontWeight = FontWeight.Bold, color = c.textMuted)
                         Formatters.parseInstant(m.createdAt)?.let { Text(Formatters.reportAge(it, Instant.now(), lang), fontSize = 12.sp, fontWeight = FontWeight.ExtraBold, color = c.textMuted) }
                     }

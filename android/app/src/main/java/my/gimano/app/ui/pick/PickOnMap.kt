@@ -35,7 +35,7 @@ import my.gimano.app.ui.theme.Gimano
 
 /** The coral pin, its tip exactly at the centre of the map (the map moves underneath). */
 @Composable
-fun CentrePin() {
+fun CentrePin(color: Color = Color(0xFFFF6B4A)) {
     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
         Canvas(Modifier.size(44.dp, 60.dp).offset(y = (-30).dp)) {
             val w = size.width; val h = size.height
@@ -48,7 +48,7 @@ fun CentrePin() {
                 cubicTo(w, h * 0.55f, w / 2, h, w / 2, h)
                 close()
             }
-            drawPath(p, Color(0xFFFF6B4A))
+            drawPath(p, color)
             drawCircle(Color.White, radius = 8.dp.toPx(), center = Offset(w / 2, w / 2))
         }
     }
@@ -56,9 +56,11 @@ fun CentrePin() {
 
 /** Canvas CariPeta: full screen, pin fixed in the middle, address below; no satellite (no open imagery). */
 @Composable
-fun PickOnMapOverlay(pick: PickState, vm: MainViewModel) {
+fun PickOnMapOverlay(pick: PickState, vm: MainViewModel, purpose: my.gimano.app.ui.SearchPurpose = my.gimano.app.ui.SearchPurpose.NAVIGATE) {
     val c = Gimano.colors
-    CentrePin()
+    val entrance = purpose == my.gimano.app.ui.SearchPurpose.ENTRANCE
+    // "Pintu masuk / parkir salah": a green pin for the navigation point (the display pin is unchanged).
+    CentrePin(if (entrance) Color(0xFF1E9E5A) else Color(0xFFFF6B4A))
     Column(Modifier.fillMaxSize()) {
         Row(
             Modifier.windowInsetsPadding(WindowInsets.statusBars).padding(12.dp).fillMaxWidth().shadow(6.dp, RoundedCornerShape(20.dp))
@@ -67,7 +69,7 @@ fun PickOnMapOverlay(pick: PickState, vm: MainViewModel) {
         ) {
             IconButton(onClick = vm::back) { Icon(Icons.AutoMirrored.Filled.ArrowBack, stringResource(R.string.back), tint = c.brand) }
             Column {
-                Text(stringResource(R.string.pick_title), fontSize = 16.sp, fontWeight = FontWeight.Black, color = c.text)
+                Text(stringResource(if (entrance) R.string.entrance_title else R.string.pick_title), fontSize = 16.sp, fontWeight = FontWeight.Black, color = c.text)
                 Text(stringResource(R.string.pick_hint), fontSize = 12.sp, fontWeight = FontWeight.ExtraBold, color = c.textMuted)
             }
         }
@@ -80,8 +82,10 @@ fun PickOnMapOverlay(pick: PickState, vm: MainViewModel) {
         ) {
             Box(Modifier.align(Alignment.CenterHorizontally).size(40.dp, 5.dp).clip(RoundedCornerShape(99.dp)).background(c.outline))
             Text(pick.label ?: stringResource(R.string.pin_on_map), fontSize = 18.sp, fontWeight = FontWeight.Black, color = c.text, maxLines = 2)
-            val dist = my.gimano.app.core.geo.GeoMath.distanceM(vm.here(), pick.center)
-            Text(listOfNotNull(pick.area, stringResource(R.string.pick_from_you, Formatters.distance(dist))).joinToString(" · "),
+            // "… from you" only from a real, recent fix (never from the map centre).
+            val me = vm.myFreshLocation()
+            val fromYou = me?.let { stringResource(R.string.pick_from_you, Formatters.distance(my.gimano.app.core.geo.GeoMath.distanceM(it, pick.center))) }
+            Text(listOfNotNull(pick.area, fromYou).joinToString(" · "),
                 fontSize = 13.sp, fontWeight = FontWeight.ExtraBold, color = c.textMuted, maxLines = 2)
             if (pick.loading) LinearProgressIndicator(Modifier.fillMaxWidth().height(2.dp), color = c.brand, trackColor = c.surfaceAlt)
             pick.nearPoi?.let { poi ->

@@ -119,6 +119,7 @@ fun RoutePreviewOverlay(plan: RoutePlan, settings: AppSettings, vm: MainViewMode
                     }
                     else -> {
                         if (plan.originSource == OriginSource.CHOSEN) StartElsewhereNote(plan.originName ?: "")
+                        my.gimano.app.ui.issues.RouteIssueBanner(r.issues, plan.ignoredIssues, vm::passAnyway)
                         RouteInfo(r, plan, vm)
                     }
                 }

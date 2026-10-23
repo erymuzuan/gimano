@@ -191,24 +191,37 @@ private fun DetailsStep(s: AddPlaceState, cvm: ContributeViewModel) {
 @Composable
 private fun HoursEditor(s: AddPlaceState, cvm: ContributeViewModel) {
     val c = Gimano.colors
-    var editing by remember { mutableStateOf<Triple<String, Int, Boolean>?>(null) }   // day, range index, editing "from"?
     Row(Modifier.fillMaxWidth().padding(top = 16.dp), verticalAlignment = Alignment.CenterVertically) {
         Text(stringResource(R.string.opening_hours), fontWeight = FontWeight.Black, fontSize = 16.sp, color = c.text, modifier = Modifier.weight(1f))
         Switch(s.hoursEnabled, { v -> cvm.update { it.copy(hoursEnabled = v) } }, colors = SwitchDefaults.colors(checkedTrackColor = c.brand))
     }
     if (!s.hoursEnabled) return
+    HoursFields(HoursDraft(s.week, s.open247)) { f -> cvm.update { st -> f(HoursDraft(st.week, st.open247)).let { d -> st.copy(week = d.week, open247 = d.open247) } } }
+    s.hours?.let { Text(it, fontSize = 13.sp, color = c.textMuted, modifier = Modifier.padding(top = 4.dp)) }
+}
+
+/** Week + "Open 24 hours" being edited (add a place, "Waktu buka salah"). */
+data class HoursDraft(val week: Map<String, List<Range>> = emptyMap(), val open247: Boolean = false) {
+    val osm: String get() = OpeningHours.build(week, open247)
+}
+
+/** "Open 24 hours" switch, day rows with time ranges, "copy Monday" and the time picker. */
+@Composable
+fun HoursFields(draft: HoursDraft, update: ((HoursDraft) -> HoursDraft) -> Unit) {
+    val c = Gimano.colors
+    var editing by remember { mutableStateOf<Triple<String, Int, Boolean>?>(null) }   // day, range index, editing "from"?
     Row(verticalAlignment = Alignment.CenterVertically) {
         Text(stringResource(R.string.open_24h), Modifier.weight(1f), fontWeight = FontWeight.Bold, color = c.text)
-        Switch(s.open247, { v -> cvm.update { it.copy(open247 = v) } }, colors = SwitchDefaults.colors(checkedTrackColor = c.brand))
+        Switch(draft.open247, { v -> update { it.copy(open247 = v) } }, colors = SwitchDefaults.colors(checkedTrackColor = c.brand))
     }
-    if (!s.open247) {
+    if (!draft.open247) {
         OpeningHours.DAYS.forEach { d ->
-            val ranges = s.week[d].orEmpty()
+            val ranges = draft.week[d].orEmpty()
             Row(Modifier.fillMaxWidth().padding(vertical = 3.dp), verticalAlignment = Alignment.CenterVertically) {
                 Text(my.gimano.app.ui.common.Labels.day(d), Modifier.width(44.dp), fontWeight = FontWeight.Black, color = c.text)
                 if (ranges.isEmpty()) {
                     Text(stringResource(R.string.closed), Modifier.weight(1f), color = c.textMuted)
-                    TextButton(onClick = { cvm.update { it.copy(week = it.week + (d to listOf(Range("09:00", "18:00")))) } }) { Text(stringResource(R.string.open_verb)) }
+                    TextButton(onClick = { update { it.copy(week = it.week + (d to listOf(Range("09:00", "18:00")))) } }) { Text(stringResource(R.string.open_verb)) }
                 } else {
                     Column(Modifier.weight(1f)) {
                         ranges.forEachIndexed { i, r ->
@@ -217,22 +230,21 @@ private fun HoursEditor(s: AddPlaceState, cvm: ContributeViewModel) {
                                 Text("–")
                                 TextButton(onClick = { editing = Triple(d, i, false) }) { Text(r.to, fontWeight = FontWeight.Black) }
                                 if (i == ranges.lastIndex && ranges.size < 3) IconButton(onClick = {
-                                    cvm.update { it.copy(week = it.week + (d to ranges + Range("14:00", "18:00".takeIf { r.to < "14:00" } ?: "23:00"))) }
+                                    update { it.copy(week = it.week + (d to ranges + Range("14:00", "18:00".takeIf { r.to < "14:00" } ?: "23:00"))) }
                                 }, Modifier.size(36.dp)) { Icon(Icons.Filled.Add, stringResource(R.string.add_range), Modifier.size(18.dp)) }
                             }
                         }
                     }
-                    TextButton(onClick = { cvm.update { it.copy(week = it.week - d) } }) { Text(stringResource(R.string.closed)) }
+                    TextButton(onClick = { update { it.copy(week = it.week - d) } }) { Text(stringResource(R.string.closed)) }
                 }
             }
         }
-        TextButton(onClick = { cvm.update { st -> st.copy(week = st.week + OpeningHours.DAYS.take(5).associateWith { st.week["Mo"].orEmpty() }) } }) {
+        TextButton(onClick = { update { st -> st.copy(week = st.week + OpeningHours.DAYS.take(5).associateWith { st.week["Mo"].orEmpty() }) } }) {
             Text(stringResource(R.string.copy_monday), fontWeight = FontWeight.Bold)
         }
     }
-    s.hours?.let { Text(it, fontSize = 13.sp, color = c.textMuted, modifier = Modifier.padding(top = 4.dp)) }
     editing?.let { (d, i, from) ->
-        val r = s.week[d].orEmpty().getOrNull(i) ?: run { editing = null; return }
+        val r = draft.week[d].orEmpty().getOrNull(i) ?: run { editing = null; return }
         val t = (if (from) r.from else r.to).let { if (it == "24:00") "00:00" else it }
         val st = rememberTimePickerState(t.substring(0, 2).toInt(), t.substring(3).toInt(), is24Hour = true)
         AlertDialog(
@@ -241,7 +253,7 @@ private fun HoursEditor(s: AddPlaceState, cvm: ContributeViewModel) {
                 TextButton(onClick = {
                     val v = "%02d:%02d".format(st.hour, st.minute)
                     val nr = runCatching { if (from) Range(v, r.to) else Range(r.from, if (v == "00:00") "24:00" else v) }.getOrNull()
-                    if (nr != null) cvm.update { it.copy(week = it.week + (d to it.week[d].orEmpty().toMutableList().also { l -> l[i] = nr })) }
+                    if (nr != null) update { it.copy(week = it.week + (d to it.week[d].orEmpty().toMutableList().also { l -> l[i] = nr })) }
                     editing = null
                 }) { Text(stringResource(R.string.ok)) }
             },

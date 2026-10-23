@@ -19,6 +19,10 @@ enum class Lang(val tag: String) {
 }
 
 object Formatters {
+    /** "30 Nov 2026" (Malay month names in MS). */
+    fun shortDate(d: java.time.LocalDate, lang: Lang): String =
+        d.format(java.time.format.DateTimeFormatter.ofPattern("d MMM yyyy", java.util.Locale.forLanguageTag(if (lang == Lang.MS) "ms-MY" else "en-GB")))
+
 
     /**
      * Distance for lists and cards: "910 m", "5.1 km", "260 km".

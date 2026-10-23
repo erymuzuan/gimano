@@ -252,6 +252,25 @@ class DemoRepository(
         return r
     }
 
+    private val demoIssues = java.util.concurrent.CopyOnWriteArrayList<Issue>()
+
+    override suspend fun createIssue(body: CreateIssueRequest): Issue {
+        latency()
+        val i = Issue(UUID.randomUUID().toString(), body.kind, body.subtype, IssueState.SUSPECTED, body.lat, body.lng, body.heading, body.placeId,
+            createdAt = Instant.now().toString(), confirmations = 1.0)
+        demoIssues += i
+        return i
+    }
+
+    override suspend fun issuesNearby(minLng: Double, minLat: Double, maxLng: Double, maxLat: Double, kinds: List<String>?): List<Issue> =
+        demoIssues.filter { it.lng in minLng..maxLng && it.lat in minLat..maxLat && (kinds == null || it.kind in kinds) }
+
+    override suspend fun voteIssue(id: String, answer: String): Issue {
+        latency()
+        val i = demoIssues.firstOrNull { it.id == id } ?: throw NoSuchElementException(id)
+        return i.copy(confirmations = i.confirmations + if (answer == "still") 1 else 0).also { u -> demoIssues.replaceAll { if (it.id == id) u else it } }
+    }
+
     override suspend fun vote(reportId: String, stillThere: Boolean): Report {
         latency()
         val i = reports.indexOfFirst { it.id == reportId }

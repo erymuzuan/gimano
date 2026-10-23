@@ -90,6 +90,8 @@ class AppContainer(val app: Application) {
     val drive by lazy { DriveBackup(app) }
     val integrity by lazy { my.gimano.app.data.vetting.Integrity(app, BuildConfig.CLOUD_PROJECT_NUMBER) }
     val vetting = my.gimano.app.data.vetting.VettingMemory(db.settings())
+    /** Complaints v1 (hidden until the server has /issues). */
+    val issues = my.gimano.app.data.issues.IssueGate(repo)
     val updater = my.gimano.app.data.update.AppUpdater(app).also { it.onAppStart() }
     /** Effective theme (set by MainActivity) for the device block of feedback / crash reports. */
     @Volatile var darkTheme: Boolean = false

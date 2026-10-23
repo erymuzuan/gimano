@@ -92,6 +92,19 @@ interface GimanoApi {
     @POST("reports")
     suspend fun createReport(@Body body: CreateReportRequest): Report
 
+    // --- Complaints v1 (docs/api.md "Issues") ---
+    @POST("issues")
+    suspend fun createIssue(@Body body: CreateIssueRequest): Issue
+
+    @GET("issues/nearby")
+    suspend fun issuesNearby(@Query("bbox") bbox: String, @Query("kinds") kinds: String? = null): IssuesPage
+
+    @GET("issues/{id}")
+    suspend fun issue(@Path("id") id: String): Issue
+
+    @POST("issues/{id}/votes")
+    suspend fun voteIssue(@Path("id") id: String, @Body body: IssueVoteRequest): Issue
+
     @POST("reports/{id}/votes")
     suspend fun vote(@Path("id") id: String, @Body body: VoteRequest): Report
 

@@ -92,13 +92,16 @@ fun PlaceCard(sel: PlaceSel, vm: MainViewModel, cvm: ContributeViewModel, apiBas
                     val meta = buildList {
                         add(Labels.category(p.category))
                         d?.openNow?.let { add(if (it) stringResource(R.string.open_now) else stringResource(R.string.closed)) }
-                        p.distanceM?.let { add(Formatters.distance(it)) }
+                        // Distance only from a real fix (search distances are from the map view otherwise).
+                        p.distanceM?.takeIf { vm.myFreshLocation() != null }?.let { add(Formatters.distance(it)) }
                     }
                     Text(meta.joinToString(" · "), fontSize = 14.sp, color = if (d?.openNow == true) c.brand else c.textMuted, fontWeight = FontWeight.Bold)
                 }
                 PlaceOverflow(vm, canSuggest = d != null, onSuggest = { suggest = true })
                 IconButton(onClick = vm::back) { Icon(Icons.Filled.Close, stringResource(R.string.close), tint = c.textMuted) }
             }
+            val uiState by vm.ui.collectAsState()
+            if (priv == null) my.gimano.app.ui.issues.PlaceIssueBadges(uiState.placeIssues, vm::votePlaceIssue)
             val address = priv?.address ?: p.address
             if (address.isNotBlank()) Text(address, Modifier.padding(top = 6.dp), fontSize = 15.sp, color = c.textMuted)
             (priv?.openingHours ?: d?.openingHours)?.let { Text(stringResource(R.string.hours, it), Modifier.padding(top = 4.dp), fontSize = 14.sp, color = c.textMuted) }
@@ -167,7 +170,21 @@ fun PlaceCard(sel: PlaceSel, vm: MainViewModel, cvm: ContributeViewModel, apiBas
     }
 
     viewer?.let { (urls, start) -> PhotoViewer(urls, start) { viewer = null } }
-    if (suggest && d != null) SuggestEditDialog(d, onDismiss = { suggest = false }) { body -> suggest = false; cvm.suggestEdit(d.id, body) }
+    // "Cadangkan suntingan": the six complaint options when the server has /issues; otherwise the classic edit form.
+    var suggestForm by remember { mutableStateOf(false) }
+    val issuesOn = vm.ui.collectAsState().value.issuesAvailable
+    if (suggest && d != null && issuesOn) my.gimano.app.ui.issues.PlaceSuggestSheet(
+        onDismiss = { suggest = false },
+        onClosedPerm = { suggest = false; vm.reportPlaceIssue(my.gimano.app.data.model.IssueKind.PLACE_CLOSED_PERM) },
+        onClosedTemp = { day -> suggest = false; vm.reportPlaceIssue(my.gimano.app.data.model.IssueKind.PLACE_CLOSED_TEMP, mapOf("until" to day.toString())) },
+        onHours = { h -> suggest = false; vm.reportPlaceIssue(my.gimano.app.data.model.IssueKind.PLACE_HOURS_WRONG, mapOf("openingHours" to h)) },
+        onEntrance = { suggest = false; vm.pickEntrance() },
+        onInfo = { suggest = false; suggestForm = true },
+        onDuplicate = { other -> suggest = false; vm.reportPlaceIssue(my.gimano.app.data.model.IssueKind.PLACE_DUPLICATE, other?.let { mapOf("comment" to it) }) },
+    )
+    if (((suggest && !issuesOn) || suggestForm) && d != null) SuggestEditDialog(d, onDismiss = { suggest = false; suggestForm = false }) { body ->
+        suggest = false; suggestForm = false; cvm.suggestEdit(d.id, body)
+    }
     reviews.draft?.let { if (d != null) WriteReviewSheet(d, it, cvm) }
 }
 

@@ -47,6 +47,9 @@ data class AppSettings(
     val feedbackDevice: Boolean = true,
     val theme: String = "light",
     val inboxRead: Set<String> = emptySet(),
+    /** "Kenapa tak ikut laluan?": "Jangan tanya lagi" and the last day it was asked (on this phone only). */
+    val deviationNeverAsk: Boolean = false,
+    val deviationLastAsked: String? = null,
 )
 
 /** User-facing settings that travel with a backup (DB `settings` table, shared with iOS). */
@@ -89,6 +92,8 @@ class SettingsStore(private val context: Context, private val scope: CoroutineSc
         val feedbackDevice = booleanPreferencesKey("feedbackDevice")
         val theme = stringPreferencesKey("theme")
         val inboxRead = androidx.datastore.preferences.core.stringSetPreferencesKey("inboxRead")
+        val deviationNeverAsk = booleanPreferencesKey("deviationNeverAsk")
+        val deviationLastAsked = stringPreferencesKey("deviationLastAsked")
     }
 
     private val _state: MutableStateFlow<AppSettings>
@@ -133,6 +138,8 @@ class SettingsStore(private val context: Context, private val scope: CoroutineSc
         feedbackDevice = p[K.feedbackDevice] ?: true,
         theme = p[K.theme] ?: "light",
         inboxRead = p[K.inboxRead] ?: emptySet(),
+        deviationNeverAsk = p[K.deviationNeverAsk] ?: false,
+        deviationLastAsked = p[K.deviationLastAsked],
     )
 
     suspend fun deviceId(): String {
@@ -172,6 +179,9 @@ class SettingsStore(private val context: Context, private val scope: CoroutineSc
     suspend fun setPrivacyCardDismissed() = context.dataStore.edit { it[K.privacyCardDismissed] = true }
     suspend fun setFeedbackDevice(v: Boolean) = context.dataStore.edit { it[K.feedbackDevice] = v }
     suspend fun setTheme(v: String) = context.dataStore.edit { it[K.theme] = v }
+    suspend fun setDeviationAsked(day: String, neverAgain: Boolean) = context.dataStore.edit {
+        it[K.deviationLastAsked] = day; if (neverAgain) it[K.deviationNeverAsk] = true
+    }
     /** Local read/unread state for the inbox (kept to the last 500 ids). */
     suspend fun markInboxRead(ids: Collection<String>) = context.dataStore.edit { p ->
         p[K.inboxRead] = ((p[K.inboxRead] ?: emptySet()) + ids).toList().takeLast(500).toSet()
