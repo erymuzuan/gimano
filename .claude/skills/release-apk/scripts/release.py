@@ -168,8 +168,9 @@ def cmd_tag(a):
 
 def cmd_github(a):
     v = versions()
-    titles = {"manotu": "Manotu {n} for Android", "gimano": "Gimano {n} for Android (my.gimano.app, legacy package)"}
-    for f in FLAVORS:
+    # Only Manotu is published on GitHub. The legacy my.gimano.app builds go to the website only (user decision, 2026-10-24).
+    titles = {"manotu": "Manotu {n} for Android"}
+    for f in titles:
         name = v[f][1]
         d = os.path.join(STAGING, f"{FLAVORS[f][1]}-{name}")
         for need in ("release.md", "version.json", f"manotu-{name}.apk", f"manotu-{name}.apk.sha256"):

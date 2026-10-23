@@ -70,8 +70,11 @@ R=.claude/skills/release-apk/scripts/release.py   # run steps as: python3 $R <st
    "Manotu" too.
 5. **Tag and push.** Run `python3 $R tag`. It refuses unless both APKs were built from HEAD. It tags
    `v<manotu>` and `v<gimano>` on the bump commit, then pushes master and the tags.
-6. **GitHub.** Run `python3 $R github`. It creates two pre-releases with the APK, the `.sha256` and
-   `version.json` as assets.
+6. **GitHub.** Run `python3 $R github`. It creates the **Manotu** pre-release with the APK, the `.sha256`
+   and `version.json` as assets. The legacy Gimano builds are never published on GitHub (the user removed
+   them on 2026-10-24); they go to the bukitbunga.com/gimano website folder only, and the `v<gimano>` tag
+   still marks their source. Get the legacy APK to SERVER.HiRO without a GitHub release (ask the user how
+   if no channel is set up).
 7. **Website.** SERVER.HiRO on WS556-SERVER owns the IIS copy to .13. Send it the message in
    [references/hiro-deploy.md](references/hiro-deploy.md) with SendMessage (its composer may hold a
    user draft, so don't type into its terminal). It downloads the GitHub assets, checks the hashes,
