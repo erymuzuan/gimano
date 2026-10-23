@@ -159,7 +159,8 @@ public sealed class IssueService(GimanoDbContext db, IEventPublisher bus, IssueD
         return new IssueVoteResult(issue.State, Math.Round(issue.WeightedStill, 2), Math.Round(issue.WeightedCleared, 2), IssueRules.Required(issue));
     }
 
-    public const int VoteAttempts = 3;
+    /// <summary>Enough for a burst of drivers answering the same closure at once (each conflict round has one winner).</summary>
+    public const int VoteAttempts = 10;
 
     /// <summary>
     /// Applies the vote, retrying when another writer got there first: a concurrent vote or the worker changed the issue
@@ -179,6 +180,8 @@ public sealed class IssueService(GimanoDbContext db, IEventPublisher bus, IssueD
             {
                 var (issueId, userId) = (issue.Id, user.Id);
                 db.ChangeTracker.Clear();
+                // Each round only one of the contenders wins; a short jittered pause spreads the rest out.
+                await Task.Delay(Random.Shared.Next(5, 25) * attempt, ct);
                 issue = await db.Issues.FirstAsync(i => i.Id == issueId, ct);
                 user = await db.Users.FirstAsync(u => u.Id == userId, ct);
                 if (!IssueRules.IsOpen(issue.State)) throw new ConflictException("This issue was closed just now.");
