@@ -58,17 +58,17 @@ public class SearchQueryBuilderTests
     public void Long_queries_also_get_a_fuzzy_whole_word_match()
     {
         var should = SearchQueryBuilder.Build(new SearchQuery("petronaz", null, null))["query"]!["function_score"]!["query"]!["boosting"]!["positive"]!["bool"]!["must"]![0]!["bool"]!["should"]!.AsArray();
-        Assert.Equal("AUTO", should[1]!["multi_match"]!["fuzziness"]!.GetValue<string>());
+        Assert.Equal(SearchQueryBuilder.WordFuzziness, should[1]!["multi_match"]!["fuzziness"]!.GetValue<string>());
         Assert.Contains(should, x => x!["fuzzy"]?["nameKeys"] is not null);   // "famly mart" → FamilyMart
         var shortQ = SearchQueryBuilder.Build(new SearchQuery("kfc", null, null))["query"]!["function_score"]!["query"]!["boosting"]!["positive"]!["bool"]!["must"]![0]!["bool"]!["should"]!.AsArray();
-        Assert.DoesNotContain(shortQ, x => x!["fuzzy"] is not null || x["multi_match"]?["fuzziness"]?.GetValue<string>() == "AUTO");
+        Assert.DoesNotContain(shortQ, x => x!["fuzzy"] is not null || x["multi_match"]?["fuzziness"]?.GetValue<string>() != "0" && x["multi_match"] is not null);
     }
 
     [Fact]
     public void Short_queries_are_not_fuzzy()
     {
         Assert.Equal("0", Mm(SearchQueryBuilder.Build(new SearchQuery("kf", null, null)))["fuzziness"]!.GetValue<string>());
-        Assert.Equal("AUTO", Mm(SearchQueryBuilder.Build(new SearchQuery("petronas", null, null)))["fuzziness"]!.GetValue<string>());
+        Assert.Equal(SearchQueryBuilder.WordFuzziness, Mm(SearchQueryBuilder.Build(new SearchQuery("petronas", null, null)))["fuzziness"]!.GetValue<string>());
         static JsonNode Mm(JsonObject b) => b["query"]!["function_score"]!["query"]!["boosting"]!["positive"]!["bool"]!["must"]![0]!["bool"]!["should"]![0]!["multi_match"]!;
     }
 

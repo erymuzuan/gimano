@@ -62,8 +62,12 @@ public static class SearchQueryBuilder
     private static JsonObject Terms(string field, IEnumerable<string> values) =>
         new() { ["terms"] = new JsonObject { [field] = new JsonArray(values.Select(v => (JsonNode)JsonValue.Create(v)!).ToArray()) } };
 
+    /// <summary>Per-word typo budget: 0 edits up to 3 letters, 1 for 4–6, 2 from 7 ("ali" never becomes "abu").</summary>
+    public const string WordFuzziness = "AUTO:4,7";
+
+    /// <summary>Spacing-free keys are long, so a fixed single edit ("famlymart" → "familymart"), never two.</summary>
     private static JsonObject Fuzzy(string field, string value, double boost) =>
-        new() { ["fuzzy"] = new JsonObject { [field] = new JsonObject { ["value"] = value, ["fuzziness"] = "AUTO", ["prefix_length"] = 1, ["boost"] = boost } } };
+        new() { ["fuzzy"] = new JsonObject { [field] = new JsonObject { ["value"] = value, ["fuzziness"] = 1, ["prefix_length"] = 1, ["boost"] = boost } } };
 
     /// <summary>The text query: every variant (original first) contributes match alternatives and ranking boosts.</summary>
     public static JsonObject Build(SearchQuery q)
@@ -89,7 +93,7 @@ public static class SearchQueryBuilder
                     ["type"] = "bool_prefix",
                     ["fields"] = new JsonArray("name", "name._2gram", "name._3gram", "brand^0.8", "aliases^0.9", "address^0.3"),
                     ["operator"] = "and",
-                    ["fuzziness"] = norm.Length >= 5 ? "AUTO" : "0",
+                    ["fuzziness"] = norm.Length >= 4 ? WordFuzziness : "0",
                 }
             });
             if (norm.Length >= 5)
@@ -97,7 +101,7 @@ public static class SearchQueryBuilder
                 {
                     ["multi_match"] = new JsonObject
                     {
-                        ["query"] = norm, ["fields"] = new JsonArray("name^0.8", "brand^0.6"), ["operator"] = "and", ["fuzziness"] = "AUTO", ["prefix_length"] = 1,
+                        ["query"] = norm, ["fields"] = new JsonArray("name^0.8", "brand^0.6"), ["operator"] = "and", ["fuzziness"] = WordFuzziness, ["prefix_length"] = 1,
                     }
                 });
             // Spacing-insensitive keys: "family mart" = "FamilyMart", "7 eleven" = "7-Eleven"; fuzzy for "famly mart".
@@ -206,7 +210,7 @@ public static class SearchQueryBuilder
                     ["should"] = new JsonArray(
                         Term("streetKey", streetKey, 10),
                         new JsonObject { ["prefix"] = new JsonObject { ["streetKey"] = new JsonObject { ["value"] = streetKey, ["boost"] = 3 } } },
-                        new JsonObject { ["match"] = new JsonObject { ["streetText"] = new JsonObject { ["query"] = streetKey, ["operator"] = "and", ["fuzziness"] = "AUTO", ["prefix_length"] = 1 } } }),
+                        new JsonObject { ["match"] = new JsonObject { ["streetText"] = new JsonObject { ["query"] = streetKey, ["operator"] = "and", ["fuzziness"] = WordFuzziness, ["prefix_length"] = 1 } } }),
                     ["minimum_should_match"] = 1,
                 }
             },

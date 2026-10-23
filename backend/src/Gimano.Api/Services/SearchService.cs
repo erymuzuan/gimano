@@ -26,17 +26,42 @@ public sealed class SearchPipeline(PlaceSearchIndex index, Func<AliasTable> alia
     public const double ChainRadiusM = 10_000;
     private static readonly double[] CategoryRadiiM = [5_000, 15_000, 50_000];
 
-    public sealed record Ranked(IReadOnlyList<PlaceHit> Hits, SearchInterpretation Interpretation, double? OriginLat, double? OriginLng, bool KeepOrder = false);
+    /// <param name="LiteralTexts">For text searches: the normalised query (and alias rewrites) that results must literally contain
+    /// to count as "as typed"; otherwise the response carries correctedQuery.</param>
+    public sealed record Ranked(IReadOnlyList<PlaceHit> Hits, SearchInterpretation Interpretation, double? OriginLat, double? OriginLng, bool KeepOrder = false,
+        IReadOnlyList<string>? LiteralTexts = null);
 
     /// <summary>Runs the steps and returns finished summaries (distances from the user).</summary>
-    public async Task<(List<PlaceSummary> Results, SearchInterpretation Interpretation)> RunAsync(
+    public async Task<(List<PlaceSummary> Results, SearchInterpretation Interpretation, string? CorrectedQuery)> RunAsync(
         SearchRequest r, ParsedQuery? parsed, AreaLocator areas, CancellationToken ct)
     {
         var (oLat, oLng) = r.NearLat is not null && r.NearLng is not null ? (r.NearLat, r.NearLng) : (r.Lat, r.Lng);
         var (uLat, uLng) = r.Lat is not null ? (r.Lat, r.Lng) : (oLat, oLng);
         var limit = Math.Clamp(r.Limit, 1, SearchQueryBuilder.MaxLimit);
         var ranked = await ResolveAsync(r, parsed, areas, oLat, oLng, limit, ct);
-        return (await FinishAsync(ranked, r, uLat, uLng, limit, ct), ranked.Interpretation);
+        var results = await FinishAsync(ranked, r, uLat, uLng, limit, ct);
+        return (results, ranked.Interpretation, CorrectedFor(ranked.LiteralTexts, results));
+    }
+
+    /// <summary>
+    /// Results that came only through typo tolerance are labelled: when none of the top 3 literally contains the query (after
+    /// normalisation and aliases), correctedQuery = the top result's brand or name ("famly mart" → "FamilyMart").
+    /// </summary>
+    internal static string? CorrectedFor(IReadOnlyList<string>? literalTexts, IReadOnlyList<PlaceSummary> results)
+    {
+        if (literalTexts is null || results.Count == 0) return null;
+        if (results.Take(3).Any(s => literalTexts.Any(t => LiterallyMatches(t, s.Name, s.Brand, s.Address)))) return null;
+        return results[0].Brand ?? results[0].Name;
+    }
+
+    /// <summary>The spacing-free query is inside the name/brand, or every query word starts some word of the name, brand or address.</summary>
+    internal static bool LiterallyMatches(string text, string name, string? brand, string? address)
+    {
+        var compact = TextNormalizer.Compact(text);
+        if (compact.Length == 0) return true;
+        if (TextNormalizer.Compact(name).Contains(compact, StringComparison.Ordinal) || TextNormalizer.Compact(brand).Contains(compact, StringComparison.Ordinal)) return true;
+        var hay = TextNormalizer.Tokens(name).Concat(TextNormalizer.Tokens(brand)).Concat(TextNormalizer.Tokens(address)).ToList();
+        return TextNormalizer.Tokens(text).All(t => hay.Any(h => h.StartsWith(t, StringComparison.Ordinal)));
     }
 
     private async Task<Ranked> ResolveAsync(SearchRequest r, ParsedQuery? parsed, AreaLocator areas, double? oLat, double? oLng, int limit, CancellationToken ct)
@@ -96,10 +121,11 @@ public sealed class SearchPipeline(PlaceSearchIndex index, Func<AliasTable> alia
                 kind = "brand_area";
             }
             if (hits.Count > 0)
-                return new Ranked(hits, new SearchInterpretation(kind, norm, restCats, area.Name, area.Lat, area.Lng), area.Lat, area.Lng);
+                return new Ranked(hits, new SearchInterpretation(kind, norm, restCats, area.Name, area.Lat, area.Lng), area.Lat, area.Lng,
+                    LiteralTexts: restCats is { Length: > 0 } ? null : table.Rewrites(rest).Prepend(rest).ToList());
         }
 
-        return new Ranked(general, new SearchInterpretation("text", norm), oLat, oLng);
+        return new Ranked(general, new SearchInterpretation("text", norm), oLat, oLng, LiteralTexts: variants.Prepend(norm).ToList());
     }
 
     /// <summary>Longest area phrase at the end (or start) of the query, leaving at least one word: "kfc ss2" → (SS2, "kfc").</summary>
@@ -202,7 +228,7 @@ public sealed class SearchPipeline(PlaceSearchIndex index, Func<AliasTable> alia
             };
             // Only a near-miss spelling of the query counts ("Lotos" → "Lotus's"), never just any fuzzy hit far away.
             var queryWords = norm.Split(" ", StringSplitOptions.RemoveEmptyEntries).Length;
-            var hit = (await index.SearchAsync(body, ct)).FirstOrDefault(h => IsCloseSpelling(compact, h.Name, queryWords));
+            var hit = (await index.SearchAsync(body, ct)).FirstOrDefault(h => IsCloseSpelling(compact, h.Name, queryWords, norm));
             if (hit is not null && TextNormalizer.Compact(hit.Name) != compact)
                 list.Add(new SearchSuggestion(hit.Name, hit.Name, null, hit.Id, hit.Lat, hit.Lng,
                     r.Lat is { } ul && r.Lng is { } ug ? Math.Round(GeoMath.HaversineM(ul, ug, hit.Lat, hit.Lng)) : null));
@@ -211,10 +237,12 @@ public sealed class SearchPipeline(PlaceSearchIndex index, Func<AliasTable> alia
 
         var table = aliases();
         var (oLat, oLng) = r.NearLat is not null && r.NearLng is not null ? (r.NearLat, r.NearLng) : (r.Lat, r.Lng);
-        var words = norm.Split(' ', StringSplitOptions.RemoveEmptyEntries).Append(norm).Distinct();
+        var words = norm.Split(' ', StringSplitOptions.RemoveEmptyEntries).Append(norm).Distinct().ToList();
         foreach (var w in words)
             foreach (var cw in table.CategoryWords)
-                if (w.Length >= 3 && Levenshtein(w, cw) <= (cw.Length >= 6 ? 2 : 1) && table.Category(cw) is { Length: > 0 } cats
+                if (((w.Length >= 3 && Levenshtein(w, cw) <= (cw.Length >= 6 ? 2 : 1))
+                        || (w == norm && (" " + norm + " ").Contains(" " + cw + " ", StringComparison.Ordinal)))   // "kedai runcit pak ali"
+                    && table.Category(cw) is { Length: > 0 } cats
                     && list.All(s => s.Category != cats[0]))
                 {
                     int? count = null;
@@ -226,13 +254,25 @@ public sealed class SearchPipeline(PlaceSearchIndex index, Func<AliasTable> alia
         return list.Take(4).ToList();
     }
 
-    /// <summary>The name's first words (as many as the query has) are within ~1 edit per 4 letters of the query.</summary>
-    internal static bool IsCloseSpelling(string compactQuery, string name, int queryWords)
+    /// <summary>
+    /// A near-miss spelling, word by word against the name's first words: words up to 3 letters must be equal, 4–6 letters may
+    /// differ by 1, 7+ by 2 ("lotos mutiara" ≈ "Lotus's Mutiara"; "pak ali" ≠ "Pak Abu"). Spacing differences allow 1 edit overall
+    /// ("famly mart" ≈ "FamilyMart").
+    /// </summary>
+    internal static bool IsCloseSpelling(string compactQuery, string name, int queryWords, string? queryNorm = null)
     {
         var tokens = TextNormalizer.Tokens(name);
+        if (queryNorm is not null)
+        {
+            var q = TextNormalizer.Tokens(queryNorm);
+            static bool Near(string a, string b) => a.Length >= 4 && Levenshtein(a, b) <= (a.Length >= 7 ? 2 : 1);
+            // "lotuss" (Lotus's) also compares without the possessive s
+            if (q.Length <= tokens.Length && q.Zip(tokens).All(p => p.First == p.Second || Near(p.First, p.Second)
+                    || (p.Second.Length > 4 && p.Second.EndsWith("ss", StringComparison.Ordinal) && Near(p.First, p.Second[..^1]))))
+                return true;
+        }
         var head = string.Concat(tokens.Take(Math.Max(1, queryWords)));
-        var limit = Math.Max(1, compactQuery.Length / 4);
-        return Levenshtein(compactQuery, head) <= limit || Levenshtein(compactQuery, string.Concat(tokens)) <= limit;
+        return Levenshtein(compactQuery, head) <= 1 || Levenshtein(compactQuery, string.Concat(tokens)) <= 1;
     }
 
     internal static int Levenshtein(string a, string b)
@@ -276,9 +316,10 @@ public sealed class SearchService(PlaceSearchIndex index, AliasStore aliases, Ar
 
         List<PlaceSummary> results;
         SearchInterpretation interpretation;
+        string? correctedQuery;
         try
         {
-            (results, interpretation) = await pipeline.RunAsync(r, parsed, areas, ct);
+            (results, interpretation, correctedQuery) = await pipeline.RunAsync(r, parsed, areas, ct);
         }
         catch (Exception ex) when (ex is SearchUnavailableException or HttpRequestException)
         {
@@ -286,14 +327,20 @@ public sealed class SearchService(PlaceSearchIndex index, AliasStore aliases, Ar
             var fallback = await places.SearchAsync(new SearchQuery(r.Q, oLat, oLng, r.Limit, r.Category, r.Country, r.Viewer), ct);
             return new SearchResponse(fallback, NoMatch: fallback.Count == 0);
         }
-        if (results.Count > 0) return new SearchResponse(results, Interpretation: interpretation);
+        if (results.Count > 0)
+        {
+            // Typo-only matches always say so (exact=true: only literal matches, otherwise nothing).
+            if (correctedQuery is null) return new SearchResponse(results, Interpretation: interpretation);
+            if (!r.Exact) return new SearchResponse(results, correctedQuery, null, false, interpretation);
+            results = [];
+        }
 
         // Never empty: did-you-mean / nearby-category suggestions, and (unless exact=true) results for the corrected spelling.
         var suggestions = await pipeline.SuggestAsync(r, ct);
         await misses.RecordAsync(r.Q, oLat, oLng, ct);
         if (!r.Exact && suggestions.FirstOrDefault(s => s.PlaceId is not null)?.Query is { } corrected)
         {
-            var (fixedResults, fixedInterp) = await pipeline.RunAsync(r with { Q = corrected }, null, areas, ct);
+            var (fixedResults, fixedInterp, _) = await pipeline.RunAsync(r with { Q = corrected }, null, areas, ct);
             if (fixedResults.Count > 0) return new SearchResponse(fixedResults, corrected, suggestions, false, fixedInterp);
         }
         return new SearchResponse(results, null, suggestions, true, interpretation);

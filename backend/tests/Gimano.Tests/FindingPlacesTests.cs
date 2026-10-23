@@ -104,6 +104,12 @@ public class FindingPlacesUnitTests
         var withPlace = Assert.IsType<PlusCodeQuery>(QueryParser.Parse(shortCode + " Petaling Jaya", 1.3, 103.8, _ => (3.107, 101.606)));
         Assert.True(GeoMath.HaversineM(withPlace.Lat, withPlace.Lng, 3.1478, 101.6153) < 15);
         Assert.False(OpenLocationCode.IsValid("HELLO+WORLD"));
+
+        // KLCC (Suria KLCC / Petronas Twin Towers): full code and short code with "Kuala Lumpur".
+        var klcc = Assert.IsType<PlusCodeQuery>(QueryParser.Parse("6PM35P56+5W"));
+        Assert.True(GeoMath.HaversineM(klcc.Lat, klcc.Lng, 3.1579, 101.7123) < 15, $"{klcc.Lat},{klcc.Lng}");
+        var klccShort = Assert.IsType<PlusCodeQuery>(QueryParser.Parse("5P56+5W Kuala Lumpur", 1.35, 103.82, _ => (3.139, 101.6869)));
+        Assert.True(GeoMath.HaversineM(klccShort.Lat, klccShort.Lng, 3.1579, 101.7123) < 15);
     }
 
     [Fact]
@@ -201,7 +207,14 @@ public class FindingPlacesUnitTests
         Assert.Null(SearchPipeline.SplitArea("petronas", areas, null, null));
         Assert.Equal("SS2, Petaling Jaya", areas.Label(3.1190, 101.6220));
         Assert.Equal(1, SearchPipeline.Levenshtein("tandass", "tandas"));
-        Assert.True(SearchPipeline.IsCloseSpelling("lotosmutiara", "Lotus's Mutiara Damansara", 2));
+        Assert.True(SearchPipeline.IsCloseSpelling("lotosmutiara", "Lotus's Mutiara Damansara", 2, "lotos mutiara"));
+        Assert.True(SearchPipeline.IsCloseSpelling("famlymart", "FamilyMart", 2, "famly mart"));
+        Assert.False(SearchPipeline.IsCloseSpelling("kedairuncitpakali", "Kedai Runcit Pak Abu", 4, "kedai runcit pak ali"));
+        Assert.Equal("FamilyMart", SearchPipeline.CorrectedFor(["famly mart"], [S("FamilyMart", "FamilyMart")]));
+        Assert.Null(SearchPipeline.CorrectedFor(["family mart"], [S("Family Mart Damansara", "FamilyMart")]));
+        Assert.Null(SearchPipeline.CorrectedFor(["petronas zaaba"], [S("Petronas", "Petronas", "Persiaran Zaaba")]));
+        Assert.Null(SearchPipeline.CorrectedFor(null, [S("Toilet", null)]));
+        static PlaceSummary S(string name, string? brand, string address = "") => new("n1", name, PlaceCategory.Other, address, 3, 101, null, brand);
         Assert.False(SearchPipeline.IsCloseSpelling("lotosmutiara", "Motor Leton", 2));
         Assert.Equal("", SearchResults.ChainKey("Toilet", null));
 
@@ -247,6 +260,7 @@ public class OpenSearchIntegrationFindingPlacesTests
         P("f2", "Family Mart Damansara", PlaceCategory.Convenience, 3.1530, 101.6000, "FamilyMart"), // ~1.8 km
         P("f3", "FamilyMart SS2", PlaceCategory.Convenience, 3.1190, 101.6235, "FamilyMart"),   // ~3.3 km
         P("m1", "Mydin Subang Jaya", PlaceCategory.Supermarket, 3.0600, 101.5800, "Mydin"),
+        P("r1", "Kedai Runcit Pak Abu", PlaceCategory.Convenience, 3.1100, 101.5900),
         P("c1", "KFC Damansara Uptown", PlaceCategory.FastFood, 3.1362, 101.6228, "KFC"),
         P("c2", "KFC Jalan SS2/55", PlaceCategory.FastFood, 3.1180, 101.6240, "KFC"),
         P("s1", "7-Eleven", PlaceCategory.Convenience, 3.1530, 101.6153, "7-Eleven"),          // ~580 m
@@ -290,11 +304,17 @@ public class OpenSearchIntegrationFindingPlacesTests
             var pipeline = new SearchPipeline(index, () => table);
             var failures = new List<string>();
 
+            var corrected = new Dictionary<string, string?>();
             async Task Expect(string q, Func<List<PlaceSummary>, SearchInterpretation, bool> ok, string what, int limit = 5)
             {
                 var parsed = QueryParser.Parse(q, PjLat, PjLng);
-                var (r, i) = await pipeline.RunAsync(new SearchRequest(q, PjLat, PjLng, Limit: limit), parsed, areas, ct: default);
+                var (r, i, c) = await pipeline.RunAsync(new SearchRequest(q, PjLat, PjLng, Limit: limit), parsed, areas, ct: default);
+                corrected[q] = c;
                 if (!ok(r, i)) failures.Add($"Assert-rank '{q}' [{i.Kind}]: expected {what}; got {string.Join(" | ", r.Select(h => $"{h.Id} {h.Name} {h.DistanceM}m"))}");
+            }
+            void ExpectCorrected(string q, string? expected)
+            {
+                if (corrected.GetValueOrDefault(q) != expected) failures.Add($"Assert-rank '{q}': correctedQuery expected '{expected}', got '{corrected.GetValueOrDefault(q)}'");
             }
             static bool Ascending(List<PlaceSummary> r) => r.Zip(r.Skip(1)).All(p => p.First.DistanceM <= p.Second.DistanceM);
 
@@ -325,6 +345,18 @@ public class OpenSearchIntegrationFindingPlacesTests
             await Expect("Semenyih", (r, _) => r[0].Id == "a6", "Semenyih");
             await Expect("petronas", (r, _) => r[0].Id == "p1", "the Petronas station");
             await Expect("Hospital Putrajaya", (r, _) => r[0].Id == "g2", "an exact name is not split into category + area");
+            await Expect("kedai runcit pak ali", (r, _) => r.Count == 0, "nothing: 'ali' is not 'Abu' (no silent substitution)");
+
+            ExpectCorrected("famly mart", "FamilyMart");
+            ExpectCorrected("myddin", "Mydin");
+            ExpectCorrected("Family Mart", null);
+            ExpectCorrected("7 eleven", null);
+            ExpectCorrected("tesco", null);      // an alias, not a typo
+            ExpectCorrected("kfc ss2", null);
+            ExpectCorrected("Putrajaya", null);
+            var pakAli = await pipeline.SuggestAsync(new SearchRequest("kedai runcit pak ali", PjLat, PjLng), default);
+            if (pakAli.Any(s => s.PlaceId is not null) || !pakAli.Any(s => s.Category == PlaceCategory.Convenience))
+                failures.Add($"Assert-rank suggestions 'kedai runcit pak ali': expected only 'kedai runcit' nearby; got {string.Join(" | ", pakAli)}");
 
             var none = await pipeline.RunAsync(new SearchRequest("qzxjv", PjLat, PjLng), null, areas, default);
             if (none.Results.Count != 0) failures.Add("Assert-rank 'qzxjv': expected nothing");

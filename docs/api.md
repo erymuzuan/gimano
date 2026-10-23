@@ -90,7 +90,12 @@ Steps, in order:
    without spaces: "Family Mart" = "FamilyMart", "7 eleven" = "7-Eleven" = "7eleven".
 2. **Aliases** from [`data/search/aliases.csv`](../data/search/README.md) (brand short names, renames such as
    tesco → Lotus's, dialect/abbreviations such as jln → jalan); every rewrite is searched next to the original.
-3. **Typos**: OpenSearch fuzziness AUTO on words and on the spacing-free name ("famly mart", "myddin").
+3. **Typos**: per word, 0 edits up to 3 letters, 1 for 4–6, 2 from 7 letters (OpenSearch `AUTO:4,7`); 1 edit on the
+   spacing-free name ("famly mart" → FamilyMart, "myddin" → Mydin, but "pak ali" never becomes "Pak Abu").
+   **Results that only matched through typo tolerance always carry `correctedQuery`** (the top result's brand or name): when
+   none of the top 3 contains the query literally (after normalisation and aliases; every word starting a word of the name,
+   brand or address). Aliases are not corrections ("tesco" → Lotus's has no `correctedQuery`). With `exact=true` such
+   results are dropped instead.
 4. **Coordinates** ("3.1478, 101.6153", "3.1478 101.6153") and **Plus Codes** (full "6PH57VP3+PR", or short
    "7VP3+PR" + optional locality, recovered near `near`/the user) → one result, `category: "point"`, `id: "pt-lat,lng"`,
    `address` = the reverse-geocode label.
@@ -107,8 +112,10 @@ Steps, in order:
    the user) and popularity add to that. **Chains are always nearest-first**: results with the same spacing-free name keep
    the positions ranking gave them but are re-ordered by distance, and get `chainGroup: {key, name, countNearby}`
    (outlets within 10 km), so the app can show "FamilyMart · 12 berdekatan". Same name within 50 m → one result.
-9. **Never empty**: when nothing matches, `noMatch: true` and `suggestions`; unless `exact=true`, the best did-you-mean
-   is searched instead and returned with `correctedQuery` (then `noMatch: false`).
+9. **Never empty**: when nothing matches, `noMatch: true` and `suggestions` (a category word inside the query, e.g.
+   "kedai runcit pak ali" → nearby convenience stores). A did-you-mean place is only offered for a close spelling (same rule
+   as 3, word by word); unless `exact=true` it is searched instead and returned with `correctedQuery` (then `noMatch: false`).
+   Nothing is ever substituted silently.
 
 `Suggestion = {label, query?, category?, placeId?, lat?, lng?, distanceM?, count?}`: a did-you-mean place
 (`label`/`query` = its name, `placeId`, position, `distanceM` from the user) or a nearby category (`label` in the
