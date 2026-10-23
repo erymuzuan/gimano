@@ -22,24 +22,26 @@ PATCH /me                    {displayName?, mood?, vehicle?:"car"|"motorcycle"|"
 
 `User = {id, displayName, mood, vehicle, points, level, joinedAt}`
 
-## Saved places
+## Saved places, recents, private places: ON DEVICE ONLY
+
+Personal data never lives on the server; see [privacy-and-backup.md](privacy-and-backup.md).
+Favourites (Home, Work, "Kampung", "Rumah Mertua"…), recents, "Just for me" places and
+planned drives are stored in the app's local SQLite DB and backed up to the user's own Google
+Drive / iCloud / file.
+
+The earlier `/me/places` and `/me/recents` endpoints are **deprecated** and kept only for a one-time
+migration:
 
 ```
-GET    /me/places            → SavedPlace[]   (home, work first; then favourites by sortOrder)
-PUT    /me/places/{kind}     kind = home|work      body: {name, lat, lng, address, placeId?}
-POST   /me/places            body: {name, icon?, lat, lng, address, placeId?}   (favourite)
-PATCH  /me/places/{id}       body: {name?, icon?, lat?, lng?, address?, sortOrder?}
-DELETE /me/places/{id}
-GET    /me/recents           → Recent[]   (last 20 destinations)
+GET    /me/data/export    → {savedPlaces: SavedPlace[], recents: Recent[]}   (legacy server copy, if any)
+DELETE /me/data           → 204   (permanently deletes the legacy server copy; the app calls it after importing)
+DELETE /me                → 204   (deletes the account; the user's reports are anonymised, not deleted)
 ```
 
-`SavedPlace = {id, kind:"home"|"work"|"favorite", name, icon, lat, lng, address, placeId?, sortOrder}`
-
-Favourites carry a user-chosen label (`name`, max 40 chars, e.g. "Kampung", "Rumah Mertua",
-"Sekolah Aina") and an `icon` from the shared set:
-`home, work, kampung, mertua, star, heart, school, surau, food, gym, shop, hospital`
-(default `star`). Home/work always have icon `home`/`work`. Max 50 favourites per user.
-`Recent = {id, name, address, lat, lng, placeId?, lastUsedAt}`
+`/me/places*` and `/me/recents` answer `410 Gone` once the apps have shipped the local store.
+Legacy shapes (migration only): `SavedPlace = {id, kind, name, icon, lat, lng, address, placeId?, sortOrder}`,
+`Recent = {id, name, address, lat, lng, placeId?, lastUsedAt}`. Favourite labels/icons:
+`home, work, kampung, mertua, star, heart, school, surau, food, gym, shop, hospital`.
 
 ## Search & places
 
@@ -55,15 +57,15 @@ GET /geocode/reverse?lat=&lng= → {name, address, lat, lng}
 ```
 
 `PlaceSummary = {id, name, category, address, lat, lng, distanceM, brand?,
-                source: "osm"|"community", status?: "private"|"pending"|"published",
+                source: "osm"|"community", status?: "pending"|"published",
                 rating?: number, reviewCount: int, thumbnailUrl?}`
 
 `Place = PlaceSummary + {phone?, website?, openingHours?, openNow?:bool,
 amenities: string[], tags: {k:v}, osmType?, osmId?,      // osm* null for community places
 description?, addedBy?: {displayName}, verifiedCount: int, photos: Photo[] (first 10)}`
 
-Search returns OSM places, published community places, and the caller's own private and pending
-places. When `results` is empty, the app offers **"Can't find it? Add a place"**.
+Search returns OSM places, published community places and the caller's own pending
+places. The app merges in matches from its local favourites and private places **on the device**. When `results` is empty, the app offers **"Can't find it? Add a place"**.
 
 ## Community places (add a missing place)
 
@@ -73,7 +75,8 @@ Clean-room flow, modelled on how big map apps let people add missing places:
    and gives it a **name**. Optional: category, description, phone, website, opening
    hours, amenities, photos.
 2. **Visibility** question: "Make this place discoverable by other Gimano users?"
-   - **No** → `private`: only the owner sees it in search, on the map and as a favourite target.
+   - **No** → private: stored **only on the device** (local DB, included in the user's backup) and never
+     sent to the server.
    - **Yes** → `pending`: automated checks run (below); if they pass, the place is shown to
      others with an "Unverified" badge, and nearby users can confirm it ("Is this place
      here?"). After **3 distinct confirmations**, or a moderator approval, it becomes `published`.
@@ -85,7 +88,7 @@ Clean-room flow, modelled on how big map apps let people add missing places:
 POST   /places                        → 201 Place
   { name, category, lat, lng, address?, description?, phone?, website?,
     openingHours?: "Mo-Fr 08:00-18:00; Sa 08:00-13:00",     // OSM opening_hours syntax
-    amenities?: string[], visibility: "private"|"public" }
+    amenities?: string[] }                                   // always public; private places never reach the server
 PATCH  /places/{id}                   → Place        (owner only, community places only)
 DELETE /places/{id}                   → 204          (owner only; published places become "closed", not deleted)
 POST   /places/{id}/suggest-edit      → 202 {suggestionId}   (any user; any place incl. OSM → stored as a map-data suggestion)
