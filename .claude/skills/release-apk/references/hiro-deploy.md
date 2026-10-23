@@ -30,4 +30,4 @@ Verify publicly (cache-busted):
 Report the files copied, the backups, and every check.
 ```
 
-When HiRO reports, run `release.py verify` yourself. Don't rely on the report alone.
+When HiRO reports, run `python3 .claude/skills/release-apk/scripts/release.py verify` yourself. Don't rely on the report alone.

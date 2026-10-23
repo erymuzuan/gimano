@@ -42,15 +42,15 @@ in-app updates are the only way to reach them again. Every step below exists to 
 All commands run from the repo root:
 
 ```bash
-R="python3 .claude/skills/release-apk/scripts/release.py"
+R=.claude/skills/release-apk/scripts/release.py   # run steps as: python3 $R <step> (zsh does not split a quoted "python3 …" variable)
 ```
 
-1. **Plan.** Run `$R plan`. It shows the branch state, the current and next versions, and the commits
+1. **Plan.** Run `python3 $R plan`. It shows the branch state, the current and next versions, and the commits
    since the last tag, split into Android (in the APK) and backend (not in the APK). Confirm the
    versions with the user only if the plan is surprising; otherwise use the next patch versions.
-2. **Bump.** Run `$R bump --manotu 0.3.2 --gimano 0.2.5`. It edits the Gradle defaults and commits
+2. **Bump.** Run `python3 $R bump --manotu 0.3.2 --gimano 0.2.5`. It edits the Gradle defaults and commits
    `Release Manotu … and Gimano …` on master, without pushing.
-3. **Build.** Run `$R build`. It runs the unit tests for both flavors and builds both release APKs from
+3. **Build.** Run `python3 $R build`. It runs the unit tests for both flavors and builds both release APKs from
    that commit. It checks the package, versionCode, signer and embedded manifest URL with
    aapt2/apksigner, then stages each APK under `artifacts/release-staging/<flavor>-<ver>/` with its
    `.sha256` and the source commit. If it fails, fix the cause; don't work around a signer or package
@@ -68,16 +68,16 @@ R="python3 .claude/skills/release-apk/scripts/release.py"
    Do the same with `--channel gimano` for the legacy folder. Before going on, search the notes for
    "formerly", "Dahulu" or "Gimano". Users see only the Manotu brand; the legacy package's notes say
    "Manotu" too.
-5. **Tag and push.** Run `$R tag`. It refuses unless both APKs were built from HEAD. It tags
+5. **Tag and push.** Run `python3 $R tag`. It refuses unless both APKs were built from HEAD. It tags
    `v<manotu>` and `v<gimano>` on the bump commit, then pushes master and the tags.
-6. **GitHub.** Run `$R github`. It creates two pre-releases with the APK, the `.sha256` and
+6. **GitHub.** Run `python3 $R github`. It creates two pre-releases with the APK, the `.sha256` and
    `version.json` as assets.
 7. **Website.** SERVER.HiRO on WS556-SERVER owns the IIS copy to .13. Send it the message in
    [references/hiro-deploy.md](references/hiro-deploy.md) with SendMessage (its composer may hold a
    user draft, so don't type into its terminal). It downloads the GitHub assets, checks the hashes,
    copies the APKs first, saves the old manifest as `version-<old>.json` (never overwriting), and
    switches `version.json` last.
-8. **Verify.** Run `$R verify` once HiRO reports. It checks both manifest hosts per flavor and
+8. **Verify.** Run `python3 $R verify` once HiRO reports. It checks both manifest hosts per flavor and
    downloads each APK from its public `apkUrl` to compare hashes. Cloudflare reports DYNAMIC on these
    paths, so a stale answer means the copy didn't happen. Don't purge Cloudflare: it belongs to the
    user.
