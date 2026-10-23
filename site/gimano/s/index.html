@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="ms">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="referrer" content="no-referrer">
+  <meta name="robots" content="noindex">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://tiles.openfreemap.org; font-src 'self' https://tiles.openfreemap.org; connect-src 'self' https://gimano-api.bukitbunga.com https://tiles.openfreemap.org http://100.101.150.9:5080 http://localhost:5080; worker-src blob:; child-src blob:">
+  <title>Gimano · Perjalanan dikongsi</title>
+  <link rel="icon" href="../logo.png">
+  <link rel="stylesheet" href="../style.css">
+  <link rel="stylesheet" href="vendor/maplibre-gl.css">
+  <link rel="stylesheet" href="share.css">
+</head>
+<body>
+  <div id="map" aria-label="Map"></div>
+  <section id="panel" class="card" aria-live="polite">
+    <div class="row">
+      <img src="../logo.png" alt="" width="36" height="36">
+      <div class="grow">
+        <div id="title" class="title">…</div>
+        <div id="subtitle" class="muted"></div>
+      </div>
+      <button id="lang" class="pill" type="button">EN</button>
+    </div>
+    <div id="stats" class="stats" hidden>
+      <div><span class="label" data-t="eta"></span><span id="eta" class="big"></span></div>
+      <div><span class="label" data-t="remaining"></span><span id="remaining" class="big"></span></div>
+    </div>
+    <div id="updated" class="muted small"></div>
+    <div class="muted small privacy" data-t="privacy"></div>
+  </section>
+  <script src="config.js"></script>
+  <script src="vendor/maplibre-gl.js"></script>
+  <script type="module" src="share.mjs"></script>
+</body>
+</html>

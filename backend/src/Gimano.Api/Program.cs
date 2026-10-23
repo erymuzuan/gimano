@@ -84,6 +84,8 @@ builder.Services.AddSignalR().AddJsonProtocol(o => GimanoJson.Configure(o.Payloa
 builder.Services.AddSingleton<LiveSubscriptions>();
 builder.Services.AddHostedService<LiveFanoutConsumer>();
 builder.Services.AddSingleton<MoodCache>();
+builder.Services.AddSingleton<ShareStore>();
+builder.Services.AddHostedService<ShareSweeper>();
 builder.Services.AddSingleton<PingSessions>();
 builder.Services.AddSingleton<DriverSnapshotStore>();
 builder.Services.AddHostedService<DriverSnapshotConsumer>();
@@ -139,7 +141,7 @@ app.MapHealthChecks("/healthz", new HealthCheckOptions { Predicate = _ => false,
 app.MapHealthChecks("/readyz", new HealthCheckOptions { Predicate = c => c.Tags.Contains("ready"), ResponseWriter = HealthWriter.WriteAsync });
 
 var api = app.MapGroup("/api/v1");
-api.MapAuthAndMe().MapPlaces().MapRoutes().MapLive().MapFeedback().MapPrivacy().MapCommunity();
+api.MapAuthAndMe().MapPlaces().MapRoutes().MapLive().MapFeedback().MapPrivacy().MapCommunity().MapShares();
 app.MapMedia();
 
 app.MapHub<LiveHub>("/hubs/live");

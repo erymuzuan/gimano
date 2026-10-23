@@ -112,6 +112,9 @@ services:
       Jwt__SigningKey: ${JWT_SIGNING_KEY:?Set JWT_SIGNING_KEY (>= 32 chars) in deploy/.env}
       # Feedback screenshots are base64 (≤ 1.5 MB decoded ≈ 2 MB JSON).
       Kestrel__Limits__MaxRequestBodySize: "4194304"
+      # Dev: the share viewer may be opened from anywhere (file://, LAN); production restricts to www.bukitbunga.com.
+      Cors__ShareViewerOrigins: ${SHARE_VIEWER_ORIGINS:-*}
+      Features__ApiDocs: "true"
     ports: ["${API_PORT:-5080}:8080"]
     volumes: ["media:/data/media"]
     depends_on:

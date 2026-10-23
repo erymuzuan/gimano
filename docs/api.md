@@ -295,7 +295,7 @@ privacy rule in AGENTS.md.
 POST   /shares              {expiresInMinutes: 15..720}            → 201 {shareId, writeToken, expiresAt}
 PUT    /shares/{shareId}    Authorization: Share <writeToken>
                             {nonce: base64, ciphertext: base64}     (≤ 1 KB)  → 204
-GET    /shares/{shareId}    (public, no auth, CORS *)              → 200 {nonce, ciphertext, updatedAt, expiresAt}
+GET    /shares/{shareId}    (public, no auth; CORS for the viewer origin) → 200 {nonce, ciphertext, updatedAt, expiresAt}
                                                                      → 404 unknown · 410 ended/expired
 DELETE /shares/{shareId}    Authorization: Share <writeToken>       → 204
 ```
@@ -303,6 +303,10 @@ DELETE /shares/{shareId}    Authorization: Share <writeToken>       → 204
 Server storage: **in memory only** (latest blob per share, with TTL; never Postgres, never logged), and a
 rate limit of 3 active shares per user. `shareId` is 128-bit random and `writeToken` is 256-bit random.
 After the share ends, `GET` returns 410 and the blob is dropped immediately.
+Before the first `PUT`, `GET` returns 200 with `nonce`/`ciphertext` = null. Limits: `nonce` must be 24 bytes and
+`ciphertext` ≤ 1024 bytes (413 above); `POST` above 3 active shares → 429; a wrong `writeToken` → 401. CORS on
+`GET` allows only the viewer origin (`https://www.bukitbunga.com` in production, any origin in dev). The store is
+per API process, so the API must run as a single instance (or move to a shared in-memory store if it scales out).
 
 ## Planned drives (on device)
 

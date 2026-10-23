@@ -37,7 +37,11 @@ public static class EdgeSetup
             // Native apps don't need CORS. The only browser client is the "Share my drive" viewer (GET /shares/{id}).
             var origins = (config["Cors:ShareViewerOrigins"] ?? "https://www.bukitbunga.com")
                 .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
-            o.AddPolicy(SharesCorsPolicy, p => p.WithOrigins(origins).WithMethods("GET").AllowAnyHeader());
+            o.AddPolicy(SharesCorsPolicy, p =>
+            {
+                if (origins.Contains("*")) p.AllowAnyOrigin(); else p.WithOrigins(origins);
+                p.WithMethods("GET").AllowAnyHeader();
+            });
             if (env.IsDevelopment()) o.AddDefaultPolicy(p => p.AllowAnyOrigin().AllowAnyHeader().AllowAnyMethod());
         });
 
