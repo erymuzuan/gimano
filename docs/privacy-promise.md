@@ -41,7 +41,9 @@ the product does.
 ## We never know who you are
 
 *Kami tidak pernah tahu siapa anda.* Your contributions are credited to a random pseudonym that only your
-phone (and your own backup) can sign for. No email, phone number, name or Google/Apple login, ever. Your
+phone (and your own backup) can sign for. We never ask for your email, phone number, name or Google/Apple login
+to use Gimano. If *you choose* to leave an email or WhatsApp number on a feedback or crash report, it's used only
+to reply about that report and then deleted. Your
 reputation (Baharu, Perak, Emas) describes your public work, not you.
 
 ## What we do keep (be upfront)
@@ -55,6 +57,8 @@ gambar dan maklum balas.*
 
 ## Usage notes for marketing
 
+- Do **not** say "we never store your email": we do, briefly, if you volunteer it on a feedback/crash report.
+  Say "we never ask for your email to use Gimano".
 - Do **not** say "we collect no data at all": we do receive public contributions and anonymous
   speed pings.
 - Do **not** promise "military-grade" or similar. Say "end-to-end encrypted with a passphrase only you

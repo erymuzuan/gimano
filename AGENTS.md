@@ -116,6 +116,11 @@ must be rejected in review.
   places, reviews and photos, and feedback. It may also hold **anonymous, short-lived** location pings while
   navigating: transient queue, in memory, aggregated into road speeds, raw points never persisted
   (see `docs/traffic.md`).
+- **One narrow exception:** an email/WhatsApp number the user *volunteers* on a specific feedback or crash
+  report, so we can reply. It's never prefilled, never linked to the pseudonym, encrypted at rest, kept out of
+  logs and GitHub, and auto-deleted (30 days after the report closes, 90 days max). See `docs/api.md`, "Contact details".
+- Device info on feedback/crash reports (app version, OS, model, screen size) is sent only with the user's
+  consent and shown to them first. Crash reports are scrubbed on the phone and never use third-party SDKs.
 - No new endpoint, table, log line, analytics event or third-party SDK may carry private data or
   precise per-user location history. Request bodies are not logged. Coordinates in logs are rounded
   to 2 dp at most.

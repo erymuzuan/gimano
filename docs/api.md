@@ -336,22 +336,68 @@ POST /feedback
 { "category": "bug" | "idea" | "map_data" | "route" | "search" | "other",
   "message": "Jalan ini sudah ditutup sejak minggu lepas",   // 1–2000 chars, required
   "rating": 4,                       // optional 1–5
-  "screen": "navigation",            // where it was opened: home|search|place|route_preview|navigation|report|settings|other
-  "context": {                       // filled automatically by the app, user can untick "include diagnostics"
-    "appVersion": "0.1.0 (1)", "platform": "android"|"ios", "osVersion": "16", "deviceModel": "SM-S921B",
-    "locale": "ms", "lat": 3.118, "lng": 101.619, "routeId": "...", "placeId": "..."
+  "screen": "navigation",            // home|search|place|route_preview|navigation|report|settings|other
+  "device": {                        // ONLY when the user ticked "Sertakan maklumat peranti" (default ticked, shown in a preview)
+    "appVersion": "0.2.0", "appBuild": 2, "platform": "android"|"ios",
+    "osVersion": "16" | "iOS 26.1", "apiLevel": 36,            // apiLevel Android only
+    "deviceModel": "SM-S921B", "manufacturer": "samsung",
+    "screen": {"widthPx": 1080, "heightPx": 2340, "density": 2.625, "widthDp": 411, "heightDp": 891},
+    "locale": "ms", "theme": "light"|"dark", "dataMode": "live"|"demo"
   },
+  "location": {"lat": 3.12, "lng": 101.62},   // optional, separate tick "Sertakan lokasi kasar", rounded to 2 dp ON THE PHONE
+  "contact": {                       // optional; only if the user wants to be contacted about THIS report
+    "email": "ali@example.com",      // either or both; validated
+    "whatsapp": "+60123456789",      // E.164
+    "consent": true                  // required true when any contact field is present
+  },
+  "routeId": "...", "placeId": "...",
   "screenshot": "<base64 PNG/JPEG, optional, ≤ 1.5 MB decoded>" }
 → 201 {id, createdAt}
-→ 400 problem+json (validation), 413 (screenshot too big), 429 (more than 10 per hour per user)
+→ 400 problem+json (validation; contact without consent=true), 413 (screenshot too big), 429 (> 10 per hour per user)
 
-GET  /me/feedback            → FeedbackSummary[]   ({id, category, message, status, createdAt})
+GET  /me/feedback            → FeedbackSummary[]   ({id, category, message, status, createdAt, hasContact})
+DELETE /feedback/{id}/contact → 204   (the user withdraws their contact details at any time)
 ```
 
-`status ∈ received, triaged, planned, done, wont_fix`. The backend stores feedback in Postgres
-(screenshot as bytea, max 1.5 MB), publishes `feedback.created` on RabbitMQ, and can
-optionally open a GitHub issue (`Feedback:GitHubRepo` + token configured; off by default; the
-issue body never includes the device id or a precise location, which is rounded to 2 dp).
+`status ∈ received, triaged, planned, done, wont_fix`. Feedback is stored in Postgres (screenshot as bytea,
+max 1.5 MB) and `feedback.created` is published on RabbitMQ. The optional GitHub-issue sink **never** includes
+contact details, device model or location.
+
+## Crash reports
+
+No third-party crash SDK. The app writes a crash record **locally** (Android: `UncaughtExceptionHandler` +
+`ApplicationExitInfo` for ANR/native exits; iOS: MetricKit `MXCrashDiagnostic`, delivered on the next launch).
+On the next launch it asks *"Gimano terhenti tadi. Hantar laporan?"* with **Lihat butiran** (the exact JSON)
+and a remembered choice: **Tanya setiap kali** (default) · **Sentiasa hantar** · **Jangan hantar**.
+
+```
+POST /crash-reports
+{ "occurredAt": "2026-10-23T03:41:00Z",
+  "kind": "crash" | "anr" | "native" | "hang",
+  "exception": "java.lang.IllegalStateException", "message": "<first 500 chars, scrubbed>",
+  "stack": "<≤ 32 KB, scrubbed>",
+  "threads": "<optional, ≤ 32 KB>",
+  "screen": "navigation", "uptimeS": 312,
+  "device": { …same shape as feedback.device; always included for crashes, shown in the preview… },
+  "contact": { "email"?, "whatsapp"?, "consent": true }      // optional, as for feedback
+}
+→ 201 {id, signature}      // signature = sha256 of exception + top 5 app frames, for grouping
+→ 429 (> 20 per day per install)
+```
+
+**Scrubbing on the phone before sending:** coordinates (anything that looks like a lat/lng pair), emails, phone
+numbers, tokens/JWTs, URLs with query strings and file paths under the user's data dir are replaced with `[redacted]`.
+Crash records never include favourites, routes, search text or screenshots. Server retention: 90 days.
+
+## Contact details (feedback & crash reports): the narrow exception
+
+Contact details are the ONE kind of personal data the server accepts, and only when the user volunteers them on a
+specific report:
+- never prefilled and never stored on the user's pseudonym or profile: they belong to that one report;
+- encrypted at rest (AES-GCM with a key from server config, not in the database);
+- visible only to maintainers triaging that report; never in the GitHub sink, logs or analytics;
+- **deleted automatically 30 days after the report is closed (done/wont_fix), and in any case after 90 days**,
+  or immediately via `DELETE /feedback/{id}/contact` / `DELETE /me`.
 
 ## Inbox
 
