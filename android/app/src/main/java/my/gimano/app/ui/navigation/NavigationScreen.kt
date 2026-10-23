@@ -1,0 +1,216 @@
+package my.gimano.app.ui.navigation
+
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.VolumeOff
+import androidx.compose.material.icons.automirrored.filled.VolumeUp
+import androidx.compose.material.icons.filled.*
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import kotlinx.coroutines.delay
+import my.gimano.app.R
+import my.gimano.app.core.format.Formatters
+import my.gimano.app.core.nav.ManeuverFormatter
+import my.gimano.app.core.nav.NavigationTracker
+import my.gimano.app.data.model.Maneuver
+import my.gimano.app.data.settings.AppSettings
+import my.gimano.app.data.settings.SoundMode
+import my.gimano.app.nav.NavState
+import my.gimano.app.ui.MainViewModel
+import my.gimano.app.ui.UiState
+import my.gimano.app.ui.common.*
+import my.gimano.app.ui.report.AlertCard
+import my.gimano.app.ui.report.currentLang
+import my.gimano.app.ui.theme.Gimano
+import my.gimano.app.ui.theme.GimanoType
+import my.gimano.app.ui.theme.Radius
+import java.time.Instant
+import java.time.ZoneId
+
+@Composable
+fun NavigationOverlay(nav: NavState, ui: UiState, settings: AppSettings, vm: MainViewModel) {
+    val c = Gimano.colors
+    val lang = currentLang()
+    val p = nav.progress
+    // Tick so the ETA clock stays fresh even when stationary.
+    var now by remember { mutableStateOf(Instant.now()) }
+    LaunchedEffect(Unit) { while (true) { delay(10_000); now = Instant.now() } }
+
+    Box(Modifier.fillMaxSize()) {
+        // ---- Top: turn banner + "then" strip --------------------------------------------
+        Column(Modifier.align(Alignment.TopStart).fillMaxWidth().windowInsetsPadding(WindowInsets.statusBars).padding(horizontal = 10.dp, vertical = 6.dp)) {
+            TurnBanner(nav)
+            val next = p?.nextManeuver
+            val then = p?.thenManeuver
+            if (!nav.rerouting && NavigationTracker.showThen(next, then) && then != null) {
+                Row(
+                    Modifier.padding(start = 12.dp).clip(RoundedCornerShape(bottomStart = Radius.md, bottomEnd = Radius.md))
+                        .background(Color(0xFF1F2A36)).padding(horizontal = 14.dp, vertical = 6.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(stringResource(R.string.then), color = c.navBannerOn.copy(alpha = 0.8f), fontSize = 16.sp)
+                    Spacer(Modifier.width(8.dp))
+                    Icon(GIcons.maneuver(ManeuverFormatter.icon(then.type)), null, tint = c.navBannerOn, modifier = Modifier.size(24.dp))
+                }
+            }
+        }
+
+        // ---- Right column: sound + recenter ----------------------------------------------
+        Column(
+            Modifier.align(Alignment.TopEnd).windowInsetsPadding(WindowInsets.statusBars).padding(top = 180.dp, end = 14.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            SoundFab(settings.soundMode, onClick = vm::cycleSound)
+            if (!ui.following) RoundFab(Icons.Filled.Navigation, stringResource(R.string.recenter), onClick = vm::recenter)
+        }
+
+        // ---- Bottom: alert card, speedometer, report, ETA bar ------------------------------
+        Column(Modifier.align(Alignment.BottomCenter).fillMaxWidth()) {
+            val alert = nav.upcomingAlert
+            AnimatedVisibility(alert != null && !nav.arrived) {
+                if (alert != null) {
+                    AlertCard(
+                        alert.toReport(), null,
+                        onVote = { v -> vm.vote(alert.toReport(), v) },
+                        onClose = { vm.dismissNavAlert(alert.id) },
+                        distanceAheadM = nav.alertDistanceM?.coerceAtLeast(0.0),
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                    )
+                }
+            }
+            Row(Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 10.dp), verticalAlignment = Alignment.Bottom) {
+                Column {
+                    if (nav.simulated) {
+                        Pill(stringResource(R.string.simulated), icon = Icons.Filled.Science)
+                        Spacer(Modifier.height(8.dp))
+                    }
+                    Speedometer(nav.speedKmh, null)
+                    Spacer(Modifier.height(6.dp))
+                    Attribution()
+                }
+                Spacer(Modifier.weight(1f))
+                ReportFab { vm.openReport(true) }
+            }
+            if (nav.arrived) ArrivedCard(nav, vm) else EtaBar(nav, ui, settings, vm, now)
+        }
+    }
+}
+
+@Composable
+private fun TurnBanner(nav: NavState) {
+    val c = Gimano.colors
+    val lang = currentLang()
+    val p = nav.progress
+    val m: Maneuver? = p?.nextManeuver
+    Row(
+        Modifier.fillMaxWidth().clip(RoundedCornerShape(Radius.lg)).background(c.navBanner).padding(horizontal = 16.dp, vertical = 14.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        if (nav.rerouting || m == null) {
+            CircularProgressIndicator(Modifier.size(40.dp), color = c.brand, strokeWidth = 4.dp)
+            Spacer(Modifier.width(16.dp))
+            Text(stringResource(R.string.rerouting), color = c.navBannerOn, style = GimanoType.title)
+            return@Row
+        }
+        Icon(GIcons.maneuver(ManeuverFormatter.icon(m.type)), null, tint = c.navBannerOn, modifier = Modifier.size(60.dp))
+        Spacer(Modifier.width(14.dp))
+        Column(Modifier.weight(1f)) {
+            Text(Formatters.navDistance(p.distanceToNextM), color = c.navBannerOn, style = GimanoType.navDistance, lineHeight = 42.sp)
+            val road = ManeuverFormatter.road(m)
+            Text(
+                road ?: ManeuverFormatter.instruction(m, lang),
+                color = c.navBannerOn.copy(alpha = 0.92f), fontSize = 20.sp, fontWeight = FontWeight.SemiBold,
+                maxLines = 1, overflow = TextOverflow.Ellipsis,
+            )
+            if (road != null) Text(ManeuverFormatter.instruction(m, lang), color = c.navBannerOn.copy(alpha = 0.65f), fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        }
+    }
+}
+
+@Composable
+private fun EtaBar(nav: NavState, ui: UiState, settings: AppSettings, vm: MainViewModel, now: Instant) {
+    val c = Gimano.colors
+    val lang = currentLang()
+    val p = nav.progress
+    SheetSurface(Modifier.fillMaxWidth()) {
+        Column(Modifier.fillMaxWidth().windowInsetsPadding(WindowInsets.navigationBars).padding(bottom = 8.dp)) {
+            Box(Modifier.fillMaxWidth().padding(top = 8.dp), contentAlignment = Alignment.Center) { GrabHandle() }
+            Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                IconButton(onClick = vm::addStop, Modifier.size(56.dp)) { GIcon("search", stringResource(R.string.add_stop), size = 30.dp) }
+                Column(Modifier.weight(1f).clickable { vm.setNavExpanded(!ui.navExpanded) }, horizontalAlignment = Alignment.CenterHorizontally) {
+                    val eta = p?.let { Formatters.etaClock(now, it.remainingS, ZoneId.systemDefault(), settings.use24h, lang) } ?: "--:--"
+                    Text(eta, style = GimanoType.etaClock, color = c.text, lineHeight = 36.sp)
+                    Text(p?.let { Formatters.remainingLine(it.remainingS, it.remainingM, lang) } ?: "", fontSize = 15.sp, color = c.textMuted)
+                }
+                IconButton(onClick = vm::overview, Modifier.size(52.dp)) { Icon(Icons.Filled.AltRoute, stringResource(R.string.overview), tint = c.text, modifier = Modifier.size(28.dp)) }
+            }
+            AnimatedVisibility(ui.navExpanded) {
+                Column(Modifier.padding(horizontal = 16.dp)) {
+                    Divider()
+                    nav.destination?.let { d ->
+                        Text(d.name, Modifier.padding(top = 12.dp), fontSize = 18.sp, fontWeight = FontWeight.SemiBold, color = c.text, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        nav.route?.summary?.takeIf { it.isNotBlank() }?.let { Text(it, fontSize = 14.sp, color = c.textMuted, maxLines = 1, overflow = TextOverflow.Ellipsis) }
+                    }
+                    Spacer(Modifier.height(8.dp))
+                    ExpandedRow(Icons.Filled.AddLocationAlt, stringResource(R.string.add_stop), vm::addStop)
+                    ExpandedRow(Icons.Filled.Schedule, stringResource(R.string.best_time), vm::openBestTimeFromNav)
+                    ExpandedRow(Icons.Filled.Share, stringResource(R.string.share_drive), vm::shareDrive)
+                    Spacer(Modifier.height(10.dp))
+                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        Button(
+                            onClick = vm::stopNavigation, Modifier.weight(1f).height(54.dp), shape = RoundedCornerShape(Radius.md),
+                            colors = ButtonDefaults.buttonColors(containerColor = c.report, contentColor = c.reportOn),
+                        ) { Text(stringResource(R.string.stop), fontSize = 17.sp, fontWeight = FontWeight.SemiBold) }
+                        Button(
+                            onClick = { vm.setNavExpanded(false) }, Modifier.weight(1f).height(54.dp), shape = RoundedCornerShape(Radius.md),
+                            colors = ButtonDefaults.buttonColors(containerColor = c.brand, contentColor = c.brandOn),
+                        ) { Text(stringResource(R.string.continue_drive), fontSize = 17.sp, fontWeight = FontWeight.SemiBold) }
+                    }
+                    Spacer(Modifier.height(8.dp))
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ExpandedRow(icon: ImageVector, label: String, onClick: () -> Unit) {
+    val c = Gimano.colors
+    Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(Radius.md)).clickable(onClick = onClick).padding(vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+        Box(Modifier.size(40.dp).clip(CircleShape).background(c.surfaceAlt), contentAlignment = Alignment.Center) { Icon(icon, null, tint = c.brand) }
+        Spacer(Modifier.width(14.dp))
+        Text(label, fontSize = 17.sp, color = c.text)
+    }
+}
+
+@Composable
+private fun ArrivedCard(nav: NavState, vm: MainViewModel) {
+    val c = Gimano.colors
+    SheetSurface(Modifier.fillMaxWidth()) {
+        Column(Modifier.fillMaxWidth().windowInsetsPadding(WindowInsets.navigationBars).padding(20.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+            Icon(Icons.Filled.SportsScore, null, tint = c.brand, modifier = Modifier.size(48.dp))
+            Text(stringResource(R.string.arrived), style = GimanoType.title, color = c.text, modifier = Modifier.padding(top = 8.dp))
+            nav.destination?.let { Text(it.name, fontSize = 16.sp, color = c.textMuted, modifier = Modifier.padding(top = 4.dp)) }
+            Spacer(Modifier.height(16.dp))
+            Button(
+                onClick = vm::stopNavigation, Modifier.fillMaxWidth().height(54.dp), shape = RoundedCornerShape(Radius.md),
+                colors = ButtonDefaults.buttonColors(containerColor = c.brand, contentColor = c.brandOn),
+            ) { Text(stringResource(R.string.done), fontSize = 17.sp, fontWeight = FontWeight.SemiBold) }
+        }
+    }
+}

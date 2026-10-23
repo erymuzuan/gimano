@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Themed-icon (Android 13+) layer: the Wau kite in a single colour; the system tints it.
+     The centre boss and spine are cut out (evenOdd) so the kite still reads at small sizes. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp" android:height="108dp"
+    android:viewportWidth="108" android:viewportHeight="108">
+    <group android:scaleX="0.44" android:scaleY="0.44" android:translateX="10" android:translateY="10">
+        <path android:fillColor="#FFFFFF" android:fillType="evenOdd"
+            android:pathData="M100,30C116,44 146,50 168,68 146,82 120,82 108,90V106C128,108 154,122 160,150 136,138 114,144 100,170 86,144 64,138 40,150 46,122 72,108 92,106V90C80,82 54,82 32,68 54,50 84,44 100,30Z M89,98a11,11 0,1 0,22 0a11,11 0,1 0,-22 0Z" />
+        <path android:fillColor="#00000000" android:strokeColor="#FFFFFF" android:strokeWidth="5" android:strokeLineCap="round"
+            android:pathData="M100,30C108,44 132,52 150,66 130,74 114,74 104,82 M100,30C92,44 68,52 50,66 70,74 86,74 96,82" />
+    </group>
+</vector>

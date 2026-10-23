@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Cobalt duotone icon colours (docs/design-tokens.md: brandInk / brandTint). -->
+    <color name="gi_ink">#0A2E6E</color>
+    <color name="gi_tint">#8FB0E8</color>
+</resources>

@@ -1,0 +1,446 @@
+package my.gimano.app.ui.map
+
+import android.graphics.Bitmap
+import android.graphics.PointF
+import android.graphics.RectF
+import androidx.compose.foundation.layout.Box
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Navigation
+import androidx.compose.material.icons.filled.Place
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.Stable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.asAndroidBitmap
+import androidx.compose.ui.graphics.drawscope.CanvasDrawScope
+import androidx.compose.ui.graphics.drawscope.translate
+import androidx.compose.ui.graphics.painter.Painter
+import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.graphics.vector.rememberVectorPainter
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.Density
+import androidx.compose.ui.unit.LayoutDirection
+import androidx.compose.ui.viewinterop.AndroidView
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import my.gimano.app.core.geo.GeoPoint
+import my.gimano.app.ui.common.GIcons
+import my.gimano.app.ui.theme.Gimano
+import my.gimano.app.ui.theme.GimanoColors
+import my.gimano.app.ui.theme.ReportColors
+import org.maplibre.android.MapLibre
+import org.maplibre.android.camera.CameraPosition
+import org.maplibre.android.camera.CameraUpdateFactory
+import org.maplibre.android.geometry.LatLng
+import org.maplibre.android.geometry.LatLngBounds
+import org.maplibre.android.maps.MapLibreMap
+import org.maplibre.android.maps.MapView
+import org.maplibre.android.maps.Style
+import org.maplibre.android.style.expressions.Expression
+import org.maplibre.android.style.layers.CircleLayer
+import org.maplibre.android.style.layers.Layer
+import org.maplibre.android.style.layers.LineLayer
+import org.maplibre.android.style.layers.Property
+import org.maplibre.android.style.layers.PropertyFactory as PF
+import org.maplibre.android.style.layers.SymbolLayer
+import org.maplibre.android.style.sources.GeoJsonSource
+import org.maplibre.geojson.Feature
+import org.maplibre.geojson.FeatureCollection
+import org.maplibre.geojson.LineString
+import org.maplibre.geojson.Point
+
+/** Imperative handle on the map for overlays (route bubbles) and the view model (bbox). */
+@Stable
+class MapHandle {
+    internal var map: MapLibreMap? = null
+    /** Bumped on every camera move so screen-projected overlays recompose. */
+    var cameraVersion by mutableIntStateOf(0)
+        internal set
+    var userMovedCamera by mutableStateOf(false)
+        internal set
+    var ready by mutableStateOf(false)
+        internal set
+
+    fun project(p: GeoPoint): Offset? {
+        val m = map ?: return null
+        val pt = m.projection.toScreenLocation(LatLng(p.lat, p.lng))
+        return Offset(pt.x, pt.y)
+    }
+
+    fun bounds(): VisibleBounds? {
+        val b = map?.projection?.visibleRegion?.latLngBounds ?: return null
+        return VisibleBounds(b.longitudeWest, b.latitudeSouth, b.longitudeEast, b.latitudeNorth)
+    }
+
+    fun clearUserMoved() { userMovedCamera = false }
+}
+
+private object Ids {
+    const val ROUTES = "g-routes"
+    const val ROUTE_TRAFFIC = "g-route-traffic"
+    const val JAMS = "g-jams"
+    const val DRIVERS = "g-drivers"
+    const val ALERTS = "g-alerts"
+    const val PUCK = "g-puck"
+    const val PINS = "g-pins"
+    const val L_ALT_CASE = "g-l-alt-case"
+    const val L_ALT = "g-l-alt"
+    const val L_ACT_CASE = "g-l-act-case"
+    const val L_ACT = "g-l-act"
+    const val L_TRAFFIC = "g-l-traffic"
+    const val L_JAMS = "g-l-jams"
+    const val L_DRIVERS = "g-l-drivers"
+    const val L_ALERTS = "g-l-alerts"
+    const val L_PUCK = "g-l-puck"
+    const val L_PINS = "g-l-pins"
+}
+
+@Composable
+fun GimanoMap(
+    styleUrl: String,
+    state: MapRenderState,
+    camera: CameraCommand?,
+    handle: MapHandle,
+    modifier: Modifier = Modifier,
+    onCameraIdle: (VisibleBounds) -> Unit = {},
+    onMapClick: (GeoPoint) -> Unit = {},
+    onMapLongClick: (GeoPoint) -> Unit = {},
+    onAlertClick: (String) -> Unit = {},
+    onRouteClick: (String) -> Unit = {},
+) {
+    val context = LocalContext.current
+    val density = LocalDensity.current
+    val colors = Gimano.colors
+    val lifecycle = LocalLifecycleOwner.current.lifecycle
+
+    val iconBitmaps = rememberMapIcons(colors, density)
+
+    val mapView = remember {
+        MapLibre.getInstance(context)
+        MapView(context).also { it.onCreate(null) }
+    }
+    var style by remember { mutableStateOf<Style?>(null) }
+    var loadedStyleUrl by remember { mutableStateOf<String?>(null) }
+
+    val idleCb by rememberUpdatedState(onCameraIdle)
+    val clickCb by rememberUpdatedState(onMapClick)
+    val longClickCb by rememberUpdatedState(onMapLongClick)
+    val alertCb by rememberUpdatedState(onAlertClick)
+    val routeCb by rememberUpdatedState(onRouteClick)
+
+    DisposableEffect(lifecycle, mapView) {
+        val obs = LifecycleEventObserver { _, e ->
+            when (e) {
+                Lifecycle.Event.ON_START -> mapView.onStart()
+                Lifecycle.Event.ON_RESUME -> mapView.onResume()
+                Lifecycle.Event.ON_PAUSE -> mapView.onPause()
+                Lifecycle.Event.ON_STOP -> mapView.onStop()
+                else -> Unit
+            }
+        }
+        lifecycle.addObserver(obs)
+        onDispose {
+            lifecycle.removeObserver(obs)
+        }
+    }
+    DisposableEffect(mapView) {
+        onDispose { mapView.onDestroy() }
+    }
+
+    // One-time map setup.
+    LaunchedEffect(mapView) {
+        mapView.getMapAsync { map ->
+            handle.map = map
+            map.uiSettings.apply {
+                isLogoEnabled = false
+                isAttributionEnabled = false // we render "© OpenStreetMap contributors" ourselves
+                isCompassEnabled = false
+                isRotateGesturesEnabled = true
+                isTiltGesturesEnabled = true
+            }
+            map.setMinZoomPreference(3.0)
+            map.moveCamera(CameraUpdateFactory.newCameraPosition(CameraPosition.Builder().target(LatLng(3.1390, 101.6869)).zoom(12.0).build()))
+            map.addOnCameraMoveListener { handle.cameraVersion++ }
+            map.addOnCameraMoveStartedListener { reason ->
+                if (reason == MapLibreMap.OnCameraMoveStartedListener.REASON_API_GESTURE) handle.userMovedCamera = true
+            }
+            map.addOnCameraIdleListener {
+                handle.cameraVersion++
+                handle.bounds()?.let { idleCb(it) }
+            }
+            map.addOnMapClickListener { ll ->
+                val sp = map.projection.toScreenLocation(ll)
+                val r = 24f * density.density
+                val rect = RectF(sp.x - r, sp.y - r, sp.x + r, sp.y + r)
+                val alert = map.queryRenderedFeatures(rect, Ids.L_ALERTS).firstOrNull()?.getStringProperty("id")
+                if (alert != null) {
+                    alertCb(alert); return@addOnMapClickListener true
+                }
+                val route = map.queryRenderedFeatures(rect, Ids.L_ALT, Ids.L_ACT).firstOrNull()?.getStringProperty("id")
+                if (route != null) {
+                    routeCb(route); return@addOnMapClickListener true
+                }
+                clickCb(GeoPoint(ll.latitude, ll.longitude))
+                false
+            }
+            map.addOnMapLongClickListener { ll -> longClickCb(GeoPoint(ll.latitude, ll.longitude)); true }
+            handle.ready = true
+        }
+    }
+
+    // (Re)load the style when the URL changes.
+    LaunchedEffect(styleUrl, handle.ready) {
+        val map = handle.map ?: return@LaunchedEffect
+        if (loadedStyleUrl == styleUrl) return@LaunchedEffect
+        loadedStyleUrl = styleUrl
+        style = null
+        map.setStyle(Style.Builder().fromUri(styleUrl)) { s ->
+            if (!colors.isDark) s.getLayer("background")?.setProperties(PF.backgroundColor(colors.mapBackground.toArgb()))
+            // The basemap is a light style, so route/traffic colours always use the light palette.
+            installLayers(s, my.gimano.app.ui.theme.LightTokens, iconBitmaps)
+            style = s
+        }
+    }
+
+    // Push data into sources whenever it changes.
+    LaunchedEffect(style, state) {
+        val s = style ?: return@LaunchedEffect
+        updateSources(s, state)
+    }
+
+    LaunchedEffect(camera?.id, handle.ready) {
+        val map = handle.map ?: return@LaunchedEffect
+        val cmd = camera ?: return@LaunchedEffect
+        applyCamera(map, cmd, density)
+    }
+
+    Box(modifier) {
+        AndroidView(factory = { mapView }, modifier = Modifier.matchParentSize())
+    }
+}
+
+private fun applyCamera(map: MapLibreMap, cmd: CameraCommand, density: Density) {
+    val px = { dp: Int -> (dp * density.density).toDouble() }
+    when (cmd) {
+        is CameraCommand.MoveTo -> {
+            val b = CameraPosition.Builder().target(LatLng(cmd.point.lat, cmd.point.lng)).padding(0.0, 0.0, 0.0, 0.0)
+            cmd.zoom?.let { b.zoom(it) }
+            val u = CameraUpdateFactory.newCameraPosition(b.build())
+            if (cmd.animate) map.animateCamera(u, 700) else map.moveCamera(u)
+        }
+        is CameraCommand.Fit -> {
+            if (cmd.points.size < 2) return
+            val bounds = LatLngBounds.Builder().includes(cmd.points.map { LatLng(it.lat, it.lng) }).build()
+            val side = px(cmd.sideDp).toInt()
+            map.animateCamera(
+                CameraUpdateFactory.newLatLngBounds(bounds, 0.0, 0.0, side, px(cmd.topDp).toInt(), side, px(cmd.bottomDp).toInt()),
+                800,
+            )
+        }
+        is CameraCommand.Follow -> {
+            val pos = CameraPosition.Builder()
+                .target(LatLng(cmd.point.lat, cmd.point.lng))
+                .bearing(cmd.bearing).tilt(cmd.tilt).zoom(cmd.zoom)
+                .padding(0.0, px(cmd.topDp), 0.0, px(cmd.bottomDp))
+                .build()
+            map.animateCamera(CameraUpdateFactory.newCameraPosition(pos), 950)
+        }
+        is CameraCommand.Reset2D -> {
+            val pos = CameraPosition.Builder().target(LatLng(cmd.point.lat, cmd.point.lng)).bearing(0.0).tilt(0.0).zoom(cmd.zoom)
+                .padding(0.0, 0.0, 0.0, 0.0).build()
+            map.animateCamera(CameraUpdateFactory.newCameraPosition(pos), 700)
+        }
+    }
+}
+
+private fun firstSymbolLayerId(style: Style): String? = style.layers.firstOrNull { it is SymbolLayer }?.id
+
+private fun Style.addBelowLabels(layer: Layer, below: String?) {
+    if (below != null) addLayerBelow(layer, below) else addLayer(layer)
+}
+
+private fun installLayers(style: Style, c: GimanoColors, icons: Map<String, Bitmap>) {
+    icons.forEach { (k, v) -> style.addImage(k, v) }
+    val empty = FeatureCollection.fromFeatures(emptyList())
+    listOf(Ids.ROUTES, Ids.ROUTE_TRAFFIC, Ids.JAMS, Ids.DRIVERS, Ids.ALERTS, Ids.PUCK, Ids.PINS).forEach {
+        style.addSource(GeoJsonSource(it, empty))
+    }
+    val below = firstSymbolLayerId(style)
+    val trafficColor = Expression.match(
+        Expression.get("level"), Expression.color(c.traffic1.toArgb()),
+        Expression.stop(1, Expression.color(c.traffic1.toArgb())),
+        Expression.stop(2, Expression.color(c.traffic2.toArgb())),
+        Expression.stop(3, Expression.color(c.traffic3.toArgb())),
+        Expression.stop(4, Expression.color(c.traffic4.toArgb())),
+    )
+    val width = { base: Float -> Expression.interpolate(Expression.exponential(1.5f), Expression.zoom(), Expression.stop(10, base * 0.5f), Expression.stop(14, base), Expression.stop(18, base * 2.2f)) }
+
+    style.addBelowLabels(
+        LineLayer(Ids.L_JAMS, Ids.JAMS).withProperties(
+            PF.lineColor(trafficColor), PF.lineWidth(width(4f)), PF.lineOpacity(0.85f),
+            PF.lineCap(Property.LINE_CAP_ROUND), PF.lineJoin(Property.LINE_JOIN_ROUND),
+        ), below,
+    )
+    val alt = Expression.eq(Expression.get("selected"), false)
+    val act = Expression.eq(Expression.get("selected"), true)
+    style.addBelowLabels(LineLayer(Ids.L_ALT_CASE, Ids.ROUTES).withFilter(alt).withProperties(
+        PF.lineColor(Color.White.toArgb()), PF.lineWidth(width(9f)), PF.lineCap(Property.LINE_CAP_ROUND), PF.lineJoin(Property.LINE_JOIN_ROUND),
+    ), below)
+    style.addBelowLabels(LineLayer(Ids.L_ALT, Ids.ROUTES).withFilter(alt).withProperties(
+        PF.lineColor(c.routeAlt.toArgb()), PF.lineWidth(width(6f)), PF.lineCap(Property.LINE_CAP_ROUND), PF.lineJoin(Property.LINE_JOIN_ROUND),
+    ), below)
+    style.addBelowLabels(LineLayer(Ids.L_ACT_CASE, Ids.ROUTES).withFilter(act).withProperties(
+        PF.lineColor(c.navBanner.toArgb()), PF.lineWidth(width(11f)), PF.lineCap(Property.LINE_CAP_ROUND), PF.lineJoin(Property.LINE_JOIN_ROUND),
+    ), below)
+    style.addBelowLabels(LineLayer(Ids.L_ACT, Ids.ROUTES).withFilter(act).withProperties(
+        PF.lineColor(c.routeActive.toArgb()), PF.lineWidth(width(8f)), PF.lineCap(Property.LINE_CAP_ROUND), PF.lineJoin(Property.LINE_JOIN_ROUND),
+    ), below)
+    style.addBelowLabels(LineLayer(Ids.L_TRAFFIC, Ids.ROUTE_TRAFFIC).withProperties(
+        PF.lineColor(trafficColor), PF.lineWidth(width(5f)), PF.lineCap(Property.LINE_CAP_ROUND), PF.lineJoin(Property.LINE_JOIN_ROUND),
+    ), below)
+    style.addLayer(CircleLayer(Ids.L_DRIVERS, Ids.DRIVERS).withProperties(
+        PF.circleColor(c.brand.toArgb()), PF.circleRadius(5.5f), PF.circleStrokeColor(Color.White.toArgb()), PF.circleStrokeWidth(2f),
+    ))
+    style.addLayer(SymbolLayer(Ids.L_PINS, Ids.PINS).withProperties(
+        PF.iconImage(Expression.get("icon")), PF.iconAnchor(Property.ICON_ANCHOR_BOTTOM), PF.iconAllowOverlap(true), PF.iconIgnorePlacement(true),
+    ))
+    style.addLayer(SymbolLayer(Ids.L_ALERTS, Ids.ALERTS).withProperties(
+        PF.iconImage(Expression.concat(Expression.literal("alert-"), Expression.get("type"))),
+        PF.iconAnchor(Property.ICON_ANCHOR_BOTTOM), PF.iconAllowOverlap(true), PF.iconIgnorePlacement(true),
+        PF.iconSize(Expression.interpolate(Expression.linear(), Expression.zoom(), Expression.stop(10, 0.6f), Expression.stop(15, 1f))),
+    ))
+    style.addLayer(SymbolLayer(Ids.L_PUCK, Ids.PUCK).withProperties(
+        PF.iconImage("puck"), PF.iconRotate(Expression.get("bearing")), PF.iconRotationAlignment(Property.ICON_ROTATION_ALIGNMENT_MAP),
+        PF.iconPitchAlignment(Property.ICON_PITCH_ALIGNMENT_MAP),
+        PF.iconAllowOverlap(true), PF.iconIgnorePlacement(true),
+    ))
+}
+
+private fun pt(p: GeoPoint) = Point.fromLngLat(p.lng, p.lat)
+
+private fun updateSources(style: Style, s: MapRenderState) {
+    // Draw alternatives first so the selected route is on top within the same source.
+    val routeFeatures = s.routes.sortedBy { it.selected }.filter { it.points.size >= 2 }.map { r ->
+        Feature.fromGeometry(LineString.fromLngLats(r.points.map(::pt))).apply {
+            addStringProperty("id", r.id); addBooleanProperty("selected", r.selected)
+        }
+    }
+    style.getSourceAs<GeoJsonSource>(Ids.ROUTES)?.setGeoJson(FeatureCollection.fromFeatures(routeFeatures))
+
+    val traffic = if (!s.showTraffic) emptyList() else s.routes.filter { it.selected }.flatMap { r ->
+        r.traffic.filter { it.level > 0 }.mapNotNull { seg ->
+            val from = seg.fromIndex.coerceIn(0, r.points.lastIndex)
+            val to = seg.toIndex.coerceIn(0, r.points.lastIndex)
+            if (to - from < 1) null else Feature.fromGeometry(LineString.fromLngLats(r.points.subList(from, to + 1).map(::pt))).apply {
+                addNumberProperty("level", seg.level.coerceIn(1, 4))
+            }
+        }
+    }
+    style.getSourceAs<GeoJsonSource>(Ids.ROUTE_TRAFFIC)?.setGeoJson(FeatureCollection.fromFeatures(traffic))
+
+    val jams = if (!s.showTraffic || s.routes.isNotEmpty()) emptyList() else s.jams.filter { it.second.size >= 2 }.map { (j, pts) ->
+        Feature.fromGeometry(LineString.fromLngLats(pts.map(::pt))).apply { addNumberProperty("level", j.level.coerceIn(1, 4)) }
+    }
+    style.getSourceAs<GeoJsonSource>(Ids.JAMS)?.setGeoJson(FeatureCollection.fromFeatures(jams))
+
+    val drivers = if (!s.showDrivers || s.navigating) emptyList() else s.drivers.map { d -> Feature.fromGeometry(Point.fromLngLat(d.lng, d.lat)) }
+    style.getSourceAs<GeoJsonSource>(Ids.DRIVERS)?.setGeoJson(FeatureCollection.fromFeatures(drivers))
+
+    val alerts = if (!s.showAlerts) emptyList() else s.alerts.map { a ->
+        Feature.fromGeometry(Point.fromLngLat(a.lng, a.lat)).apply {
+            addStringProperty("id", a.id)
+            addStringProperty("type", if (a.type in GIcons.reportTypes) a.type else "hazard")
+        }
+    }
+    style.getSourceAs<GeoJsonSource>(Ids.ALERTS)?.setGeoJson(FeatureCollection.fromFeatures(alerts))
+
+    val puck = s.puck?.let { listOf(Feature.fromGeometry(pt(it)).apply { addNumberProperty("bearing", s.puckBearing) }) } ?: emptyList()
+    style.getSourceAs<GeoJsonSource>(Ids.PUCK)?.setGeoJson(FeatureCollection.fromFeatures(puck))
+
+    val pins = (s.stops.map { Feature.fromGeometry(pt(it)).apply { addStringProperty("icon", "stop") } } +
+        listOfNotNull(s.pin?.let { Feature.fromGeometry(pt(it)).apply { addStringProperty("icon", "pin") } }))
+    style.getSourceAs<GeoJsonSource>(Ids.PINS)?.setGeoJson(FeatureCollection.fromFeatures(pins))
+}
+
+/** Rasterises Gimano's own pebble markers (Material Symbols glyph on a type-coloured tile). */
+@Composable
+private fun rememberMapIcons(c: GimanoColors, density: Density): Map<String, Bitmap> {
+    val painters = GIcons.reportTypes.associateWith { t ->
+        val d = ReportColors.duotone(t)
+        rememberVectorPainter(my.gimano.app.ui.common.Duotone.vector(GIcons.report(t), d.stroke, d.fill))
+    }
+    val navPainter = rememberVectorPainter(Icons.Filled.Navigation)
+    val pinPainter = rememberVectorPainter(Icons.Filled.Place)
+    return remember(c, density) {
+        val out = HashMap<String, Bitmap>()
+        painters.forEach { (type, p) -> out["alert-$type"] = pebble(p, ReportColors.duotone(type).tile, ReportColors.duotone(type).stroke, density, 38f) }
+        out["puck"] = puck(navPainter, c.brand, density)
+        out["pin"] = pin(pinPainter, c.report, density, 44f)
+        out["stop"] = pin(pinPainter, c.brand, density, 36f)
+        out
+    }
+}
+
+private fun render(sizeDpW: Float, sizeDpH: Float, density: Density, block: androidx.compose.ui.graphics.drawscope.DrawScope.(Size) -> Unit): Bitmap {
+    val w = (sizeDpW * density.density).toInt()
+    val h = (sizeDpH * density.density).toInt()
+    val img = ImageBitmap(w, h)
+    val canvas = androidx.compose.ui.graphics.Canvas(img)
+    val size = Size(w.toFloat(), h.toFloat())
+    CanvasDrawScope().draw(density, LayoutDirection.Ltr, canvas, size) { block(size) }
+    return img.asAndroidBitmap()
+}
+
+private fun pebble(icon: Painter, bg: Color, ring: Color, density: Density, dp: Float): Bitmap = render(dp, dp + 6, density) { size ->
+    val d = density.density
+    val box = size.width
+    val r = CornerRadius(box * 0.32f)
+    drawRoundRect(Color(0x33000000), topLeft = Offset(0f, 2 * d), size = Size(box, box), cornerRadius = r)
+    drawRoundRect(Color.White, size = Size(box, box), cornerRadius = r)
+    drawRoundRect(ring.copy(alpha = 0.35f), topLeft = Offset(1f * d, 1f * d), size = Size(box - 2 * d, box - 2 * d), cornerRadius = r)
+    val b = 2.5f * d
+    drawRoundRect(bg, topLeft = Offset(b, b), size = Size(box - 2 * b, box - 2 * b), cornerRadius = CornerRadius(box * 0.27f))
+    // little pointer under the pebble
+    val path = androidx.compose.ui.graphics.Path().apply {
+        moveTo(box / 2 - 5 * d, box - 1); lineTo(box / 2 + 5 * d, box - 1); lineTo(box / 2, size.height); close()
+    }
+    drawPath(path, Color.White)
+    val pad = box * 0.18f
+    translate(pad, pad) {
+        with(icon) { draw(Size(box - 2 * pad, box - 2 * pad)) }
+    }
+}
+
+private fun puck(icon: Painter, brand: Color, density: Density): Bitmap = render(40f, 40f, density) { size ->
+    val d = density.density
+    val c = Offset(size.width / 2, size.height / 2)
+    drawCircle(Color(0x2A0B8F6A), radius = size.width / 2, center = c)
+    drawCircle(Color.White, radius = 14 * d, center = c)
+    drawCircle(brand, radius = 11.5f * d, center = c)
+    val s = 16 * d
+    translate(c.x - s / 2, c.y - s / 2) {
+        with(icon) { draw(Size(s, s), colorFilter = ColorFilter.tint(Color.White)) }
+    }
+}
+
+private fun pin(icon: Painter, color: Color, density: Density, dp: Float): Bitmap = render(dp, dp, density) { size ->
+    val d = density.density
+    // white halo behind the glyph
+    drawCircle(Color.White, radius = size.width * 0.27f, center = Offset(size.width / 2, size.height * 0.38f))
+    with(icon) { draw(size, colorFilter = ColorFilter.tint(color)) }
+}

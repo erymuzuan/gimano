@@ -1,0 +1,52 @@
+package my.gimano.app.nav
+
+import android.content.Context
+import android.speech.tts.TextToSpeech
+import android.util.Log
+import my.gimano.app.core.format.Lang
+import java.util.Locale
+
+/** TextToSpeech wrapper for English and Bahasa Melayu prompts. */
+class VoiceGuide(context: Context) : TextToSpeech.OnInitListener {
+    private val tts = TextToSpeech(context.applicationContext, this)
+    private var ready = false
+    private var currentLang: Lang? = null
+    private val pending = ArrayList<Pair<String, Lang>>()
+
+    override fun onInit(status: Int) {
+        ready = status == TextToSpeech.SUCCESS
+        if (ready) {
+            pending.forEach { (t, l) -> speak(t, l) }
+        }
+        pending.clear()
+    }
+
+    private fun applyLang(lang: Lang) {
+        if (currentLang == lang) return
+        currentLang = lang
+        val candidates = if (lang == Lang.MS) listOf(Locale("ms", "MY"), Locale("ms"), Locale("id", "ID")) else listOf(Locale("en", "MY"), Locale("en", "GB"), Locale.US)
+        for (loc in candidates) {
+            val r = tts.isLanguageAvailable(loc)
+            if (r >= TextToSpeech.LANG_AVAILABLE) {
+                tts.language = loc
+                return
+            }
+        }
+        Log.w("VoiceGuide", "No TTS voice for $lang, using default")
+    }
+
+    fun speak(text: String, lang: Lang, flush: Boolean = false) {
+        if (!ready) {
+            pending += text to lang
+            return
+        }
+        applyLang(lang)
+        tts.speak(text, if (flush) TextToSpeech.QUEUE_FLUSH else TextToSpeech.QUEUE_ADD, null, "gimano-${text.hashCode()}")
+    }
+
+    fun stop() {
+        if (ready) tts.stop()
+    }
+
+    fun shutdown() = tts.shutdown()
+}

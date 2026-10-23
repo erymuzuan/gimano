@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="gimano_brand">#0047AB</color>
+    <color name="gimano_launcher_bg">#0047AB</color>
+    <style name="Theme.Gimano" parent="Theme.AppCompat.DayNight.NoActionBar">
+        <item name="android:windowBackground">#F5F8FD</item>
+        <item name="colorPrimary">@color/gimano_brand</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+    </style>
+</resources>
