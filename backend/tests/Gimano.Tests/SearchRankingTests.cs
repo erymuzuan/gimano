@@ -207,34 +207,26 @@ public class OpenSearchIntegrationRankingTests
             await index.BulkIndexAsync(Fixture.Select(p => SearchQueryBuilder.ToDocument(p)).ToList());
             await index.RefreshAsync();
 
-            var putrajaya = await Search(index, "Putrajaya");
-            Assert.Equal("n1", putrajaya[0].Id);
-            Assert.True(putrajaya.FindIndex(h => h.Id == "n3") is -1 or > 2, "a long name merely containing the term must not be in the top 3");
-            Assert.Equal("n1", (await Search(index, "putraj"))[0].Id);   // as-you-type prefix
+            var failures = new List<string>();
+            async Task Expect(string q, Func<List<PlaceHit>, bool> ok, string what, int limit = 5)
+            {
+                var r = await Search(index, q, limit);
+                if (!ok(r)) failures.Add($"Assert-rank '{q}': expected {what}; got {string.Join(" | ", r.Select(h => $"{h.Id} {h.Name}"))}");
+            }
+            int At(List<PlaceHit> r, string id) => r.FindIndex(h => h.Id == id);
 
-            Assert.Equal("n10", (await Search(index, "Cyberjaya"))[0].Id);
-            Assert.Equal("n20", (await Search(index, "Shah Alam"))[0].Id);
-            Assert.Equal("n20", (await Search(index, "shah al"))[0].Id);
-
-            var klcc = await Search(index, "KLCC");
-            Assert.Contains(klcc[0].Id, new[] { "n32", "n30", "n31" });
-            Assert.Contains(klcc.Take(3), h => h.Id == "n30");
-            Assert.NotEqual("n33", klcc[0].Id);
-
-            var mv = await Search(index, "Mid Valley");
-            Assert.Contains(mv[0].Id, new[] { "n40", "n41" });
-            Assert.Contains(mv.Take(2), h => h.Id == "n40");
-
-            Assert.Equal("n50", (await Search(index, "Semenyih"))[0].Id);
-
-            var petronas = await Search(index, "petronas", 10);
-            Assert.Equal("n60", petronas[0].Id);   // nearest station
-            Assert.Single(petronas, h => h.Name == "Petronas, Persiaran Zaaba");   // node + building collapsed
-            Assert.True(petronas.FindIndex(h => h.Id == "n62") < petronas.FindIndex(h => h.Id == "n63"), "SS2 (3 km) before Kepong (7 km)");
-            Assert.True(petronas.FindIndex(h => h.Id == "n64") > petronas.FindIndex(h => h.Id == "n63"), "office with a long name after the stations");
-
-            var mcd = await Search(index, "mcd");
-            Assert.Equal(["n70", "n71"], mcd.Take(2).Select(h => h.Id).ToArray());
+            await Expect("Putrajaya", r => r[0].Id == "n1" && At(r, "n3") is -1 or > 2, "n1 first, long government name not in top 3");
+            await Expect("putraj", r => r[0].Id == "n1", "n1 first (as-you-type)");
+            await Expect("Cyberjaya", r => r[0].Id == "n10", "n10 first");
+            await Expect("Shah Alam", r => r[0].Id == "n20", "n20 first");
+            await Expect("shah al", r => r[0].Id == "n20", "n20 first (as-you-type)");
+            await Expect("KLCC", r => r[0].Id is "n32" or "n30" or "n31" && At(r, "n30") is >= 0 and < 3, "KLCC station/Suria/towers first, Suria in top 3");
+            await Expect("Mid Valley", r => r[0].Id is "n40" or "n41" && At(r, "n40") is >= 0 and < 2, "Megamall or the area first");
+            await Expect("Semenyih", r => r[0].Id == "n50", "n50 first");
+            await Expect("petronas", r => r[0].Id == "n60" && r.Count(h => h.Name == "Petronas, Persiaran Zaaba") == 1
+                && At(r, "n62") < At(r, "n63") && At(r, "n64") > At(r, "n63"), "nearest first, duplicate collapsed, SS2 < Kepong < office", 10);
+            await Expect("mcd", r => r.Count >= 2 && r[0].Id == "n70" && r[1].Id == "n71", "n70, n71");
+            Assert.True(failures.Count == 0, string.Join("\n", failures));
         }
         finally
         {
