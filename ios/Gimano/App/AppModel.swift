@@ -194,6 +194,8 @@ final class AppModel {
         if d.bool(forKey: "GimanoSkipOnboarding") { d.set(true, forKey: "onboarding.done") }
         if d.bool(forKey: "GimanoFreshDevice") {
             UserDefaults.standard.removeObject(forKey: "vetting.lastPromptAt")
+            UserDefaults.standard.removeObject(forKey: "recovery.roundTrip")
+            UserDefaults.standard.removeObject(forKey: "crash.lastSent")
             UserDefaults.standard.removeObject(forKey: "vetting.voted")
         }
         // `-GimanoFakeCrash YES`: a crash record as MetricKit would deliver it (UI tests of the crash prompt).
@@ -303,6 +305,9 @@ final class AppModel {
             _ = try? await repo.signIn()
         }
         if config.dataMode != .demo { await repo.ensureIdentity() }
+        #if DEBUG
+        await debugRecoveryRoundTrip()
+        #endif
         if let u = try? await repo.me() {
             user = u
             if let v = u.vehicle, UserDefaults.standard.string(forKey: "travelMode") == nil { vehicle = v }
@@ -909,6 +914,30 @@ final class AppModel {
             showToast(error.localizedDescription)
         }
     }
+
+    #if DEBUG
+    private func debugRecoveryRoundTrip() async {
+        // `-GimanoRecoveryRoundTrip YES`: this phone's (fresh) identity → 24 words → forget identity + token →
+        // sign in by key (POST /auth/token {publicKey, ts, sig}) → must come back as the same userId.
+        if UserDefaults.standard.bool(forKey: "GimanoRecoveryRoundTrip"), config.dataMode != .demo,
+           UserDefaults.standard.string(forKey: "recovery.roundTrip") == nil, let id = try? store.identity() {
+            let words = RecoveryCode.encode(id.keys.seed).joined(separator: " ")
+            try? store.deleteIdentity()
+            TokenStore.save(nil, for: config.apiBaseURL)
+            // A client with no token and no key, as on a new phone.
+            let fresh = LiveRepository(baseURL: config.apiBaseURL, store: store)
+            var err: String?
+            do {
+                let keys = try IdentityKeys(seed: RecoveryCode.decode(words))!
+                _ = try await fresh.signIn(recovered: keys)
+            } catch { err = error.localizedDescription }
+            let back = try? store.identity()
+            let ok = err == nil && back?.userId == id.userId
+            UserDefaults.standard.set("\(ok ? "PASS" : "FAIL") userId=\(back?.userId ?? "-") expected=\(id.userId) \(err ?? "")",
+                                      forKey: "recovery.roundTrip")
+        }
+    }
+    #endif
 
     // MARK: identity / account
 

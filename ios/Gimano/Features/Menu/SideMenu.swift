@@ -540,6 +540,14 @@ struct AboutView: View {
                 }
                 .accessibilityIdentifier("aboutServer")
                 LabeledContent("Latest version", value: AppInfo.version)
+                #if DEBUG
+                if let s = UserDefaults.standard.string(forKey: "crash.lastSent") {
+                    Text(verbatim: "crash: \(s)").font(Tokens.Font.small).accessibilityIdentifier("debugCrashLastSent")
+                }
+                if let s = UserDefaults.standard.string(forKey: "recovery.roundTrip") {
+                    Text(verbatim: "recovery: \(s)").font(Tokens.Font.small).accessibilityIdentifier("debugRecovery")
+                }
+                #endif
             } footer: {
                 Text("Update checks will appear here once Gimano is on TestFlight / the App Store.")
             }

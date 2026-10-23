@@ -270,7 +270,8 @@ final class CrashReporter: NSObject, MXMetricManagerSubscriber {
         out.contact = contact
         discard(r.id)
         do {
-            _ = try await repo.sendCrashReport(out)
+            let created = try await repo.sendCrashReport(out)
+            UserDefaults.standard.set("\(created.id) · \(created.signature ?? "-")", forKey: "crash.lastSent")
             return true
         } catch {
             try? FileManager.default.createDirectory(at: approvedDirectory, withIntermediateDirectories: true)

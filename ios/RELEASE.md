@@ -1,7 +1,7 @@
 # Releasing Gimano for iOS (TestFlight)
 
-Bundle id `my.gimano.app` · version `0.1.0` (`MARKETING_VERSION` in `project.yml`) · build number = git commit count
-(passed to the archive by `scripts/testflight.sh`).
+Bundle id `my.gimano.app` · version `0.2.0` (build 2) (`MARKETING_VERSION` in `project.yml`) · build number = `CURRENT_PROJECT_VERSION` in `project.yml`
+(override per upload: `scripts/testflight.sh <n>`).
 
 The Release configuration talks to **https://gimano-api.bukitbunga.com/api/v1/** (live hub: `wss://gimano-api.bukitbunga.com/hubs/live`).
 It is ATS-strict (no exceptions), has no developer settings or overrides, and ignores test launch arguments.
@@ -9,10 +9,15 @@ Demo data is used only when the server is unreachable or returns 5xx.
 
 ## One-time setup
 
+> **Team:** TestFlight and the App Store must use Erymuzuan Mustapa's **individual** Apple Developer team, never
+> STAFY COMPANY LIMITED (AGENTS.md). The local `Config/Local.xcconfig` used for device testing currently points at
+> STAFY (98KY9PMPX3), so `scripts/testflight.sh` passes `DEVELOPMENT_TEAM=$ASC_TEAM_ID` explicitly and refuses to
+> upload an archive signed by any other team. Create the App Store Connect app and API key under the individual team.
+
 1. **App Store Connect app**: My Apps → + → New App → iOS, name "Gimano", bundle id `my.gimano.app`, SKU `gimano-ios`.
 2. **API key**: App Store Connect → Users and Access → Integrations → App Store Connect API → generate a key with the
    **App Manager** role. Download `AuthKey_<KEY_ID>.p8` (it can be downloaded only once) and note the Issuer ID and Key ID.
-3. `cp Config/asc.env.example Config/asc.env` and fill in `ASC_ISSUER_ID`, `ASC_KEY_ID`, `ASC_KEY_PATH`.
+3. `cp Config/asc.env.example Config/asc.env` and fill in `ASC_ISSUER_ID`, `ASC_KEY_ID`, `ASC_KEY_PATH`, `ASC_TEAM_ID` (individual team).
    `Config/asc.env` and `*.p8` are git-ignored; never commit them.
 4. `Config/Local.xcconfig` (git-ignored) must contain `DEVELOPMENT_TEAM = <your team id>`, as for development builds.
    `Config/Google.xcconfig` (git-ignored) holds the Google Drive client ids (see `Config/Google.xcconfig.example`).
@@ -34,7 +39,7 @@ What the script runs (for manual use):
 
 ```sh
 xcodebuild archive -project Gimano.xcodeproj -scheme Gimano -configuration Release \
-  -destination 'generic/platform=iOS' -archivePath build/testflight/Gimano.xcarchive CURRENT_PROJECT_VERSION=<n> \
+  -destination 'generic/platform=iOS' -archivePath build/testflight/Gimano.xcarchive \
   -allowProvisioningUpdates -authenticationKeyPath "$ASC_KEY_PATH" -authenticationKeyID "$ASC_KEY_ID" -authenticationKeyIssuerID "$ASC_ISSUER_ID"
 xcodebuild -exportArchive -archivePath build/testflight/Gimano.xcarchive -exportPath build/testflight/export \
   -exportOptionsPlist Config/ExportOptions-AppStore.plist -allowProvisioningUpdates -authenticationKeyPath … (same three)
@@ -42,7 +47,7 @@ xcrun altool --upload-app -f build/testflight/export/Gimano.ipa -t ios \
   --api-key "$ASC_KEY_ID" --api-issuer "$ASC_ISSUER_ID" --p8-file-path "$ASC_KEY_PATH"
 ```
 
-Every upload needs a new build number; the script uses the git commit count. To retry an upload, pass a number: `scripts/testflight.sh 123`.
+Every upload needs a new build number: bump `CURRENT_PROJECT_VERSION` in `project.yml` (the sideload IPA uses the same value), or pass one: `scripts/testflight.sh 3`.
 
 ## TestFlight public link
 

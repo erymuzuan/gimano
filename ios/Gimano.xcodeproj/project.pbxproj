@@ -53,6 +53,7 @@
 		74DE001005991821B65AD8A8 /* GimanoMapView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2F9DFAA9B3D3726BC81365AE /* GimanoMapView.swift */; };
 		75639CA2C63B225B95E351C5 /* Identity.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0E219C9F8BB19D8B05086F88 /* Identity.swift */; };
 		77C09E39905792ACB8545E43 /* IconData.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9872BA301C2D39E8614CD42B /* IconData.swift */; };
+		7C69BDCE20FBD4840F4154F4 /* ProdHooksUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = EEBE29304DF119F04E43590B /* ProdHooksUITests.swift */; };
 		840729B64DD469FC77A20C5A /* AddPlaceFlow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3C0F8DF2CCB59B6F1619E7D8 /* AddPlaceFlow.swift */; };
 		8D4ADB9D79B660A1AB81D12C /* ShareDriveTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2D90713368FDFFC83AF819E5 /* ShareDriveTests.swift */; };
 		91A71275CF784270F9E4C450 /* FavoritesViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 10C8980C61AB2C11DC29BA4A /* FavoritesViews.swift */; };
@@ -196,6 +197,7 @@
 		DEBD1CA04E9BD6F194DF4D43 /* Backup.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Backup.swift; sourceTree = "<group>"; };
 		E3820150BB82A2510C4945B2 /* PolylineTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PolylineTests.swift; sourceTree = "<group>"; };
 		EA233B3BA33673EDC5CA48C0 /* BackupManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BackupManager.swift; sourceTree = "<group>"; };
+		EEBE29304DF119F04E43590B /* ProdHooksUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProdHooksUITests.swift; sourceTree = "<group>"; };
 		F05911F984BB3D0A8BDFE891 /* PlaceCardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaceCardView.swift; sourceTree = "<group>"; };
 		F6C8B1343BB36DDAC8D6166E /* Formatters.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Formatters.swift; sourceTree = "<group>"; };
 		FBED0F8FE579F3B5F1450975 /* Polyline.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Polyline.swift; sourceTree = "<group>"; };
@@ -265,6 +267,7 @@
 				B87558CFB1FF80DBC5A662E7 /* DriveBackupUITests.swift */,
 				8106EEE1D3C7F24F35288A1F /* GimanoUITests.swift */,
 				327388AA4FE1D5A5AAC4723E /* PreciseLocationUITests.swift */,
+				EEBE29304DF119F04E43590B /* ProdHooksUITests.swift */,
 				D0238A1CD728A2F2D9CBDD03 /* ProdUserUITests.swift */,
 				6FBA37416C29B4B20D878BFB /* Round3UITests.swift */,
 				C5F669B6DCBAC9CDBDA48CAF /* Round4UITests.swift */,
@@ -761,6 +764,7 @@
 				F43F46EFEA44DC04DAF89F39 /* DriveBackupUITests.swift in Sources */,
 				701C90310AC26FACD1D6872B /* GimanoUITests.swift in Sources */,
 				99AD437AD034E5F0FC1FB500 /* PreciseLocationUITests.swift in Sources */,
+				7C69BDCE20FBD4840F4154F4 /* ProdHooksUITests.swift in Sources */,
 				658D6AEB5A770EBA24F9DEDA /* ProdUserUITests.swift in Sources */,
 				4F902BD3BD1138DEEAA5AB4E /* Round3UITests.swift in Sources */,
 				2CE151E5AF12C91658656725 /* Round4UITests.swift in Sources */,
@@ -857,7 +861,7 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 2;
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
@@ -880,7 +884,7 @@
 				GIMANO_MAP_STYLE_URL = "https://tiles.openfreemap.org/styles/liberty";
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
-				MARKETING_VERSION = 0.1.0;
+				MARKETING_VERSION = 0.2.0;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;
@@ -1000,7 +1004,7 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 2;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				ENABLE_NS_ASSERTIONS = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
@@ -1017,7 +1021,7 @@
 				GIMANO_MAP_STYLE_URL = "https://tiles.openfreemap.org/styles/liberty";
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
-				MARKETING_VERSION = 0.1.0;
+				MARKETING_VERSION = 0.2.0;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";

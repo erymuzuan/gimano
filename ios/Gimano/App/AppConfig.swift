@@ -100,6 +100,8 @@ final class AppConfig {
     private func applyLaunchArguments() {
         if let m = defaults.string(forKey: "GimanoDataMode"), let mode = DataMode(rawValue: m) { dataMode = mode }
         if defaults.object(forKey: "GimanoSimulateDrive") != nil { simulateDrive = defaults.bool(forKey: "GimanoSimulateDrive") }
+        // `-GimanoAPIBaseURL https://…/api/v1/` (UI tests against another server, e.g. production).
+        if let u = defaults.string(forKey: "GimanoAPIBaseURL"), !u.isEmpty { apiBaseURLOverride = u }
     }
 
     private enum Keys {
