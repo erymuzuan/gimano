@@ -73,7 +73,7 @@ fun FeedbackSheet(vm: FeedbackViewModel, d: FeedbackDraft, onSend: () -> Unit, h
             // Version on the form itself: the first thing support needs.
             Row(Modifier.fillMaxWidth().padding(bottom = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                 Text(stringResource(R.string.add_feedback), Modifier.weight(1f), fontSize = 20.sp, fontWeight = FontWeight.Black, color = c.text)
-                Text("Gimano ${my.gimano.app.BuildConfig.VERSION_NAME} (${my.gimano.app.BuildConfig.VERSION_CODE})", fontSize = 13.sp, fontWeight = FontWeight.ExtraBold, color = c.textMuted)
+                Text("${stringResource(R.string.app_name)} ${my.gimano.app.BuildConfig.VERSION_NAME} (${my.gimano.app.BuildConfig.VERSION_CODE})", fontSize = 13.sp, fontWeight = FontWeight.ExtraBold, color = c.textMuted)
             }
             // Big icons, little text: 3×2 category grid.
             FEEDBACK_CATEGORIES.chunked(3).forEach { row ->

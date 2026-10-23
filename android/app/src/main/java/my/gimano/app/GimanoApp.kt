@@ -125,5 +125,6 @@ class GimanoApp : Application() {
         super.onCreate()
         container = AppContainer(this)
         container.crashes.install()
+        my.gimano.app.data.places.PhotoPrep.sweepCameraTemps(this)
     }
 }

@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name" translatable="false">Gimano</string>
+    <string name="app_name" translatable="false">Manotu</string>
     <string name="where_to">Where to?</string>
     <string name="home">Home</string>
     <string name="work">Work</string>
@@ -113,7 +113,7 @@
     <string name="sound_alerts">Alerts only</string>
     <string name="sound_off">Sound off</string>
     <string name="demo_data">Demo data</string>
-    <string name="server_unreachable">Can\'t reach the Gimano server. Showing demo data.</string>
+    <string name="server_unreachable">Can\'t reach the Manotu server. Showing demo data.</string>
     <string name="retry">Retry</string>
     <string name="language">Language</string>
     <string name="lang_system">Follow phone</string>
@@ -132,11 +132,11 @@
     <string name="map_style">Map style URL</string>
     <string name="display_name">Display name</string>
     <string name="about">About</string>
-    <string name="about_text">Gimano\'s own code is open source (MIT): community navigation for Malaysia. Map data © OpenStreetMap contributors (ODbL).</string>
+    <string name="about_text">Manotu\'s own code is open source (MIT): community navigation for Malaysia. Map data © OpenStreetMap contributors (ODbL).</string>
     <string name="osm_attribution">© OpenStreetMap contributors</string>
     <string name="apply">Apply</string>
-    <string name="location_needed">Gimano needs your location to navigate.</string>
-    <string name="nav_notification_title">Navigating with Gimano</string>
+    <string name="location_needed">Manotu needs your location to navigate.</string>
+    <string name="nav_notification_title">Navigating with Manotu</string>
     <string name="nav_channel_name">Navigation</string>
     <string name="km_h">km/h</string>
     <string name="cat_fuel">Fuel</string>
@@ -205,7 +205,7 @@
     <string name="toll_entry">Entry</string>
     <string name="fare_unknown">Fare unknown</string>
     <string name="tolls_no_details">This route has tolls, but the plazas aren\'t listed yet.</string>
-    <string name="tolls_disclaimer">Fares come from Gimano\'s public toll table. Signs at the plaza are final.</string>
+    <string name="tolls_disclaimer">Fares come from Manotu\'s public toll table. Signs at the plaza are final.</string>
     <string name="avoid_tolls_action">Avoid tolls</string>
     <string name="fb_bug">Bug</string>
     <string name="fb_idea">Idea</string>
@@ -252,7 +252,7 @@
     <string name="backup_drive_done">Backed up to your Google Drive</string>
     <string name="backup_failed">Backup failed: %1$s</string>
     <string name="restore_done">Restored (%1$s)</string>
-    <string name="restore_too_new">This backup is from a newer Gimano. Please update the app.</string>
+    <string name="restore_too_new">This backup is from a newer Manotu. Please update the app.</string>
     <string name="restore_title">Restore this backup?</string>
     <string name="restore_body">Made %1$s on %2$s: %3$d saved places, %4$d recents, %5$d private places.\n\nMerge keeps your current places and adds the backup\'s. Replace wipes this phone\'s places first.</string>
     <string name="restore_merge">Merge</string>
@@ -268,7 +268,7 @@
     <string name="pass_wrong">Wrong passphrase (or the file is damaged)</string>
     <string name="ok">OK</string>
     <string name="privacy_title">Your places stay on your phone</string>
-    <string name="privacy_body">Home, work, kampung, your in-laws\' house: your places live on your phone, not on our servers. Gimano never stores your personal data. Backups go straight to your own Google Drive or a file, optionally locked with a passphrase only you know.</string>
+    <string name="privacy_body">Home, work, kampung, your in-laws\' house: your places live on your phone, not on our servers. Manotu never stores your personal data. Backups go straight to your own Google Drive or a file, optionally locked with a passphrase only you know.</string>
     <string name="privacy_backup_cta">Backup &amp; restore</string>
     <string name="add_a_place">Add a place</string>
     <string name="my_contributions">My contributions</string>
@@ -343,7 +343,7 @@
     <string name="copy_monday">Copy Monday to all weekdays</string>
     <string name="who_can_see">Who can see this place?</string>
     <string name="just_for_me">Just for me</string>
-    <string name="just_for_me_desc">Kept on this phone and in your own backup. Never sent to Gimano.</string>
+    <string name="just_for_me_desc">Kept on this phone and in your own backup. Never sent to Manotu.</string>
     <string name="share_everyone">Share with everyone</string>
     <string name="share_everyone_desc">Other drivers will help verify it.</string>
     <string name="duplicate_place">A similar place already exists nearby.</string>
@@ -424,7 +424,7 @@
     <string name="top_tier">You\'re at the top tier</string>
     <string name="account">Account</string>
     <string name="pseudonym">Your pseudonym</string>
-    <string name="pseudonym_info">Your public contributions are credited to this random name. Gimano never knows who you are.</string>
+    <string name="pseudonym_info">Your public contributions are credited to this random name. Manotu never knows who you are.</string>
     <string name="show_recovery">Show recovery code</string>
     <string name="restore_recovery">Restore from recovery code</string>
     <string name="recovery_title">Your recovery code</string>
@@ -449,22 +449,22 @@
     <string name="update_now">Update now</string>
     <string name="update_later">Later</string>
     <string name="update_required">Update required</string>
-    <string name="update_required_body">This version of Gimano can no longer be used. Update to %1$s to carry on; your places stay on your phone.</string>
+    <string name="update_required_body">This version of Manotu can no longer be used. Update to %1$s to carry on; your places stay on your phone.</string>
     <string name="update_backup_first">Save a backup first</string>
     <string name="update_downloading">Downloading %1$s of %2$s</string>
     <string name="update_installing">Opening the installer…</string>
-    <string name="update_permission_title">Allow Gimano to install updates</string>
-    <string name="update_permission_body">Gimano isn\'t from the Play Store, so Android asks you once to let it install its own updates. Turn on \"Allow from this source\" for Gimano, then come back.</string>
+    <string name="update_permission_title">Allow Manotu to install updates</string>
+    <string name="update_permission_body">Manotu isn\'t from the Play Store, so Android asks you once to let it install its own updates. Turn on \"Allow from this source\" for Manotu, then come back.</string>
     <string name="update_permission_open">Open settings</string>
     <string name="update_failed">Update didn\'t finish</string>
     <string name="update_err_network">Couldn\'t download the update. Check your connection and try again.</string>
     <string name="update_err_hash">The download doesn\'t match the published checksum, so it wasn\'t installed. Try again later.</string>
-    <string name="update_err_not_gimano">The downloaded file isn\'t this version of Gimano, so it wasn\'t installed.</string>
-    <string name="update_err_signer">The update isn\'t signed by Gimano\'s key, so it wasn\'t installed.</string>
+    <string name="update_err_not_gimano">The downloaded file isn\'t this version of Manotu, so it wasn\'t installed.</string>
+    <string name="update_err_signer">The update isn\'t signed by Manotu\'s key, so it wasn\'t installed.</string>
     <string name="update_err_install">Android couldn\'t install it: %1$s</string>
     <string name="update_channel">App updates</string>
     <string name="updated_to">Updated to %1$s</string>
-    <string name="updated_tap_to_open">Tap to open Gimano</string>
+    <string name="updated_tap_to_open">Tap to open Manotu</string>
     <string name="update_menu">Update to %1$s</string>
     <string name="update_section">App version</string>
     <string name="update_installed">Installed: %1$s</string>
@@ -487,7 +487,7 @@
     <string name="fb_what_is_sent">See what\'s sent</string>
     <string name="fb_contact_kept">Contact saved ·</string>
     <string name="fb_contact_delete">Delete</string>
-    <string name="crash_title">Gimano stopped just now. Send a report?</string>
+    <string name="crash_title">Manotu stopped just now. Send a report?</string>
     <string name="crash_body">It helps us fix it. The report is cleaned on your phone first: no locations, places, routes, searches or screenshots.</string>
     <string name="crash_details">See details</string>
     <string name="crash_remember">Next time</string>
@@ -497,7 +497,7 @@
     <string name="crash_mode_always">Always send</string>
     <string name="crash_mode_never">Don\'t send</string>
     <string name="crash_reports">Crash reports</string>
-    <string name="about_gimano">About Gimano</string>
+    <string name="about_gimano">About Manotu</string>
     <string name="about_version">Version %1$s (%2$d)</string>
     <string name="about_server">Server: %1$s · %2$s</string>
     <string name="mode_live">Live</string>
@@ -507,24 +507,24 @@
     <string name="about_source">Source code (GitHub)</string>
     <string name="about_licences">Licences</string>
     <string name="about_map_credit">Map © OpenStreetMap contributors</string>
-    <string name="licences_intro">Gimano\'s own code is open source (MIT). It is built from these open-source components:</string>
+    <string name="licences_intro">Manotu\'s own code is open source (MIT). It is built from these open-source components:</string>
     <string name="licences_full_list">Full list: docs/supply-chain.md</string>
     <string name="diagnostics_copied">Diagnostic info copied</string>
     <string name="precise_title">Navigation needs precise location</string>
-    <string name="precise_body">Gimano only has your approximate location (about 1–3 km), so your arrow can sit on the wrong road and turns come at the wrong time. Allow precise location to navigate. Your location stays on your phone; while navigating only anonymous speed points are shared.</string>
+    <string name="precise_body">Manotu only has your approximate location (about 1–3 km), so your arrow can sit on the wrong road and turns come at the wrong time. Allow precise location to navigate. Your location stays on your phone; while navigating only anonymous speed points are shared.</string>
     <string name="precise_allow">Allow precise location</string>
     <string name="precise_keep">Keep approximate</string>
     <string name="approx_banner">Approximate location only: directions may be wrong</string>
     <string name="approx_change">Change</string>
     <string name="weak_gps">Weak GPS signal · ±%1$d m</string>
     <string name="closed_title">Components that are not open source</string>
-    <string name="closed_intro">Gimano uses three Google services on Android. None of them receives your favourites, places or trips.</string>
+    <string name="closed_intro">Manotu uses three Google services on Android. None of them receives your favourites, places or trips.</string>
     <string name="closed_location">Google Play services location: turns GPS, Wi-Fi and mobile signals into your position on the phone, for the map and navigation.</string>
     <string name="closed_drive">Google sign-in and Drive authorisation: only when you choose Google Drive backup. Drive receives only the backup YOU send to your own Drive.</string>
-    <string name="closed_integrity">Play Integrity: when you confirm a nearby place, checks the vote comes from a real phone. Only a pass/fail verdict reaches Gimano.</string>
-    <string name="recovery_unknown_key">No Gimano account uses this recovery code. Check the words; a code stops working after the key is replaced.</string>
+    <string name="closed_integrity">Play Integrity: when you confirm a nearby place, checks the vote comes from a real phone. Only a pass/fail verdict reaches Manotu.</string>
+    <string name="recovery_unknown_key">No Manotu account uses this recovery code. Check the words; a code stops working after the key is replaced.</string>
     <string name="recovery_rate_limited">Too many attempts. Wait a minute and try again.</string>
-    <string name="recovery_offline">Can\'t reach the Gimano server. Check your connection and try again.</string>
+    <string name="recovery_offline">Can\'t reach the Manotu server. Check your connection and try again.</string>
     <string name="waiting_for_gps">Waiting for a precise GPS fix…</string>
     <string name="favorite_saved">Saved to your favourites</string>
     <string name="pin_on_map">Point on the map</string>
@@ -599,4 +599,7 @@
     <string name="cat_postcode">Postcode</string>
     <string name="cat_point">Coordinates</string>
     <string name="search_failed">Couldn\'t search right now. Check your connection.</string>
+    <string name="photo_take">Take photo</string>
+    <string name="photo_choose">Choose from gallery</string>
+    <string name="formerly_gimano">Dahulu Gimano · Formerly Gimano</string>
 </resources>

@@ -80,8 +80,8 @@ android {
         minSdk = 26
         targetSdk = 36
         // Override for test builds: -Pgimano.versionCode=3 -Pgimano.versionName=0.2.1
-        versionCode = prop("gimano.versionCode", "4").toInt()
-        versionName = prop("gimano.versionName", "0.2.2")
+        versionCode = prop("gimano.versionCode", "5").toInt()
+        versionName = prop("gimano.versionName", "0.2.3")
 
         buildConfigField("String", "API_BASE_URL", "\"$apiBaseUrl\"")
         buildConfigField("String", "MAP_STYLE_URL", "\"$mapStyleUrl\"")
@@ -211,9 +211,9 @@ ksp {
     arg("room.schemaLocation", "$projectDir/schemas")
 }
 
-// Release APK with a download-friendly name: app/build/outputs/apk/release/gimano-<version>.apk
+// Release APK with a download-friendly name: app/build/outputs/apk/release/manotu-<version>.apk (Gimano → Manotu, 0.2.3)
 val releaseApkDir = layout.buildDirectory.dir("outputs/apk/release")
-val releaseApkName = "gimano-${android.defaultConfig.versionName}.apk"
+val releaseApkName = "manotu-${android.defaultConfig.versionName}.apk"
 val copyReleaseApk = tasks.register("gimanoReleaseApk") {
     val src = releaseApkDir.map { it.file("app-release.apk") }
     val dst = releaseApkDir.map { it.file(releaseApkName) }

@@ -1,18 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Gimano "Wau" (wau bulan kite). Converted from docs/brand/gimano-icon-android-foreground.svg:
-     108x108 viewport, kite inside the 66dp safe zone. MIT. -->
+<!-- Manotu "Wau ringkas" (docs/brand/manotu). Generated from the brand SVG paths. -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
-    android:width="108dp" android:height="108dp"
-    android:viewportWidth="108" android:viewportHeight="108">
-    <!-- svg: translate(54 54) scale(0.44) translate(-100 -100)  ==  scale 0.44 then translate (10, 10) -->
-    <group android:scaleX="0.44" android:scaleY="0.44" android:translateX="10" android:translateY="10">
-        <path android:fillColor="#FFFFFF" android:pathData="M100,30C116,44 146,50 168,68 146,82 120,82 108,90V106C128,108 154,122 160,150 136,138 114,144 100,170 86,144 64,138 40,150 46,122 72,108 92,106V90C80,82 54,82 32,68 54,50 84,44 100,30Z" />
-        <path android:fillColor="#00000000" android:strokeColor="#8FB0E8" android:strokeWidth="5" android:strokeLineCap="round"
-            android:pathData="M100,30C108,44 132,52 150,66 130,74 114,74 104,82" />
-        <path android:fillColor="#00000000" android:strokeColor="#8FB0E8" android:strokeWidth="5" android:strokeLineCap="round"
-            android:pathData="M100,30C92,44 68,52 50,66 70,74 86,74 96,82" />
-        <path android:fillColor="#00000000" android:strokeColor="#0A1F4D" android:strokeWidth="4" android:strokeLineCap="round"
-            android:pathData="M100,40V160" />
-        <path android:fillColor="#FF6B4A" android:pathData="M89,98a11,11 0,1 0,22 0a11,11 0,1 0,-22 0Z" />
+    android:width="108dp" android:height="108dp" android:viewportWidth="108" android:viewportHeight="108">
+    <group android:translateX="24" android:translateY="24" android:scaleX="0.3" android:scaleY="0.3">
+      <group android:translateY="11">
+        <path android:pathData="M100,26 L166,75 L136,75 L100,49 L64,75 L34,75 Z" android:fillColor="#FFFFFF"/>
+        <path android:pathData="M100,70 L152,105 L125,105 L100,88 L75,105 L48,105 Z" android:fillColor="#FFFFFF" android:fillAlpha="0.85"/>
+        <path android:pathData="M44,152 C68,122 132,122 156,152 C130,141 70,141 44,152 Z" android:fillColor="#FFFFFF"/>
+        <path android:pathData="M89,124 a11,11 0 1,0 22,0 a11,11 0 1,0 -22,0" android:fillColor="#FF6B4A"/>
+      </group>
     </group>
 </vector>

@@ -71,7 +71,7 @@ fun PlaceCard(sel: PlaceSel, vm: MainViewModel, cvm: ContributeViewModel, apiBas
     var viewer by remember { mutableStateOf<Pair<List<String>, Int>?>(null) }
     var suggest by remember { mutableStateOf(false) }
     LaunchedEffect(d?.id) { if (d != null) cvm.loadReviews(d) }
-    val pickPhotos = rememberLauncherForActivityResult(ActivityResultContracts.PickMultipleVisualMedia(10)) { uris ->
+    val addPhoto = my.gimano.app.ui.common.rememberPhotoSource(10) { uris ->
         if (d != null && uris.isNotEmpty()) cvm.addPlacePhotos(d, uris) { vm.refreshPlace() }
     }
 
@@ -135,7 +135,7 @@ fun PlaceCard(sel: PlaceSel, vm: MainViewModel, cvm: ContributeViewModel, apiBas
             if (photoUrls.isNotEmpty() || d != null || reviews.placeUploads.isNotEmpty()) {
                 LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(bottom = 12.dp)) {
                     if (d != null) item {
-                        Box(Modifier.size(96.dp).clip(RoundedCornerShape(Radius.md)).background(c.brandMist).clickable { pickPhotos.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) },
+                        Box(Modifier.size(96.dp).clip(RoundedCornerShape(Radius.md)).background(c.brandMist).clickable { addPhoto() },
                             contentAlignment = Alignment.Center) {
                             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                                 Icon(Icons.Filled.AddAPhoto, null, tint = c.brand, modifier = Modifier.size(32.dp))
@@ -244,7 +244,7 @@ private fun ReviewRow(r: Review, cvm: ContributeViewModel, apiBase: String, onPh
             }
             Spacer(Modifier.width(8.dp))
             Column(Modifier.weight(1f)) {
-                Text(r.author.displayName.ifBlank { "Gimano" } + (r.author.level?.let { " · L$it" } ?: ""), fontWeight = FontWeight.ExtraBold, fontSize = 14.sp, color = c.text)
+                Text(r.author.displayName.ifBlank { stringResource(R.string.app_name) } + (r.author.level?.let { " · L$it" } ?: ""), fontWeight = FontWeight.ExtraBold, fontSize = 14.sp, color = c.text)
                 Row(verticalAlignment = Alignment.CenterVertically) { Stars(r.rating.toDouble(), 12); Spacer(Modifier.width(6.dp)); Text(my.gimano.app.core.format.Formatters.localStamp(r.createdAt).take(10), fontSize = 12.sp, color = c.textMuted) }
             }
         }
@@ -273,7 +273,7 @@ private fun ReviewRow(r: Review, cvm: ContributeViewModel, apiBase: String, onPh
 @Composable
 private fun WriteReviewSheet(place: Place, d: my.gimano.app.ui.contribute.ReviewDraft, cvm: ContributeViewModel) {
     val c = Gimano.colors
-    val pick = rememberLauncherForActivityResult(ActivityResultContracts.PickMultipleVisualMedia(5)) { cvm.addReviewPhotos(it) }
+    val pick = my.gimano.app.ui.common.rememberPhotoSource(5) { cvm.addReviewPhotos(it) }
     ModalBottomSheet(onDismissRequest = cvm::closeReview, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true), containerColor = c.surface,
         shape = RoundedCornerShape(topStart = Radius.sheet, topEnd = Radius.sheet)) {
         Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp).padding(bottom = 24.dp).imePadding()) {
@@ -291,7 +291,7 @@ private fun WriteReviewSheet(place: Place, d: my.gimano.app.ui.contribute.Review
             LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(vertical = 10.dp)) {
                 items(d.uploads) { u -> UploadTile(u, 72) }
                 if (d.uploads.size < 5) item {
-                    Box(Modifier.size(72.dp).clip(RoundedCornerShape(Radius.md)).background(c.brandMist).clickable { pick.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) }, contentAlignment = Alignment.Center) {
+                    Box(Modifier.size(72.dp).clip(RoundedCornerShape(Radius.md)).background(c.brandMist).clickable { pick() }, contentAlignment = Alignment.Center) {
                         Icon(Icons.Filled.AddAPhoto, stringResource(R.string.add_photo), tint = c.brand)
                     }
                 }

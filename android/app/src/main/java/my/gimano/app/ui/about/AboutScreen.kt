@@ -31,8 +31,8 @@ import my.gimano.app.R
 import my.gimano.app.core.update.UpdateDecision
 import my.gimano.app.ui.theme.Gimano
 
-private const val SITE = "https://www.bukitbunga.com/gimano/"
-const val GITHUB = "https://github.com/erymuzuan/gimano"
+private const val SITE = "https://manotu.app/"
+const val GITHUB = "https://github.com/erymuzuan/manotu"
 
 /** Settings → "Tentang Gimano": version, server, updates, links and map attribution. */
 @Composable
@@ -52,7 +52,8 @@ fun AboutScreen(c: AppContainer, live: Boolean, onBack: () -> Unit, onLicences: 
             Box(Modifier.size(96.dp).clip(RoundedCornerShape(26.dp)).background(Color0.brand), contentAlignment = Alignment.Center) {
                 Image(painterResource(R.drawable.ic_launcher_foreground), null, Modifier.size(132.dp))
             }
-            Text("Gimano", fontSize = 28.sp, fontWeight = FontWeight.Black, color = col.text)
+            Text(stringResource(R.string.app_name), fontSize = 28.sp, fontWeight = FontWeight.Black, color = col.text)
+            Text(stringResource(R.string.formerly_gimano), fontSize = 13.sp, fontWeight = FontWeight.Bold, color = col.textMuted)
             Text(stringResource(R.string.about_version, BuildConfig.VERSION_NAME, BuildConfig.VERSION_CODE), fontSize = 17.sp, fontWeight = FontWeight.ExtraBold, color = col.text)
             Text(stringResource(R.string.about_server, host, stringResource(if (live) R.string.mode_live else R.string.mode_demo)), fontSize = 14.sp, fontWeight = FontWeight.Bold, color = col.textMuted)
             Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(col.surface).padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {

@@ -44,7 +44,8 @@ def main():
     manifest = {
         "versionCode": code,
         "versionName": name,
-        "apkUrl": f"{BASE}gimano-{name}.apk",
+        # Published next to version.json under the APK's own file name (manotu-<ver>.apk from 0.2.3; gimano-<ver>.apk before).
+        "apkUrl": f"{BASE}{os.path.basename(a.apk)}",
         "minSupported": a.min_supported,
         "sha256": h.hexdigest(),
         "sizeBytes": os.path.getsize(a.apk),
@@ -53,8 +54,8 @@ def main():
     }
     with open(a.out, "w", encoding="utf-8") as f: json.dump(manifest, f, ensure_ascii=False, indent=2); f.write("\n")
     print(json.dumps(manifest, ensure_ascii=False, indent=2))
-    if os.path.basename(a.apk) != f"gimano-{name}.apk":
-        print(f"note: publish the APK as gimano-{name}.apk to match apkUrl", file=sys.stderr)
+    if not re.fullmatch(rf"(manotu|gimano)-{re.escape(name)}\.apk", os.path.basename(a.apk)):
+        sys.exit(f"APK file name must be manotu-{name}.apk (apkUrl uses the file name)")
 
 if __name__ == "__main__":
     main()

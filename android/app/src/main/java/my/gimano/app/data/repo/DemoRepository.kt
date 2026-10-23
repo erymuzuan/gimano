@@ -23,7 +23,7 @@ class DemoRepository(
     val canned: CannedRoutes by lazy { CannedRoutes.parse(cannedDocs()) }
 
     private val user = User(
-        "demo-user", "Pemandu Gimano", "🙂", "car", 1280, 4, "2026-01-01T00:00:00Z",
+        "demo-user", "Pemandu Manotu", "🙂", "car", 1280, 4, "2026-01-01T00:00:00Z",
         tier = "perak", accuracy = 0.93, placesAccepted = 14, verifierVotes = 22,
         nextTier = NextTier("emas", listOf("36 more accepted places", "accuracy 95%", "account 90 days")),
     )
@@ -287,7 +287,7 @@ class DemoRepository(
         return buildList {
             community.values.filter { it.status == "published" }.forEach { add(InboxItem("pub-${it.id}", "place_published", "Place published", "\"${it.name}\" was confirmed by 3 drivers. +20 points", now.toString(), it.id)) }
             feedbackStore.forEach { add(InboxItem("fb-${it.id}", "feedback_status", "Feedback received", it.message.take(80), it.createdAt)) }
-            add(InboxItem("welcome", "announcement", "Welcome to Gimano", "Light theme, planned drives and Share my drive are here.", now.minusSeconds(86_400).toString()))
+            add(InboxItem("welcome", "announcement", "Welcome to Manotu", "Light theme, planned drives and Share my drive are here.", now.minusSeconds(86_400).toString()))
         }
     }
 
