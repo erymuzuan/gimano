@@ -90,7 +90,8 @@ fun SearchScreen(ui: UiState, purpose: SearchPurpose, vm: MainViewModel, onMic: 
                     if (ui.query.isNotEmpty()) IconButton(onClick = { vm.onQuery("") }) { Icon(Icons.Filled.Close, stringResource(R.string.close)) }
                     else IconButton(onClick = onMic) { GIcon("mic", stringResource(R.string.voice_search), size = 26.dp) }
                 },
-                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                // No keyboard autocorrect: place names aren't dictionary words ("famly mart" → server corrects; "Damansara" stays).
+                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search, autoCorrectEnabled = false, capitalization = androidx.compose.ui.text.input.KeyboardCapitalization.None),
                 keyboardActions = KeyboardActions(onSearch = { kb?.hide() }),
             )
         }
