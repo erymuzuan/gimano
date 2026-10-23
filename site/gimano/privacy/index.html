@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Gimano Privacy Policy</title>
+<link rel="icon" href="../logo.png">
+<link rel="stylesheet" href="../style.css">
+</head>
+<body>
+<header>
+  <img src="../logo.png" alt="Gimano logo">
+  <a href="../">Gimano</a>
+  <nav><a href="../terms/">Terms</a><a href="https://github.com/erymuzuan/gimano">GitHub</a></nav>
+</header>
+<main>
+  <h1>Privacy Policy</h1>
+  <p class="lede">Effective 23 October 2026 · Applies to the Gimano apps for Android and iOS and the Gimano service.</p>
+
+  <div class="card"><b>In short:</b> your personal places and history stay on your phone. We never store them on our
+  servers. We only receive what you choose to share publicly, plus anonymous speed points while you navigate, which
+  we turn into road traffic within minutes and never keep.<br>
+  <span class="ms">Ringkasnya: tempat dan sejarah peribadi kamu kekal dalam telefon kamu. Kami tidak menyimpannya di pelayan kami.</span></div>
+
+  <h2>1. Data that stays on your device only</h2>
+  <p>Home and Work, favourites and their labels, recent destinations, search history, places you add "just for me" and
+  their photos, planned drives and settings are stored only in the app on your device. Gimano's servers do not receive
+  or store them.</p>
+
+  <h2>2. Backups (your storage, your choice)</h2>
+  <p>You can back up that on-device data to your own <b>Google Drive</b> (a hidden app folder only Gimano can access,
+  scope <code>drive.appdata</code>), your own <b>iCloud</b> private database, or a file you export. Backups go straight from
+  your device to that storage. They never pass through Gimano's servers, and we cannot read them. You can protect a
+  backup with a passphrase that encrypts it on your device (Argon2id + XChaCha20-Poly1305). We never see the passphrase,
+  and if you lose it, the backup cannot be recovered.</p>
+  <p>Gimano's use of information received from Google APIs adheres to the
+  <a href="https://developers.google.com/terms/api-services-user-data-policy">Google API Services User Data Policy</a>,
+  including the Limited Use requirements. Gimano accesses only its own backup files in your Drive's app folder, only to
+  save and restore your backups, and transfers that data to no one.</p>
+
+  <h2>3. Data we do process on our servers</h2>
+  <table>
+    <tr><th>What</th><th>Why</th><th>How long</th></tr>
+    <tr><td>An anonymous device account (random id and token)</td><td>To accept your public contributions and prevent abuse</td><td>Until you delete your account</td></tr>
+    <tr><td>Speed points while navigating (position, speed, heading, time), tagged with a pseudonym that changes every hour</td><td>To compute live road traffic for everyone</td><td>Processed in memory and discarded within minutes; only road-level speeds (not linked to you) are kept</td></tr>
+    <tr><td>Things you choose to share publicly: road reports and votes, public places, reviews, photos</td><td>To show them on the map for all users</td><td>While relevant; reports expire automatically</td></tr>
+    <tr><td>Feedback you send (message, optional rating and screenshot; optional diagnostics with location rounded to ~1 km)</td><td>To fix bugs and improve the app</td><td>Up to 24 months, or until you delete your account</td></tr>
+    <tr><td>Route requests (start, stops, destination)</td><td>To calculate your route</td><td>Not stored beyond a 3-hour cache used for rerouting</td></tr>
+  </table>
+  <p>Photos are re-encoded on our server and <b>all metadata, including GPS location, is removed</b> before publishing.</p>
+
+  <h2>4. What we never do</h2>
+  <p>No advertising, no tracking or analytics SDKs, no selling or sharing of personal data, no building of location
+  history about you. Crash reporting, if offered, is opt-in and contains no location.</p>
+
+  <h2>5. Your choices and rights</h2>
+  <p>You can delete any on-device data in the app, delete your backups from your own Drive/iCloud, and delete your Gimano
+  account in Settings. That removes every server record linked to you; your public reports and reviews stay on the map
+  but are anonymised. You may also contact us to access or correct data we hold, consistent with Malaysia's Personal Data
+  Protection Act 2010.</p>
+
+  <h2>6. Open source</h2>
+  <p>Gimano is MIT-licensed. You can inspect exactly what the apps and server do at
+  <a href="https://github.com/erymuzuan/gimano">github.com/erymuzuan/gimano</a>.</p>
+
+  <h2>7. Children</h2>
+  <p>Gimano is not directed at children under 13 and does not knowingly collect their data.</p>
+
+  <h2>8. Changes and contact</h2>
+  <p>We will post changes on this page and update the effective date. Contact: <a href="mailto:privacy@bukitbunga.com">privacy@bukitbunga.com</a>.</p>
+</main>
+<footer>© Gimano contributors · <a href="../">Home</a> · <a href="../terms/">Terms</a></footer>
+</body>
+</html>
