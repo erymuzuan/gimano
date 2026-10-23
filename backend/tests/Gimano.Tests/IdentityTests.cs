@@ -54,6 +54,18 @@ public class SignatureVectorTests
     }
 
     [Fact]
+    public void Key_login_vector()
+    {
+        var canonical = Signatures.KeyLoginCanonical(PublicKeyB64, 1792713600);
+        Assert.Equal("GIMANO1-LOGIN\nA6EHv/POEL4dcN0Y50vAmWfk1jCbpQ1fHdyGZBJVMbg=\n1792713600", canonical);
+        var sig = Signatures.Sign(Seed, canonical).Signature;
+        Assert.Equal("61uR1jjsZqzZb7I0Oq3t0ZgVkyxeyutovBXfKWH9GvedLaFb2TzIXtKuotj9CgnRf6njJJDUBOwf6yy3ZkfFDQ==", Convert.ToBase64String(sig));
+        Assert.True(Signatures.Verify(Convert.FromBase64String(PublicKeyB64), canonical, sig));
+        // A key-login signature is not valid as an auth (userId) signature and vice versa.
+        Assert.False(Signatures.Verify(Convert.FromBase64String(PublicKeyB64), Signatures.AuthCanonical(Guid.Empty, 1792713600), sig));
+    }
+
+    [Fact]
     public void Tampering_with_any_part_fails_verification()
     {
         var pk = Convert.FromBase64String(PublicKeyB64);

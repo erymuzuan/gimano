@@ -102,12 +102,21 @@ Check(t1.IsSuccessStatusCode && tok?["token"] is not null, $"signature login →
 var (m1, me) = await Send(HttpMethod.Get, "/api/v1/me", null, jwt, null);
 Check(me?["tier"]?.ToString() == "baharu" && me["nextTier"]?["name"]?.ToString() == "perak", $"/me tier={me?["tier"]} accuracy={me?["accuracy"]} next={me?["nextTier"]?.ToJsonString()}");
 
+// 3b. sign-in by public key (recovery-code restore: only the seed is known)
+var kts = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+var ksig = Convert.ToBase64String(ed.Sign(k1, Encoding.UTF8.GetBytes($"GIMANO1-LOGIN\n{pk1}\n{kts}")));
+var (kl, kt) = await Send(HttpMethod.Post, "/api/v1/auth/token", new { publicKey = pk1, ts = kts, sig = ksig }, null, null);
+Check(kl.IsSuccessStatusCode && kt?["userId"]?.ToString() == uid, $"sign-in by public key → {(int)kl.StatusCode} userId matches");
+Check((int)(await Send(HttpMethod.Post, "/api/v1/auth/token", new { publicKey = pk1, ts = kts, sig = ksig }, null, null)).Item1.StatusCode == 401, "key sign-in replay → 401");
+
 // 4. key rotation
 var (k2, pk2) = NewKey();
 var rotSig = Convert.ToBase64String(ed.Sign(k1, Encoding.UTF8.GetBytes($"GIMANO-KEY\n{uid}\n{pk2}")));
 Check((int)(await Send(HttpMethod.Post, "/api/v1/me/keys", new { publicKey = pk2 }, jwt, null)).Item1.StatusCode == 401, "rotation without sigByOldKey → 401");
 Check((int)(await Send(HttpMethod.Post, "/api/v1/me/keys", new { publicKey = pk2, sigByOldKey = rotSig }, jwt, null)).Item1.StatusCode == 204, "rotation → 204");
 Check((int)(await Send(HttpMethod.Post, "/api/v1/reports", report, jwt, k1)).Item1.StatusCode == 401, "old key no longer accepted");
+var kts2 = DateTimeOffset.UtcNow.ToUnixTimeSeconds() + 1;
+Check((int)(await Send(HttpMethod.Post, "/api/v1/auth/token", new { publicKey = pk1, ts = kts2, sig = Convert.ToBase64String(ed.Sign(k1, Encoding.UTF8.GetBytes($"GIMANO1-LOGIN\n{pk1}\n{kts2}"))) }, null, null)).Item1.StatusCode == 401, "rotated-away key can't sign in");
 
 // 5. vetting: contributor adds a place, another pseudonym verifies from nearby
 var name = "Kedai Ujian Vetting " + Random.Shared.Next(1000, 9999);

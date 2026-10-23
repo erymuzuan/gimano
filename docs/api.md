@@ -15,7 +15,9 @@ Errors: RFC 7807 `application/problem+json`.
 ```
 POST /auth/register          {publicKey: base64 Ed25519, platform:"android"|"ios", locale}
   → 200 {token, userId, displayName}          (new; see identity-and-reputation.md)
-POST /auth/token             {userId, ts, sig}   sig = Ed25519 over "GIMANO-AUTH\n"+userId+"\n"+ts → {token}
+POST /auth/token             {userId, ts, sig}   sig = Ed25519 over "GIMANO-AUTH\n"+userId+"\n"+ts
+                          or {publicKey, ts, sig}   sig over "GIMANO1-LOGIN\n"+publicKey+"\n"+ts (recovery-code restore)
+  → {token, userId, displayName}   (401 auth-failed · 429 > 10 key sign-ins/min per IP)
 POST /me/keys                {publicKey, sigByOldKey?}  attach/rotate the signing key (legacy accounts: JWT only)
 POST /auth/device            {deviceId, platform:"android"|"ios", locale}   (legacy, kept for old app versions)
   → 200 {token, userId, displayName}

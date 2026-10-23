@@ -7,6 +7,7 @@ using Gimano.Core.Domain;
 using Gimano.Core.Identity;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Caching.Memory;
 
 namespace Gimano.Api.Endpoints;
 
@@ -21,7 +22,7 @@ public static class IdentityEndpoints
         api.MapPost("/auth/register", Register).WithTags("Auth").AllowAnonymous()
             .WithSummary("Register a pseudonym by its Ed25519 public key; returns userId, displayName and a JWT.");
         api.MapPost("/auth/token", Token).WithTags("Auth").AllowAnonymous()
-            .WithSummary("Signature login (restored phone): sig = Ed25519 over \"GIMANO-AUTH\\n\" + userId + \"\\n\" + ts.");
+            .WithSummary("Signature login: {userId, ts, sig} or, for recovery-code restores, {publicKey, ts, sig}.");
         var me = api.MapGroup("/me").WithTags("Auth").RequireAuthorization();
         me.MapPost("/keys", AttachKey).WithSummary("Attach (legacy accounts: JWT only) or rotate (sigByOldKey) the signing key.");
         me.MapGet("/attest/challenge", Challenge).WithSummary("iOS App Attest: a one-time challenge for POST /me/attest.");
@@ -48,19 +49,49 @@ public static class IdentityEndpoints
         return TypedResults.Ok(new DeviceAuthResponse(jwt.Issue(user.Id, user.DisplayName, user.Mood), user.Id, user.DisplayName));
     }
 
+    public const int KeyLoginsPerMinutePerIp = 10;
+
+    /// <summary>
+    /// Signature login. {userId, ts, sig}: sig over "GIMANO-AUTH\n"+userId+"\n"+ts.
+    /// {publicKey, ts, sig}: sig over "GIMANO1-LOGIN\n"+publicKey+"\n"+ts — resolves the account that owns this (current) key,
+    /// for recovery-code restores where only the seed is known. ±300 s, replay-protected, key logins rate-limited per IP.
+    /// </summary>
     private static async Task<Results<Ok<TokenResponse>, ProblemHttpResult>> Token(
-        TokenRequest req, GimanoDbContext db, JwtTokenService jwt, ReplayCache replay, TimeProvider clock, CancellationToken ct)
+        TokenRequest req, HttpContext http, GimanoDbContext db, JwtTokenService jwt, ReplayCache replay,
+        Microsoft.Extensions.Caching.Memory.IMemoryCache cache, IConfiguration config, TimeProvider clock, CancellationToken ct)
     {
         var unauthorized = TypedResults.Problem(statusCode: 401, title: "Signature login failed", type: SignatureMiddleware.ProblemBase + "auth-failed");
         if (!Signatures.InWindow(req.Ts, clock.GetUtcNow()) || !Signatures.TryBase64(req.Sig, out var sig)) return unauthorized;
-        var user = await db.Users.FirstOrDefaultAsync(u => u.Id == req.UserId, ct);
-        if (user is null) return unauthorized;
-        var key = await db.UserKeys.Where(k => k.UserId == req.UserId && k.RevokedAt == null).OrderByDescending(k => k.Id).Select(k => k.PublicKey).FirstOrDefaultAsync(ct);
-        if (key is null || !Signatures.Verify(key, Signatures.AuthCanonical(req.UserId, req.Ts), sig)) return unauthorized;
-        if (!replay.TryAdd($"auth:{req.UserId:N}:{req.Ts}:{req.Sig}")) return unauthorized;
+
+        User? user;
+        if (req.UserId is { } userId)
+        {
+            user = await db.Users.FirstOrDefaultAsync(u => u.Id == userId, ct);
+            if (user is null) return unauthorized;
+            var key = await db.UserKeys.Where(k => k.UserId == userId && k.RevokedAt == null).OrderByDescending(k => k.Id).Select(k => k.PublicKey).FirstOrDefaultAsync(ct);
+            if (key is null || !Signatures.Verify(key, Signatures.AuthCanonical(userId, req.Ts), sig)) return unauthorized;
+        }
+        else if (!string.IsNullOrWhiteSpace(req.PublicKey))
+        {
+            var ip = EdgeSetup.ClientKey(http, EdgeSetup.TrustedProxies(config));
+            var bucket = cache.GetOrCreate("keylogin:" + ip, e => { e.AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(1); return new int[1]; })!;
+            if (Interlocked.Increment(ref bucket[0]) > KeyLoginsPerMinutePerIp)
+            {
+                http.Response.Headers.RetryAfter = "60";
+                return TypedResults.Problem(statusCode: 429, title: "Too many sign-in attempts", type: SignatureMiddleware.ProblemBase + "rate-limited");
+            }
+            if (!Signatures.TryBase64(req.PublicKey, out var pk) || pk.Length != 32) return unauthorized;
+            if (!Signatures.Verify(pk, Signatures.KeyLoginCanonical(req.PublicKey.Trim(), req.Ts), sig)) return unauthorized;
+            var owner = await db.UserKeys.Where(k => k.PublicKey == pk && k.RevokedAt == null).Select(k => k.UserId).FirstOrDefaultAsync(ct);
+            user = owner == Guid.Empty ? null : await db.Users.FirstOrDefaultAsync(u => u.Id == owner, ct);
+            if (user is null) return unauthorized;
+        }
+        else return unauthorized;
+
+        if (!replay.TryAdd($"auth:{req.Ts}:{req.Sig}")) return unauthorized;
         user.LastSeenAt = clock.GetUtcNow();
         await db.SaveChangesAsync(ct);
-        return TypedResults.Ok(new TokenResponse(jwt.Issue(user.Id, user.DisplayName, user.Mood)));
+        return TypedResults.Ok(new TokenResponse(jwt.Issue(user.Id, user.DisplayName, user.Mood), user.Id, user.DisplayName));
     }
 
     private static async Task<Results<NoContent, ValidationProblem, ProblemHttpResult, Conflict>> AttachKey(

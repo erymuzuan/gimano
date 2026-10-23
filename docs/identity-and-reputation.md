@@ -126,6 +126,10 @@ to "Pemandu Gimano". Pending votes by the user are removed; resolved votes are a
 - `Identity:RequireSignatures` is the kill switch (default false). Per-account rules are in §2.
 - **PATH_AND_QUERY** is the request target exactly as sent on the request line (`/api/v1/...` plus `?query` if any,
   percent-encoding untouched). Body = the exact bytes sent (multipart included); an empty body hashes to `e3b0c442…b855`.
+- **Sign-in by key** (the 24 recovery words only regenerate the seed, not the userId): `POST /auth/token
+  {publicKey, ts, sig}` with `sig = Ed25519(seed, "GIMANO1-LOGIN\n" + publicKey + "\n" + ts)` resolves the account whose
+  current key it is and returns `{token, userId, displayName}`. ±300 s, replay-protected, at most 10 attempts per minute
+  per client IP (429). The userId form `{userId, ts, sig}` keeps working. A revoked (rotated-away) key can't sign in.
 - **Key rotation:** `sigByOldKey = Ed25519(currentKey, "GIMANO-KEY\n" + userId + "\n" + newPublicKeyBase64)`, where the base64 is
   exactly the string sent as `publicKey`. Legacy device accounts without a key attach one with the JWT alone.
 - **Attestation client data** (both platforms): `"GIMANO-ATTEST\n" + placeId + "\n" + ts`, where `ts` = the request's
@@ -171,6 +175,11 @@ Both apps must reproduce these exactly (Ed25519 is deterministic). The server's 
 
 - canonical = `GIMANO-AUTH\n01a16676-0000-7000-8000-000000000001\n1792713600`
 - sig = `aApOheYmDSVKSLICJI8tuRW9Cp06hzkHJQKwdLab1N5sYCPAwvKFum8s+fnw6+6QsktcXji/+OLZzEQqijW+Cw==`
+
+**Sign-in by public key (recovery-code restore):** `POST /auth/token {publicKey, ts, sig}` with ts `1792713600`
+
+- canonical = `GIMANO1-LOGIN\nA6EHv/POEL4dcN0Y50vAmWfk1jCbpQ1fHdyGZBJVMbg=\n1792713600` (publicKey = exactly the base64 string sent)
+- sig = `61uR1jjsZqzZb7I0Oq3t0ZgVkyxeyutovBXfKWH9GvedLaFb2TzIXtKuotj9CgnRf6njJJDUBOwf6yy3ZkfFDQ==`
 
 **Key rotation:** new seed `202122232425262728292a2b2c2d2e2f303132333435363738393a3b3c3d3e3f` → new public key
 `Kay64UG8yvCyLhqU000LxzYeUm0L/hLIl5S8kyKWbdc=`

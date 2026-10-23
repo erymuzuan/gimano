@@ -14,8 +14,9 @@ public sealed record NextTierDto(Tier Name, IReadOnlyList<string> Missing);
 // ---- Identity (docs/identity-and-reputation.md) -------------------------------------------
 
 public sealed record RegisterRequest(string PublicKey, Platform Platform, string? Locale);
-public sealed record TokenRequest(Guid UserId, long Ts, string Sig);
-public sealed record TokenResponse(string Token);
+/// <summary>Either {userId, ts, sig} (known account) or {publicKey, ts, sig} (recovery: the account that owns the key).</summary>
+public sealed record TokenRequest(Guid? UserId, long Ts, string Sig, string? PublicKey = null);
+public sealed record TokenResponse(string Token, Guid UserId, string DisplayName);
 public sealed record AttachKeyRequest(string PublicKey, string? SigByOldKey);
 public sealed record PatchMeRequest(string? DisplayName, string? Mood, Vehicle? Vehicle, string? Locale);
 

@@ -20,6 +20,9 @@ public static class Signatures
     /// <summary><c>"GIMANO-AUTH\n" + userId + "\n" + ts</c> (userId in lower-case "D" format).</summary>
     public static string AuthCanonical(Guid userId, long ts) => $"GIMANO-AUTH\n{userId:D}\n{ts}";
 
+    /// <summary><c>"GIMANO1-LOGIN\n" + base64(publicKey) + "\n" + ts</c>: sign-in by key (recovery-code restore).</summary>
+    public static string KeyLoginCanonical(string publicKeyBase64, long ts) => $"GIMANO1-LOGIN\n{publicKeyBase64}\n{ts}";
+
     /// <summary><c>"GIMANO-KEY\n" + userId + "\n" + base64(newPublicKey)</c>, signed by the current key to rotate.</summary>
     public static string KeyRotationCanonical(Guid userId, string newPublicKeyBase64) => $"GIMANO-KEY\n{userId:D}\n{newPublicKeyBase64}";
 
