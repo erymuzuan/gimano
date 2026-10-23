@@ -31,6 +31,9 @@ final class NavigationSession {
     /// Maneuver index → stop name, for intermediate "arrive" maneuvers.
     @ObservationIgnored private var stopArrivals: [Int: String] = [:]
     @ObservationIgnored private var arrivedTask: Task<Void, Never>?
+    /// How many waypoints of the original `POST /routes` request were already passed before the current route
+    /// (reroutes keep indexing the original request's waypoints).
+    @ObservationIgnored private var originalStopOffset = 0
     @ObservationIgnored private var batcher = LocationPingBatcher()
     @ObservationIgnored private var handledAlerts: Set<String> = []
     @ObservationIgnored private let repo: any GimanoRepository
@@ -165,9 +168,12 @@ final class NavigationSession {
     }
 
     /// Replace the active route (alternative picked / stop added / reroute). `stops` are the stops still ahead.
-    func setRoute(_ r: Route, stops newStops: [TripStop]? = nil) {
+    /// - Parameter newRequest: the route came from a fresh `POST /routes` (stop added / alternative), so stop
+    ///   indexes restart at 0 for later reroutes.
+    func setRoute(_ r: Route, stops newStops: [TripStop]? = nil, newRequest: Bool = true) {
         route = r
         if let newStops { stops = newStops }
+        if newRequest { originalStopOffset = 0 }
         tracker = RouteTracker(route: r)
         stopTracker = StopTracker(schedule: StopSchedule.make(route: r, stops: stops.map(\.location)), stopCount: stops.count)
         stopArrivals = Self.arrivalLabels(maneuvers: tracker.maneuvers, stops: stops)
@@ -189,17 +195,21 @@ final class NavigationSession {
         Task {
             defer { isRerouting = false }
             // The server keeps the stops not yet reached (nextStopIndex into this route's stops).
+            let absoluteNext = originalStopOffset + next
             var routes = (try? await repo.reroute(routeId: routeId, RerouteRequest(lat: origin.lat, lng: origin.lng, heading: heading,
-                                                                                    nextStopIndex: stops.isEmpty ? nil : next))) ?? []
+                                                                                    nextStopIndex: stops.isEmpty && absoluteNext == 0 ? nil : absoluteNext))) ?? []
+            var viaReroute = !routes.isEmpty
             if routes.isEmpty {
                 let req = RouteRequest(origin: RouteEndpoint(lat: origin.lat, lng: origin.lng),
                                        destination: RouteEndpoint(lat: destination.location.lat, lng: destination.location.lng, placeId: destination.placeId),
                                        waypoints: remaining.map(\.endpoint), vehicle: vehicle, avoid: avoid, alternatives: 0)
                 routes = (try? await repo.routes(req)) ?? []
+                viaReroute = false
             }
             guard let best = routes.first(where: \.isBest) ?? routes.first else { return }
             rerouteCount += 1
-            setRoute(best, stops: remaining)
+            setRoute(best, stops: remaining, newRequest: !viaReroute)
+            if viaReroute { originalStopOffset = absoluteNext }
         }
     }
 

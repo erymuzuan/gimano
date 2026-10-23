@@ -45,6 +45,9 @@ packages:
   GoogleSignIn:
     url: https://github.com/google/GoogleSignIn-iOS
     from: 10.1.0
+  libwebp:
+    url: https://github.com/SDWebImage/libwebp-Xcode
+    from: 1.6.0
 
 targets:
   Gimano:
@@ -66,6 +69,8 @@ targets:
       - package: ZIPFoundation
       - package: GoogleSignIn
         product: GoogleSignIn
+      - package: libwebp
+        product: libwebp
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: my.gimano.app

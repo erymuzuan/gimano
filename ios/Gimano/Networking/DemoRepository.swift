@@ -9,6 +9,13 @@ actor DemoRepository: GimanoRepository {
     private var reports: [Report]
     private var routeDestinations: [String: (dest: RouteEndpoint, waypoints: [RouteEndpoint], vehicle: Vehicle, avoid: AvoidOptions)] = [:]
     private var feedback: [FeedbackSummary] = []
+    private var community: [Place] = []
+    private var myPlaceIds: Set<String> = []
+    private var reviewsByPlace: [String: [Review]] = [:]
+    private var photosByPlace: [String: [(photo: Photo, readyAt: Date)]] = [:]
+    private var helpful: Set<String> = []
+    /// Demo user's display name for authored content.
+    private var me: PersonRef { PersonRef(displayName: user.displayName, level: user.level, reviewCount: reviewsByPlace.values.flatMap { $0 }.filter { $0.author.displayName == user.displayName }.count) }
     private var routeCounter = 0
     private let latency: Duration
 
@@ -64,7 +71,8 @@ actor DemoRepository: GimanoRepository {
     func search(query: String, near: LatLng, category: PlaceCategory?, limit: Int) async throws -> [PlaceSummary] {
         await pause()
         let q = query.lowercased().trimmingCharacters(in: .whitespaces)
-        let scored: [(PlaceSummary, Double)] = DemoData.places.compactMap { p in
+        let pool = DemoData.places + community.filter { $0.status != .hidden }.map(\.summary)
+        let scored: [(PlaceSummary, Double)] = pool.compactMap { p in
             if let category, p.category != category { return nil }
             let name = p.name.lowercased()
             var score: Double
@@ -95,6 +103,12 @@ actor DemoRepository: GimanoRepository {
     }
 
     func place(id: String, near: LatLng?) async throws -> Place {
+        if var c = community.first(where: { $0.id == id }) {
+            c.distanceM = near.map { Geo.distance($0, LatLng(lat: c.lat, lng: c.lng)) }
+            c.photos = publishedPhotos(id)
+            (c.rating, c.reviewCount) = ratingOf(id)
+            return c
+        }
         guard let s = DemoData.places.first(where: { $0.id == id }) else { throw APIError.http(status: 404, problem: nil) }
         let amenities: [String] = switch s.category {
         case .fuel: ["toilets", "convenience_store", "air_pump", "cards", "touch_n_go"]
@@ -105,8 +119,182 @@ actor DemoRepository: GimanoRepository {
         return Place(id: s.id, name: s.name, category: s.category, address: s.address, lat: s.lat, lng: s.lng, distanceM: near.map { Geo.distance($0, s.location) },
                      brand: s.brand, phone: "+60 3-2123 4567", website: "https://www.openstreetmap.org",
                      openingHours: s.category == .fuel || s.category == .restArea ? "24/7" : "Mo-Su 10:00-22:00",
-                     openNow: true, amenities: amenities, tags: [:], osmType: "node", osmId: Int64(abs(s.id.hashValue) % 1_000_000_000))
+                     openNow: true, amenities: amenities, tags: [:], osmType: "node", osmId: Int64(abs(s.id.hashValue) % 1_000_000_000),
+                     source: .osm, status: .published, rating: ratingOf(id).0, reviewCount: ratingOf(id).1,
+                     photos: publishedPhotos(id))
     }
+
+    // MARK: community places (demo)
+
+    private func ratingOf(_ placeId: String) -> (Double?, Int) {
+        let r = reviewsByPlace[placeId] ?? []
+        guard !r.isEmpty else { return (nil, 0) }
+        return (Double(r.map(\.rating).reduce(0, +)) / Double(r.count), r.count)
+    }
+
+    private func publishedPhotos(_ placeId: String) -> [Photo] {
+        (photosByPlace[placeId] ?? []).map { item in
+            var p = item.photo
+            p.status = Date() >= item.readyAt ? .published : .processing
+            return p
+        }
+    }
+
+    func createPlace(_ new: NewPlace) async throws -> Place {
+        await pause()
+        let name = new.name.trimmingCharacters(in: .whitespaces)
+        guard !name.isEmpty, name.count <= 80, !name.lowercased().contains("http") else {
+            throw APIError.http(status: 400, problem: ProblemDetails(title: "Invalid name"))
+        }
+        let here = LatLng(lat: new.lat, lng: new.lng)
+        // Duplicate: similar name within 100 m → 409 with the existing place.
+        let existing = (community.map(\.summary) + DemoData.places).first {
+            Geo.distance($0.location, here) <= 100 && Self.similar($0.name, name)
+        }
+        if let existing {
+            let full: Place = (try? await place(id: existing.id, near: nil)) ?? Place(id: existing.id, name: existing.name, category: existing.category,
+                                                                                   address: existing.address, lat: existing.lat, lng: existing.lng)
+            throw APIError.conflict(try JSON.makeEncoder().encode(full))
+        }
+        let p = Place(id: "demo-community-\(UUID().uuidString.prefix(8).lowercased())", name: name, category: new.category,
+                      address: new.address ?? "", lat: new.lat, lng: new.lng, phone: new.phone, website: new.website,
+                      openingHours: new.openingHours, amenities: new.amenities ?? [], tags: [:], source: .community, status: .pending,
+                      reviewCount: 0, description: new.description, addedBy: PersonRef(displayName: user.displayName), verifiedCount: 0, photos: [])
+        community.append(p)
+        myPlaceIds.insert(p.id)
+        user.points = (user.points ?? 0) + 5
+        return p
+    }
+
+    static func similar(_ a: String, _ b: String) -> Bool {
+        let x = a.lowercased().filter { $0.isLetter || $0.isNumber }, y = b.lowercased().filter { $0.isLetter || $0.isNumber }
+        return x == y || (min(x.count, y.count) >= 5 && (x.contains(y) || y.contains(x)))
+    }
+
+    func updateCommunityPlace(id: String, _ new: NewPlace) async throws -> Place {
+        guard myPlaceIds.contains(id), let i = community.firstIndex(where: { $0.id == id }) else { throw APIError.http(status: 403, problem: nil) }
+        community[i].name = new.name
+        community[i].category = new.category
+        community[i].lat = new.lat
+        community[i].lng = new.lng
+        community[i].phone = new.phone
+        community[i].website = new.website
+        community[i].openingHours = new.openingHours
+        community[i].description = new.description
+        community[i].amenities = new.amenities
+        return community[i]
+    }
+
+    func deleteCommunityPlace(id: String) async throws {
+        guard myPlaceIds.contains(id), let i = community.firstIndex(where: { $0.id == id }) else { throw APIError.http(status: 403, problem: nil) }
+        if community[i].status == .published { community[i].status = .closed } else { community.remove(at: i) }
+    }
+
+    func suggestEdit(placeId: String, _ s: PlaceEditSuggestion) async throws -> SuggestionAccepted {
+        await pause()
+        return SuggestionAccepted(suggestionId: "demo-sugg-\(UUID().uuidString.prefix(6))")
+    }
+
+    func verifyPlace(id: String, _ v: VerifyPlaceRequest) async throws -> Place {
+        guard let i = community.firstIndex(where: { $0.id == id }) else { return try await place(id: id, near: nil) }
+        if v.exists && v.correctLocation != false {
+            community[i].verifiedCount = (community[i].verifiedCount ?? 0) + 1
+            if (community[i].verifiedCount ?? 0) >= 3 { community[i].status = .published }
+        }
+        return community[i]
+    }
+
+    func myContributions() async throws -> [PlaceSummary] {
+        community.filter { myPlaceIds.contains($0.id) }.map(\.summary)
+    }
+
+    // MARK: reviews & photos (demo)
+
+    func reviews(placeId: String, sort: ReviewSort, cursor: String?) async throws -> ReviewsPage {
+        var r = (reviewsByPlace[placeId] ?? []).map { rv -> Review in
+            var x = rv
+            x.photos = rv.photos?.map { p in publishedPhotos(placeId).first { $0.id == p.id } ?? p }
+            return x
+        }
+        r.sort { sort == .helpful ? $0.helpfulCount > $1.helpfulCount : $0.createdAt > $1.createdAt }
+        return ReviewsPage(reviews: r, next: nil)
+    }
+
+    func createReview(placeId: String, _ new: NewReview) async throws -> Review {
+        await pause()
+        guard (1...5).contains(new.rating) else { throw APIError.http(status: 400, problem: nil) }
+        if (reviewsByPlace[placeId] ?? []).contains(where: { $0.author.displayName == user.displayName }) {
+            throw APIError.http(status: 409, problem: ProblemDetails(title: "One review per place"))
+        }
+        let photos = publishedPhotos(placeId).filter { (new.photoIds ?? []).contains($0.id) }
+        let r = Review(id: "demo-review-\(UUID().uuidString.prefix(8))", placeId: placeId, rating: new.rating, text: new.text, photos: photos,
+                       author: me, helpfulCount: 0, createdAt: .now, editedAt: nil, status: "published")
+        reviewsByPlace[placeId, default: []].insert(r, at: 0)
+        user.points = (user.points ?? 0) + 3
+        return r
+    }
+
+    func updateReview(id: String, _ new: NewReview) async throws -> Review {
+        for (pid, list) in reviewsByPlace {
+            if let i = list.firstIndex(where: { $0.id == id }) {
+                var r = list[i]
+                r.rating = new.rating
+                r.text = new.text
+                if let ids = new.photoIds { r.photos = publishedPhotos(pid).filter { ids.contains($0.id) } }
+                r.editedAt = .now
+                reviewsByPlace[pid]![i] = r
+                return r
+            }
+        }
+        throw APIError.http(status: 404, problem: nil)
+    }
+
+    func deleteReview(id: String) async throws {
+        for pid in reviewsByPlace.keys { reviewsByPlace[pid]!.removeAll { $0.id == id } }
+    }
+
+    func toggleHelpful(reviewId: String) async throws {
+        let on = !helpful.contains(reviewId)
+        if on { helpful.insert(reviewId) } else { helpful.remove(reviewId) }
+        for pid in reviewsByPlace.keys {
+            if let i = reviewsByPlace[pid]!.firstIndex(where: { $0.id == reviewId }) { reviewsByPlace[pid]![i].helpfulCount += on ? 1 : -1 }
+        }
+    }
+
+    func flagReview(id: String, reason: FlagReason) async throws {}
+
+    /// Stores the photo as WebP (like the server) and serves it from a local file URL ending in .webp.
+    func uploadPhoto(_ jpeg: Data, placeId: String, caption: String?, progress: @escaping @Sendable (Double) -> Void) async throws -> Photo {
+        for step in 1...5 {
+            try? await Task.sleep(for: .milliseconds(80))
+            progress(Double(step) / 5)
+        }
+        guard let webp = ImageProcessing.webp(jpeg, maxPixels: 1600, quality: 80),
+              let thumb = ImageProcessing.webp(jpeg, maxPixels: 400, quality: 70) else { throw APIError.http(status: 400, problem: nil) }
+        let dir = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0].appendingPathComponent("demo-media", isDirectory: true)
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        let id = UUID().uuidString.lowercased()
+        let full = dir.appendingPathComponent("\(id).webp"), small = dir.appendingPathComponent("\(id)-thumb.webp")
+        try webp.write(to: full)
+        try thumb.write(to: small)
+        let size = ImageProcessing.pixelSize(webp) ?? .zero
+        let photo = Photo(id: id, url: full.absoluteString, thumbUrl: small.absoluteString, width: Int(size.width), height: Int(size.height),
+                          caption: caption, uploadedBy: PersonRef(displayName: user.displayName), createdAt: .now, status: .processing)
+        photosByPlace[placeId, default: []].insert((photo, Date().addingTimeInterval(1.5)), at: 0)
+        if let i = community.firstIndex(where: { $0.id == placeId }), community[i].thumbnailUrl == nil { community[i].thumbnailUrl = photo.thumbUrl }
+        user.points = (user.points ?? 0) + 2
+        return photo
+    }
+
+    func photos(placeId: String, cursor: String?) async throws -> PhotosPage {
+        PhotosPage(photos: publishedPhotos(placeId), next: nil)
+    }
+
+    func deletePhoto(id: String) async throws {
+        for pid in photosByPlace.keys { photosByPlace[pid]!.removeAll { $0.photo.id == id } }
+    }
+
+    func flagPhoto(id: String, reason: FlagReason) async throws {}
 
     func reverseGeocode(_ p: LatLng) async throws -> ReverseGeocode {
         let nearest = DemoData.places.min { Geo.distance(p, $0.location) < Geo.distance(p, $1.location) }

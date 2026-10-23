@@ -33,6 +33,8 @@ struct SideMenu: View {
                 Divider()
 
                 actionRow("Favourites", icon: "star.fill", id: "menuFavorites") { model.showMenu = false; model.menuSheet = .favorites }
+                actionRow("Add a place", icon: "mappin.and.ellipse", id: "menuAddPlace") { model.showMenu = false; model.addPlaceStart = model.position }
+                actionRow("My contributions", icon: "person.crop.rectangle.stack.fill", id: "menuContributions") { model.showMenu = false; model.menuSheet = .contributions }
                 row("Planned drives", icon: "calendar", .planned)
                 row("Inbox", icon: "tray.fill", .inbox)
                 row("Settings", icon: "gearshape.fill", .settings)

@@ -121,6 +121,7 @@ struct RootView: View {
             case .favorites: FavoritesManagerView()
             case .myFeedback: MyFeedbackView()
             case .backup: NavigationStack { BackupView().toolbar { ToolbarItem(placement: .topBarTrailing) { Button("Done") { model.menuSheet = nil } } } }
+            case .contributions: MyContributionsView()
             }
         }
         .sheet(item: Binding(get: { model.incomingBackup.map { IncomingFile(url: $0) } }, set: { model.incomingBackup = $0?.url })) { f in
@@ -133,6 +134,18 @@ struct RootView: View {
             Button("Cancel", role: .cancel) {}
         } message: {
             Text("For safety, drivers can send feedback only when stopped.")
+        }
+        .fullScreenCover(item: Binding(get: { model.addPlaceStart.map(IdentifiedPoint.init) }, set: { model.addPlaceStart = $0?.point })) { p in
+            AddPlaceFlow(start: p.point)
+        }
+        .confirmationDialog("This spot", isPresented: Binding(get: { model.longPressPoint != nil }, set: { if !$0 { model.longPressPoint = nil } }),
+                            titleVisibility: .hidden) {
+            Button("Navigate here") {
+                if let p = model.longPressPoint { Task { await model.pickDroppedPin(p) } }
+            }
+            Button("Add a place here") {
+                model.addPlaceStart = model.longPressPoint
+            }
         }
         .fullScreenCover(isPresented: $model.showOnboarding) {
             OnboardingView()
@@ -161,4 +174,9 @@ struct DemoBadge: View {
 struct IncomingFile: Identifiable {
     let url: URL
     var id: String { url.absoluteString }
+}
+
+struct IdentifiedPoint: Identifiable {
+    let point: LatLng
+    var id: String { "\(point.lat),\(point.lng)" }
 }

@@ -30,6 +30,27 @@ protocol GimanoRepository: Sendable {
     func sendFeedback(_ feedback: FeedbackRequest) async throws -> FeedbackCreated
     func myFeedback() async throws -> [FeedbackSummary]
 
+    // Community places
+    func createPlace(_ place: NewPlace) async throws -> Place
+    func updateCommunityPlace(id: String, _ place: NewPlace) async throws -> Place
+    func deleteCommunityPlace(id: String) async throws
+    func suggestEdit(placeId: String, _ s: PlaceEditSuggestion) async throws -> SuggestionAccepted
+    func verifyPlace(id: String, _ v: VerifyPlaceRequest) async throws -> Place
+    func myContributions() async throws -> [PlaceSummary]
+
+    // Reviews & photos
+    func reviews(placeId: String, sort: ReviewSort, cursor: String?) async throws -> ReviewsPage
+    func createReview(placeId: String, _ r: NewReview) async throws -> Review
+    func updateReview(id: String, _ r: NewReview) async throws -> Review
+    func deleteReview(id: String) async throws
+    func toggleHelpful(reviewId: String) async throws
+    func flagReview(id: String, reason: FlagReason) async throws
+    /// Uploads a JPEG (already ≤ 2048 px, metadata-free); the server re-encodes to WebP.
+    func uploadPhoto(_ jpeg: Data, placeId: String, caption: String?, progress: @escaping @Sendable (Double) -> Void) async throws -> Photo
+    func photos(placeId: String, cursor: String?) async throws -> PhotosPage
+    func deletePhoto(id: String) async throws
+    func flagPhoto(id: String, reason: FlagReason) async throws
+
     func health() async -> Bool
 }
 
@@ -197,6 +218,81 @@ final class LiveRepository: GimanoRepository {
         try await authed { try await self.client.get("me/feedback") }
     }
 
+    // MARK: community places, reviews, photos
+
+    func createPlace(_ place: NewPlace) async throws -> Place {
+        try await authed { try await self.client.send("POST", "places", body: place) }
+    }
+
+    func updateCommunityPlace(id: String, _ place: NewPlace) async throws -> Place {
+        try await authed { try await self.client.send("PATCH", "places/\(id)", body: place) }
+    }
+
+    func deleteCommunityPlace(id: String) async throws {
+        try await authed { try await self.client.sendNoContent("DELETE", "places/\(id)", body: Optional<Empty>.none) }
+    }
+
+    func suggestEdit(placeId: String, _ s: PlaceEditSuggestion) async throws -> SuggestionAccepted {
+        try await authed { try await self.client.send("POST", "places/\(placeId)/suggest-edit", body: s) }
+    }
+
+    func verifyPlace(id: String, _ v: VerifyPlaceRequest) async throws -> Place {
+        try await authed { try await self.client.send("POST", "places/\(id)/verify", body: v) }
+    }
+
+    func myContributions() async throws -> [PlaceSummary] {
+        try await authed { try await self.client.get("me/places/contributed") }
+    }
+
+    func reviews(placeId: String, sort: ReviewSort, cursor: String?) async throws -> ReviewsPage {
+        var q = [URLQueryItem(name: "sort", value: sort.rawValue)]
+        if let cursor { q.append(URLQueryItem(name: "cursor", value: cursor)) }
+        let query = q
+        return try await authed { try await self.client.get("places/\(placeId)/reviews", query: query) }
+    }
+
+    func createReview(placeId: String, _ r: NewReview) async throws -> Review {
+        try await authed { try await self.client.send("POST", "places/\(placeId)/reviews", body: r) }
+    }
+
+    func updateReview(id: String, _ r: NewReview) async throws -> Review {
+        try await authed { try await self.client.send("PATCH", "reviews/\(id)", body: r) }
+    }
+
+    func deleteReview(id: String) async throws {
+        try await authed { try await self.client.sendNoContent("DELETE", "reviews/\(id)", body: Optional<Empty>.none) }
+    }
+
+    func toggleHelpful(reviewId: String) async throws {
+        try await authed { try await self.client.sendNoContent("POST", "reviews/\(reviewId)/helpful", body: Optional<Empty>.none) }
+    }
+
+    func flagReview(id: String, reason: FlagReason) async throws {
+        try await authed { try await self.client.sendNoContent("POST", "reviews/\(id)/flag", body: FlagRequest(reason: reason)) }
+    }
+
+    func uploadPhoto(_ jpeg: Data, placeId: String, caption: String?, progress: @escaping @Sendable (Double) -> Void) async throws -> Photo {
+        var fields = ["placeId": placeId]
+        if let caption, !caption.isEmpty { fields["caption"] = caption }
+        let f = fields
+        return try await authed {
+            try await self.client.upload("photos", fields: f, file: jpeg, fileName: "photo.jpg", mimeType: "image/jpeg", progress: progress)
+        }
+    }
+
+    func photos(placeId: String, cursor: String?) async throws -> PhotosPage {
+        let q = cursor.map { [URLQueryItem(name: "cursor", value: $0)] } ?? []
+        return try await authed { try await self.client.get("places/\(placeId)/photos", query: q) }
+    }
+
+    func deletePhoto(id: String) async throws {
+        try await authed { try await self.client.sendNoContent("DELETE", "photos/\(id)", body: Optional<Empty>.none) }
+    }
+
+    func flagPhoto(id: String, reason: FlagReason) async throws {
+        try await authed { try await self.client.sendNoContent("POST", "photos/\(id)/flag", body: FlagRequest(reason: reason)) }
+    }
+
     func health() async -> Bool {
         // healthz lives at the host root, not under /api/v1.
         var c = URLComponents(url: baseURL, resolvingAgainstBaseURL: false)!
@@ -279,6 +375,57 @@ final class FallbackRepository: GimanoRepository {
     /// Feedback never goes to the demo store while in auto mode: failures leave it in the outbox for retry.
     func sendFeedback(_ feedback: FeedbackRequest) async throws -> FeedbackCreated { try await live.sendFeedback(feedback) }
     func myFeedback() async throws -> [FeedbackSummary] { try await live.myFeedback() }
+
+    // Community contributions are public writes: no silent demo fallback while the backend is online.
+    func createPlace(_ place: NewPlace) async throws -> Place {
+        try await run(gapFallback: false, { try await $0.createPlace(place) }, demoOp: { try await $0.createPlace(place) })
+    }
+    func updateCommunityPlace(id: String, _ place: NewPlace) async throws -> Place {
+        try await run(gapFallback: false, { try await $0.updateCommunityPlace(id: id, place) }, demoOp: { try await $0.updateCommunityPlace(id: id, place) })
+    }
+    func deleteCommunityPlace(id: String) async throws {
+        try await run(gapFallback: false, { try await $0.deleteCommunityPlace(id: id) }, demoOp: { try await $0.deleteCommunityPlace(id: id) })
+    }
+    func suggestEdit(placeId: String, _ s: PlaceEditSuggestion) async throws -> SuggestionAccepted {
+        try await run(gapFallback: false, { try await $0.suggestEdit(placeId: placeId, s) }, demoOp: { try await $0.suggestEdit(placeId: placeId, s) })
+    }
+    func verifyPlace(id: String, _ v: VerifyPlaceRequest) async throws -> Place {
+        try await run(gapFallback: false, { try await $0.verifyPlace(id: id, v) }, demoOp: { try await $0.verifyPlace(id: id, v) })
+    }
+    func myContributions() async throws -> [PlaceSummary] {
+        try await run({ try await $0.myContributions() }, demoOp: { try await $0.myContributions() })
+    }
+    func reviews(placeId: String, sort: ReviewSort, cursor: String?) async throws -> ReviewsPage {
+        try await run({ try await $0.reviews(placeId: placeId, sort: sort, cursor: cursor) }, demoOp: { try await $0.reviews(placeId: placeId, sort: sort, cursor: cursor) })
+    }
+    func createReview(placeId: String, _ r: NewReview) async throws -> Review {
+        try await run(gapFallback: false, { try await $0.createReview(placeId: placeId, r) }, demoOp: { try await $0.createReview(placeId: placeId, r) })
+    }
+    func updateReview(id: String, _ r: NewReview) async throws -> Review {
+        try await run(gapFallback: false, { try await $0.updateReview(id: id, r) }, demoOp: { try await $0.updateReview(id: id, r) })
+    }
+    func deleteReview(id: String) async throws {
+        try await run(gapFallback: false, { try await $0.deleteReview(id: id) }, demoOp: { try await $0.deleteReview(id: id) })
+    }
+    func toggleHelpful(reviewId: String) async throws {
+        try await run(gapFallback: false, { try await $0.toggleHelpful(reviewId: reviewId) }, demoOp: { try await $0.toggleHelpful(reviewId: reviewId) })
+    }
+    func flagReview(id: String, reason: FlagReason) async throws {
+        try await run(gapFallback: false, { try await $0.flagReview(id: id, reason: reason) }, demoOp: { try await $0.flagReview(id: id, reason: reason) })
+    }
+    func uploadPhoto(_ jpeg: Data, placeId: String, caption: String?, progress: @escaping @Sendable (Double) -> Void) async throws -> Photo {
+        try await run(gapFallback: false, { try await $0.uploadPhoto(jpeg, placeId: placeId, caption: caption, progress: progress) },
+                      demoOp: { try await $0.uploadPhoto(jpeg, placeId: placeId, caption: caption, progress: progress) })
+    }
+    func photos(placeId: String, cursor: String?) async throws -> PhotosPage {
+        try await run({ try await $0.photos(placeId: placeId, cursor: cursor) }, demoOp: { try await $0.photos(placeId: placeId, cursor: cursor) })
+    }
+    func deletePhoto(id: String) async throws {
+        try await run(gapFallback: false, { try await $0.deletePhoto(id: id) }, demoOp: { try await $0.deletePhoto(id: id) })
+    }
+    func flagPhoto(id: String, reason: FlagReason) async throws {
+        try await run(gapFallback: false, { try await $0.flagPhoto(id: id, reason: reason) }, demoOp: { try await $0.flagPhoto(id: id, reason: reason) })
+    }
 
     func health() async -> Bool { await live.health() }
 

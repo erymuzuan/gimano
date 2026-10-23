@@ -79,7 +79,8 @@ final class LiveMapStore {
         switch e {
         case .alertCreated(let r), .alertUpdated(let r): alerts[r.id] = r
         case .alertExpired(let id): alerts[id] = nil
-        case .jamUpdated(let j): jams[j.id] = j
+        // level 0 = jam cleared.
+        case .jamUpdated(let j): jams[j.id] = j.level <= 0 ? nil : j
         }
         revision += 1
     }

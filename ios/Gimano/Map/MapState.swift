@@ -42,6 +42,8 @@ final class MapState {
     var alerts: [Report] = []
     var jams: [JamLine] = []
     var drivers: [Driver] = []
+    /// "Just for me" places, drawn from the local DB only.
+    var privatePins: [LatLng] = []
     var camera: CameraMode = .trackNorth(zoom: 14)
     var cameraRevision = 0
     /// Extra insets (sheet/banners) so fitted content stays visible.

@@ -218,6 +218,68 @@ final class LocalStore: Sendable {
         }
     }
 
+    // MARK: private places ("Just for me", never sent to the server)
+
+    /// Saves a private place with its photos (already WebP-encoded) under `photos/<photoId>.webp`.
+    @discardableResult
+    func addPrivatePlace(_ p: PrivatePlace, webpPhotos: [Data]) throws -> PrivatePlace {
+        let now = Self.timestamp()
+        let id = p.id.isEmpty ? UUID().uuidString.lowercased() : p.id
+        let amenities = String(decoding: try JSONEncoder().encode(p.amenities), as: UTF8.self)
+        var files: [String] = []
+        for data in webpPhotos {
+            let photoId = UUID().uuidString.lowercased()
+            let name = "\(photoId).webp"
+            try data.write(to: photosDirectory.appendingPathComponent(name), options: .atomic)
+            files.append(name)
+        }
+        try dbQueue.write { db in
+            try db.execute(sql: """
+                INSERT INTO private_places (id, name, category, lat, lng, address, description, phone, website, opening_hours,
+                  amenities_json, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """, arguments: [id, p.name, p.category.rawValue, p.lat, p.lng, p.address, p.description, p.phone, p.website,
+                                 p.openingHours, amenities, now, now])
+            for f in files {
+                try db.execute(sql: "INSERT INTO private_place_photos (id, place_id, file_name, created_at) VALUES (?, ?, ?, ?)",
+                               arguments: [String(f.dropLast(5)), id, "photos/\(f)", now])
+            }
+        }
+        return try privatePlace(id: id)!
+    }
+
+    func privatePlaces() throws -> [PrivatePlace] {
+        try dbQueue.read { db in
+            try Row.fetchAll(db, sql: "SELECT * FROM private_places ORDER BY updated_at DESC").map { try Self.privatePlace($0, db: db) }
+        }
+    }
+
+    func privatePlace(id: String) throws -> PrivatePlace? {
+        try dbQueue.read { db in
+            try Row.fetchOne(db, sql: "SELECT * FROM private_places WHERE id = ?", arguments: [id]).map { try Self.privatePlace($0, db: db) }
+        }
+    }
+
+    private static func privatePlace(_ r: Row, db: Database) throws -> PrivatePlace {
+        let id: String = r["id"]
+        let amenities = (r["amenities_json"] as String?).flatMap { try? JSONDecoder().decode([String].self, from: Data($0.utf8)) } ?? []
+        let files = try String.fetchAll(db, sql: "SELECT file_name FROM private_place_photos WHERE place_id = ? ORDER BY created_at", arguments: [id])
+        return PrivatePlace(id: id, name: r["name"], category: PlaceCategory(rawValue: r["category"]) ?? .other, lat: r["lat"], lng: r["lng"],
+                            address: r["address"], description: r["description"], phone: r["phone"], website: r["website"],
+                            openingHours: r["opening_hours"], amenities: amenities, photoFiles: files,
+                            createdAt: date(r["created_at"]), updatedAt: date(r["updated_at"]))
+    }
+
+    func deletePrivatePlace(id: String) throws {
+        let files = try dbQueue.read { try String.fetchAll($0, sql: "SELECT file_name FROM private_place_photos WHERE place_id = ?", arguments: [id]) }
+        try dbQueue.write { try $0.execute(sql: "DELETE FROM private_places WHERE id = ?", arguments: [id]) }
+        for f in files { try? FileManager.default.removeItem(at: photoURL(f)) }
+    }
+
+    /// File URL for a `file_name` stored as "photos/<id>.webp".
+    func photoURL(_ fileName: String) -> URL {
+        photosDirectory.appendingPathComponent((fileName as NSString).lastPathComponent)
+    }
+
     // MARK: settings
 
     func setting(_ key: String) throws -> String? {

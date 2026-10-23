@@ -85,11 +85,14 @@ struct SearchView: View {
                 LazyVStack(alignment: .leading, spacing: 0) {
                     if query.isEmpty && category == nil {
                         suggestions
-                    } else if results.isEmpty && !isSearching && model.localMatches(query).isEmpty {
-                        Text("No results")
-                            .font(Tokens.Font.body)
-                            .foregroundStyle(Color.textMuted)
-                            .padding(Tokens.Space.gutter)
+                    } else if results.isEmpty && !isSearching && model.localMatches(query).isEmpty && model.privateMatches(query).isEmpty {
+                        VStack(alignment: .leading, spacing: 14) {
+                            Text("No results")
+                                .font(Tokens.Font.body)
+                                .foregroundStyle(Color.textMuted)
+                            addPlaceButton
+                        }
+                        .padding(Tokens.Space.gutter)
                     } else {
                         // On-device favourites first (they never leave the phone).
                         ForEach(model.localMatches(query)) { f in
@@ -101,6 +104,15 @@ struct SearchView: View {
                             }
                             .buttonStyle(.plain)
                             .accessibilityIdentifier("localResult")
+                            Divider().padding(.leading, 68)
+                        }
+                        ForEach(model.privateMatches(query)) { p in
+                            Button { pick(p.summary) } label: {
+                                PlaceRow(gIcon: .heart, title: p.name, subtitle: p.address ?? String(localized: "Just for me"),
+                                         distanceM: Geo.distance(model.position, p.location))
+                            }
+                            .buttonStyle(.plain)
+                            .accessibilityIdentifier("privateResult")
                             Divider().padding(.leading, 68)
                         }
                         ForEach(results) { r in
@@ -132,6 +144,28 @@ struct SearchView: View {
             }
         }
         .task(id: "\(query)|\(category?.rawValue ?? "")") { await runSearch() }
+    }
+
+    private var addPlaceButton: some View {
+        Button {
+            focused = false
+            model.addPlaceStart = model.position
+        } label: {
+            HStack(spacing: 12) {
+                GimanoIcon(icon: .addStop, size: 34)
+                    .frame(width: 56, height: 56)
+                    .background(Color.brandMist, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Can't find it?").font(Tokens.Font.caption).foregroundStyle(Color.textMuted)
+                    Text("Add a place").font(Tokens.Font.nunito(19, .extrabold)).foregroundStyle(Color.brandInk)
+                }
+                Spacer()
+            }
+            .padding(10)
+            .background(Color.surfaceAlt, in: RoundedRectangle(cornerRadius: Tokens.Radius.lg, style: .continuous))
+        }
+        .buttonStyle(.plain)
+        .accessibilityIdentifier("addPlaceFromSearch")
     }
 
     private var placeholder: String {

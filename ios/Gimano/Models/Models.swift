@@ -225,6 +225,26 @@ enum PlaceCategory: String, Codable, Sendable, CaseIterable {
     }
 }
 
+enum PlaceSource: String, Codable, Sendable {
+    case osm, community
+    /// "Just for me": on this device only (never from or to the server).
+    case `private`
+
+    init(from decoder: any Decoder) throws {
+        let raw = try decoder.singleValueContainer().decode(String.self)
+        self = PlaceSource(rawValue: raw) ?? .osm
+    }
+}
+
+enum PlaceStatus: String, Codable, Sendable {
+    case pending, published, closed, hidden
+
+    init(from decoder: any Decoder) throws {
+        let raw = try decoder.singleValueContainer().decode(String.self)
+        self = PlaceStatus(rawValue: raw) ?? .published
+    }
+}
+
 struct PlaceSummary: Codable, Sendable, Identifiable, Hashable {
     var id: String
     var name: String
@@ -234,8 +254,23 @@ struct PlaceSummary: Codable, Sendable, Identifiable, Hashable {
     var lng: Double
     var distanceM: Double?
     var brand: String?
+    var source: PlaceSource?
+    var status: PlaceStatus?
+    var rating: Double?
+    var reviewCount: Int?
+    var thumbnailUrl: String?
+
+    init(id: String, name: String, category: PlaceCategory, address: String, lat: Double, lng: Double, distanceM: Double? = nil,
+         brand: String? = nil, source: PlaceSource? = nil, status: PlaceStatus? = nil, rating: Double? = nil,
+         reviewCount: Int? = nil, thumbnailUrl: String? = nil) {
+        self.id = id; self.name = name; self.category = category; self.address = address; self.lat = lat; self.lng = lng
+        self.distanceM = distanceM; self.brand = brand; self.source = source; self.status = status; self.rating = rating
+        self.reviewCount = reviewCount; self.thumbnailUrl = thumbnailUrl
+    }
 
     var location: LatLng { LatLng(lat: lat, lng: lng) }
+    var isCommunity: Bool { source == .community }
+    var isPrivate: Bool { source == .private || id.hasPrefix(PrivatePlace.idPrefix) }
 }
 
 struct SearchResponse: Codable, Sendable {
@@ -259,9 +294,167 @@ struct Place: Codable, Sendable, Identifiable, Hashable {
     var tags: [String: String]?
     var osmType: String?
     var osmId: Int64?
+    var source: PlaceSource?
+    var status: PlaceStatus?
+    var rating: Double?
+    var reviewCount: Int?
+    var thumbnailUrl: String?
+    var description: String?
+    var addedBy: PersonRef?
+    var verifiedCount: Int?
+    var photos: [Photo]?
 
     var summary: PlaceSummary {
-        PlaceSummary(id: id, name: name, category: category, address: address, lat: lat, lng: lng, distanceM: distanceM, brand: brand)
+        PlaceSummary(id: id, name: name, category: category, address: address, lat: lat, lng: lng, distanceM: distanceM, brand: brand,
+                     source: source, status: status, rating: rating, reviewCount: reviewCount, thumbnailUrl: thumbnailUrl)
+    }
+}
+
+struct PersonRef: Codable, Sendable, Hashable {
+    var displayName: String
+    var level: Int?
+    var reviewCount: Int?
+}
+
+// MARK: - Community places, reviews, photos
+
+/// `POST /places` (and the owner's `PATCH /places/{id}`).
+struct NewPlace: Codable, Sendable, Hashable {
+    var name: String
+    var category: PlaceCategory
+    var lat: Double
+    var lng: Double
+    var address: String?
+    var description: String?
+    var phone: String?
+    var website: String?
+    var openingHours: String?
+    var amenities: [String]?
+}
+
+/// `POST /places/{id}/suggest-edit`.
+struct PlaceEditSuggestion: Codable, Sendable, Hashable {
+    var name: String?
+    var category: PlaceCategory?
+    var lat: Double?
+    var lng: Double?
+    var phone: String?
+    var website: String?
+    var openingHours: String?
+    var comment: String?
+}
+
+struct SuggestionAccepted: Codable, Sendable { var suggestionId: String }
+
+struct VerifyPlaceRequest: Codable, Sendable {
+    var exists: Bool
+    var correctLocation: Bool?
+}
+
+enum PhotoStatus: String, Codable, Sendable {
+    case processing, published, rejected
+
+    init(from decoder: any Decoder) throws {
+        let raw = try decoder.singleValueContainer().decode(String.self)
+        self = PhotoStatus(rawValue: raw) ?? .published
+    }
+}
+
+struct Photo: Codable, Sendable, Hashable, Identifiable {
+    var id: String
+    var url: String
+    var thumbUrl: String?
+    var width: Int?
+    var height: Int?
+    var caption: String?
+    var uploadedBy: PersonRef?
+    var createdAt: Date?
+    var status: PhotoStatus?
+}
+
+struct PhotosPage: Codable, Sendable {
+    var photos: [Photo]
+    var next: String?
+}
+
+enum ReviewSort: String, Sendable, CaseIterable {
+    case recent, helpful
+}
+
+struct Review: Codable, Sendable, Hashable, Identifiable {
+    var id: String
+    var placeId: String
+    var rating: Int
+    var text: String?
+    var photos: [Photo]?
+    var author: PersonRef
+    var helpfulCount: Int
+    var createdAt: Date
+    var editedAt: Date?
+    var status: String?
+}
+
+struct ReviewsPage: Codable, Sendable {
+    var reviews: [Review]
+    var next: String?
+}
+
+struct NewReview: Codable, Sendable, Hashable {
+    var rating: Int
+    var text: String?
+    var photoIds: [String]?
+}
+
+enum FlagReason: String, Codable, Sendable, CaseIterable, Identifiable {
+    case spam, offensive
+    case offTopic = "off_topic"
+    case conflictOfInterest = "conflict_of_interest"
+    case other
+    var id: String { rawValue }
+}
+
+struct FlagRequest: Codable, Sendable { var reason: FlagReason }
+
+/// A "Just for me" place: stored only in the on-device DB (`private_places`), never sent to the server.
+struct PrivatePlace: Identifiable, Hashable, Sendable {
+    static let idPrefix = "private:"
+    var id: String
+    var name: String
+    var category: PlaceCategory
+    var lat: Double
+    var lng: Double
+    var address: String?
+    var description: String?
+    var phone: String?
+    var website: String?
+    var openingHours: String?
+    var amenities: [String]
+    var photoFiles: [String] = []
+    var createdAt: Date?
+    var updatedAt: Date?
+
+    var location: LatLng { LatLng(lat: lat, lng: lng) }
+
+    var summary: PlaceSummary {
+        PlaceSummary(id: Self.idPrefix + id, name: name, category: category, address: address ?? "", lat: lat, lng: lng, source: .private)
+    }
+}
+
+/// Rating summary shown on the place card ("New" under 3 reviews).
+struct RatingSummary: Equatable, Sendable {
+    var average: Double
+    var count: Int
+    /// Count per star, index 0 = 1 star … index 4 = 5 stars.
+    var distribution: [Int]
+
+    var isNew: Bool { count < 3 }
+
+    static func make(reviews: [Review], serverAverage: Double? = nil, serverCount: Int? = nil) -> RatingSummary {
+        var dist = [0, 0, 0, 0, 0]
+        for r in reviews where (1...5).contains(r.rating) { dist[r.rating - 1] += 1 }
+        let localCount = dist.reduce(0, +)
+        let localAvg = localCount > 0 ? Double(dist.enumerated().reduce(0) { $0 + ($1.offset + 1) * $1.element }) / Double(localCount) : 0
+        return RatingSummary(average: serverAverage ?? localAvg, count: max(serverCount ?? 0, localCount), distribution: dist)
     }
 }
 

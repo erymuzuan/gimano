@@ -132,6 +132,20 @@ data.sqlite     = `VACUUM INTO` snapshot, `outbox` table dropped, user_version =
 timestamps      = ISO-8601 UTC text (`2026-10-23T01:02:03.123Z`); merge compares with julianday()
 ```
 
+## Community places, reviews & photos
+
+- **Add a place**: from search ("Can't find it? Add a place"), the side menu, or a long-press on the map.
+  A centre pin over a movable map (reverse-geocoded address), then name, a category icon grid, photos (PhotosPicker
+  or camera; downscaled on the device to ≤ 2048 px JPEG, HEIC converted, metadata incl. GPS stripped), an
+  opening-hours editor (day chips + 24 h ranges + Closed → OSM `opening_hours`, see `Navigation/OpeningHours.swift`),
+  then "Just for me" (local `private_places`, photos as WebP via libwebp, never sent) or "Share with everyone"
+  (`POST /places` + `POST /photos` with upload progress; a 409 duplicate offers "Is it this one?").
+- **Place card**: Community / Unverified / Just for me badges, "Is this place here?" (`/verify`), "Suggest an edit"
+  (any place, incl. OSM), photo strip + full-screen viewer, rating summary with distribution ("New" under 3 reviews),
+  reviews (helpful, flag), write/edit one review per place with up to 5 photos.
+- **My contributions** (menu): `GET /me/places/contributed` plus local private places.
+- Demo mode implements all of it (WebP photos written locally) so the flows work offline.
+
 ## Icons
 
 `DesignSystem/IconData.swift` is generated from `docs/icons/gimano-icons.json`:

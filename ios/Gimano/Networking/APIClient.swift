@@ -10,6 +10,8 @@ struct ProblemDetails: Codable, Sendable {
 enum APIError: Error, LocalizedError, Sendable {
     case transport(URLError)
     case http(status: Int, problem: ProblemDetails?)
+    /// 409 with a JSON body (e.g. the existing place for a duplicate "Add a place").
+    case conflict(Data)
     case decoding(String)
     case notAvailable
 
@@ -17,6 +19,7 @@ enum APIError: Error, LocalizedError, Sendable {
         switch self {
         case .transport(let e): e.localizedDescription
         case .http(let status, let p): p?.detail ?? p?.title ?? "HTTP \(status)"
+        case .conflict: String(localized: "This place may already exist.")
         case .decoding(let s): "Unexpected response: \(s)"
         case .notAvailable: "Not available"
         }
@@ -126,6 +129,39 @@ actor APIClient {
         (try? await perform(method: "GET", path: path, query: [], body: nil)) != nil
     }
 
+    /// `multipart/form-data` upload with byte progress (0…1).
+    func upload<T: Decodable & Sendable>(_ path: String, fields: [String: String], file: Data, fileName: String, mimeType: String,
+                                        progress: @escaping @Sendable (Double) -> Void) async throws -> T {
+        let boundary = "gimano-\(UUID().uuidString)"
+        var body = Data()
+        for (k, v) in fields {
+            body.append("--\(boundary)\r\nContent-Disposition: form-data; name=\"\(k)\"\r\n\r\n\(v)\r\n".data(using: .utf8)!)
+        }
+        body.append("--\(boundary)\r\nContent-Disposition: form-data; name=\"file\"; filename=\"\(fileName)\"\r\nContent-Type: \(mimeType)\r\n\r\n".data(using: .utf8)!)
+        body.append(file)
+        body.append("\r\n--\(boundary)--\r\n".data(using: .utf8)!)
+        var req = URLRequest(url: url(path))
+        req.httpMethod = "POST"
+        req.setValue("multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: "Content-Type")
+        req.setValue("application/json", forHTTPHeaderField: "Accept")
+        if let token { req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization") }
+        req.timeoutInterval = 120
+        let delegate = UploadProgressDelegate(progress)
+        let data: Data
+        let response: URLResponse
+        do {
+            (data, response) = try await URLSession.shared.upload(for: req, from: body, delegate: delegate)
+        } catch let e as URLError {
+            throw APIError.transport(e)
+        }
+        guard let http = response as? HTTPURLResponse else { throw APIError.transport(URLError(.badServerResponse)) }
+        guard (200..<300).contains(http.statusCode) else {
+            throw APIError.http(status: http.statusCode, problem: try? decoder.decode(ProblemDetails.self, from: data))
+        }
+        progress(1)
+        return try decode(data)
+    }
+
     private func decode<T: Decodable>(_ data: Data) throws -> T {
         do {
             return try decoder.decode(T.self, from: data)
@@ -154,6 +190,7 @@ actor APIClient {
         }
         guard let http = response as? HTTPURLResponse else { throw APIError.transport(URLError(.badServerResponse)) }
         guard (200..<300).contains(http.statusCode) else {
+            if http.statusCode == 409, !data.isEmpty { throw APIError.conflict(data) }
             let problem = try? decoder.decode(ProblemDetails.self, from: data)
             throw APIError.http(status: http.statusCode, problem: problem)
         }
@@ -163,3 +200,13 @@ actor APIClient {
 
 /// Empty body / response helper.
 struct Empty: Codable, Sendable {}
+
+final class UploadProgressDelegate: NSObject, URLSessionTaskDelegate, Sendable {
+    private let onProgress: @Sendable (Double) -> Void
+    init(_ onProgress: @escaping @Sendable (Double) -> Void) { self.onProgress = onProgress }
+    func urlSession(_ session: URLSession, task: URLSessionTask, didSendBodyData bytesSent: Int64, totalBytesSent: Int64,
+                    totalBytesExpectedToSend: Int64) {
+        guard totalBytesExpectedToSend > 0 else { return }
+        onProgress(Double(totalBytesSent) / Double(totalBytesExpectedToSend))
+    }
+}

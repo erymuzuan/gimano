@@ -56,7 +56,7 @@ struct FeedbackDraft: Identifiable {
 }
 
 enum MenuSheet: String, Identifiable {
-    case favorites, myFeedback, backup
+    case favorites, myFeedback, backup, contributions
     var id: String { rawValue }
 }
 
@@ -75,6 +75,12 @@ final class AppModel {
     private(set) var user: User?
     private(set) var savedPlaces: [SavedPlace] = []
     private(set) var recents: [Recent] = []
+    /// "Just for me" places (on device only).
+    private(set) var privatePlaces: [PrivatePlace] = []
+    /// Add-a-place flow (nil when closed); the coordinate is where the pin starts.
+    var addPlaceStart: LatLng?
+    /// Long-press menu: "Navigate here" / "Add a place here".
+    var longPressPoint: LatLng?
 
     var screen: Screen = .home
     var planner: RoutePlanner?
@@ -252,6 +258,15 @@ final class AppModel {
     func reloadLocal() {
         savedPlaces = (try? store.savedPlaces()) ?? []
         recents = (try? store.recents()) ?? []
+        privatePlaces = (try? store.privatePlaces()) ?? []
+        map.privatePins = privatePlaces.map { $0.location }
+    }
+
+    /// Local "Just for me" places matching a query.
+    func privateMatches(_ query: String) -> [PrivatePlace] {
+        let q = query.trimmingCharacters(in: .whitespaces).lowercased()
+        guard !q.isEmpty else { return [] }
+        return privatePlaces.filter { $0.name.lowercased().contains(q) || ($0.address ?? "").lowercased().contains(q) }
     }
 
     /// First launch after the on-device switch: download any server-side copy once, import it, then delete it
@@ -318,7 +333,7 @@ final class AppModel {
         map.onAlertTapped = { [weak self] r in self?.selectedAlert = r }
         map.onLongPress = { [weak self] p in
             guard let self, self.screen == .home else { return }
-            Task { await self.pickDroppedPin(p) }
+            self.longPressPoint = p
         }
     }
 
