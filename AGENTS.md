@@ -60,7 +60,22 @@ docker compose -f deploy/docker-compose.yml logs -f --tail 100 api worker
 
 Smoke test from the Mac: `curl http://100.101.150.9:5080/readyz`.
 
-## Public website: www.bukitbunga.com/gimano
+## Public website: https://manotu.app (brand Manotu, formerly Gimano)
+
+- **Canonical site: https://manotu.app**, served by IIS site "manotu.app" (id 47) on 172.30.30.13, from
+  `C:\apps\websites\manotu.app`. Source: `site/manotu/`. Deploy with robocopy `/E /XF web.config` (that root
+  web.config is server-only: www→apex and http→https, both exempting `/.well-known/acme-challenge/`). Cloudflare zone
+  manotu.app (proxied, Full strict) → origin 103.28.91.40. Let's Encrypt certs come from Certify The Web (HTTP-01,
+  auto-renew). The user/Codex own Cloudflare and the registrar (Exabytes); agents don't change them.
+- The same `site/manotu/` content is also served at `www.bukitbunga.com/manotu/` (folder `...\www.bukitbunga.com\manotu`).
+- **Legacy `/gimano` folder, kept forever:** `www.bukitbunga.com/gimano/` and the `/gimano` virtual directory on
+  manotu.app. It serves `download/version.json` + APKs (installed apps' updater), `s/` (shared-drive links),
+  `altstore.json` and `logo.png`. Its human pages 301 to `/manotu/...` (bukitbunga) or `/` (manotu.app), by host
+  rules in `site/gimano/web.config`.
+- API: `gimano-api.bukitbunga.com` (kept permanently) and the alias `api.manotu.app`, both on the gimano-api ARR site
+  (id 46) → .150.
+
+## Legacy notes: www.bukitbunga.com/gimano
 
 - Source: `site/gimano/` in this repo (home, `privacy/`, `terms/`). The Google OAuth consent screen links to these URLs,
   so keep them stable.
