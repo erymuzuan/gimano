@@ -25,3 +25,13 @@ class BrandStringsTest {
         assertTrue(values("src/main/res/values-ms/strings.xml")["restore_from_gimano"] == "Pulihkan dari sandaran")
     }
 }
+
+class ServerLabelTest {
+    @Test fun publicServerIsShownAsTheAppName() {
+        val prod = "https://gimano-api.bukitbunga.com/api/v1/"
+        assertTrue(my.gimano.app.core.format.ServerLabel.isPublic(prod, prod, debug = false))
+        assertTrue(my.gimano.app.core.format.ServerLabel.isPublic(prod.trimEnd('/'), prod, debug = false))
+        assertTrue(!my.gimano.app.core.format.ServerLabel.isPublic("http://100.101.150.9:5080/api/v1/", prod, debug = false))
+        assertTrue(!my.gimano.app.core.format.ServerLabel.isPublic(prod, prod, debug = true))
+    }
+}

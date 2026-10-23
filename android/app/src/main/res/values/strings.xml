@@ -690,4 +690,5 @@
     <string name="inbox_issue_refuted">Your report was not confirmed</string>
     <string name="inbox_issue_resolved">The map is fixed</string>
     <string name="vote_need_near">Be within 1 km of it to confirm.</string>
+    <string name="backup_dest_file">file</string>
 </resources>
