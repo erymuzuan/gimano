@@ -32,6 +32,11 @@ import my.gimano.app.ui.theme.GimanoTheme
 
 class MainActivity : AppCompatActivity() {
     /** Debug builds only: `adb shell am start -n my.gimano.app/.MainActivity --ez gimano.simulateDrive true`. */
+    /** "Leave by" reminder tapped → route preview for that planned drive. */
+    private fun handlePlannedIntent(i: Intent?) {
+        i?.getStringExtra(my.gimano.app.data.planned.PlannedDrives.EXTRA_ID)?.let { vm.openPlannedDrive(it); i.removeExtra(my.gimano.app.data.planned.PlannedDrives.EXTRA_ID) }
+    }
+
     private fun applyDebugExtras(i: Intent?) {
         if (!BuildConfig.DEBUG || i == null) return
         if (i.hasExtra("gimano.simulateDrive")) vm.setSimulate(i.getBooleanExtra("gimano.simulateDrive", false))
@@ -41,6 +46,7 @@ class MainActivity : AppCompatActivity() {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         applyDebugExtras(intent)
+        handlePlannedIntent(intent)
     }
 
     private val vm: MainViewModel by viewModels { MainViewModel.Factory((application as GimanoApp).container) }
@@ -49,6 +55,7 @@ class MainActivity : AppCompatActivity() {
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
         applyDebugExtras(intent)
+        handlePlannedIntent(intent)
         setContent {
             // Theme: Light by default (even on a dark-mode phone), Dark, Follow phone, or Auto by sunset.
             val st by vm.settingsState.collectAsStateWithLifecycle()

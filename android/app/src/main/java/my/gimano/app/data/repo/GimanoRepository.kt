@@ -6,7 +6,7 @@ import my.gimano.app.data.model.*
  * Everything the app needs from the backend. Implemented by [RemoteRepository] and [DemoRepository].
  * Personal data (favourites, recents, private places) is deliberately absent: see LocalStore.
  */
-interface GimanoRepository {
+interface GimanoRepository : my.gimano.app.data.share.ShareApi {
     suspend fun ensureAuth(): User
     suspend fun updateMe(body: UpdateMeRequest): User
 

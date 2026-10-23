@@ -60,6 +60,14 @@ class AppContainer(val app: Application) {
         soundMode = { settings.current.soundMode }, langProvider = ::voiceLang,
     )
     val feedback = FeedbackService(db.outbox(), repo)
+    val planned = my.gimano.app.data.planned.PlannedDrives(
+        app, db.plannedDrives(), repo,
+        here = { navigation.state.value.fix?.point?.let { it.lat to it.lng } ?: lastFix?.let { it.lat to it.lng } },
+        lang = ::lang, use24h = { settings.current.use24h },
+    )
+    /** Last known position (set by the UI), for planned drives that start "where I am". */
+    @Volatile var lastFix: my.gimano.app.core.geo.GeoPoint? = null
+    val share by lazy { my.gimano.app.data.share.ShareSession(scope, repo, my.gimano.app.data.share.ShareCrypto(LazySodiumAndroid(SodiumAndroid())), navigation.state) }
 
     val crypto by lazy { BackupCrypto(LazySodiumAndroid(SodiumAndroid())) }
     val backup by lazy {
