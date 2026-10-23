@@ -273,6 +273,45 @@ subtypes:
   animal:  on_road | on_shoulder
 ```
 
+## Share my drive (end-to-end encrypted live ETA)
+
+The driver shares a link (WhatsApp etc.). The recipient opens it in any browser and sees the driver's position
+and ETA until arrival. **Gimano's server only relays ciphertext it cannot read**, so this keeps the
+privacy rule in AGENTS.md.
+
+1. The app generates a random 256-bit key `K` **on the device** and calls `POST /shares`.
+2. Share link: `https://www.bukitbunga.com/gimano/s/#<shareId>.<base64url(K)>`. The part after `#` is
+   **never sent to any server** by browsers, so the key stays between the driver and the recipients.
+3. Every 15 s while navigating, the app encrypts
+   `{lat, lng, heading, speedKmh, etaIso, remainingM, destinationName, status: "driving"|"arrived"|"ended", ts}`
+   with **XChaCha20-Poly1305** (libsodium `crypto_aead_xchacha20poly1305_ietf`, random 24-byte nonce,
+   associated data = shareId) and PUTs it.
+4. The viewer page (`site/gimano/s/index.html`, static, served from bukitbunga.com) reads the fragment, polls `GET`
+   every 10 s, decrypts in the browser (libsodium.js, self-hosted next to the page) and shows the position on a
+   MapLibre GL JS map with the ETA. It never sends the key anywhere.
+5. The share ends on arrival, on Stop, when the driver taps "Stop sharing", or at `expiresAt` (max 12 h).
+
+```
+POST   /shares              {expiresInMinutes: 15..720}            → 201 {shareId, writeToken, expiresAt}
+PUT    /shares/{shareId}    Authorization: Share <writeToken>
+                            {nonce: base64, ciphertext: base64}     (≤ 1 KB)  → 204
+GET    /shares/{shareId}    (public, no auth, CORS *)              → 200 {nonce, ciphertext, updatedAt, expiresAt}
+                                                                     → 404 unknown · 410 ended/expired
+DELETE /shares/{shareId}    Authorization: Share <writeToken>       → 204
+```
+
+Server storage: **in memory only** (latest blob per share, with TTL; never Postgres, never logged), and a
+rate limit of 3 active shares per user. `shareId` is 128-bit random and `writeToken` is 256-bit random.
+After the share ends, `GET` returns 410 and the blob is dropped immediately.
+
+## Planned drives (on device)
+
+Planned drives are personal data, so they are stored only in the local `planned_drives` table and backed up
+with the rest. The app computes "Leave by" times by calling
+`GET /routes/departure-times` (origin/destination are sent for the calculation only and not stored) and
+schedules local notifications ("Bertolak sebelum 7:40 pagi untuk sampai 8:30 di Kerja"). A drive can be
+one-off or repeat on chosen weekdays. Opening the notification goes straight to route preview.
+
 ## Feedback
 
 Every screen's menu has **Add feedback**. Anonymous users can send feedback too, with their device token.
