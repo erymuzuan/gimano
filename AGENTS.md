@@ -93,9 +93,9 @@ Smoke test from the Mac: `curl http://100.101.150.9:5080/readyz`.
   or other folders (`hiro`, `sma.eis`, `smartpay-eis`, …). From an Orca terminal on WS556-SERVER (PowerShell):
   ```powershell
   $tmp = Join-Path $env:TEMP "gimano-site"; Remove-Item $tmp -Recurse -Force -EA SilentlyContinue
-  Invoke-WebRequest https://github.com/erymuzuan/manotu/archive/refs/heads/main.zip -OutFile "$tmp.zip"
+  Invoke-WebRequest https://github.com/erymuzuan/manotu/archive/refs/heads/master.zip -OutFile "$tmp.zip"
   Expand-Archive "$tmp.zip" $tmp
-  robocopy "$tmp\gimano-main\site\gimano" "\\172.30.30.13\apps\websites\www.bukitbunga.com\gimano" /E /NP /NFL /NDL
+  robocopy "$tmp\manotu-master\site\gimano" "\\172.30.30.13\apps\websites\www.bukitbunga.com\gimano" /E /NP /NFL /NDL
   ```
   (`/E` without `/MIR`, so nothing is ever deleted on the server.) Alternatively ask the Claude session
   **SERVER.HiRO** on WS556-SERVER to do it.
@@ -153,6 +153,8 @@ must be rejected in review.
 
 ## Rules
 
+- The only long-lived branch is **`master`** (since 2026-10-24; `main` was merged into it and deleted). Commit, rebase
+  and push against `origin/master`. Never recreate `main`.
 - No secrets in the repo: `deploy/.env` and `.env*` are git-ignored; JWT key is set per host.
 - OSM data © OpenStreetMap contributors (ODbL) — keep attribution visible in every map view.
 - Clean-room: no third-party navigation app assets/code/copy (see `docs/research/ux-study.md`).

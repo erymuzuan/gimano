@@ -31,7 +31,7 @@ change to logging or proxies.
 
 ## 1. Build and push images
 
-On the build host, from an up-to-date checkout of `main`:
+On the build host, from an up-to-date checkout of `master`:
 
 ```powershell
 docker login myhiro.azurecr.io          # or: az acr login --name myhiro   (done by a person; never stored in scripts)

@@ -1,7 +1,7 @@
 name: ci
 on:
   push:
-    branches: [main]
+    branches: [master]
     paths: ["backend/**", "data/moderation/**", "data/tolls/**", ".github/workflows/ci.yml"]
   pull_request:
     paths: ["backend/**", "data/moderation/**", "data/tolls/**"]

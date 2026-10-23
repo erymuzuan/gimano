@@ -130,7 +130,7 @@ The REST twin is `/admin/v1` (`/queue`, `/feedback`, `/feedback/{id}`, `/feedbac
 3. It reproduces the bug with a failing unit test, fixes it on `agent/<run>-<slug>`, runs the tests and opens a
    **draft** PR. It records the branch and PR (`run_update`) and its analysis (`crash_triage analysis=…`), then
    sets the run to `waiting_for_review`.
-4. The maintainer reviews and merges on GitHub. Protect `main` so agent credentials can't merge.
+4. The maintainer reviews and merges on GitHub. Protect `master` so agent credentials can't merge.
 5. After the release, the maintainer registers the build under **Releases** and marks the group `done` with its build
    number. Linked reporters get reply drafts. Approving one puts a `feedback_status` item in the reporter's in-app Inbox.
 
