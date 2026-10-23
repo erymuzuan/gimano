@@ -50,6 +50,8 @@ final class MapState {
     var cameraRevision = 0
     /// Extra insets (sheet/banners) so fitted content stays visible.
     var overviewInsets = (top: 140.0, bottom: 360.0)
+    /// Height (pt) the home panel covers at the bottom; north-up tracking keeps the puck centred above it.
+    var homeBottomInset: Double = 0
 
     /// Coordinates to project to screen points (route duration bubbles).
     var bubbleAnchors: [String: LatLng] = [:]
@@ -61,6 +63,8 @@ final class MapState {
     @ObservationIgnored var onRouteTapped: ((String) -> Void)?
     @ObservationIgnored var onAlertTapped: ((Report) -> Void)?
     @ObservationIgnored var onUserGesture: (() -> Void)?
+    /// A tap on the map that hit no alert or route.
+    @ObservationIgnored var onMapTap: (() -> Void)?
     @ObservationIgnored var onLongPress: ((LatLng) -> Void)?
 
     init(styleURL: URL) {

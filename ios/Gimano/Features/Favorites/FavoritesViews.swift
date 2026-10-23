@@ -236,51 +236,6 @@ struct EditFavoriteSheet: View {
     }
 }
 
-/// Home-screen row of favourite tiles (76pt, big icon, one-word label).
-struct FavoritesRow: View {
-    @Environment(AppModel.self) private var model
-
-    var body: some View {
-        if !model.favorites.isEmpty {
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: Tokens.Space.gridGap) {
-                    ForEach(model.favorites) { f in
-                        Button { model.navigate(to: f) } label: {
-                            VStack(spacing: 6) {
-                                GimanoIcon(icon: model.icon(for: f).gIcon, size: Tokens.Size.shortcutIcon)
-                                    .frame(width: Tokens.Size.shortcutTile, height: Tokens.Size.shortcutTile)
-                                    .background(Color.brandMist, in: RoundedRectangle(cornerRadius: Tokens.Radius.shortcutTile, style: .continuous))
-                                Text(f.name)
-                                    .font(Tokens.Font.nunito(13, .extrabold))
-                                    .foregroundStyle(Color.textPrimary)
-                                    .lineLimit(1)
-                                    .frame(width: Tokens.Size.shortcutTile + 8)
-                            }
-                        }
-                        .buttonStyle(.plain)
-                        .accessibilityLabel(Text(f.name))
-                        .accessibilityIdentifier("favoriteTile.\(f.name)")
-                    }
-                    Button { model.menuSheet = .favorites } label: {
-                        VStack(spacing: 6) {
-                            Image(systemName: "slider.horizontal.3")
-                                .font(.system(size: 26, weight: .bold))
-                                .foregroundStyle(Color.brandInk)
-                                .frame(width: Tokens.Size.shortcutTile, height: Tokens.Size.shortcutTile)
-                                .background(Color.surfaceAlt, in: RoundedRectangle(cornerRadius: Tokens.Radius.shortcutTile, style: .continuous))
-                            Text("Edit").font(Tokens.Font.nunito(13, .extrabold)).foregroundStyle(Color.textPrimary)
-                        }
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel(Text("Edit favourites"))
-                    .accessibilityIdentifier("editFavorites")
-                }
-                .padding(.horizontal, Tokens.Space.gutter)
-            }
-        }
-    }
-}
-
 extension FavoriteIcon {
     /// VoiceOver name (Kampung / Rumah Mertua stay in Malay in both languages).
     var title: LocalizedStringKey {

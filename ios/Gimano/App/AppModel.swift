@@ -116,6 +116,8 @@ final class AppModel {
     @ObservationIgnored var entrancePlace: (String, LatLng)?
 
     var screen: Screen = .home
+    /// Home panel detent. Not persisted: every launch, and the end of every drive, starts at Peek.
+    var homeDetent: HomeDetent = .peek
     var planner: RoutePlanner?
     private(set) var navigation: NavigationSession?
     var showMenu = false
@@ -573,6 +575,11 @@ final class AppModel {
             self.selectRoute(id)
         }
         map.onAlertTapped = { [weak self] r in self?.selectedAlert = r }
+        // Tapping the map (not an alert or route) folds the home panel back to Peek.
+        map.onMapTap = { [weak self] in
+            guard let self, self.screen == .home else { return }
+            self.homeDetent = .peek
+        }
         map.onLongPress = { [weak self] p in
             guard let self, self.screen == .home else { return }
             self.longPressPoint = p
@@ -1011,6 +1018,7 @@ final class AppModel {
         location.setNavigating(false)
         UIApplication.shared.isIdleTimerDisabled = false
         speedKmh = 0
+        homeDetent = .peek
         go(.home)
         reloadLocal()
         tripIssues = []

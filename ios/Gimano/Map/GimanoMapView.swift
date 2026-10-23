@@ -54,6 +54,7 @@ struct GimanoMapView: UIViewRepresentable {
         private var lastPrivate: [LatLng] = []
         private var lastDestination: LatLng?
         private var lastPuckMove = Date.distantPast
+        private var lastHomeInset: Double = 0
 
         init(state: MapState) {
             self.state = state
@@ -85,6 +86,7 @@ struct GimanoMapView: UIViewRepresentable {
             let cameraRevision = state.cameraRevision
             let camera = state.camera
             _ = state.bubbleAnchors
+            let homeInset = state.homeBottomInset
 
             guard let map else { return }
             if lastStyleURL != styleURL {
@@ -102,6 +104,14 @@ struct GimanoMapView: UIViewRepresentable {
             updatePuck(puck, heading: heading, nav: navPuck, style: style)
             updateAccuracy(puck, accuracyM: accuracy)
 
+            if homeInset != lastHomeInset {
+                lastHomeInset = homeInset
+                if case .trackNorth = camera {
+                    // Keep the puck centred in the part of the map the home panel leaves visible.
+                    map.setContentInset(trackInsets, animated: true, completionHandler: nil)
+                    if let puck { map.setCenter(puck.coordinate, animated: true) }
+                }
+            }
             if cameraRevision != appliedCameraRevision {
                 appliedCameraRevision = cameraRevision
                 applyCamera(camera, puck: puck, heading: heading, animated: true)
@@ -119,7 +129,7 @@ struct GimanoMapView: UIViewRepresentable {
             case .free:
                 break
             case .trackNorth(let zoom):
-                map.setContentInset(.zero, animated: false, completionHandler: nil)
+                map.setContentInset(trackInsets, animated: false, completionHandler: nil)
                 let c = puck?.coordinate ?? map.centerCoordinate
                 map.setCenter(c, zoomLevel: zoom, direction: 0, animated: animated)
                 let cam = map.camera
@@ -142,6 +152,10 @@ struct GimanoMapView: UIViewRepresentable {
                 map.setContentInset(.zero, animated: false, completionHandler: nil)
                 map.setCenter(p.coordinate, zoomLevel: zoom, direction: map.direction, animated: animated)
             }
+        }
+
+        private var trackInsets: UIEdgeInsets {
+            UIEdgeInsets(top: 0, left: 0, bottom: CGFloat(state.homeBottomInset), right: 0)
         }
 
         private func followPuck(_ mode: CameraMode, puck: LatLng, heading: Double, duration: TimeInterval = 0.5) {
@@ -374,7 +388,9 @@ struct GimanoMapView: UIViewRepresentable {
             if let r = map.visibleFeatures(in: rect, styleLayerIdentifiers: ["route-alt", "route-sel"]).first,
                let id = r.attribute(forKey: "id") as? String {
                 state.onRouteTapped?(id)
+                return
             }
+            state.onMapTap?()
         }
 
         @objc func handleLongPress(_ g: UILongPressGestureRecognizer) {

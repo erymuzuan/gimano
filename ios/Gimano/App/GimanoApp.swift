@@ -115,7 +115,7 @@ struct RootView: View {
             }
 
             VStack {
-                if model.isDemo && model.screen == .home {
+                if model.isDemo && model.screen == .home && model.homeDetent != .full {
                     DemoBadge()
                         .padding(.top, 4)
                 }

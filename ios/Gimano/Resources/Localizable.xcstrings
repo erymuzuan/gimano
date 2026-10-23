@@ -323,6 +323,16 @@
         }
       }
     },
+    "ATM": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ATM"
+          }
+        }
+      }
+    },
     "About": {
       "localizations": {
         "ms": {
@@ -1177,6 +1187,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Kad"
+          }
+        }
+      }
+    },
+    "Categories": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kategori"
           }
         }
       }
@@ -3896,6 +3916,16 @@
         }
       }
     },
+    "No recent places yet": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Belum ada tempat terkini"
+          }
+        }
+      }
+    },
     "No results": {
       "localizations": {
         "ms": {
@@ -4722,6 +4752,16 @@
         }
       }
     },
+    "Recent and saved places stay on this phone. Manotu never sees them.": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tempat terkini dan tempat disimpan kekal dalam telefon ini. Manotu tidak pernah melihatnya."
+          }
+        }
+      }
+    },
     "Recenter": {
       "localizations": {
         "ms": {
@@ -5300,6 +5340,36 @@
           "stringUnit": {
             "state": "translated",
             "value": "Cari tempat mula"
+          }
+        }
+      }
+    },
+    "Search panel, collapsed. Swipe up for recent places.": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Panel carian, diciutkan. Leret ke atas untuk terkini."
+          }
+        }
+      }
+    },
+    "Search panel, expanded. Swipe down to show the map.": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Panel carian, dikembangkan. Leret ke bawah untuk melihat peta."
+          }
+        }
+      }
+    },
+    "Search panel, half open. Swipe up for saved places and categories.": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Panel carian, separuh terbuka. Leret ke atas untuk tempat disimpan dan kategori."
           }
         }
       }
