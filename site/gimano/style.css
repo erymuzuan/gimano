@@ -1,3 +1,4 @@
+@font-face{font-family:Nunito;src:url("fonts/nunito-variable.ttf") format("truetype");font-weight:200 1000;font-display:swap}
 :root{--brand:#0047AB;--ink:#0B1B3A;--muted:#3A4A66;--mist:#E3ECFA;--bg:#F5F8FD;--report:#FF6B4A;--card:#FFFFFF}
 @media (prefers-color-scheme:dark){:root{--brand:#5B8DEF;--ink:#EEF3FC;--muted:#A9B6CF;--mist:#16233D;--bg:#0B1220;--card:#121B2E}}
 *{box-sizing:border-box}
