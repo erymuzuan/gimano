@@ -170,12 +170,36 @@ public sealed record FeedbackContext(
     string? AppVersion, string? Platform, string? OsVersion, string? DeviceModel, string? Locale,
     double? Lat, double? Lng, string? RouteId, string? PlaceId);
 
+public sealed record DeviceScreenInfo(int? WidthPx, int? HeightPx, double? Density, int? WidthDp, int? HeightDp);
+
+/// <summary>Consented device info (feedback: only when ticked; crash reports: always, shown in the preview).</summary>
+public sealed record DeviceInfo(
+    string? AppVersion, int? AppBuild, string? Platform, string? OsVersion, int? ApiLevel, string? DeviceModel, string? Manufacturer,
+    DeviceScreenInfo? Screen, string? Locale, string? Theme, string? DataMode);
+
+/// <summary>Coarse location, rounded to 2 dp on the phone (and again on the server).</summary>
+public sealed record CoarseLocation(double Lat, double Lng);
+
+/// <summary>Volunteered contact for ONE report: encrypted at rest, never linked to the pseudonym, auto-deleted.</summary>
+public sealed record ContactDetails(string? Email, string? Whatsapp, bool Consent);
+
+/// <param name="Context">Legacy 0.1.0 shape, mapped to Device/Location/RouteId/PlaceId.</param>
 public sealed record CreateFeedbackRequest(
-    FeedbackCategory Category, string Message, int? Rating, FeedbackScreen? Screen, FeedbackContext? Context, string? Screenshot);
+    FeedbackCategory Category, string Message, int? Rating = null, FeedbackScreen? Screen = null, FeedbackContext? Context = null,
+    string? Screenshot = null, DeviceInfo? Device = null, CoarseLocation? Location = null, ContactDetails? Contact = null,
+    string? RouteId = null, string? PlaceId = null);
+
+public enum CrashKind { Crash, Anr, Native, Hang }
+
+public sealed record CrashReportRequest(
+    DateTimeOffset? OccurredAt, CrashKind Kind, string Exception, string? Message, string? Stack, string? Threads,
+    string? Screen, long? UptimeS, DeviceInfo? Device, ContactDetails? Contact);
+
+public sealed record CrashReportCreated(Guid Id, string Signature);
 
 public sealed record FeedbackCreatedResponse(Guid Id, DateTimeOffset CreatedAt);
 
-public sealed record FeedbackSummary(Guid Id, FeedbackCategory Category, string Message, FeedbackStatus Status, DateTimeOffset CreatedAt);
+public sealed record FeedbackSummary(Guid Id, FeedbackCategory Category, string Message, FeedbackStatus Status, DateTimeOffset CreatedAt, bool HasContact = false);
 
 // ---- Inbox (public contributions only) ----------------------------------------------------
 

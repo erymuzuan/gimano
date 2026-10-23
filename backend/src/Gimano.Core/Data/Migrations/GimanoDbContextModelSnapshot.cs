@@ -237,6 +237,125 @@ namespace Gimano.Core.Data.Migrations
                     b.ToTable("community_places", (string)null);
                 });
 
+            modelBuilder.Entity("Gimano.Core.Domain.CrashGroup", b =>
+                {
+                    b.Property<string>("Signature")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("signature");
+
+                    b.Property<DateTimeOffset?>("ClosedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("closed_at");
+
+                    b.Property<int>("Count")
+                        .HasColumnType("integer")
+                        .HasColumnName("count");
+
+                    b.Property<string>("Exception")
+                        .IsRequired()
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)")
+                        .HasColumnName("exception");
+
+                    b.Property<DateTimeOffset>("FirstSeen")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("first_seen");
+
+                    b.Property<DateTimeOffset>("LastSeen")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("last_seen");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(10)
+                        .HasColumnType("character varying(10)")
+                        .HasColumnName("status");
+
+                    b.HasKey("Signature")
+                        .HasName("pk_crash_groups");
+
+                    b.ToTable("crash_groups", (string)null);
+                });
+
+            modelBuilder.Entity("Gimano.Core.Domain.CrashReport", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("Device")
+                        .HasColumnType("jsonb")
+                        .HasColumnName("device");
+
+                    b.Property<string>("Exception")
+                        .IsRequired()
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)")
+                        .HasColumnName("exception");
+
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .HasMaxLength(8)
+                        .HasColumnType("character varying(8)")
+                        .HasColumnName("kind");
+
+                    b.Property<string>("Message")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("message");
+
+                    b.Property<DateTimeOffset?>("OccurredAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("occurred_at");
+
+                    b.Property<string>("Screen")
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("screen");
+
+                    b.Property<string>("Signature")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("signature");
+
+                    b.Property<string>("Stack")
+                        .HasColumnType("text")
+                        .HasColumnName("stack");
+
+                    b.Property<string>("Threads")
+                        .HasColumnType("text")
+                        .HasColumnName("threads");
+
+                    b.Property<long?>("UptimeS")
+                        .HasColumnType("bigint")
+                        .HasColumnName("uptime_s");
+
+                    b.Property<Guid?>("UserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("user_id");
+
+                    b.HasKey("Id")
+                        .HasName("pk_crash_reports");
+
+                    b.HasIndex("CreatedAt")
+                        .HasDatabaseName("ix_crash_reports_created_at");
+
+                    b.HasIndex("Signature", "CreatedAt")
+                        .HasDatabaseName("ix_crash_reports_signature_created_at");
+
+                    b.HasIndex("UserId", "CreatedAt")
+                        .HasDatabaseName("ix_crash_reports_user_id_created_at");
+
+                    b.ToTable("crash_reports", (string)null);
+                });
+
             modelBuilder.Entity("Gimano.Core.Domain.Feedback", b =>
                 {
                     b.Property<Guid>("Id")
@@ -250,14 +369,30 @@ namespace Gimano.Core.Data.Migrations
                         .HasColumnType("character varying(12)")
                         .HasColumnName("category");
 
+                    b.Property<DateTimeOffset?>("ClosedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("closed_at");
+
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("created_at");
+
+                    b.Property<string>("Device")
+                        .HasColumnType("jsonb")
+                        .HasColumnName("device");
 
                     b.Property<string>("ExternalUrl")
                         .HasMaxLength(300)
                         .HasColumnType("character varying(300)")
                         .HasColumnName("external_url");
+
+                    b.Property<double?>("Lat")
+                        .HasColumnType("double precision")
+                        .HasColumnName("lat");
+
+                    b.Property<double?>("Lng")
+                        .HasColumnType("double precision")
+                        .HasColumnName("lng");
 
                     b.Property<string>("Message")
                         .IsRequired()
@@ -265,9 +400,19 @@ namespace Gimano.Core.Data.Migrations
                         .HasColumnType("character varying(2000)")
                         .HasColumnName("message");
 
+                    b.Property<string>("PlaceId")
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)")
+                        .HasColumnName("place_id");
+
                     b.Property<int?>("Rating")
                         .HasColumnType("integer")
                         .HasColumnName("rating");
+
+                    b.Property<string>("RouteId")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("route_id");
 
                     b.Property<string>("Screen")
                         .HasMaxLength(16)
@@ -295,6 +440,9 @@ namespace Gimano.Core.Data.Migrations
 
                     b.HasKey("Id")
                         .HasName("pk_feedback");
+
+                    b.HasIndex("Status", "ClosedAt")
+                        .HasDatabaseName("ix_feedback_status_closed_at");
 
                     b.HasIndex("UserId", "CreatedAt")
                         .HasDatabaseName("ix_feedback_user_id_created_at");
@@ -941,6 +1089,46 @@ namespace Gimano.Core.Data.Migrations
                     b.ToTable("reports", (string)null);
                 });
 
+            modelBuilder.Entity("Gimano.Core.Domain.ReportContact", b =>
+                {
+                    b.Property<string>("SubjectType")
+                        .HasMaxLength(10)
+                        .HasColumnType("character varying(10)")
+                        .HasColumnName("subject_type");
+
+                    b.Property<Guid>("SubjectId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("subject_id");
+
+                    b.Property<byte[]>("Ciphertext")
+                        .IsRequired()
+                        .HasColumnType("bytea")
+                        .HasColumnName("ciphertext");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("KeyId")
+                        .IsRequired()
+                        .HasMaxLength(10)
+                        .HasColumnType("character varying(10)")
+                        .HasColumnName("key_id");
+
+                    b.Property<byte[]>("Nonce")
+                        .IsRequired()
+                        .HasColumnType("bytea")
+                        .HasColumnName("nonce");
+
+                    b.HasKey("SubjectType", "SubjectId")
+                        .HasName("pk_report_contacts");
+
+                    b.HasIndex("CreatedAt")
+                        .HasDatabaseName("ix_report_contacts_created_at");
+
+                    b.ToTable("report_contacts", (string)null);
+                });
+
             modelBuilder.Entity("Gimano.Core.Domain.ReportVote", b =>
                 {
                     b.Property<Guid>("ReportId")
@@ -1540,6 +1728,22 @@ namespace Gimano.Core.Data.Migrations
                     b.Navigation("Owner");
                 });
 
+            modelBuilder.Entity("Gimano.Core.Domain.CrashReport", b =>
+                {
+                    b.HasOne("Gimano.Core.Domain.CrashGroup", null)
+                        .WithMany()
+                        .HasForeignKey("Signature")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_crash_reports_crash_groups_signature");
+
+                    b.HasOne("Gimano.Core.Domain.User", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.SetNull)
+                        .HasConstraintName("fk_crash_reports_users_user_id");
+                });
+
             modelBuilder.Entity("Gimano.Core.Domain.Feedback", b =>
                 {
                     b.HasOne("Gimano.Core.Domain.User", null)
@@ -1547,43 +1751,6 @@ namespace Gimano.Core.Data.Migrations
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.SetNull)
                         .HasConstraintName("fk_feedback_users_user_id");
-
-                    b.OwnsOne("Gimano.Core.Contracts.FeedbackContext", "Context", b1 =>
-                        {
-                            b1.Property<Guid>("FeedbackId");
-
-                            b1.Property<string>("AppVersion");
-
-                            b1.Property<string>("DeviceModel");
-
-                            b1.Property<double?>("Lat");
-
-                            b1.Property<double?>("Lng");
-
-                            b1.Property<string>("Locale");
-
-                            b1.Property<string>("OsVersion");
-
-                            b1.Property<string>("PlaceId");
-
-                            b1.Property<string>("Platform");
-
-                            b1.Property<string>("RouteId");
-
-                            b1.HasKey("FeedbackId");
-
-                            b1.ToTable("feedback");
-
-                            b1
-                                .ToJson("context")
-                                .HasColumnType("jsonb");
-
-                            b1.WithOwner()
-                                .HasForeignKey("FeedbackId")
-                                .HasConstraintName("fk_feedback_feedback_id");
-                        });
-
-                    b.Navigation("Context");
                 });
 
             modelBuilder.Entity("Gimano.Core.Domain.InboxItem", b =>

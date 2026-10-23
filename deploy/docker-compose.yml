@@ -119,6 +119,10 @@ services:
       # Per-account enforcement (keyed accounts always sign); REQUIRE_SIGNATURES=true = kill switch for all unsigned
       Identity__RequireSignatures: ${REQUIRE_SIGNATURES:-false}
       Identity__AllowLegacyUnsigned: ${ALLOW_LEGACY_UNSIGNED:-true}
+      # Volunteered contact details are AES-GCM encrypted with this key (never stored in the DB); empty = not accepted
+      Feedback__ContactKey: ${FEEDBACK_CONTACT_KEY:-}
+      # Maintainer view (/api/v1/admin/*, header X-Admin-Key); empty = disabled
+      Admin__Key: ${ADMIN_KEY:-}
       Attestation__Mode: ${ATTESTATION_MODE:-log}
     ports: ["${API_PORT:-5080}:8080"]
     volumes: ["media:/data/media"]

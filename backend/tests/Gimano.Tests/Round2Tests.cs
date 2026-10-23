@@ -479,21 +479,25 @@ public class FeedbackTests
     }
 
     [Fact]
-    public void GitHub_issue_never_contains_device_or_user_id_and_rounds_location()
+    public void GitHub_issue_never_contains_user_id_contact_model_or_location()
     {
         var userId = Guid.NewGuid();
         var fb = new Feedback
         {
             UserId = userId, Category = FeedbackCategory.Route, Message = "Laluan salah di persimpangan\nbaris kedua", Rating = 2,
             Screen = FeedbackScreen.Navigation,
-            Context = new FeedbackContext("0.1.0 (1)", "ios", "26.0", "iPhone17,3", "ms", 3.118765, 101.619432, "route-1", null),
+            Device = new DeviceInfo("0.2.0", 2, "ios", "iOS 26.1", null, "iPhone17,3", "Apple", null, "ms", "light", "live"),
+            Lat = 3.12, Lng = 101.62, RouteId = "route-1",
             Screenshot = [1, 2, 3],
         };
         var (title, body, labels) = FeedbackIssueFormatter.Format(fb);
         Assert.Equal("[route] Laluan salah di persimpangan", title);
-        Assert.Contains("3.12, 101.62", body);
-        Assert.DoesNotContain("3.1187", body);
-        Assert.DoesNotContain("101.619", body);
+        Assert.Contains("0.2.0 (2)", body);
+        Assert.Contains("iOS 26.1", body);
+        Assert.DoesNotContain("iPhone17,3", body);
+        Assert.DoesNotContain("Apple", body);
+        Assert.DoesNotContain("3.12", body);
+        Assert.DoesNotContain("101.62", body);
         Assert.DoesNotContain(userId.ToString(), body);
         Assert.Contains("not public", body);
         Assert.Contains("route", labels);

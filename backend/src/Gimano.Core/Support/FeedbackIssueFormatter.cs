@@ -6,7 +6,7 @@ namespace Gimano.Core.Support;
 
 /// <summary>
 /// Builds the public GitHub issue for a feedback item. Privacy rules (docs/api.md#feedback):
-/// never the device id or user id, location rounded to 2 dp (~1 km), no screenshot bytes.
+/// never the device id or user id, never contact details, device model or location, no screenshot bytes.
 /// </summary>
 public static class FeedbackIssueFormatter
 {
@@ -24,24 +24,19 @@ public static class FeedbackIssueFormatter
         sb.AppendLine($"| Category | {category} |");
         if (f.Rating is { } r) sb.AppendLine($"| Rating | {r}/5 |");
         if (f.Screen is { } s) sb.AppendLine($"| Screen | {GimanoJson.ToWire(s)} |");
-        if (f.Context is { } c)
+        // Never contact details, device model or location (docs/api.md "Feedback").
+        if (f.Device is { } d)
         {
             void Row(string k, string? v) { if (!string.IsNullOrWhiteSpace(v)) sb.AppendLine($"| {k} | {Escape(v)} |"); }
-            Row("App", c.AppVersion);
-            Row("Platform", c.Platform is null ? null : $"{c.Platform} {c.OsVersion}".Trim());
-            Row("Device", c.DeviceModel);
-            Row("Locale", c.Locale);
-            if (c.Lat is { } lat && c.Lng is { } lng) Row("Area (≈1 km)", RoundedLocation(lat, lng));
-            Row("Route", c.RouteId);
-            Row("Place", c.PlaceId);
+            Row("App", d.AppVersion is null ? null : $"{d.AppVersion}{(d.AppBuild is { } b ? $" ({b})" : "")}");
+            Row("Platform", d.Platform is null ? null : $"{d.Platform} {d.OsVersion}".Trim());
+            Row("Locale", d.Locale);
+            Row("Theme", d.Theme);
         }
         sb.AppendLine($"| Screenshot | {(f.Screenshot is { Length: > 0 } ? "attached in Gimano (not public)" : "none")} |");
         sb.AppendLine().AppendLine($"Gimano feedback `{f.Id}` · {f.CreatedAt:yyyy-MM-dd HH:mm} UTC");
         return (title, sb.ToString(), ["feedback", category]);
     }
-
-    public static string RoundedLocation(double lat, double lng) =>
-        string.Create(CultureInfo.InvariantCulture, $"{Math.Round(lat, 2):0.00}, {Math.Round(lng, 2):0.00}");
 
     private static string Escape(string v) => v.Replace("|", "\\|").Replace("\n", " ");
 }

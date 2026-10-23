@@ -189,8 +189,15 @@ public sealed class Feedback
     public required string Message { get; set; }
     public int? Rating { get; set; }
     public FeedbackScreen? Screen { get; set; }
-    /// <summary>Diagnostics as sent by the app (stored as jsonb).</summary>
-    public FeedbackContext? Context { get; set; }
+    /// <summary>Consented device info (jsonb).</summary>
+    public DeviceInfo? Device { get; set; }
+    /// <summary>Coarse location (2 dp), only with the separate consent tick.</summary>
+    public double? Lat { get; set; }
+    public double? Lng { get; set; }
+    public string? RouteId { get; set; }
+    public string? PlaceId { get; set; }
+    /// <summary>Set when the status becomes done/wont_fix (drives contact deletion 30 days later).</summary>
+    public DateTimeOffset? ClosedAt { get; set; }
     public byte[]? Screenshot { get; set; }
     public string? ScreenshotContentType { get; set; }
     public FeedbackStatus Status { get; set; } = FeedbackStatus.Received;
@@ -217,4 +224,52 @@ public sealed class TollRate
     public string? SourceUrl { get; set; }
     public string? Notes { get; set; }
     public List<string> MatchedPlaceIds { get; set; } = [];
+}
+
+public enum ContactSubject { Feedback, Crash }
+
+/// <summary>
+/// Volunteered contact details for ONE report, encrypted with AES-GCM (key from config, never in the DB).
+/// Keyed by the report, never by the user. Deleted 30 days after the report closes and at most 90 days after creation.
+/// </summary>
+public sealed class ReportContact
+{
+    public ContactSubject SubjectType { get; set; }
+    public Guid SubjectId { get; set; }
+    public required byte[] Nonce { get; set; }
+    public required byte[] Ciphertext { get; set; }
+    public string KeyId { get; set; } = "v1";
+    public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;
+}
+
+public enum CrashGroupStatus { Open, Done, WontFix }
+
+/// <summary>One crash group per signature = sha256(exception + top 5 app frames).</summary>
+public sealed class CrashGroup
+{
+    public required string Signature { get; set; }
+    public required string Exception { get; set; }
+    public int Count { get; set; }
+    public DateTimeOffset FirstSeen { get; set; }
+    public DateTimeOffset LastSeen { get; set; }
+    public CrashGroupStatus Status { get; set; } = CrashGroupStatus.Open;
+    public DateTimeOffset? ClosedAt { get; set; }
+}
+
+public sealed class CrashReport
+{
+    public Guid Id { get; set; } = Guid.CreateVersion7();
+    /// <summary>Only for the per-user rate limit and DELETE /me.</summary>
+    public Guid? UserId { get; set; }
+    public required string Signature { get; set; }
+    public CrashKind Kind { get; set; }
+    public required string Exception { get; set; }
+    public string? Message { get; set; }
+    public string? Stack { get; set; }
+    public string? Threads { get; set; }
+    public string? Screen { get; set; }
+    public long? UptimeS { get; set; }
+    public DeviceInfo? Device { get; set; }
+    public DateTimeOffset? OccurredAt { get; set; }
+    public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;
 }

@@ -31,13 +31,18 @@ public class PrivacyTests
     }
 
     [Fact]
-    public void Feedback_location_is_rounded_to_2dp()
+    public void Feedback_location_is_rounded_to_2dp_for_new_and_legacy_shapes()
     {
-        var c = FeedbackEndpoints.Scrub(new FeedbackContext("1", "ios", "26", "iPhone17,3", "ms", 3.118765, 101.619432, null, null))!;
-        Assert.Equal(3.12, c.Lat);
-        Assert.Equal(101.62, c.Lng);
-        Assert.Null(FeedbackEndpoints.Scrub(null));
-        Assert.Null(FeedbackEndpoints.Scrub(new FeedbackContext(null, null, null, null, null, null, null, null, null))!.Lat);
+        var legacy = FeedbackEndpoints.Normalize(new CreateFeedbackRequest(FeedbackCategory.Bug, "x",
+            Context: new FeedbackContext("0.1.0 (1)", "android", "16", "SM-S921B", "ms", 3.118765, 101.619432, "r1", "n1")));
+        Assert.Equal((3.12, 101.62), (legacy.Location!.Lat, legacy.Location.Lng));
+        Assert.Equal(("0.1.0 (1)", "android", "SM-S921B"), (legacy.Device!.AppVersion, legacy.Device.Platform, legacy.Device.DeviceModel));
+        Assert.Equal(("r1", "n1"), (legacy.RouteId, legacy.PlaceId));
+
+        var modern = FeedbackEndpoints.Normalize(new CreateFeedbackRequest(FeedbackCategory.Bug, "x", Location: new CoarseLocation(3.1249, 101.6251)));
+        Assert.Equal((3.12, 101.63), (modern.Location!.Lat, modern.Location.Lng));
+        Assert.Null(modern.Device);
+        Assert.Null(FeedbackEndpoints.Normalize(new CreateFeedbackRequest(FeedbackCategory.Bug, "x")).Location);
     }
 
     [Fact]

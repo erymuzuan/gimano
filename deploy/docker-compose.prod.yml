@@ -154,6 +154,8 @@ services:
       # that rejects every unsigned request, legacy included.
       Identity__RequireSignatures: ${REQUIRE_SIGNATURES:-false}
       Identity__AllowLegacyUnsigned: ${ALLOW_LEGACY_UNSIGNED:-true}
+      Feedback__ContactKey: ${FEEDBACK_CONTACT_KEY:?Set FEEDBACK_CONTACT_KEY in deploy/.env.prod}
+      Admin__Key: ${ADMIN_KEY:-}
       Attestation__Mode: ${ATTESTATION_MODE:-log}
       Attestation__Android__PackageName: ${ATTESTATION_ANDROID_PACKAGE:-}
       Attestation__Android__ServiceAccountJson: ${ATTESTATION_ANDROID_SA_JSON:-}

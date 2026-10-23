@@ -1,6 +1,7 @@
 using Gimano.Api.Auth;
 using Gimano.Core.Contracts;
 using Gimano.Core.Data;
+using Gimano.Core.Domain;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.EntityFrameworkCore;
 
@@ -50,6 +51,11 @@ public static class PrivacyEndpoints
     {
         var uid = http.User.RequiredUserId();
         await using var tx = await db.Database.BeginTransactionAsync(ct);
+        // Volunteered contact details on this user's reports go immediately.
+        var fbIds = db.Feedback.Where(f => f.UserId == uid).Select(f => f.Id);
+        var crashIds = db.CrashReports.Where(c => c.UserId == uid).Select(c => c.Id);
+        await db.ReportContacts.Where(c => (c.SubjectType == ContactSubject.Feedback && fbIds.Contains(c.SubjectId))
+                                           || (c.SubjectType == ContactSubject.Crash && crashIds.Contains(c.SubjectId))).ExecuteDeleteAsync(ct);
         await db.ReportVotes.Where(v => v.UserId == uid).ExecuteDeleteAsync(ct);
         await db.Reports.Where(r => r.ReporterId == uid).ExecuteUpdateAsync(s => s.SetProperty(r => r.ReporterId, (Guid?)null), ct);
         await db.Feedback.Where(f => f.UserId == uid).ExecuteUpdateAsync(s => s

@@ -32,6 +32,9 @@ public sealed class GimanoDbContext(DbContextOptions<GimanoDbContext> options) :
     public DbSet<PhotoFlag> PhotoFlags => Set<PhotoFlag>();
     public DbSet<WaterArea> WaterAreas => Set<WaterArea>();
     public DbSet<InboxItem> InboxItems => Set<InboxItem>();
+    public DbSet<ReportContact> ReportContacts => Set<ReportContact>();
+    public DbSet<CrashGroup> CrashGroups => Set<CrashGroup>();
+    public DbSet<CrashReport> CrashReports => Set<CrashReport>();
     public DbSet<Announcement> Announcements => Set<Announcement>();
 
     protected override void OnModelCreating(ModelBuilder b)
@@ -135,7 +138,10 @@ public sealed class GimanoDbContext(DbContextOptions<GimanoDbContext> options) :
             e.Property(x => x.Message).HasMaxLength(2000);
             e.Property(x => x.ScreenshotContentType).HasMaxLength(20);
             e.Property(x => x.ExternalUrl).HasMaxLength(300);
-            e.OwnsOne(x => x.Context, o => o.ToJson());
+            e.Property(x => x.Device).HasColumnType("jsonb").HasConversion(DeviceJson.Converter, DeviceJson.Comparer);
+            e.Property(x => x.RouteId).HasMaxLength(64);
+            e.Property(x => x.PlaceId).HasMaxLength(40);
+            e.HasIndex(x => new { x.Status, x.ClosedAt });
             e.HasIndex(x => new { x.UserId, x.CreatedAt });
             e.HasOne<User>().WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.SetNull);
         });
@@ -251,6 +257,37 @@ public sealed class GimanoDbContext(DbContextOptions<GimanoDbContext> options) :
             e.HasOne<User>().WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Cascade);
         });
 
+        b.Entity<ReportContact>(e =>
+        {
+            e.HasKey(x => new { x.SubjectType, x.SubjectId });
+            e.Property(x => x.SubjectType).HasConversion<string>().HasMaxLength(10);
+            e.Property(x => x.KeyId).HasMaxLength(10);
+            e.HasIndex(x => x.CreatedAt);
+        });
+
+        b.Entity<CrashGroup>(e =>
+        {
+            e.HasKey(x => x.Signature);
+            e.Property(x => x.Signature).HasMaxLength(64);
+            e.Property(x => x.Exception).HasMaxLength(300);
+            e.Property(x => x.Status).HasConversion<string>().HasMaxLength(10);
+        });
+
+        b.Entity<CrashReport>(e =>
+        {
+            e.Property(x => x.Signature).HasMaxLength(64);
+            e.Property(x => x.Kind).HasConversion<string>().HasMaxLength(8);
+            e.Property(x => x.Exception).HasMaxLength(300);
+            e.Property(x => x.Message).HasMaxLength(500);
+            e.Property(x => x.Screen).HasMaxLength(32);
+            e.Property(x => x.Device).HasColumnType("jsonb").HasConversion(DeviceJson.Converter, DeviceJson.Comparer);
+            e.HasIndex(x => new { x.UserId, x.CreatedAt });
+            e.HasIndex(x => new { x.Signature, x.CreatedAt });
+            e.HasIndex(x => x.CreatedAt);
+            e.HasOne<CrashGroup>().WithMany().HasForeignKey(x => x.Signature).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne<User>().WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.SetNull);
+        });
+
         b.Entity<InboxItem>(e =>
         {
             e.ToTable("inbox_items");
@@ -328,4 +365,15 @@ public sealed class DesignTimeFactory : IDesignTimeDbContextFactory<GimanoDbCont
         GimanoDb.Configure(o, GimanoDb.BuildDataSource(cs));
         return new GimanoDbContext(o.Options);
     }
+}
+
+/// <summary>DeviceInfo ↔ jsonb (camelCase, like the API).</summary>
+internal static class DeviceJson
+{
+    private static readonly System.Text.Json.JsonSerializerOptions O = new(System.Text.Json.JsonSerializerDefaults.Web);
+    public static readonly Microsoft.EntityFrameworkCore.Storage.ValueConversion.ValueConverter<Contracts.DeviceInfo?, string?> Converter = new(
+        v => v == null ? null : System.Text.Json.JsonSerializer.Serialize(v, O),
+        v => v == null ? null : System.Text.Json.JsonSerializer.Deserialize<Contracts.DeviceInfo>(v, O));
+    public static readonly Microsoft.EntityFrameworkCore.ChangeTracking.ValueComparer<Contracts.DeviceInfo?> Comparer = new(
+        (a, b) => Equals(a, b), v => v == null ? 0 : v.GetHashCode(), v => v);
 }

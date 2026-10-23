@@ -85,6 +85,7 @@ builder.Services.AddSingleton<LiveSubscriptions>();
 builder.Services.AddHostedService<LiveFanoutConsumer>();
 builder.Services.AddSingleton<MoodCache>();
 builder.Services.AddSingleton<ShareStore>();
+builder.Services.AddSingleton(new Gimano.Core.Support.ContactCrypto(config["Feedback:ContactKey"]));
 builder.Services.AddSingleton<Gimano.Api.Identity.UserKeyCache>();
 builder.Services.AddSingleton<Gimano.Api.Identity.ReplayCache>();
 builder.Services.AddScoped<Gimano.Api.Identity.AttestationService>();
@@ -146,7 +147,7 @@ app.MapHealthChecks("/healthz", new HealthCheckOptions { Predicate = _ => false,
 app.MapHealthChecks("/readyz", new HealthCheckOptions { Predicate = c => c.Tags.Contains("ready"), ResponseWriter = HealthWriter.WriteAsync });
 
 var api = app.MapGroup("/api/v1");
-api.MapAuthAndMe().MapPlaces().MapRoutes().MapLive().MapFeedback().MapPrivacy().MapCommunity().MapShares().MapInbox().MapIdentity();
+api.MapAuthAndMe().MapPlaces().MapRoutes().MapLive().MapFeedback().MapPrivacy().MapCommunity().MapShares().MapInbox().MapIdentity().MapCrashReports().MapAdmin();
 app.MapMedia();
 
 app.MapHub<LiveHub>("/hubs/live");

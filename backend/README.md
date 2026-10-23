@@ -89,6 +89,14 @@ dotnet test            # Microsoft.Testing.Platform (configured in global.json)
 | `Jwt:Issuer` / `Jwt:Audience` / `Jwt:LifetimeDays` | `gimano` / `gimano-app` / `365` | |
 | `Urls` | `http://0.0.0.0:5080` | bound on all interfaces so phones on the LAN/Tailscale can connect |
 
+## Maintainer view (feedback & crash reports)
+
+`/api/v1/admin/*` with header `X-Admin-Key: <ADMIN_KEY>` (disabled when `Admin:Key` is empty):
+`GET feedback?status=`, `PATCH feedback/{id} {status}` (done/wont_fix starts the 30-day contact deletion),
+`GET feedback/{id}/screenshot`, `GET crash-groups`, `GET crash-groups/{signature}/reports`,
+`PATCH crash-groups/{signature} {status}`, and `POST contacts/{feedback|crash}/{id}/reveal`. Reveal is the only way to see a
+volunteered contact. It's audit-logged (subject, id, key fingerprint, IP) without the values.
+
 ## Migrations
 
 ```bash

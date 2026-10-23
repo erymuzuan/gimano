@@ -3,6 +3,7 @@ using Gimano.Core.Contracts;
 using Gimano.Core.Data;
 using Gimano.Core.Domain;
 using Gimano.Core.Messaging;
+using Gimano.Core.Support;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.EntityFrameworkCore;
 
@@ -20,13 +21,17 @@ public static class FeedbackEndpoints
         api.MapPost("/feedback", Create).WithTags("Feedback").RequireAuthorization()
             .WithSummary("Send feedback (optionally with a screenshot ≤ 1.5 MB). 413 if too big, 429 above 10/hour.");
         api.MapGet("/me/feedback", Mine).WithTags("Feedback").RequireAuthorization();
+        api.MapDelete("/feedback/{id:guid}/contact", DeleteContact).WithTags("Feedback").RequireAuthorization()
+            .WithSummary("Withdraw the contact details given with this feedback (deleted immediately).");
         return api;
     }
 
     private static async Task<Results<Created<FeedbackCreatedResponse>, ValidationProblem, ProblemHttpResult>> Create(
-        CreateFeedbackRequest req, HttpContext http, GimanoDbContext db, IEventPublisher bus, TimeProvider clock, CancellationToken ct)
+        CreateFeedbackRequest req, HttpContext http, GimanoDbContext db, IEventPublisher bus, ContactCrypto crypto, TimeProvider clock,
+        ILogger<CreateFeedbackRequest> log, CancellationToken ct)
     {
         if (Validate(req) is { } problem) return problem;
+        var (device, location, routeId, placeId) = Normalize(req);
 
         byte[]? screenshot = null;
         string? contentType = null;
@@ -59,9 +64,11 @@ public static class FeedbackEndpoints
         var fb = new Feedback
         {
             UserId = uid, Category = req.Category, Message = req.Message.Trim(), Rating = req.Rating, Screen = req.Screen,
-            Context = Scrub(req.Context), Screenshot = screenshot, ScreenshotContentType = contentType, CreatedAt = now,
+            Device = device, Lat = location?.Lat, Lng = location?.Lng, RouteId = routeId, PlaceId = placeId,
+            Screenshot = screenshot, ScreenshotContentType = contentType, CreatedAt = now,
         };
         db.Feedback.Add(fb);
+        StoreContact(db, crypto, ContactSubject.Feedback, fb.Id, req.Contact, now, log);
         await db.SaveChangesAsync(ct);
         await bus.PublishAsync(RoutingKeys.FeedbackCreated, new FeedbackCreatedEvent(fb.Id, fb.Category, fb.CreatedAt), ct);
         return TypedResults.Created($"/api/v1/me/feedback/{fb.Id}", new FeedbackCreatedResponse(fb.Id, fb.CreatedAt));
@@ -71,25 +78,72 @@ public static class FeedbackEndpoints
     {
         var uid = http.User.RequiredUserId();
         var rows = await db.Feedback.AsNoTracking().Where(f => f.UserId == uid).OrderByDescending(f => f.CreatedAt).Take(100)
-            .Select(f => new FeedbackSummary(f.Id, f.Category, f.Message, f.Status, f.CreatedAt)).ToListAsync(ct);
+            .Select(f => new FeedbackSummary(f.Id, f.Category, f.Message, f.Status, f.CreatedAt,
+                db.ReportContacts.Any(c => c.SubjectType == ContactSubject.Feedback && c.SubjectId == f.Id)))
+            .ToListAsync(ct);
         return TypedResults.Ok(rows);
     }
 
-    /// <summary>
-    /// Privacy rule: location only at ≈ 1 km (2 dp). The app sends context only when "Include diagnostics" is ticked;
-    /// nothing in it identifies the device.
-    /// </summary>
-    internal static FeedbackContext? Scrub(FeedbackContext? c) => c is null ? null : c with
+    private static async Task<Results<NoContent, NotFound>> DeleteContact(Guid id, HttpContext http, GimanoDbContext db, CancellationToken ct)
     {
-        Lat = c.Lat is { } lat ? Math.Round(lat, 2) : null,
-        Lng = c.Lng is { } lng ? Math.Round(lng, 2) : null,
-    };
+        var uid = http.User.RequiredUserId();
+        if (!await db.Feedback.AnyAsync(f => f.Id == id && f.UserId == uid, ct)) return TypedResults.NotFound();
+        await db.ReportContacts.Where(c => c.SubjectType == ContactSubject.Feedback && c.SubjectId == id).ExecuteDeleteAsync(ct);
+        return TypedResults.NoContent();
+    }
+
+    /// <summary>Encrypts and stages the volunteered contact (keyed by the report, never the user). Values are never logged.</summary>
+    internal static void StoreContact(GimanoDbContext db, ContactCrypto crypto, ContactSubject type, Guid id, ContactDetails? contact, DateTimeOffset now, ILogger log)
+    {
+        if (contact is null) return;
+        var c = ContactCrypto.Normalize(contact);
+        if (c.Email is null && c.Whatsapp is null) return;
+        if (!crypto.Enabled)
+        {
+            log.LogWarning("Contact details were offered on {Type} {Id} but Feedback:ContactKey is not configured; not stored", type, id);
+            return;
+        }
+        db.ReportContacts.Add(crypto.Encrypt(type, id, c, now));
+    }
+
+    /// <summary>
+    /// Maps the new device/location shape and the legacy 0.1.0 "context". Location is coarse only (2 dp, ≈ 1 km).
+    /// </summary>
+    internal static (DeviceInfo? Device, CoarseLocation? Location, string? RouteId, string? PlaceId) Normalize(CreateFeedbackRequest req)
+    {
+        var device = req.Device;
+        CoarseLocation? location = req.Location;
+        var routeId = req.RouteId;
+        var placeId = req.PlaceId;
+        if (req.Context is { } c)
+        {
+            device ??= c.AppVersion is null && c.Platform is null && c.OsVersion is null && c.DeviceModel is null && c.Locale is null
+                ? null
+                : new DeviceInfo(c.AppVersion, null, c.Platform, c.OsVersion, null, c.DeviceModel, null, null, c.Locale, null, null);
+            if (location is null && c.Lat is { } la && c.Lng is { } lo) location = new CoarseLocation(la, lo);
+            routeId ??= c.RouteId;
+            placeId ??= c.PlaceId;
+        }
+        if (location is not null) location = new CoarseLocation(Math.Round(location.Lat, 2), Math.Round(location.Lng, 2));
+        return (device, location, routeId, placeId);
+    }
+
+    internal static ValidationProblem? ValidateDevice(DeviceInfo? d, string field)
+    {
+        if (d is null) return null;
+        var strings = new[] { d.AppVersion, d.Platform, d.OsVersion, d.DeviceModel, d.Manufacturer, d.Locale, d.Theme, d.DataMode };
+        return strings.Any(v => v is { Length: > 100 }) ? Validation.Problem(field, $"{field} fields are max 100 chars.") : null;
+    }
 
     internal static ValidationProblem? Validate(CreateFeedbackRequest req)
     {
         if (string.IsNullOrWhiteSpace(req.Message) || req.Message.Trim().Length > MaxMessageLength)
             return Validation.Problem("message", $"message is required (1–{MaxMessageLength} chars).");
         if (req.Rating is < 1 or > 5) return Validation.Problem("rating", "rating must be 1–5.");
+        if (ContactCrypto.Validate(req.Contact) is { } contactError) return Validation.Problem("contact", contactError);
+        if (ValidateDevice(req.Device, "device") is { } dp) return dp;
+        if (req.Location is { } l && !Validation.ValidLatLng(l.Lat, l.Lng)) return Validation.Problem("location", "Invalid coordinates.");
+        if (new[] { req.RouteId, req.PlaceId }.Any(v => v is { Length: > 64 })) return Validation.Problem("routeId", "ids are max 64 chars.");
         if (req.Context is { } c)
         {
             if (c.Lat is { } lat && c.Lng is { } lng && !Validation.ValidLatLng(lat, lng)) return Validation.Problem("context.lat", "Invalid coordinates.");
