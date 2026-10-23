@@ -11,10 +11,17 @@ import okhttp3.MultipartBody
 import okhttp3.RequestBody.Companion.toRequestBody
 import retrofit2.HttpException
 import java.util.Locale
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import my.gimano.app.core.identity.RequestSigning
 
 /** Talks to the real Gimano backend. Re-authenticates once on HTTP 401. */
-class RemoteRepository(private val settings: SettingsStore) : GimanoRepository {
-    private val client = ApiFactory.okHttp { settings.current.token }
+class RemoteRepository(
+    private val settings: SettingsStore,
+    private val identity: my.gimano.app.data.identity.IdentityService,
+) : GimanoRepository {
+    val signer = my.gimano.app.data.remote.SigningInterceptor({ m, pq, ts, body -> identity.signRequest(m, pq, ts, body) })
+    private val client = ApiFactory.okHttp({ settings.current.token }, signer)
     private var apiBase: String? = null
     private var apiInstance: GimanoApi? = null
     private val authLock = Mutex()
@@ -29,10 +36,73 @@ class RemoteRepository(private val settings: SettingsStore) : GimanoRepository {
             return apiInstance!!
         }
 
-    private suspend fun authenticate(): DeviceAuthResponse {
-        val res = api.authDevice(DeviceAuthRequest(settings.deviceId(), "android", Locale.getDefault().toLanguageTag()))
+    private fun locale() = Locale.getDefault().toLanguageTag()
+    private fun HttpException.missingEndpoint() = code() in setOf(404, 405, 501)
+
+    /**
+     * Gets a JWT for this phone's pseudonym (docs/identity-and-reputation.md §1):
+     * registered key → `POST /auth/token` (signed); new key → `POST /auth/register`.
+     * A server that doesn't have the new endpoints yet gets the legacy `POST /auth/device`.
+     */
+    private suspend fun authenticate() = withContext(Dispatchers.IO) {
+        val id = identity.ensure()
+        if (id.registered) {
+            try {
+                val ts = nowTs()
+                val r = api.authToken(TokenRequest(userId = id.userId, ts = ts, sig = identity.sign(RequestSigning.authMessage(id.userId, ts))))
+                settings.saveAuth(r.token, r.userId ?: id.userId, r.displayName ?: id.displayName ?: settings.current.displayName)
+                return@withContext
+            } catch (e: HttpException) {
+                if (!e.missingEndpoint()) throw e
+            }
+        } else {
+            try {
+                val r = api.authRegister(RegisterRequest(identity.publicKeyB64(), "android", locale()))
+                settings.saveAuth(r.token, r.userId, r.displayName)
+                identity.markRegistered(r.userId, r.displayName)
+                return@withContext
+            } catch (e: HttpException) {
+                if (!e.missingEndpoint()) throw e
+            }
+        }
+        // Legacy server: device auth, then try to attach the key so the account is ready for signed requests.
+        val res = api.authDevice(DeviceAuthRequest(settings.deviceId(), "android", locale()))
         settings.saveAuth(res.token, res.userId, res.displayName)
-        return res
+        attachKeyIfNeeded()
+    }
+
+    /** 0.1.0 accounts (JWT from `/auth/device`, no key): attach this phone's key with `POST /me/keys`. Best effort. */
+    private suspend fun attachKeyIfNeeded() = withContext(Dispatchers.IO) {
+        val id = identity.ensure()
+        val userId = settings.current.userId ?: return@withContext
+        if (id.registered || settings.current.token == null) return@withContext
+        try {
+            api.attachKey(AttachKeyRequest(identity.publicKeyB64())).let { r ->
+                if (r.isSuccessful) identity.markRegistered(userId, settings.current.displayName)
+            }
+        } catch (_: HttpException) { } catch (_: java.io.IOException) { }
+    }
+
+    /** After a backup restore brought a different pseudonym: drop the old JWT and sign in as the restored one. */
+    suspend fun adoptRestoredIdentity() {
+        val id = withContext(Dispatchers.IO) { identity.current() } ?: return
+        if (!id.registered || id.userId == settings.current.userId) return
+        settings.saveAuth(null, null, null)
+        authLock.withLock { authenticate() }
+    }
+
+    /**
+     * Recovery code: prove the key and learn its userId (`POST /auth/token` with publicKey). Only when the
+     * server accepts it does the phone switch to that identity. Returns the display name.
+     */
+    suspend fun restoreFromSeed(seed: ByteArray): String = withContext(Dispatchers.IO) {
+        val pk = identity.publicKeyOf(seed)
+        val ts = nowTs()
+        val r = api.authToken(TokenRequest(publicKey = pk, ts = ts, sig = identity.signWith(seed, RequestSigning.authMessage(pk, ts))))
+        val userId = r.userId ?: throw IllegalStateException("server did not return a userId")
+        identity.adopt(seed, userId, r.displayName)
+        settings.saveAuth(r.token, userId, r.displayName)
+        r.displayName ?: ""
     }
 
     private suspend fun <T> authed(block: suspend GimanoApi.() -> T): T {
@@ -49,7 +119,7 @@ class RemoteRepository(private val settings: SettingsStore) : GimanoRepository {
 
     private fun retrofit2.Response<*>.orThrow() { if (!isSuccessful) throw HttpException(this) }
 
-    override suspend fun ensureAuth(): User = authed { me() }
+    override suspend fun ensureAuth(): User = authed { me() }.also { attachKeyIfNeeded() }
     override suspend fun updateMe(body: UpdateMeRequest) = authed { updateMe(body) }
 
     override suspend fun exportMyData(): MyDataExport? = try {
@@ -82,10 +152,18 @@ class RemoteRepository(private val settings: SettingsStore) : GimanoRepository {
     override suspend fun inbox(): List<InboxItem> = try { authed { inbox() } } catch (e: HttpException) { if (e.code() in setOf(404, 405, 501)) emptyList() else throw e }
     override suspend fun sendFeedback(body: FeedbackRequest) = authed { feedback(body) }
     override suspend fun myFeedback() = authed { myFeedback() }
+    override suspend fun deleteFeedbackContact(id: String) { authed { deleteFeedbackContact(id) }.let { if (!it.isSuccessful && it.code() != 404) throw HttpException(it) } }
+    override suspend fun sendCrashReport(body: CrashReportRequest) = authed { crashReport(body) }
 
     override suspend fun createPlace(body: CreatePlaceRequest) = authed { createPlace(body) }
     override suspend fun suggestEdit(placeId: String, body: SuggestEditRequest) = authed { suggestEdit(placeId, body) }
-    override suspend fun verifyPlace(placeId: String, exists: Boolean) = authed { verifyPlace(placeId, VerifyRequest(exists)) }
+    override suspend fun verifyPlace(placeId: String, body: VerifyRequest, ts: Long?) = authed { verifyPlace(placeId, body, ts?.toString()) }
+    fun nowTs(): Long = signer.nowTs()
+    override suspend fun pendingNearby(cell: String): List<PlaceSummary> = try {
+        authed { pendingNearby(cell) }
+    } catch (e: HttpException) {
+        if (e.missingEndpoint()) emptyList() else throw e
+    }
     override suspend fun contributedPlaces() = authed { contributedPlaces() }
 
     override suspend fun reviews(placeId: String, sort: String) = authed { reviews(placeId, sort) }

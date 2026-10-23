@@ -50,6 +50,13 @@ fun GimanoRoot(vm: MainViewModel, onMic: () -> Unit, onExit: () -> Unit) {
     val ui by vm.ui.collectAsStateWithLifecycle()
     val nav by vm.nav.collectAsStateWithLifecycle()
     val settings by vm.settingsState.collectAsStateWithLifecycle()
+    val upd by container.updater.ui.collectAsStateWithLifecycle()
+    var updateSheetOpen by remember { mutableStateOf(true) }
+    var forceUpdateSheet by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) { container.updater.check() }   // on launch; at most every 6 h
+    LaunchedEffect(Unit) { container.crashes.onAppStart() }
+    LaunchedEffect(ui.screen) { container.crashes.screen = ui.screen::class.simpleName?.lowercase() }
+    val crashPending by container.crashes.pending.collectAsStateWithLifecycle()
     val fallback by vm.fallbackActive.collectAsStateWithLifecycle()
     val handle = remember { MapHandle() }
     val drawer = rememberDrawerState(DrawerValue.Closed)
@@ -95,6 +102,7 @@ fun GimanoRoot(vm: MainViewModel, onMic: () -> Unit, onExit: () -> Unit) {
         cvm.events.collect { e ->
             when (e) {
                 is my.gimano.app.ui.contribute.ContribEvent.Message -> { snackbar.currentSnackbarData?.dismiss(); snackbar.showSnackbar(context.getString(e.res)) }
+                is my.gimano.app.ui.contribute.ContribEvent.Text -> { snackbar.currentSnackbarData?.dismiss(); snackbar.showSnackbar(e.text) }
                 is my.gimano.app.ui.contribute.ContribEvent.ShowPlace -> vm.showPlace(e.summary)
             }
         }
@@ -164,6 +172,8 @@ fun GimanoRoot(vm: MainViewModel, onMic: () -> Unit, onExit: () -> Unit) {
         drawerContent = {
             SideMenu(
                 ui.user, inboxUnread = ui.inbox.count { it.id !in settings.inboxRead },
+                updateVersion = (upd.decision as? my.gimano.app.core.update.UpdateDecision.Available)?.manifest?.versionName,
+                onUpdate = { scope.launch { drawer.close() }; updateSheetOpen = true; forceUpdateSheet = true; vm.goHome() },
                 onProfile = { scope.launch { drawer.close() }; vm.open(Screen.Contributions) },
                 onFavourites = { scope.launch { drawer.close() }; vm.open(Screen.Favourites) },
                 onPlanned = { scope.launch { drawer.close() }; vm.open(Screen.Planned) },
@@ -203,7 +213,10 @@ fun GimanoRoot(vm: MainViewModel, onMic: () -> Unit, onExit: () -> Unit) {
                 Screen.RoutePreview -> ui.plan?.let { RoutePreviewOverlay(it, settings, vm, handle) }
                 Screen.Navigating -> NavigationOverlay(nav, ui, settings, vm)
                 is Screen.Search -> SearchScreen(ui, screen.purpose, vm, onMic)
-                Screen.Settings -> SettingsScreen(settings, vm, fallback, ui.user?.displayName, onBackup = { vm.open(Screen.Backup) }, onMyFeedback = { vm.open(Screen.MyFeedback) }, onTheme = { vm.open(Screen.Theme) })
+                Screen.Settings -> SettingsScreen(settings, vm, fallback, ui.user?.displayName, onBackup = { vm.open(Screen.Backup) }, onMyFeedback = { vm.open(Screen.MyFeedback) }, onTheme = { vm.open(Screen.Theme) }, onAccount = { vm.open(Screen.Account) }, onAbout = { vm.open(Screen.About) })
+                Screen.About -> my.gimano.app.ui.about.AboutScreen(container, live = !fallback && !settings.demoMode, onBack = vm::back, onLicences = { vm.open(Screen.Licences) })
+                Screen.Licences -> my.gimano.app.ui.about.LicencesScreen(onBack = vm::back)
+                Screen.Account -> my.gimano.app.ui.account.AccountScreen(container, vm, ui.user, settings.displayName)
                 Screen.Backup -> my.gimano.app.ui.backup.BackupScreen(bvm, onBack = vm::back)
                 Screen.MyFeedback -> my.gimano.app.ui.feedback.MyFeedbackScreen(fvm, onBack = vm::back, onNew = { vm.requestFeedback("settings") })
                 Screen.Contributions -> my.gimano.app.ui.contribute.ContributionsScreen(container, cvm, vm, ui.user)
@@ -220,14 +233,34 @@ fun GimanoRoot(vm: MainViewModel, onMic: () -> Unit, onExit: () -> Unit) {
     }
 
     ui.favoriteSheet?.let { my.gimano.app.ui.sheets.FavoriteSheet(it, vm) }
+    // In-app update (sideloaded APK): sheet on Home when not snoozed, blocking gate below minSupported.
+    val lang = container.lang().tag.take(2)
+    when (val d = upd.decision) {
+        is my.gimano.app.core.update.UpdateDecision.Available ->
+            if ((!d.snoozed || forceUpdateSheet) && updateSheetOpen && ui.screen == Screen.Home && !nav.active) my.gimano.app.ui.update.UpdateSheet(
+                d.manifest, upd, lang, onUpdate = { scope.launch { container.updater.updateNow() } },
+                onLater = { updateSheetOpen = false; forceUpdateSheet = false; container.updater.later() },
+            )
+        is my.gimano.app.core.update.UpdateDecision.Required ->
+            if (ui.screen != Screen.Backup) my.gimano.app.ui.update.UpdateRequiredGate(
+                d.manifest, upd, lang, onUpdate = { scope.launch { container.updater.updateNow() } }, onBackup = { vm.open(Screen.Backup) },
+            )
+        else -> Unit
+    }
+    my.gimano.app.ui.update.UpdateDialogs(container.updater, upd)
+    LaunchedEffect(upd.justUpdatedTo) {
+        upd.justUpdatedTo?.let { v -> snackbar.showSnackbar(context.getString(R.string.updated_to, v)); container.updater.dismissUpdatedNote() }
+    }
+    if (crashPending.isNotEmpty() && ui.screen == Screen.Home && !nav.active) my.gimano.app.ui.feedback.CrashSheet(container.crashes, crashPending)
+    ui.vetPrompt?.let { if (ui.screen == Screen.Home) my.gimano.app.ui.contribute.NearbyVerifySheet(it, vm, cvm) }
     ui.tollSheet?.let { r ->
         my.gimano.app.ui.sheets.TollSheet(r, onDismiss = { vm.openTolls(null) }, onAvoidTolls = {
             vm.openTolls(null); ui.plan?.let { p -> vm.setAvoid(p.avoid.copy(tolls = true)) }
         })
     }
-    if (feedbackDraft.open) my.gimano.app.ui.feedback.FeedbackSheet(fvm, feedbackDraft) {
+    if (feedbackDraft.open) my.gimano.app.ui.feedback.FeedbackSheet(fvm, feedbackDraft, here = { vm.here().let { it.lat to it.lng } }, onSend = {
         val h = vm.here(); fvm.send(h.lat, h.lng)
-    }
+    })
     if (!settings.privacyCardDismissed && screen == Screen.Home) {
         AlertDialog(
             onDismissRequest = vm::dismissPrivacyCard,

@@ -43,6 +43,8 @@ val keystorePassword: String? by lazy {
 val localProps = Properties().apply {
     listOf("local.properties", "gimano.local.properties").map { rootProject.file(it) }.filter { it.exists() }.forEach { f -> f.inputStream().use { load(it) } }
 }
+// Play Integrity (votes): Google Cloud project NUMBER, git-ignored. Absent → votes carry no attestation.
+val cloudProjectNumber = (localProps.getProperty("gimano.cloudProjectNumber") ?: (project.findProperty("gimano.cloudProjectNumber") as String?) ?: "0").trim().toLongOrNull() ?: 0L
 val googleOauthClientId = (localProps.getProperty("gimano.googleAndroidClientId") ?: localProps.getProperty("gimano.googleOauthClientId")
     ?: (project.findProperty("gimano.googleAndroidClientId") as String?) ?: "").trim()
 
@@ -72,14 +74,16 @@ android {
         applicationId = "my.gimano.app"
         minSdk = 26
         targetSdk = 36
-        versionCode = 1
-        versionName = "0.1.0"
+        // Override for test builds: -Pgimano.versionCode=3 -Pgimano.versionName=0.2.1
+        versionCode = prop("gimano.versionCode", "2").toInt()
+        versionName = prop("gimano.versionName", "0.2.0")
 
         buildConfigField("String", "API_BASE_URL", "\"$apiBaseUrl\"")
         buildConfigField("String", "MAP_STYLE_URL", "\"$mapStyleUrl\"")
         buildConfigField("String", "MAP_STYLE_DARK_URL", "\"$mapStyleDarkUrl\"")
         buildConfigField("boolean", "DEMO_MODE_DEFAULT", "$demoMode")
         buildConfigField("String", "GOOGLE_OAUTH_CLIENT_ID", "\"$googleOauthClientId\"")
+        buildConfigField("long", "CLOUD_PROJECT_NUMBER", "${cloudProjectNumber}L")
     }
 
     androidResources {
@@ -177,6 +181,8 @@ dependencies {
     ksp(libs.room.compiler)
     implementation(libs.work.runtime.ktx)
     implementation(libs.play.services.auth)
+    implementation(libs.play.integrity)
+    implementation(libs.androidx.biometric)
     implementation(libs.coil.compose)
     implementation(libs.coil.network.okhttp)
     implementation(libs.lazysodium.android) { exclude(group = "net.java.dev.jna") }

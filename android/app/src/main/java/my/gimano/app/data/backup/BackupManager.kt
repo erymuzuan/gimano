@@ -28,6 +28,10 @@ class BackupManager(
     private val exportSettings: suspend () -> Map<String, String>,
     /** Applies the DB `settings` table to the app after a restore. */
     private val importSettings: suspend (Map<String, String>) -> Unit,
+    /** Keystore-wrapped seed → plain base64 (the backup's own passphrase encryption protects it). */
+    private val seedToPlain: (String) -> String = { it },
+    /** After a restore: re-wrap the identity seed and sign in as the restored pseudonym. */
+    private val afterRestore: suspend () -> Unit = {},
 ) {
     val photosDir: File get() = File(context.filesDir, "photos").also { it.mkdirs() }
     private fun port() = AndroidSqlPort(db.openHelper.writableDatabase)
@@ -49,6 +53,7 @@ class BackupManager(
             val counts = SQLiteDatabase.openDatabase(snap.path, null, SQLiteDatabase.OPEN_READWRITE).use { s ->
                 val p = FrameworkSqlPort(s)
                 BackupDb.cleanSnapshot(p)
+                BackupDb.transformIdentitySeeds(p, seedToPlain)
                 BackupDb.counts(p)
             }
             val photoNames = db.privatePlaces().allPhotos().map { it.fileName }
@@ -79,6 +84,7 @@ class BackupManager(
             ex.photos.filter { it.name in names }.forEach { f -> f.copyTo(File(photosDir, f.name), overwrite = true); n++ }
             db.invalidationTracker.refreshVersionsAsync()
             importSettings(db.settings().all().associate { it.key to it.value })
+            runCatching { afterRestore() }
             RestoreResult(ex.manifest, mode, n)
         } finally {
             work.deleteRecursively()

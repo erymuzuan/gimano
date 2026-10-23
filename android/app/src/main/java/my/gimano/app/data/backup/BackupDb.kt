@@ -56,7 +56,7 @@ object BackupDb {
             if (version > GimanoSchema.VERSION) throw BackupTooNewException(version)
             // (Older schemas would be migrated here on a temp copy before copying rows; v1 is the first.)
             val tables = db.queryStrings("SELECT name FROM bk.sqlite_master WHERE type = 'table'").toSet()
-            val missing = GimanoSchema.BACKED_UP_TABLES - tables
+            val missing = GimanoSchema.REQUIRED_TABLES - tables
             if (missing.isNotEmpty()) throw BackupFormatException("Backup is missing tables: $missing")
 
             db.exec("PRAGMA foreign_keys = OFF")
@@ -64,10 +64,17 @@ object BackupDb {
                 db.transaction {
                     when (mode) {
                         RestoreMode.REPLACE -> {
-                            GimanoSchema.BACKED_UP_TABLES.reversed().forEach { db.exec("DELETE FROM main.$it") }
-                            GimanoSchema.BACKED_UP_TABLES.forEach { db.exec("INSERT INTO main.$it SELECT * FROM bk.$it") }
+                            GimanoSchema.REQUIRED_TABLES.reversed().forEach { db.exec("DELETE FROM main.$it") }
+                            GimanoSchema.REQUIRED_TABLES.forEach { db.exec("INSERT INTO main.$it SELECT * FROM bk.$it") }
                         }
                         RestoreMode.MERGE -> merge(db)
+                    }
+                    // The contributor identity: a backup that carries one is adopted (Replace and Merge alike),
+                    // so restoring on a new phone brings back the pseudonym and its reputation. A backup without
+                    // one (schema 1, or never registered) leaves this phone's identity alone.
+                    if ("identity" in tables && db.queryLong("SELECT COUNT(*) FROM bk.identity") > 0) {
+                        db.exec("DELETE FROM main.identity")
+                        db.exec("INSERT INTO main.identity SELECT * FROM bk.identity")
                     }
                 }
             } finally {
@@ -103,6 +110,21 @@ object BackupDb {
         db.exec("INSERT OR IGNORE INTO main.settings SELECT * FROM bk.settings")
     }
 
+    private const val SEP = "\u001f"
+
+    /**
+     * Rewrites every identity row's `seed_b64` with [transform]: unwrap (Keystore → plain) when writing a backup,
+     * wrap (plain → Keystore) after a restore. At rest on the phone the seed is always wrapped.
+     */
+    fun transformIdentitySeeds(db: SqlPort, transform: (String) -> String) {
+        if (db.queryLong("SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name = 'identity'") == 0L) return
+        db.queryStrings("SELECT user_id || '$SEP' || seed_b64 FROM identity").forEach { row ->
+            val (id, seed) = row.split(SEP, limit = 2)
+            val out = transform(seed)
+            if (out != seed) db.exec("UPDATE identity SET seed_b64 = ? WHERE user_id = ?", out, id)
+        }
+    }
+
     /** A fingerprint of the backed-up data, to skip automatic backups when nothing changed. */
     fun fingerprint(db: SqlPort): String = listOf(
         "SELECT COUNT(*) || ':' || COALESCE(MAX(updated_at), '') FROM saved_places",
@@ -111,5 +133,6 @@ object BackupDb {
         "SELECT COUNT(*) || '' FROM private_place_photos",
         "SELECT COUNT(*) || ':' || COALESCE(MAX(created_at), '') FROM planned_drives",
         "SELECT COUNT(*) || ':' || COALESCE(group_concat(key || '=' || value), '') FROM settings",
+        "SELECT COUNT(*) || ':' || COALESCE(MAX(user_id), '') FROM identity",
     ).joinToString("|") { db.queryStrings(it).firstOrNull().orEmpty() }
 }

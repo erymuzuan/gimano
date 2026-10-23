@@ -29,6 +29,7 @@ import my.gimano.app.ui.theme.GimanoType
 fun MyFeedbackScreen(vm: FeedbackViewModel, onBack: () -> Unit, onNew: () -> Unit) {
     val c = Gimano.colors
     val items by vm.items.collectAsState(initial = emptyList())
+    val serverContacts by vm.contacts.collectAsState()
     LaunchedEffect(Unit) { vm.refreshMine() }
     Column(Modifier.fillMaxSize().background(c.background).windowInsetsPadding(WindowInsets.statusBars)) {
         Row(Modifier.fillMaxWidth().padding(4.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -44,7 +45,13 @@ fun MyFeedbackScreen(vm: FeedbackViewModel, onBack: () -> Unit, onNew: () -> Uni
                     Spacer(Modifier.width(12.dp))
                     Column(Modifier.weight(1f)) {
                         Text(f.message, fontSize = 16.sp, fontWeight = FontWeight.Bold, color = c.text, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                        Text(f.createdAt.take(16).replace('T', ' '), fontSize = 12.sp, color = c.textMuted)
+                        Text(my.gimano.app.core.format.Formatters.localStamp(f.createdAt), fontSize = 12.sp, color = c.textMuted)
+                        if (!f.queued && (f.hasContact || f.id in serverContacts)) Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(stringResource(R.string.fb_contact_kept), fontSize = 12.sp, fontWeight = FontWeight.Bold, color = c.textMuted)
+                            TextButton(onClick = { vm.deleteContact(f.id) }, contentPadding = PaddingValues(horizontal = 6.dp)) {
+                                Text(stringResource(R.string.fb_contact_delete), fontSize = 12.sp, fontWeight = FontWeight.Black, color = c.report)
+                            }
+                        }
                     }
                     Spacer(Modifier.width(8.dp))
                     StatusChip(f.status)

@@ -15,10 +15,11 @@ import java.time.Instant
 import java.util.UUID
 
 /** One row in "My feedback": sent (with server status) or still queued on the device. */
-data class FeedbackItem(val id: String, val category: String, val message: String, val status: String, val createdAt: String, val queued: Boolean)
+data class FeedbackItem(val id: String, val category: String, val message: String, val status: String, val createdAt: String, val queued: Boolean, val hasContact: Boolean = false)
 
+/** Kept after sending, WITHOUT the contact details or device block (only whether contact was given). */
 @Serializable
-private data class SentRecord(val id: String, val category: String, val message: String, val createdAt: String)
+private data class SentRecord(val id: String, val category: String, val message: String, val createdAt: String, val hasContact: Boolean = false)
 
 sealed interface FeedbackSendResult {
     data object Sent : FeedbackSendResult
@@ -50,7 +51,7 @@ class FeedbackService(private val outbox: OutboxDao, private val repo: GimanoRep
         return try {
             val created = repo.sendFeedback(req)
             outbox.delete(row.id)
-            val rec = SentRecord(created.id, req.category, req.message, created.createdAt.ifBlank { now().toString() })
+            val rec = SentRecord(created.id, req.category, req.message, created.createdAt.ifBlank { now().toString() }, hasContact = req.contact != null)
             outbox.upsert(OutboxEntity("sent-${created.id}", KIND_SENT, GimanoJson.encodeToString(SentRecord.serializer(), rec), 0, NEVER))
             FeedbackSendResult.Sent
         } catch (e: HttpException) {
@@ -82,8 +83,17 @@ class FeedbackService(private val outbox: OutboxDao, private val repo: GimanoRep
             FeedbackItem(r.id, q.category, q.message, "queued", r.nextAttemptAt, queued = true)
         } + sent.map { r ->
             val s = GimanoJson.decodeFromString(SentRecord.serializer(), r.payloadJson)
-            FeedbackItem(s.id, s.category, s.message, "received", s.createdAt, queued = false)
+            FeedbackItem(s.id, s.category, s.message, "received", s.createdAt, queued = false, hasContact = s.hasContact)
         }.sortedByDescending { it.createdAt }
+    }
+
+    /** Withdraw the volunteered contact details for one report (server deletes them; local record forgets the flag). */
+    suspend fun deleteContact(id: String) {
+        repo.deleteFeedbackContact(id)
+        outbox.all(KIND_SENT).firstOrNull { it.id == "sent-$id" }?.let { r ->
+            val s = GimanoJson.decodeFromString(SentRecord.serializer(), r.payloadJson)
+            outbox.upsert(r.copy(payloadJson = GimanoJson.encodeToString(SentRecord.serializer(), s.copy(hasContact = false))))
+        }
     }
 
     suspend fun serverStatuses(): Map<String, FeedbackSummary> =

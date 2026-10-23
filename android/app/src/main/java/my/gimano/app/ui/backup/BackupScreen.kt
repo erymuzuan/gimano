@@ -1,5 +1,7 @@
 package my.gimano.app.ui.backup
 
+import androidx.compose.ui.graphics.Color
+
 import android.content.Intent
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -80,6 +82,12 @@ fun BackupScreen(vm: BackupViewModel, onBack: () -> Unit) {
             )
             Spacer(Modifier.height(10.dp))
             SwitchLine(Icons.Filled.Lock, stringResource(R.string.use_passphrase), stringResource(R.string.use_passphrase_desc), ui.usePassphrase, vm::setUsePassphrase)
+            // The backup carries the contributor key (identity table); say so when it isn't passphrase-locked.
+            if (!ui.usePassphrase) Text(
+                stringResource(R.string.backup_key_warning),
+                Modifier.fillMaxWidth().padding(vertical = 6.dp).clip(RoundedCornerShape(14.dp)).background(Color(0xFFFFF1CC)).padding(12.dp),
+                color = Color(0xFF7A5200), fontSize = 13.sp, fontWeight = FontWeight.ExtraBold,
+            )
             Spacer(Modifier.height(8.dp))
             BigAction(Icons.Filled.CloudUpload, if (vm.driveConfigured) stringResource(R.string.backup_to_drive) else stringResource(R.string.drive_not_configured), enabled = vm.driveConfigured && !ui.busy) { vm.backup(PassphrasePurpose.BACKUP_DRIVE) }
             BigAction(Icons.Filled.FileDownload, stringResource(R.string.backup_save_file), enabled = !ui.busy) { vm.backup(PassphrasePurpose.BACKUP_FILE) }

@@ -102,9 +102,10 @@ data class RatingSummary(val mean: Double?, val count: Int, val distribution: Ma
 }
 
 object Verification {
-    const val NEARBY_M = 500.0
+    const val NEARBY_M = 1000.0
+    const val NEARBY_RURAL_M = 5000.0
 
-    /** "Is this place here?" is asked only of people near an unverified community place. */
-    fun canVerify(isCommunity: Boolean, status: String?, distanceM: Double?): Boolean =
-        isCommunity && status != "published" && distanceM != null && distanceM <= NEARBY_M
+    /** "Is this place here?" is asked only of people near (1 km, 5 km rural) an unverified community place. */
+    fun canVerify(isCommunity: Boolean, status: String?, distanceM: Double?, rural: Boolean = false): Boolean =
+        isCommunity && status != "published" && distanceM != null && distanceM <= (if (rural) NEARBY_RURAL_M else NEARBY_M)
 }

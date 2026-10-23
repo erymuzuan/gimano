@@ -25,6 +25,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import kotlin.math.roundToInt
 import coil3.compose.AsyncImage
 import my.gimano.app.AppContainer
 import my.gimano.app.R
@@ -48,28 +49,42 @@ fun ContributionsScreen(c: AppContainer, cvm: ContributeViewModel, vm: MainViewM
     var tab by remember { mutableIntStateOf(0) }
     LaunchedEffect(Unit) { places = runCatching { c.repo.contributedPlaces() }.getOrDefault(emptyList()) }
     val points = user?.points ?: 0
-    val level = user?.level ?: 1
-    val nextAt = level * 500   // display only: progress inside the current level
-    val progress = ((points % 500) / 500f).coerceIn(0f, 1f)
 
     Column(Modifier.fillMaxSize().background(col.background).windowInsetsPadding(WindowInsets.statusBars)) {
         Row(Modifier.fillMaxWidth().padding(8.dp), verticalAlignment = Alignment.CenterVertically) {
             IconButton(onClick = vm::back) { Icon(Icons.AutoMirrored.Filled.ArrowBack, stringResource(R.string.back), tint = col.text) }
             Text(stringResource(R.string.my_contributions), style = GimanoType.title, color = col.text)
         }
+        // Trust tier ring (Baharu → Perak → Emas), accuracy and what the next tier still needs.
+        val tier = user?.tier ?: "baharu"
+        val tierProgress = when (tier) {
+            "emas" -> 1f
+            "perak" -> ((user?.placesAccepted ?: 0) / 50f).coerceIn(0f, 1f)
+            else -> ((user?.placesAccepted ?: 0) / 10f).coerceIn(0f, 1f)
+        }
+        val ringColor = tierColor(tier)
         Row(Modifier.padding(horizontal = 16.dp).fillMaxWidth().clip(RoundedCornerShape(24.dp)).background(col.brand).padding(18.dp), verticalAlignment = Alignment.CenterVertically) {
-            val ringLabel = stringResource(R.string.level_n, level)
-            Box(Modifier.size(72.dp).semantics { contentDescription = ringLabel }, contentAlignment = Alignment.Center) {
+            val ringLabel = tierName(tier)
+            Box(Modifier.size(76.dp).semantics { contentDescription = ringLabel }, contentAlignment = Alignment.Center) {
                 Canvas(Modifier.matchParentSize()) {
                     drawArc(Color.White.copy(alpha = 0.25f), 0f, 360f, false, style = Stroke(8.dp.toPx()))
-                    drawArc(Color.White, -90f, 360f * progress, false, style = Stroke(8.dp.toPx(), cap = StrokeCap.Round))
+                    drawArc(ringColor, -90f, 360f * tierProgress, false, style = Stroke(8.dp.toPx(), cap = StrokeCap.Round))
                 }
-                Text("$level", color = col.brandOn, fontSize = 22.sp, fontWeight = FontWeight.Black)
+                Text(ringLabel, color = col.brandOn, fontSize = 13.sp, fontWeight = FontWeight.Black)
             }
             Spacer(Modifier.width(16.dp))
-            Column {
-                Text("%,d".format(points), color = col.brandOn, fontSize = 30.sp, fontWeight = FontWeight.Black)
-                Text(stringResource(R.string.points_to_next, maxOf(0, nextAt - points), level + 1), color = col.brandOn.copy(alpha = 0.85f), fontSize = 15.sp, fontWeight = FontWeight.ExtraBold)
+            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Text("%,d".format(points) + " " + stringResource(R.string.points_short), color = col.brandOn, fontSize = 26.sp, fontWeight = FontWeight.Black)
+                Text(
+                    user?.accuracy?.let { stringResource(R.string.accuracy_pct, (it * 100).roundToInt()) } ?: stringResource(R.string.accuracy_pending),
+                    color = col.brandOn.copy(alpha = 0.9f), fontSize = 14.sp, fontWeight = FontWeight.ExtraBold,
+                )
+                val next = user?.nextTier
+                Text(
+                    if (tier == "emas" || next == null || next.name.isBlank()) stringResource(R.string.top_tier)
+                    else stringResource(R.string.next_tier, tierName(next.name), next.missing.joinToString(", ").ifBlank { "—" }),
+                    color = col.brandOn.copy(alpha = 0.85f), fontSize = 13.sp, fontWeight = FontWeight.Bold,
+                )
             }
         }
         Row(Modifier.fillMaxWidth().padding(16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {

@@ -1,5 +1,10 @@
 package my.gimano.app.ui.menu
 
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.getValue
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -10,6 +15,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Shield
+import androidx.compose.material.icons.filled.SystemUpdate
 import androidx.compose.material.icons.filled.DarkMode
 import androidx.compose.material.icons.filled.Backup
 import androidx.compose.material.icons.filled.Inbox
@@ -35,6 +41,8 @@ fun SideMenu(
     user: User?, inboxUnread: Int,
     onProfile: () -> Unit, onFavourites: () -> Unit, onPlanned: () -> Unit, onInbox: () -> Unit, onContributions: () -> Unit,
     onAddPlace: () -> Unit, onBackup: () -> Unit, onTheme: () -> Unit, onFeedback: () -> Unit, onSettings: () -> Unit,
+    /** Newer version waiting (after "Later"): a row with a badge. */
+    updateVersion: String? = null, onUpdate: () -> Unit = {},
 ) {
     val c = Gimano.colors
     ModalDrawerSheet(drawerContainerColor = c.surface, modifier = Modifier.width(330.dp)) {
@@ -53,6 +61,7 @@ fun SideMenu(
                 }
             }
             Spacer(Modifier.height(8.dp))
+            if (updateVersion != null) Item(icon = Icons.Filled.SystemUpdate, label = stringResource(R.string.update_menu, updateVersion), badge = 1, onClick = onUpdate)
             Item(gicon = "star", label = stringResource(R.string.my_favourites), onClick = onFavourites)
             Item(icon = Icons.Filled.Event, label = stringResource(R.string.planned_drives), onClick = onPlanned)
             Item(icon = Icons.Filled.Inbox, label = stringResource(R.string.inbox), badge = inboxUnread, onClick = onInbox)
@@ -71,6 +80,7 @@ fun SideMenu(
                 Spacer(Modifier.width(10.dp))
                 Text(stringResource(R.string.places_stay_on_phone), fontSize = 13.sp, fontWeight = FontWeight.Bold, color = c.textMuted)
             }
+            VersionLine()
         }
     }
 }
@@ -86,4 +96,30 @@ private fun Item(label: String, icon: ImageVector? = null, gicon: String? = null
         Text(label, Modifier.weight(1f), fontSize = 17.sp, fontWeight = FontWeight.ExtraBold, color = c.text)
         if (badge > 0) Text("$badge", Modifier.clip(RoundedCornerShape(999.dp)).background(c.report).padding(horizontal = 9.dp, vertical = 2.dp), color = c.reportOn, fontSize = 13.sp, fontWeight = FontWeight.Black)
     }
+}
+
+
+/** "Gimano 0.2.0 (2)"; tap 7 times to copy diagnostic info (version / OS / device, nothing personal) for support. */
+@Composable
+private fun VersionLine() {
+    val c = Gimano.colors
+    val ctx = androidx.compose.ui.platform.LocalContext.current
+    var taps by remember { mutableIntStateOf(0) }
+    val copied = stringResource(R.string.diagnostics_copied)
+    Text(
+        "Gimano ${my.gimano.app.BuildConfig.VERSION_NAME} (${my.gimano.app.BuildConfig.VERSION_CODE})",
+        Modifier.fillMaxWidth().clickable {
+            taps++
+            if (taps >= 7) {
+                taps = 0
+                val info = "Gimano ${my.gimano.app.BuildConfig.VERSION_NAME} (${my.gimano.app.BuildConfig.VERSION_CODE})\n" +
+                    "Android ${android.os.Build.VERSION.RELEASE} (API ${android.os.Build.VERSION.SDK_INT})\n" +
+                    "${android.os.Build.MANUFACTURER} ${android.os.Build.MODEL}\n" +
+                    "${java.util.Locale.getDefault().toLanguageTag()}"
+                ctx.getSystemService(android.content.ClipboardManager::class.java)?.setPrimaryClip(android.content.ClipData.newPlainText("Gimano diagnostics", info))
+                android.widget.Toast.makeText(ctx, copied, android.widget.Toast.LENGTH_SHORT).show()
+            }
+        }.padding(horizontal = 16.dp, vertical = 14.dp),
+        fontSize = 12.sp, color = c.textMuted, textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+    )
 }

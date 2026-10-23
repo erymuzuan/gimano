@@ -23,6 +23,15 @@ interface GimanoApi {
     @POST("auth/device")
     suspend fun authDevice(@Body body: DeviceAuthRequest): DeviceAuthResponse
 
+    @POST("auth/register")
+    suspend fun authRegister(@Body body: RegisterRequest): DeviceAuthResponse
+
+    @POST("auth/token")
+    suspend fun authToken(@Body body: TokenRequest): TokenResponse
+
+    @POST("me/keys")
+    suspend fun attachKey(@Body body: AttachKeyRequest): Response<ResponseBody>
+
     @GET("me")
     suspend fun me(): User
 
@@ -107,6 +116,12 @@ interface GimanoApi {
     @POST("feedback")
     suspend fun feedback(@Body body: FeedbackRequest): FeedbackCreated
 
+    @DELETE("feedback/{id}/contact")
+    suspend fun deleteFeedbackContact(@Path("id") id: String): Response<ResponseBody>
+
+    @POST("crash-reports")
+    suspend fun crashReport(@Body body: CrashReportRequest): CrashCreated
+
     @GET("me/feedback")
     suspend fun myFeedback(): List<FeedbackSummary>
 
@@ -124,7 +139,10 @@ interface GimanoApi {
     suspend fun suggestEdit(@Path("id") id: String, @Body body: SuggestEditRequest): SuggestionCreated
 
     @POST("places/{id}/verify")
-    suspend fun verifyPlace(@Path("id") id: String, @Body body: VerifyRequest): Place
+    suspend fun verifyPlace(@Path("id") id: String, @Body body: VerifyRequest, @retrofit2.http.Header("X-Gimano-Ts") ts: String?): VerifyResult
+
+    @GET("places/pending-nearby")
+    suspend fun pendingNearby(@Query("cell") cell: String): List<PlaceSummary>
 
     @GET("me/places/contributed")
     suspend fun contributedPlaces(): List<PlaceSummary>

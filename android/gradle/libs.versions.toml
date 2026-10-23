@@ -21,6 +21,8 @@ work = "2.10.5"
 lazysodium = "5.2.0"
 jna = "5.17.0"
 playServicesAuth = "21.4.0"
+playIntegrity = "1.4.0"
+biometric = "1.1.0"
 coil = "3.3.0"
 
 [libraries]
@@ -62,6 +64,8 @@ jna = { module = "net.java.dev.jna:jna", version.ref = "jna" }
 coil-compose = { module = "io.coil-kt.coil3:coil-compose", version.ref = "coil" }
 coil-network-okhttp = { module = "io.coil-kt.coil3:coil-network-okhttp", version.ref = "coil" }
 play-services-auth = { module = "com.google.android.gms:play-services-auth", version.ref = "playServicesAuth" }
+play-integrity = { module = "com.google.android.play:integrity", version.ref = "playIntegrity" }
+androidx-biometric = { module = "androidx.biometric:biometric", version.ref = "biometric" }
 xerial-sqlite = { module = "org.xerial:sqlite-jdbc", version = "3.49.1.0" }
 
 [plugins]

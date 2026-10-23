@@ -1,5 +1,7 @@
 package my.gimano.app.ui.settings
 
+import kotlinx.coroutines.launch
+
 import androidx.appcompat.app.AppCompatDelegate
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -27,7 +29,7 @@ import my.gimano.app.ui.theme.Gimano
 import my.gimano.app.ui.theme.Radius
 
 @Composable
-fun SettingsScreen(s: AppSettings, vm: MainViewModel, fallback: Boolean, displayName: String?, onBackup: () -> Unit, onMyFeedback: () -> Unit, onTheme: () -> Unit = {}) {
+fun SettingsScreen(s: AppSettings, vm: MainViewModel, fallback: Boolean, displayName: String?, onBackup: () -> Unit, onMyFeedback: () -> Unit, onTheme: () -> Unit = {}, onAccount: () -> Unit = {}, onAbout: () -> Unit = {}) {
     val c = Gimano.colors
     Column(Modifier.fillMaxSize().background(c.surface).windowInsetsPadding(WindowInsets.statusBars)) {
         Row(Modifier.fillMaxWidth().padding(4.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -39,11 +41,13 @@ fun SettingsScreen(s: AppSettings, vm: MainViewModel, fallback: Boolean, display
                 Card(colors = CardDefaults.cardColors(containerColor = c.report.copy(alpha = 0.12f)), modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
                     Column(Modifier.padding(14.dp)) {
                         Text(stringResource(R.string.server_unreachable), color = c.text)
+                        vm.fallbackReason()?.let { Text(stringResource(R.string.fallback_reason, it), color = c.textMuted, fontSize = 13.sp) }
                         TextButton(onClick = vm::retryServer) { Text(stringResource(R.string.retry)) }
                     }
                 }
             }
             my.gimano.app.ui.common.PrivacyCard(onBackup = onBackup, modifier = Modifier.padding(vertical = 8.dp))
+            NavRow(stringResource(R.string.account), onAccount)
             NavRow(stringResource(R.string.backup_restore), onBackup)
             NavRow(stringResource(R.string.my_feedback), onMyFeedback)
             NavRow(stringResource(R.string.theme), onTheme)
@@ -82,6 +86,11 @@ fun SettingsScreen(s: AppSettings, vm: MainViewModel, fallback: Boolean, display
 
             Section(stringResource(R.string.about))
             Text(stringResource(R.string.about_text), color = c.textMuted, fontSize = 14.sp)
+            Section(stringResource(R.string.crash_reports))
+            var crashMode by remember { mutableStateOf(vm.container.crashes.mode) }
+            my.gimano.app.ui.feedback.CrashModeChoice(crashMode) { crashMode = it; vm.container.crashes.mode = it }
+            Spacer(Modifier.height(8.dp))
+            NavRow(stringResource(R.string.about_gimano), onAbout)
             Text("v${BuildConfig.VERSION_NAME} (${if (BuildConfig.DEBUG) "debug" else "release"})", color = c.textMuted, fontSize = 13.sp, modifier = Modifier.padding(top = 6.dp, bottom = 32.dp))
         }
     }
@@ -137,4 +146,39 @@ private fun TextSetting(label: String?, value: String, onApply: (String) -> Unit
         )
         if (text != value) TextButton(onClick = { onApply(text) }) { Text(stringResource(R.string.apply)) }
     }
+}
+
+
+/** Settings → app version: installed / latest / last checked, and "Check now". */
+@Composable
+private fun UpdateSection(vm: MainViewModel) {
+    val c = Gimano.colors
+    val updater = vm.container.updater
+    val u by updater.ui.collectAsState()
+    val scope = rememberCoroutineScope()
+    Section(stringResource(R.string.update_section))
+    val latest = when (val d = u.decision) {
+        is my.gimano.app.core.update.UpdateDecision.Available -> d.manifest.versionName
+        is my.gimano.app.core.update.UpdateDecision.Required -> d.manifest.versionName
+        else -> null
+    }
+    Text(stringResource(R.string.update_installed, BuildConfig.VERSION_NAME), color = c.text, fontSize = 15.sp)
+    Text(
+        if (latest != null) stringResource(R.string.update_latest, latest) else stringResource(R.string.update_up_to_date),
+        color = if (latest != null) c.brand else c.textMuted, fontSize = 15.sp, fontWeight = FontWeight.Bold,
+    )
+    if (u.lastCheckMs > 0) Text(
+        stringResource(R.string.update_checked, my.gimano.app.core.format.Formatters.localStamp(java.time.Instant.ofEpochMilli(u.lastCheckMs).toString())),
+        color = c.textMuted, fontSize = 13.sp,
+    )
+    Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.padding(top = 8.dp)) {
+        OutlinedButton(onClick = { scope.launch { updater.check(force = true) } }, enabled = !u.checking) {
+            Text(stringResource(if (u.checking) R.string.update_checking else R.string.update_check_now), fontWeight = FontWeight.ExtraBold)
+        }
+        if (latest != null) Button(onClick = { scope.launch { updater.updateNow() } }, enabled = u.progress == null && !u.installing,
+            colors = ButtonDefaults.buttonColors(containerColor = c.brand, contentColor = c.brandOn)) {
+            Text(stringResource(R.string.update_now), fontWeight = FontWeight.ExtraBold)
+        }
+    }
+    if (u.progress != null) LinearProgressIndicator(progress = { u.progress ?: 0f }, Modifier.fillMaxWidth().padding(top = 8.dp), color = c.brand)
 }

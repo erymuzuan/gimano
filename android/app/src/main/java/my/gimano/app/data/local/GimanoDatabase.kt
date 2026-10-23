@@ -39,12 +39,18 @@ abstract class GimanoDatabase : RoomDatabase() {
             }
         }
 
+        /** 0.1.0 → 0.2.0: adds `identity`. It is not a Room entity (raw SQL only), so Room's validation is unaffected. */
+        val MIGRATION_1_2 = object : androidx.room.migration.Migration(1, 2) {
+            override fun migrate(db: SupportSQLiteDatabase) { db.execSQL(GimanoSchema.IDENTITY_DDL) }
+        }
+
         fun build(context: Context, name: String = GimanoSchema.DB_NAME): GimanoDatabase =
             Room.databaseBuilder(context.applicationContext, GimanoDatabase::class.java, name)
                 .addCallback(sharedSchemaCallback)
                 // No WAL: backup restore ATTACHes the backup file, which the framework only allows
                 // cleanly without WAL; the DB is tiny so this costs nothing measurable.
                 .setJournalMode(JournalMode.TRUNCATE)
+                .addMigrations(MIGRATION_1_2)
                 .build()
     }
 }

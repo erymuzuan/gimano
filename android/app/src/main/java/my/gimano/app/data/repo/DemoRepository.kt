@@ -22,7 +22,11 @@ class DemoRepository(
     /** Real OSM road geometry (assets/demo-routes), loaded on first use. */
     val canned: CannedRoutes by lazy { CannedRoutes.parse(cannedDocs()) }
 
-    private val user = User("demo-user", "Pemandu Gimano", "🙂", "car", 1280, 4, "2026-01-01T00:00:00Z")
+    private val user = User(
+        "demo-user", "Pemandu Gimano", "🙂", "car", 1280, 4, "2026-01-01T00:00:00Z",
+        tier = "perak", accuracy = 0.93, placesAccepted = 14, verifierVotes = 22,
+        nextTier = NextTier("emas", listOf("36 more accepted places", "accuracy 95%", "account 90 days")),
+    )
 
     private val catalog = listOf(
         p("klcc", "Suria KLCC", "mall", "Kuala Lumpur City Centre, 50088 Kuala Lumpur", 3.1579, 101.7123),
@@ -267,12 +271,16 @@ class DemoRepository(
 
     override suspend fun sendFeedback(body: FeedbackRequest): FeedbackCreated {
         latency()
-        val f = FeedbackSummary(UUID.randomUUID().toString(), body.category, body.message, "received", Instant.now().toString())
+        val f = FeedbackSummary(UUID.randomUUID().toString(), body.category, body.message, "received", Instant.now().toString(), hasContact = body.contact != null)
         feedbackStore.add(0, f)
         return FeedbackCreated(f.id, f.createdAt)
     }
 
     override suspend fun myFeedback(): List<FeedbackSummary> = feedbackStore.toList()
+    override suspend fun deleteFeedbackContact(id: String) {
+        feedbackStore.replaceAll { if (it.id == id) it.copy(hasContact = false) else it }
+    }
+    override suspend fun sendCrashReport(body: CrashReportRequest): CrashCreated { latency(); return CrashCreated("demo-crash-" + UUID.randomUUID().toString().take(8)) }
 
     override suspend fun inbox(): List<InboxItem> {
         val now = Instant.now()
@@ -303,6 +311,7 @@ class DemoRepository(
             id = id, name = body.name, category = body.category, address = body.address ?: "", lat = body.lat, lng = body.lng,
             phone = body.phone, website = body.website, openingHours = body.openingHours, amenities = body.amenities.orEmpty(),
             source = "community", status = "pending", description = body.description, addedBy = Author(user.displayName), verifiedCount = 0,
+            confirmationsWeighted = 0.0, required = 3.0,
         )
         community[id] = p
         return p
@@ -313,15 +322,29 @@ class DemoRepository(
         return SuggestionCreated("suggestion-" + UUID.randomUUID().toString().take(8))
     }
 
-    /** Demo: every confirmation counts as a distinct user; 3 publish the place. */
-    override suspend fun verifyPlace(placeId: String, exists: Boolean): Place {
+    /** Demo: weights as a Baharu voter (1 each); 3 publish the place. */
+    override suspend fun verifyPlace(placeId: String, body: VerifyRequest, ts: Long?): VerifyResult {
         latency()
-        val p = community[placeId] ?: return place(placeId, null, null)
-        val n = (verifications[placeId] ?: 0) + if (exists) 1 else 0
+        val yes = if (body.answer == "yes") 1 else 0
+        val n = (verifications[placeId] ?: 1) + yes
         verifications[placeId] = n
-        val upd = p.copy(verifiedCount = n, status = if (n >= 3) "published" else "pending")
-        community[placeId] = upd
-        return upd
+        community[placeId]?.let { p -> community[placeId] = p.copy(verifiedCount = n, confirmationsWeighted = n.toDouble(), required = 3.0, status = if (n >= 3) "published" else "pending") }
+        return VerifyResult(if (n >= 3) "published" else "pending", n.toDouble(), 3.0)
+    }
+
+    /** Demo: one pending stall ~280 m north of the cell centre, already confirmed once. */
+    override suspend fun pendingNearby(cell: String): List<PlaceSummary> {
+        latency()
+        val (lat, lng) = my.gimano.app.core.vetting.Geohash.decodeCenter(cell)
+        val id = "demo-pending-$cell"
+        val p = community.getOrPut(id) {
+            Place(
+                id = id, name = "Gerai Nasi Kerabu Mek Na", category = "restaurant", address = "", lat = lat + 0.0025, lng = lng,
+                openingHours = "Mo-Sa 07:00-14:00", source = "community", status = "pending", addedBy = Author("Rusa 2368"),
+                verifiedCount = 1, confirmationsWeighted = 1.0, required = 3.0,
+            )
+        }
+        return listOf(p.summary()).filter { (verifications[id] ?: 1) < 3 }
     }
 
     override suspend fun contributedPlaces(): List<PlaceSummary> = community.values.map { it.summary() }
