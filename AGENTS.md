@@ -80,6 +80,31 @@ Smoke test from the Mac: `curl http://100.101.150.9:5080/readyz`.
 Phones reach the backend over Tailscale at `http://100.101.150.9:5080` (plain HTTP in dev:
 Android needs `usesCleartextTraffic`/network-security-config, iOS an ATS exception for that host).
 
+## Privacy rule: user private data never goes on our servers (non-negotiable)
+
+This is a product promise, used in marketing (`docs/privacy-promise.md`). Any change that breaks it
+must be rejected in review.
+
+- **Never store user private data on Gimano servers.** That means Home/Work, favourites and their
+  labels, recents, search history, "Just for me" places and their photos, planned drives, settings,
+  contacts, and trip history. It lives only in the app's on-device SQLite DB (Room / GRDB, shared
+  schema in `docs/privacy-and-backup.md`).
+- Backups go **only to the user's own storage**: Google Drive `appDataFolder`, iCloud private
+  database, or an exported file. They are optionally end-to-end encrypted with a user passphrase. Gimano
+  never sees backup contents and never proxies them through our servers.
+- The server may only hold what the user **deliberately shares with everyone**: reports, public
+  places, reviews and photos, and feedback. It may also hold **anonymous, short-lived** location pings while
+  navigating: transient queue, in memory, aggregated into road speeds, raw points never persisted
+  (see `docs/traffic.md`).
+- No new endpoint, table, log line, analytics event or third-party SDK may carry private data or
+  precise per-user location history. Request bodies are not logged. Coordinates in logs are rounded
+  to 2 dp at most.
+- No advertising or tracking SDKs. Crash reporting must be opt-in and scrubbed of locations.
+- Anything that would need private data server-side (e.g. cross-device sync) must be built
+  end-to-end encrypted on the client, or not at all.
+- `DELETE /me` must remove every server record tied to the user (public contributions are
+  anonymised, not deleted).
+
 ## Rules
 
 - No secrets in the repo: `deploy/.env` and `.env*` are git-ignored; JWT key is set per host.
