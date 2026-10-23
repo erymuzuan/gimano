@@ -139,6 +139,8 @@ data class UiState(
     /** Show the "Navigasi perlukan lokasi tepat" explainer; [PreciseAsk.beforeNav] = start the drive afterwards. */
     val askPrecise: PreciseAsk? = null,
     val correctedQuery: String? = null,
+    /** The last search failed (network), as opposed to "nothing matched". */
+    val searchFailed: Boolean = false,
     val suggestions: List<SearchSuggestion> = emptyList(),
     /** "cari 'x' sahaja": the user turned the spelling correction off for this query. */
     val exactSearch: Boolean = false,
@@ -490,11 +492,13 @@ class MainViewModel(private val c: AppContainer) : ViewModel() {
         val me = here()
         // Local favourites and private places are matched on the device and shown first.
         val localHits = runCatching { local.search(q, me) }.getOrDefault(emptyList())
-        // Ranking origin = the map centre when the user is looking somewhere else (> 2 km away).
-        val near = boundsFlow.value?.center?.takeIf { GeoMath.distanceM(it, me) > 2_000 }?.let { my.gimano.app.data.repo.GeoPointLite(it.lat, it.lng) }
-        val full = runCatching { repo.searchFull(q, me.lat, me.lng, 20, exact = _ui.value.exactSearch, near = near) }.getOrDefault(SearchResponse())
+        // Ranking origin = the user. (Sending the map centre as `near` ranked results around wherever an earlier
+        // search or the picker had left the map, which the search screen doesn't even show.)
+        val near: my.gimano.app.data.repo.GeoPointLite? = null
+        val got = runCatching { repo.searchFull(q, me.lat, me.lng, 20, exact = _ui.value.exactSearch, near = near) }
+        val full = got.getOrDefault(SearchResponse())
         if (_ui.value.query == q) _ui.update {
-            it.copy(results = full.results.withDistanceFrom(me), localHits = localHits, searching = false, searchedOnce = true,
+            it.copy(results = full.results.withDistanceFrom(me), localHits = localHits, searching = false, searchedOnce = true, searchFailed = got.isFailure,
                 correctedQuery = full.correctedQuery?.takeIf { c -> !c.equals(q.trim(), ignoreCase = true) }, suggestions = full.suggestions)
         }
     }
@@ -732,7 +736,9 @@ class MainViewModel(private val c: AppContainer) : ViewModel() {
         goHome()
     }
 
-    fun canAddPlaceFromSearch(): Boolean = _ui.value.searchedOnce && !_ui.value.searching && _ui.value.results.isEmpty() && _ui.value.localHits.isEmpty()
+    fun canAddPlaceFromSearch(): Boolean = _ui.value.searchedOnce && !_ui.value.searching && !_ui.value.searchFailed && _ui.value.results.isEmpty() && _ui.value.localHits.isEmpty()
+
+    fun retrySearch() { val q = _ui.value.query; viewModelScope.launch { runSearch(q) } }
 
     fun startAddPlace(at: GeoPoint, name: String) {
         _ui.update { it.copy(screen = Screen.AddPlace, addPlaceSeed = at to name, place = null, following = false, camera = CameraCommand.MoveTo(at, 18.0)) }

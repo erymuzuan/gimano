@@ -130,6 +130,12 @@ fun SearchScreen(ui: UiState, purpose: SearchPurpose, vm: MainViewModel, onMic: 
                     }
                 }
             } else {
+                if (ui.searchFailed && ui.results.isEmpty()) item {
+                    Row(Modifier.padding(16.dp).fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(c.surfaceAlt).padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Text(stringResource(R.string.search_failed), Modifier.weight(1f), fontWeight = FontWeight.Bold, color = c.text)
+                        TextButton(onClick = vm::retrySearch) { Text(stringResource(R.string.retry), fontWeight = FontWeight.Black) }
+                    }
+                }
                 if (ui.results.isNotEmpty()) item { SortChips(ui, vm) }
                 ui.correctedQuery?.let { cq ->
                     item {
