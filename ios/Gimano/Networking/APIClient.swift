@@ -18,10 +18,10 @@ enum APIError: Error, LocalizedError, Sendable {
     var errorDescription: String? {
         switch self {
         case .transport(let e): e.localizedDescription
-        case .http(let status, let p): p?.detail ?? p?.title ?? "HTTP \(status)"
+        case .http(let status, let p): p?.detail ?? p?.title ?? String(localized: "Something went wrong on the server (\(status)).")
         case .conflict: String(localized: "This place may already exist.")
-        case .decoding(let s): "Unexpected response: \(s)"
-        case .notAvailable: "Not available"
+        case .decoding: String(localized: "The server sent something unexpected. Try again later.")
+        case .notAvailable: String(localized: "Not available")
         }
     }
 
@@ -166,6 +166,7 @@ actor APIClient {
         req.httpMethod = "POST"
         req.setValue("multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: "Content-Type")
         req.setValue("application/json", forHTTPHeaderField: "Accept")
+        req.setValue(AppLanguage.acceptLanguage, forHTTPHeaderField: "Accept-Language")
         if let token { req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization") }
         sign(&req, method: "POST", path: path, body: body)
         req.timeoutInterval = 120
@@ -204,7 +205,7 @@ actor APIClient {
         }
         if let authorization { req.setValue(authorization, forHTTPHeaderField: "Authorization") }
         else if let token { req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization") }
-        req.setValue(Locale.preferredLanguages.first ?? "en", forHTTPHeaderField: "Accept-Language")
+        req.setValue(AppLanguage.acceptLanguage, forHTTPHeaderField: "Accept-Language")
         sign(&req, method: method, path: path, body: body)
 
         let data: Data

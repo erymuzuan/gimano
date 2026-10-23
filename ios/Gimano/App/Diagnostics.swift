@@ -305,3 +305,40 @@ final class CrashReporter: NSObject, MXMetricManagerSubscriber {
         }
     }
 }
+
+// MARK: - App language (English default, Malay when the device/app language is Malay)
+
+enum AppLanguage: String, CaseIterable, Sendable {
+    case system, en, ms
+
+    /// The language the app is running in right now ("en" | "ms").
+    static var current: String { (Bundle.main.preferredLocalizations.first ?? "en").hasPrefix("ms") ? "ms" : "en" }
+
+    /// Sent on every API call so server text (problem details, inbox, category names) matches the app.
+    static var acceptLanguage: String { current == "ms" ? "ms-MY, ms;q=0.9, en;q=0.5" : "en-MY, en;q=0.9" }
+
+    /// The in-app choice: an override of the app's AppleLanguages (applies the next time Gimano opens),
+    /// or nothing (follow the phone / iOS per-app language in Settings → Gimano → Language).
+    static var choice: AppLanguage {
+        get {
+            guard let list = UserDefaults.standard.persistentDomain(forName: Bundle.main.bundleIdentifier ?? "")?["AppleLanguages"] as? [String],
+                  let first = list.first else { return .system }
+            return first.hasPrefix("ms") ? .ms : .en
+        }
+        set {
+            switch newValue {
+            case .system: UserDefaults.standard.removeObject(forKey: "AppleLanguages")
+            case .en: UserDefaults.standard.set(["en"], forKey: "AppleLanguages")
+            case .ms: UserDefaults.standard.set(["ms"], forKey: "AppleLanguages")
+            }
+        }
+    }
+
+    var title: LocalizedStringResource {
+        switch self {
+        case .system: "Follow phone"
+        case .en: "English"
+        case .ms: "Bahasa Melayu"
+        }
+    }
+}

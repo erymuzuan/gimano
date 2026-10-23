@@ -227,10 +227,15 @@ struct SettingsView: View {
                     ForEach(SoundMode.allCases, id: \.self) { Text($0.title).tag($0) }
                 }
             }
-            Section("Language") {
-                Button("Change app language (English / Bahasa Melayu)") {
+            Section {
+                LanguagePicker()
+                Button("Language settings for Gimano") {
                     if let url = URL(string: UIApplication.openSettingsURLString) { openURL(url) }
                 }
+            } header: {
+                Text("Language")
+            } footer: {
+                Text("English is the default; Gimano uses Malay when your phone or this setting says so. A change applies the next time you open Gimano.")
             }
             Section("Units") {
                 LabeledContent("Distance", value: "km")
@@ -595,5 +600,29 @@ struct LicencesView: View {
             LabeledContent(name, value: licence)
         }
         .navigationTitle("Licences")
+    }
+}
+
+/// "Language: Follow phone / English / Bahasa Melayu".
+struct LanguagePicker: View {
+    @State private var choice = AppLanguage.choice
+    @State private var changed = false
+
+    var body: some View {
+        Picker(selection: $choice) {
+            ForEach(AppLanguage.allCases, id: \.self) { Text($0.title).tag($0) }
+        } label: {
+            Text("Language")
+        }
+        .accessibilityIdentifier("languagePicker")
+        .onChange(of: choice) { _, v in
+            AppLanguage.choice = v
+            changed = true
+        }
+        if changed {
+            Label("Close and reopen Gimano to switch language.", systemImage: "arrow.clockwise")
+                .font(Tokens.Font.caption).foregroundStyle(Color.brand)
+                .accessibilityIdentifier("languageRestartNote")
+        }
     }
 }

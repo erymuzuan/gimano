@@ -17,6 +17,8 @@ protocol GimanoRepository: Sendable {
     func deleteLegacyData() async throws
 
     func search(query: String, near: LatLng, category: PlaceCategory?, limit: Int) async throws -> [PlaceSummary]
+    /// Full search answer (spelling fix, suggestions). `exact` searches the text as typed.
+    func searchOutcome(query: String, near: LatLng, category: PlaceCategory?, limit: Int, exact: Bool, sort: ResultSort) async throws -> SearchOutcome
     func nearby(near: LatLng, category: PlaceCategory, radiusM: Int) async throws -> [PlaceSummary]
     func place(id: String, near: LatLng?) async throws -> Place
     func reverseGeocode(_ p: LatLng) async throws -> ReverseGeocode
@@ -233,12 +235,25 @@ final class LiveRepository: GimanoRepository {
         return try await authed { try await self.client.get("places/\(escaped)", query: q) }
     }
 
+    /// `GET /geocode/reverse` → address, plus `nearby` places within 50 m on newer servers.
     func reverseGeocode(_ p: LatLng) async throws -> ReverseGeocode {
-        try await authed {
-            try await self.client.get("geocode/reverse", query: [
-                URLQueryItem(name: "lat", value: String(p.lat)), URLQueryItem(name: "lng", value: String(p.lng)),
-            ])
-        }
+        let q = [URLQueryItem(name: "lat", value: String(p.lat)), URLQueryItem(name: "lng", value: String(p.lng))]
+        return try await authed { try await self.client.get("geocode/reverse", query: q) }
+    }
+
+    func searchOutcome(query: String, near: LatLng, category: PlaceCategory?, limit: Int, exact: Bool, sort: ResultSort) async throws -> SearchOutcome {
+        var q = [
+            URLQueryItem(name: "q", value: query),
+            URLQueryItem(name: "lat", value: String(near.lat)),
+            URLQueryItem(name: "lng", value: String(near.lng)),
+            URLQueryItem(name: "limit", value: String(limit)),
+        ]
+        if let category { q.append(URLQueryItem(name: "category", value: category.rawValue)) }
+        if exact { q.append(URLQueryItem(name: "exact", value: "true")) }
+        q.append(URLQueryItem(name: "sort", value: sort == .nearest ? "nearest" : "relevance"))
+        let query = q
+        let res: SearchResponse = try await authed { try await self.client.get("search", query: query) }
+        return SearchOutcome(results: res.results, correctedQuery: res.correctedQuery, suggestions: res.suggestions ?? [])
     }
 
     // MARK: routing
@@ -479,6 +494,10 @@ final class FallbackRepository: GimanoRepository {
     func search(query: String, near: LatLng, category: PlaceCategory?, limit: Int) async throws -> [PlaceSummary] {
         try await run({ try await $0.search(query: query, near: near, category: category, limit: limit) },
                       demoOp: { try await $0.search(query: query, near: near, category: category, limit: limit) })
+    }
+    func searchOutcome(query: String, near: LatLng, category: PlaceCategory?, limit: Int, exact: Bool, sort: ResultSort) async throws -> SearchOutcome {
+        try await run({ try await $0.searchOutcome(query: query, near: near, category: category, limit: limit, exact: exact, sort: sort) },
+                      demoOp: { try await $0.searchOutcome(query: query, near: near, category: category, limit: limit, exact: exact, sort: sort) })
     }
     func nearby(near: LatLng, category: PlaceCategory, radiusM: Int) async throws -> [PlaceSummary] {
         try await run({ try await $0.nearby(near: near, category: category, radiusM: radiusM) },

@@ -290,13 +290,18 @@ struct PlaceSummary: Codable, Sendable, Identifiable, Hashable {
     var rating: Double?
     var reviewCount: Int?
     var thumbnailUrl: String?
+    /// Same chain (e.g. all FamilyMart branches) for grouping results; falls back to `brand`.
+    var chainGroup: String?
+    var openNow: Bool?
+    var confirmationsWeighted: Double?
+    var required: Double?
 
     init(id: String, name: String, category: PlaceCategory, address: String, lat: Double, lng: Double, distanceM: Double? = nil,
          brand: String? = nil, source: PlaceSource? = nil, status: PlaceStatus? = nil, rating: Double? = nil,
-         reviewCount: Int? = nil, thumbnailUrl: String? = nil) {
+         reviewCount: Int? = nil, thumbnailUrl: String? = nil, chainGroup: String? = nil, openNow: Bool? = nil) {
         self.id = id; self.name = name; self.category = category; self.address = address; self.lat = lat; self.lng = lng
         self.distanceM = distanceM; self.brand = brand; self.source = source; self.status = status; self.rating = rating
-        self.reviewCount = reviewCount; self.thumbnailUrl = thumbnailUrl
+        self.reviewCount = reviewCount; self.thumbnailUrl = thumbnailUrl; self.chainGroup = chainGroup; self.openNow = openNow
     }
 
     var location: LatLng { LatLng(lat: lat, lng: lng) }
@@ -306,6 +311,31 @@ struct PlaceSummary: Codable, Sendable, Identifiable, Hashable {
 
 struct SearchResponse: Codable, Sendable {
     var results: [PlaceSummary]
+    /// Set when the server corrected the spelling ("famly mart" → "FamilyMart").
+    var correctedQuery: String?
+    /// "Did you mean" for few/no results: a category nearby, a similar name, etc.
+    var suggestions: [SearchSuggestion]?
+}
+
+struct SearchSuggestion: Codable, Sendable, Hashable, Identifiable {
+    var label: String
+    var query: String?
+    var category: PlaceCategory?
+    var count: Int?
+    var placeId: String?
+    var lat: Double?
+    var lng: Double?
+    var distanceM: Double?
+    var id: String { "\(label)|\(query ?? "")|\(category?.rawValue ?? "")|\(placeId ?? "")" }
+
+    enum CodingKeys: String, CodingKey { case label, query, category, count, placeId, lat, lng, distanceM }
+}
+
+/// What a search returned, with the server's spelling fix and suggestions when present.
+struct SearchOutcome: Sendable {
+    var results: [PlaceSummary]
+    var correctedQuery: String?
+    var suggestions: [SearchSuggestion]
 }
 
 struct Place: Codable, Sendable, Identifiable, Hashable {
@@ -487,10 +517,12 @@ struct RatingSummary: Equatable, Sendable {
 }
 
 struct ReverseGeocode: Codable, Sendable {
-    var name: String
-    var address: String
+    var name: String?
+    var address: String?
     var lat: Double
     var lng: Double
+    /// Known places within 50 m ("Is this …?"), nearest first.
+    var nearby: [PlaceSummary]?
 }
 
 /// What the user picked as a destination, regardless of origin (search, saved, recent, map).
@@ -500,6 +532,8 @@ struct Destination: Hashable, Sendable {
     var location: LatLng
     var placeId: String?
     var category: PlaceCategory = .other
+    /// Chosen on the map (no name yet): after arriving we offer "Name this place?".
+    var isPin = false
 }
 
 // MARK: - Routing

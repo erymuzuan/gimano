@@ -73,6 +73,20 @@ actor DemoRepository: GimanoRepository {
     func legacyExport() async throws -> LegacyDataMigration.Export { LegacyDataMigration.Export(savedPlaces: [], recents: []) }
     func deleteLegacyData() async throws {}
 
+    /// Demo: corrects a couple of common misspellings and suggests a category when nothing matches.
+    func searchOutcome(query: String, near: LatLng, category: PlaceCategory?, limit: Int, exact: Bool, sort: ResultSort) async throws -> SearchOutcome {
+        let fixes = ["famly mart": "FamilyMart", "familymart": "FamilyMart", "mcd": "McDonald's", "petronass": "Petronas"]
+        let key = query.lowercased().trimmingCharacters(in: .whitespaces)
+        let corrected = exact ? nil : fixes[key]
+        let results = try await search(query: corrected ?? query, near: near, category: category, limit: limit)
+        var suggestions: [SearchSuggestion] = []
+        if results.isEmpty, let cat = SearchLogic.categoryHint(in: query) {
+            let n = try await nearby(near: near, category: cat, radiusM: 5000).count
+            if n > 0 { suggestions.append(SearchSuggestion(label: "", category: cat, count: n)) }
+        }
+        return SearchOutcome(results: results, correctedQuery: corrected, suggestions: suggestions)
+    }
+
     func search(query: String, near: LatLng, category: PlaceCategory?, limit: Int) async throws -> [PlaceSummary] {
         await pause()
         let q = query.lowercased().trimmingCharacters(in: .whitespaces)
@@ -398,7 +412,9 @@ actor DemoRepository: GimanoRepository {
 
     func reverseGeocode(_ p: LatLng) async throws -> ReverseGeocode {
         let nearest = DemoData.places.min { Geo.distance(p, $0.location) < Geo.distance(p, $1.location) }
-        return ReverseGeocode(name: "Dropped pin", address: "Near \(nearest?.name ?? "Kuala Lumpur")", lat: p.lat, lng: p.lng)
+        let close = nearest.flatMap { Geo.distance(p, $0.location) <= 50 ? $0 : nil }
+        return ReverseGeocode(name: nil, address: "Near \(nearest?.name ?? "Kuala Lumpur")", lat: p.lat, lng: p.lng,
+                              nearby: close.map { [$0] })
     }
 
     // MARK: routing

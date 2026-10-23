@@ -131,7 +131,13 @@ struct DriveView: View {
                 .animation(.snappy, value: nav.approachingAlert?.id)
 
                 if nav.arrived {
-                    ArrivedCard(destination: nav.destination) { model.stopNavigation() }
+                    ArrivedCard(destination: nav.destination, onDone: { model.stopNavigation() },
+                                onName: nav.destination.isPin ? {
+                                    let d = nav.destination
+                                    model.stopNavigation()
+                                    model.savingPlace = PlaceSummary(id: "pin:\(d.location.lat),\(d.location.lng)", name: "",
+                                                                     category: .other, address: d.address, lat: d.location.lat, lng: d.location.lng)
+                                } : nil)
                         .transition(.move(edge: .bottom))
                 }
             }
@@ -391,12 +397,19 @@ struct AlertDetailSheet: View {
 struct ArrivedCard: View {
     let destination: Destination
     let onDone: () -> Void
+    /// Arrived at a point chosen on the map: offer once to name (save) it on this phone.
+    var onName: (() -> Void)? = nil
 
     var body: some View {
         VStack(spacing: 14) {
             Image(systemName: "flag.checkered.circle.fill").font(.system(size: 54)).foregroundStyle(Color.brand)
             Text("You've arrived").font(Tokens.Font.title)
             Text(destination.name).font(Tokens.Font.body).foregroundStyle(Color.textMuted)
+            if let onName {
+                Button(action: onName) { Label("Name this place?", systemImage: "star") }
+                    .buttonStyle(SecondaryButtonStyle())
+                    .accessibilityIdentifier("namePinPlace")
+            }
             Button("Done", action: onDone).buttonStyle(PrimaryButtonStyle())
         }
         .padding(24)

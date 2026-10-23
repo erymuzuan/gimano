@@ -8,6 +8,27 @@ enum AddPlaceCategories {
         (.restaurant, "Food"), (.cafe, "Cafe"), (.fuel, "Fuel"), (.surau, "Surau"), (.mosque, "Mosque"), (.parking, "Parking"),
         (.evCharging, "EV"), (.convenience, "Shop"), (.carRepair, "Workshop"), (.clinic, "Clinic"), (.school, "School"), (.other, "Other"),
     ]
+
+    /// Plain-word category name for sentences ("Convenience store nearby · 6").
+    static func title(_ c: PlaceCategory) -> String.LocalizationValue {
+        switch c {
+        case .convenience: "Convenience store"
+        case .fuel: "Petrol station"
+        case .restaurant, .fastFood: "Food"
+        case .cafe: "Cafe"
+        case .surau: "Surau"
+        case .mosque: "Mosque"
+        case .clinic: "Clinic"
+        case .hospital: "Hospital"
+        case .parking: "Parking"
+        case .carRepair: "Workshop"
+        case .school: "School"
+        case .tollBooth: "Toll plaza"
+        case .restArea: "R&R"
+        case .evCharging: "EV charging"
+        default: "Place"
+        }
+    }
 }
 
 extension PlaceCategory {
@@ -269,7 +290,7 @@ struct AddPlaceFlow: View {
             center = LatLng(lat: (b.minLat + b.maxLat) / 2, lng: (b.minLng + b.maxLng) / 2)
             try? await Task.sleep(for: .milliseconds(400))
             guard !Task.isCancelled else { return }
-            if let rg = try? await model.repo.reverseGeocode(center) { address = rg.address }
+            if let rg = try? await model.repo.reverseGeocode(center) { address = rg.address ?? rg.name ?? "" }
         }
     }
 

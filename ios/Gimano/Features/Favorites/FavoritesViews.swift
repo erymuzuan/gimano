@@ -154,6 +154,17 @@ struct FavoritesManagerView: View {
                     .onDelete { idx in for i in idx { model.deleteFavorite(model.favorites[i]) } }
                     .onMove { model.moveFavorites(from: $0, to: $1) }
                 }
+                Section {
+                    Button {
+                        dismiss()
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.45) { model.startPinPick(.favorite) }
+                    } label: {
+                        Label("Choose on map", systemImage: "map")
+                    }
+                    .accessibilityIdentifier("favoriteChooseOnMap")
+                } footer: {
+                    Text("Put the pin exactly at the gate. Saved on this phone only.")
+                }
             }
             .navigationTitle("Favourites")
             .navigationBarTitleDisplayMode(.inline)

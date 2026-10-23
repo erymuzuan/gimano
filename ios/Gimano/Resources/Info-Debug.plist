@@ -5,7 +5,7 @@
 	<key>NSLocationTemporaryUsageDescriptionDictionary</key>
 	<dict>
 		<key>Navigation</key>
-		<string>Gimano needs your precise location for turn-by-turn directions on this drive. / Gimano perlukan lokasi tepat anda untuk arahan belokan semasa perjalanan ini.</string>
+		<string>Gimano needs your precise location for turn-by-turn directions on this drive.</string>
 	</dict>
 	<key>BGTaskSchedulerPermittedIdentifiers</key>
 	<array>

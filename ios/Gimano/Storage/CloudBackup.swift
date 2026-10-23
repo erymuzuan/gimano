@@ -33,7 +33,7 @@ enum CloudBackupError: LocalizedError {
         switch self {
         case .notConfigured(let s): s
         case .notSignedIn: String(localized: "Sign in to Google first.")
-        case .http(let code, let body): "HTTP \(code): \(body.prefix(200))"
+        case .http(let code, _): String(localized: "Google Drive error (\(code)). Try again later.")
         }
     }
 }

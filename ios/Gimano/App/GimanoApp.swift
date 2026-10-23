@@ -179,14 +179,17 @@ struct RootView: View {
         .fullScreenCover(item: Binding(get: { model.addPlaceStart.map(IdentifiedPoint.init) }, set: { model.addPlaceStart = $0?.point })) { p in
             AddPlaceFlow(start: p.point)
         }
-        .confirmationDialog("This spot", isPresented: Binding(get: { model.longPressPoint != nil }, set: { if !$0 { model.longPressPoint = nil } }),
-                            titleVisibility: .hidden) {
-            Button("Navigate here") {
-                if let p = model.longPressPoint { Task { await model.pickDroppedPin(p) } }
+        // Long-press on the home map → the pin's actions directly.
+        .onChange(of: model.longPressPoint) { _, p in
+            if let p { model.pinActions = PickedPoint(location: p); model.longPressPoint = nil }
+        }
+        .fullScreenCover(item: $model.pinPick) { req in
+            SelectOnMapView(request: req) { picked in
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) { model.handlePicked(picked, purpose: req.purpose) }
             }
-            Button("Add a place here") {
-                model.addPlaceStart = model.longPressPoint
-            }
+        }
+        .sheet(item: $model.pinActions) { p in
+            PinActionsSheet(point: p).presentationDetents([.height(380), .medium])
         }
         .fullScreenCover(isPresented: $model.showOnboarding) {
             OnboardingView()

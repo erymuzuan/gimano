@@ -4,13 +4,26 @@ import Testing
 
 @Suite("Crash reports and feedback privacy")
 struct DiagnosticsTests {
+    /// Token-shaped fixtures built at runtime (no secret-looking literals in source).
+    private static func b64url(_ d: Data) -> String {
+        d.base64EncodedString().replacingOccurrences(of: "+", with: "-").replacingOccurrences(of: "/", with: "_").replacingOccurrences(of: "=", with: "")
+    }
+    private static let jwt: String = {
+        let header = b64url(Data(#"{"alg":"none"}"#.utf8))
+        let payload = b64url(Data(#"{"sub":"test"}"#.utf8))
+        return [header, payload, b64url(Data((0..<16).map { _ in UInt8.random(in: 0...255) }))].joined(separator: ".")
+    }()
+    private static let writeToken = b64url(Data((0..<32).map { _ in UInt8.random(in: 0...255) }))
+    private static let sig = b64url(Data((0..<6).map { _ in UInt8.random(in: 0...255) }))
+
     @Test("Scrubber removes coordinates, emails, phones, tokens, URLs with queries and data paths")
     func scrubber() {
+        let jwt = Self.jwt, writeToken = Self.writeToken, sig = Self.sig
         let input = """
         Crash near 3.152613, 101.703718 {"lat": 3.1180, "lng":101.6190} latitude=2.95
         user ali.baba@example.com called +60 12-345 6789 and 012-345 6789 or 03-2141 1234
-        Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjMifQ.c2lnbmF0dXJl
-        {"writeToken":"k2PIOYhTRK6AJL7veH90PXKgyOO5yHJ27si4b3dI_kc","sig":"CPm5nQ7W"} token=abc123
+        Authorization: Bearer \(jwt)
+        {"writeToken":"\(writeToken)","sig":"\(sig)"} token=abc123
         GET https://gimano-api.bukitbunga.com/api/v1/search?q=rumah+mak&lat=3.1 failed
         open /var/mobile/Containers/Data/Application/0B1C2D3E-AAAA/Library/gimano.sqlite failed
         file:///private/var/mobile/Containers/Shared/AppGroup/x/y.json
@@ -18,7 +31,7 @@ struct DiagnosticsTests {
         """
         let out = Scrubber.scrub(input)
         for leaked in ["3.152613", "101.703718", "3.1180", "101.6190", "2.95", "ali.baba@example.com", "12-345 6789", "012-345 6789",
-                       "03-2141 1234", "eyJhbGciOiJIUzI1NiJ9", "k2PIOYhTRK6AJL7veH90PXKgyOO5yHJ27si4b3dI_kc", "CPm5nQ7W", "abc123",
+                       "03-2141 1234", jwt, String(jwt.prefix(20)), writeToken, sig, "abc123",
                        "rumah+mak", "/var/mobile/Containers/Data", "0B1C2D3E", "AppGroup"] {
             #expect(!out.contains(leaked), "leaked: \(leaked)\n\(out)")
         }

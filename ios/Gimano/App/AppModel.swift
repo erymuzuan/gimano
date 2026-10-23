@@ -99,6 +99,9 @@ final class AppModel {
     var addPlaceStart: LatLng?
     /// Long-press menu: "Navigate here" / "Add a place here".
     var longPressPoint: LatLng?
+    /// "Choose on map" in progress, and the actions for a chosen point.
+    var pinPick: PinPickRequest?
+    var pinActions: PickedPoint?
 
     var screen: Screen = .home
     var planner: RoutePlanner?
@@ -632,6 +635,22 @@ final class AppModel {
 
     func openPlace(_ p: PlaceSummary) {
         go(.place(p))
+    }
+
+    func startPinPick(_ purpose: PinPurpose, start: LatLng? = nil) {
+        pinPick = PinPickRequest(purpose: purpose, start: start ?? position)
+    }
+
+    /// What a chosen point becomes, by where "Choose on map" was opened.
+    func handlePicked(_ p: PickedPoint, purpose: PinPurpose) {
+        switch purpose {
+        case .destination:
+            if let id = p.placeId, !id.hasPrefix("pin:") { openPlace(p.summary) } else { pinActions = p }
+        case .addStop: addStop(p.summary)
+        case .favorite: savingPlace = p.favoriteSummary
+        case .setHome: setSaved(kind: .home, place: p.summary); go(.home)
+        case .setWork: setSaved(kind: .work, place: p.summary); go(.home)
+        }
     }
 
     func pickDroppedPin(_ p: LatLng) async {
