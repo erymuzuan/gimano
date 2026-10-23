@@ -10,23 +10,23 @@ import java.time.ZoneId
 import java.time.ZonedDateTime
 
 /**
- * When a planned drive should ARRIVE. Stored as JSON in planned_drives.depart_at (shared schema):
- * `{"arriveBy":"08:30","days":["mo","tu","we","th","fr"],"date":null}` (repeating) or
- * `{"arriveBy":"08:30","days":[],"date":"2026-10-24"}` (one-off).
+ * When a planned drive should ARRIVE. Same convention as iOS (ios/Gimano/Storage/PlannedDrives.swift),
+ * stored in the shared settings table under `planned_drive:<id>`:
+ *  repeating `{"arriveBy":"08:30","days":["Mo","Tu","We","Th","Fr"]}` · one-off `{"arriveAt":"2026-10-24T00:30:00Z"}`
  */
 @Serializable
-data class PlannedSchedule(val arriveBy: String, val days: List<String> = emptyList(), val date: String? = null) {
-    val repeating get() = days.isNotEmpty()
+data class PlannedSchedule(val arriveBy: String? = null, val days: List<String>? = null, val arriveAt: String? = null) {
+    val repeating get() = !days.isNullOrEmpty() && arriveBy != null
+
+    /** Local arrival time shown in the editor ("08:30"). */
+    fun timeOfDay(zone: ZoneId): String = arriveBy ?: arriveAt?.let { runCatching { Instant.parse(it).atZone(zone).toLocalTime().toString().take(5) }.getOrNull() } ?: "08:00"
 
     /** The next arrival target strictly after [now] (null for a one-off in the past). */
     fun nextArrival(now: Instant, zone: ZoneId): ZonedDateTime? {
+        if (!repeating) return arriveAt?.let { runCatching { Instant.parse(it) }.getOrNull() }?.takeIf { it.isAfter(now) }?.atZone(zone)
         val t = LocalTime.parse(arriveBy)
         val today = now.atZone(zone).toLocalDate()
-        if (!repeating) {
-            val d = date?.let(LocalDate::parse) ?: today
-            return d.atTime(t).atZone(zone).takeIf { it.toInstant().isAfter(now) }
-        }
-        val wanted = days.mapNotNull(::dayOf).toSet()
+        val wanted = days.orEmpty().mapNotNull(::dayOf).toSet()
         for (i in 0..7) {
             val d = today.plusDays(i.toLong())
             val at = d.atTime(t).atZone(zone)
@@ -36,9 +36,12 @@ data class PlannedSchedule(val arriveBy: String, val days: List<String> = emptyL
     }
 
     companion object {
-        val WEEK = listOf("mo", "tu", "we", "th", "fr", "sa", "su")
+        /** OSM-style day codes, as iOS stores them. */
+        val WEEK = listOf("Mo", "Tu", "We", "Th", "Fr", "Sa", "Su")
         val WEEKDAYS = WEEK.take(5)
-        fun dayOf(code: String): DayOfWeek? = WEEK.indexOf(code).takeIf { it >= 0 }?.let { DayOfWeek.of(it + 1) }
+        fun dayOf(code: String): DayOfWeek? = WEEK.indexOfFirst { it.equals(code, ignoreCase = true) }.takeIf { it >= 0 }?.let { DayOfWeek.of(it + 1) }
+        fun repeating(arriveBy: String, days: List<String>) = PlannedSchedule(arriveBy = arriveBy, days = days)
+        fun oneOff(date: LocalDate, time: String, zone: ZoneId) = PlannedSchedule(arriveAt = date.atTime(LocalTime.parse(time)).atZone(zone).toInstant().toString())
     }
 }
 
@@ -59,6 +62,6 @@ object LeaveBy {
         return arriveBy.minusSeconds(d.toLong())
     }
 
-    /** The reminder fires 10 minutes before "leave by". */
-    fun reminderAt(leaveBy: Instant): Instant = leaveBy.minusSeconds(10 * 60)
+    /** The reminder fires 15 minutes before "leave by" (same as iOS). */
+    fun reminderAt(leaveBy: Instant): Instant = leaveBy.minusSeconds(15 * 60)
 }

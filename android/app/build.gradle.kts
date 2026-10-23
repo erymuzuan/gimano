@@ -139,6 +139,8 @@ dependencies {
     ksp(libs.room.compiler)
     implementation(libs.work.runtime.ktx)
     implementation(libs.play.services.auth)
+    implementation(libs.coil.compose)
+    implementation(libs.coil.network.okhttp)
     implementation(libs.lazysodium.android) { exclude(group = "net.java.dev.jna") }
     implementation("net.java.dev.jna:jna:${libs.versions.jna.get()}@aar")
 

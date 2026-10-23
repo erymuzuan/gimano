@@ -57,7 +57,12 @@ sealed interface Screen {
     data object Planned : Screen
 }
 
-data class PlaceSel(val summary: PlaceSummary, val detail: Place? = null, val loading: Boolean = false, val savedId: String? = null)
+data class PlaceSel(
+    val summary: PlaceSummary, val detail: Place? = null, val loading: Boolean = false, val savedId: String? = null,
+    /** "Just for me" place from the local DB (never on the server). */
+    val privatePlace: my.gimano.app.data.local.PrivatePlaceEntity? = null,
+    val privatePhotos: List<java.io.File> = emptyList(),
+)
 
 data class RoutePlan(
     val destination: NavDestination,
@@ -116,6 +121,8 @@ data class UiState(
     val passengerPrompt: Boolean = false,
     /** Where the add-a-place flow starts (map centre / long-press point) and the typed name. */
     val addPlaceSeed: Pair<GeoPoint, String>? = null,
+    /** Private places drawn from the local DB only. */
+    val privatePins: List<Pair<String, GeoPoint>> = emptyList(),
 )
 
 sealed interface UiEvent {
@@ -163,6 +170,7 @@ class MainViewModel(private val c: AppContainer) : ViewModel() {
     init {
         viewModelScope.launch { local.savedPlaces.collect { p -> _ui.update { it.copy(saved = p) } } }
         viewModelScope.launch { local.recents.collect { r -> _ui.update { it.copy(recents = r) } } }
+        viewModelScope.launch { local.privatePlaces.collect { l -> _ui.update { it.copy(privatePins = l.map { p -> p.id to GeoPoint(p.lat, p.lng) }) } } }
         refreshAccount()
         viewModelScope.launch { queryFlow.debounce(220).distinctUntilChanged().collect { runSearch(it) } }
         viewModelScope.launch { boundsFlow.debounce(400).collect { b -> if (b != null) loadLive(b) } }
@@ -435,7 +443,20 @@ class MainViewModel(private val c: AppContainer) : ViewModel() {
     fun canAddPlaceFromSearch(): Boolean = _ui.value.searchedOnce && !_ui.value.searching && _ui.value.results.isEmpty() && _ui.value.localHits.isEmpty()
 
     fun startAddPlace(at: GeoPoint, name: String) {
-        _ui.update { it.copy(screen = Screen.AddPlace, addPlaceSeed = at to name, place = null) }
+        _ui.update { it.copy(screen = Screen.AddPlace, addPlaceSeed = at to name, place = null, following = false, camera = CameraCommand.MoveTo(at, 18.0)) }
+    }
+
+    fun showPrivate(id: String) {
+        viewModelScope.launch {
+            val e = local.privatePlace(id) ?: return@launch
+            showPlace(PlaceSummary("private:$id", e.name, e.category, e.address ?: "", e.lat, e.lng, GeoMath.distanceM(here(), GeoPoint(e.lat, e.lng))))
+        }
+    }
+
+    fun deletePrivatePlace(id: String) = viewModelScope.launch {
+        local.privatePhotos(id).forEach { java.io.File(java.io.File(c.app.filesDir, "photos"), it.fileName).delete() }
+        local.deletePrivatePlace(id)
+        goHome()
     }
 
     fun addPlaceFromSearch() {
@@ -448,7 +469,16 @@ class MainViewModel(private val c: AppContainer) : ViewModel() {
     fun showPlace(p: PlaceSummary) {
         val savedId = _ui.value.saved.firstOrNull { (it.placeId != null && it.placeId == p.id) || (GeoMath.distanceM(GeoPoint(it.lat, it.lng), GeoPoint(p.lat, p.lng)) < 15) }?.id
         _ui.update { it.copy(screen = Screen.PlaceCard, place = PlaceSel(p, loading = true, savedId = savedId), camera = CameraCommand.MoveTo(GeoPoint(p.lat, p.lng), 15.5), following = false) }
-        if (p.id.startsWith("pin:") || p.id.startsWith("private:")) {
+        if (p.id.startsWith("private:")) {
+            viewModelScope.launch {
+                val id = p.id.removePrefix("private:")
+                val e = local.privatePlace(id)
+                val photos = local.privatePhotos(id).map { java.io.File(java.io.File(c.app.filesDir, "photos"), it.fileName) }.filter { it.exists() }
+                _ui.update { s -> if (s.place?.summary?.id == p.id) s.copy(place = s.place.copy(loading = false, privatePlace = e, privatePhotos = photos)) else s }
+            }
+            return
+        }
+        if (p.id.startsWith("pin:")) {
             _ui.update { it.copy(place = it.place?.copy(loading = false)) }
             return
         }

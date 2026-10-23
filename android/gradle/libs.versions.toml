@@ -21,6 +21,7 @@ work = "2.10.5"
 lazysodium = "5.2.0"
 jna = "5.17.0"
 playServicesAuth = "21.4.0"
+coil = "3.3.0"
 
 [libraries]
 androidx-core-ktx = { module = "androidx.core:core-ktx", version.ref = "androidxCore" }
@@ -58,6 +59,8 @@ lazysodium-android = { module = "com.goterl:lazysodium-android", version.ref = "
 # JVM build for unit tests only; 5.1.4 targets Java 8 (5.2.x needs Java 21) and bundles macOS arm64 libsodium.
 lazysodium-java = { module = "com.goterl:lazysodium-java", version = "5.1.4" }
 jna = { module = "net.java.dev.jna:jna", version.ref = "jna" }
+coil-compose = { module = "io.coil-kt.coil3:coil-compose", version.ref = "coil" }
+coil-network-okhttp = { module = "io.coil-kt.coil3:coil-network-okhttp", version.ref = "coil" }
 play-services-auth = { module = "com.google.android.gms:play-services-auth", version.ref = "playServicesAuth" }
 xerial-sqlite = { module = "org.xerial:sqlite-jdbc", version = "3.49.1.0" }
 

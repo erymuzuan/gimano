@@ -122,6 +122,7 @@ fun GimanoMap(
     onMapLongClick: (GeoPoint) -> Unit = {},
     onAlertClick: (String) -> Unit = {},
     onRouteClick: (String) -> Unit = {},
+    onPrivateClick: (String) -> Unit = {},
 ) {
     val context = LocalContext.current
     val density = LocalDensity.current
@@ -142,6 +143,7 @@ fun GimanoMap(
     val longClickCb by rememberUpdatedState(onMapLongClick)
     val alertCb by rememberUpdatedState(onAlertClick)
     val routeCb by rememberUpdatedState(onRouteClick)
+    val privateCb by rememberUpdatedState(onPrivateClick)
 
     DisposableEffect(lifecycle, mapView) {
         val obs = LifecycleEventObserver { _, e ->
@@ -190,6 +192,10 @@ fun GimanoMap(
                 val alert = map.queryRenderedFeatures(rect, Ids.L_ALERTS).firstOrNull()?.getStringProperty("id")
                 if (alert != null) {
                     alertCb(alert); return@addOnMapClickListener true
+                }
+                val pid = map.queryRenderedFeatures(rect, Ids.L_PINS).firstNotNullOfOrNull { f -> f.getStringProperty("pid") }
+                if (pid != null) {
+                    privateCb(pid); return@addOnMapClickListener true
                 }
                 val route = map.queryRenderedFeatures(rect, Ids.L_ALT, Ids.L_ACT).firstOrNull()?.getStringProperty("id")
                 if (route != null) {
@@ -372,7 +378,8 @@ private fun updateSources(style: Style, s: MapRenderState) {
     val puck = s.puck?.let { listOf(Feature.fromGeometry(pt(it)).apply { addNumberProperty("bearing", s.puckBearing) }) } ?: emptyList()
     style.getSourceAs<GeoJsonSource>(Ids.PUCK)?.setGeoJson(FeatureCollection.fromFeatures(puck))
 
-    val pins = (s.stops.map { Feature.fromGeometry(pt(it)).apply { addStringProperty("icon", "stop") } } +
+    val pins = (s.privatePins.map { (id, g) -> Feature.fromGeometry(pt(g)).apply { addStringProperty("icon", "private"); addStringProperty("pid", id) } } +
+        s.stops.map { Feature.fromGeometry(pt(it)).apply { addStringProperty("icon", "stop") } } +
         listOfNotNull(s.pin?.let { Feature.fromGeometry(pt(it)).apply { addStringProperty("icon", "pin") } }))
     style.getSourceAs<GeoJsonSource>(Ids.PINS)?.setGeoJson(FeatureCollection.fromFeatures(pins))
 }
@@ -392,6 +399,7 @@ private fun rememberMapIcons(c: GimanoColors, density: Density): Map<String, Bit
         out["puck"] = puck(navPainter, c.brand, density)
         out["pin"] = pin(pinPainter, c.report, density, 44f)
         out["stop"] = pin(pinPainter, c.brand, density, 36f)
+        out["private"] = pin(pinPainter, c.brandInk, density, 38f)
         out
     }
 }

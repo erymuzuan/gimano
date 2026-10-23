@@ -43,16 +43,17 @@ import java.time.ZoneId
 import java.time.ZoneOffset
 
 private val DAY_LABELS = mapOf(
-    "mo" to R.string.day_mo, "tu" to R.string.day_tu, "we" to R.string.day_we, "th" to R.string.day_th,
-    "fr" to R.string.day_fr, "sa" to R.string.day_sa, "su" to R.string.day_su,
+    "Mo" to R.string.day_mo, "Tu" to R.string.day_tu, "We" to R.string.day_we, "Th" to R.string.day_th,
+    "Fr" to R.string.day_fr, "Sa" to R.string.day_sa, "Su" to R.string.day_su,
 )
 
 @Composable
 fun scheduleText(s: PlannedSchedule): String {
+    val z = ZoneId.systemDefault()
     val days = if (s.repeating) {
-        if (s.days == PlannedSchedule.WEEKDAYS) stringResource(R.string.weekdays) else s.days.map { stringResource(DAY_LABELS.getValue(it)) }.joinToString(" ")
-    } else s.date ?: ""
-    return stringResource(R.string.arrive_by_on, s.arriveBy, days)
+        if (s.days == PlannedSchedule.WEEKDAYS) stringResource(R.string.weekdays) else s.days.orEmpty().map { d -> DAY_LABELS[d]?.let { stringResource(it) } ?: d }.joinToString(" ")
+    } else s.arriveAt?.let { runCatching { java.time.Instant.parse(it).atZone(z).toLocalDate().toString() }.getOrNull() } ?: ""
+    return stringResource(R.string.arrive_by_on, s.timeOfDay(z), days)
 }
 
 @Composable
@@ -114,17 +115,19 @@ fun PlanEditorSheet(e: PlanEditor, pvm: PlannedViewModel, use24h: Boolean) {
             Spacer(Modifier.height(12.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(stringResource(R.string.arrive_by), fontWeight = FontWeight.ExtraBold, color = c.text, modifier = Modifier.weight(1f))
-                OutlinedButton(onClick = { pickTime = true }, shape = RoundedCornerShape(Radius.md)) { Text(d.schedule.arriveBy, fontSize = 20.sp, fontWeight = FontWeight.Black) }
+                OutlinedButton(onClick = { pickTime = true }, shape = RoundedCornerShape(Radius.md)) { Text(d.schedule.timeOfDay(ZoneId.systemDefault()), fontSize = 20.sp, fontWeight = FontWeight.Black) }
             }
             Spacer(Modifier.height(10.dp))
             FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 PlannedSchedule.WEEK.forEach { code ->
-                    FilterChip(selected = code in d.schedule.days, onClick = { pvm.toggleDay(code) }, label = { Text(stringResource(DAY_LABELS.getValue(code)), fontWeight = FontWeight.ExtraBold) },
+                    FilterChip(selected = code in d.schedule.days.orEmpty(), onClick = { pvm.toggleDay(code) }, label = { Text(stringResource(DAY_LABELS.getValue(code)), fontWeight = FontWeight.ExtraBold) },
                         shape = RoundedCornerShape(Radius.pill), modifier = Modifier.height(44.dp))
                 }
             }
             if (!d.schedule.repeating) {
-                TextButton(onClick = { pickDate = true }) { Text(stringResource(R.string.one_off_on, d.schedule.date ?: ""), fontWeight = FontWeight.Bold) }
+                TextButton(onClick = { pickDate = true }) {
+                    Text(stringResource(R.string.one_off_on, d.schedule.arriveAt?.let { runCatching { Instant.parse(it).atZone(ZoneId.systemDefault()).toLocalDate().toString() }.getOrNull() } ?: ""), fontWeight = FontWeight.Bold)
+                }
             }
             Spacer(Modifier.height(8.dp))
             Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(Radius.md)).background(c.brandMist).padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -147,16 +150,17 @@ fun PlanEditorSheet(e: PlanEditor, pvm: PlannedViewModel, use24h: Boolean) {
         }
     }
     if (pickTime) {
-        val t = LocalTime.parse(d.schedule.arriveBy)
+        val t = LocalTime.parse(d.schedule.timeOfDay(ZoneId.systemDefault()))
         val st = rememberTimePickerState(t.hour, t.minute, is24Hour = use24h)
         AlertDialog(
             onDismissRequest = { pickTime = false },
-            confirmButton = { TextButton(onClick = { pickTime = false; pvm.update { it.copy(schedule = it.schedule.copy(arriveBy = "%02d:%02d".format(st.hour, st.minute))) } }) { Text(stringResource(R.string.ok)) } },
+            confirmButton = { TextButton(onClick = { pickTime = false; pvm.setTime("%02d:%02d".format(st.hour, st.minute)) }) { Text(stringResource(R.string.ok)) } },
             text = { TimePicker(st) },
         )
     }
     if (pickDate) {
-        val st = rememberDatePickerState(initialSelectedDateMillis = (d.schedule.date?.let(LocalDate::parse) ?: LocalDate.now()).atStartOfDay().toInstant(ZoneOffset.UTC).toEpochMilli())
+        val start = d.schedule.arriveAt?.let { runCatching { Instant.parse(it).atZone(ZoneId.systemDefault()).toLocalDate() }.getOrNull() } ?: LocalDate.now()
+        val st = rememberDatePickerState(initialSelectedDateMillis = start.atStartOfDay().toInstant(ZoneOffset.UTC).toEpochMilli())
         DatePickerDialog(
             onDismissRequest = { pickDate = false },
             confirmButton = { TextButton(onClick = {
