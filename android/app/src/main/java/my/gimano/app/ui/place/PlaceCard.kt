@@ -86,7 +86,8 @@ fun PlaceCard(sel: PlaceSel, vm: MainViewModel, cvm: ContributeViewModel, apiBas
                     Row(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.padding(top = 2.dp)) {
                         if (priv != null) Badge(stringResource(R.string.just_for_me), c.brandMist, c.brandInk, Icons.Filled.Lock)
                         if (d?.isCommunity == true) Badge(stringResource(R.string.community), c.brandMist, c.brandInk)
-                        if (d?.isUnverified == true) Badge(stringResource(R.string.unverified), c.reportTint, c.text)
+                        if (d?.isUnverified == true) my.gimano.app.ui.contribute.UnverifiedChip(d.confirmationsWeighted, d.required)
+                        if (d?.isGold == true) my.gimano.app.ui.contribute.GoldChip()
                     }
                     val meta = buildList {
                         add(Labels.category(p.category))
@@ -111,19 +112,11 @@ fun PlaceCard(sel: PlaceSel, vm: MainViewModel, cvm: ContributeViewModel, apiBas
             if (sel.loading) LinearProgressIndicator(Modifier.fillMaxWidth().padding(top = 8.dp).height(2.dp), color = c.brand, trackColor = c.surfaceAlt)
 
             // "Is this place here?" for nearby people (unverified community places).
-            if (d != null && Verification.canVerify(d.isCommunity, d.status, p.distanceM)) {
+            if (d != null && Verification.canVerify(d.isCommunity, d.status, p.distanceM, d.rural)) {
                 Column(Modifier.fillMaxWidth().padding(top = 12.dp).clip(RoundedCornerShape(Radius.md)).background(c.brandMist).padding(14.dp)) {
-                    Text(stringResource(R.string.is_place_here), fontWeight = FontWeight.Black, fontSize = 17.sp, color = c.text)
-                    Text(stringResource(R.string.verified_count, d.verifiedCount), fontSize = 13.sp, color = c.textMuted)
-                    Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.padding(top = 8.dp)) {
-                        Button(onClick = { cvm.verify(d.id, true) { vm.refreshPlace() } }, Modifier.weight(1f).height(52.dp), shape = RoundedCornerShape(Radius.md),
-                            colors = ButtonDefaults.buttonColors(containerColor = c.brand, contentColor = c.brandOn)) {
-                            Icon(Icons.Filled.ThumbUp, null); Spacer(Modifier.width(6.dp)); Text(stringResource(R.string.yes), fontWeight = FontWeight.ExtraBold)
-                        }
-                        OutlinedButton(onClick = { cvm.verify(d.id, false) { vm.refreshPlace() } }, Modifier.weight(1f).height(52.dp), shape = RoundedCornerShape(Radius.md)) {
-                            Icon(Icons.Filled.ThumbDown, null); Spacer(Modifier.width(6.dp)); Text(stringResource(R.string.no), fontWeight = FontWeight.ExtraBold)
-                        }
-                    }
+                    my.gimano.app.ui.contribute.VerifyPanel(onAnswer = { a, n, l ->
+                        cvm.verify(my.gimano.app.ui.contribute.VetTarget.of(d), a, n, l) { vm.refreshPlace() }
+                    })
                 }
             }
 
@@ -252,7 +245,7 @@ private fun ReviewRow(r: Review, cvm: ContributeViewModel, apiBase: String, onPh
             Spacer(Modifier.width(8.dp))
             Column(Modifier.weight(1f)) {
                 Text(r.author.displayName.ifBlank { "Gimano" } + (r.author.level?.let { " · L$it" } ?: ""), fontWeight = FontWeight.ExtraBold, fontSize = 14.sp, color = c.text)
-                Row(verticalAlignment = Alignment.CenterVertically) { Stars(r.rating.toDouble(), 12); Spacer(Modifier.width(6.dp)); Text(r.createdAt.take(10), fontSize = 12.sp, color = c.textMuted) }
+                Row(verticalAlignment = Alignment.CenterVertically) { Stars(r.rating.toDouble(), 12); Spacer(Modifier.width(6.dp)); Text(my.gimano.app.core.format.Formatters.localStamp(r.createdAt).take(10), fontSize = 12.sp, color = c.textMuted) }
             }
         }
         r.text?.let { Text(it, fontSize = 15.sp, color = c.text, modifier = Modifier.padding(top = 4.dp)) }

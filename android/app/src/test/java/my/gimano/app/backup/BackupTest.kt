@@ -67,7 +67,8 @@ class BackupTest {
         val doc = File("../../docs/privacy-and-backup.md").readText()
         val sql = doc.substringAfter("```sql").substringBefore("```")
         val fromDoc = JdbcSqlPort(DriverManager.getConnection("jdbc:sqlite::memory:"))
-        sql.split(";").map { it.lines().joinToString("\n") { l -> l.substringBefore("--") }.trim() }.filter { it.isNotEmpty() }.forEach { fromDoc.exec(it) }
+        // Strip "--" comments first: they may contain ';'.
+        sql.lines().joinToString("\n") { l -> l.substringBefore("--") }.split(";").map { it.trim() }.filter { it.isNotEmpty() }.forEach { fromDoc.exec(it) }
         val ours = JdbcSqlPort(DriverManager.getConnection("jdbc:sqlite::memory:"))
         GimanoSchema.create { ours.exec(it) }
         val q = "SELECT type || ' ' || name FROM sqlite_master WHERE name NOT LIKE 'sqlite_%' ORDER BY name"
@@ -79,7 +80,7 @@ class BackupTest {
         }
         val idx = "SELECT sql FROM sqlite_master WHERE name = 'ux_saved_home_work'"
         assertEquals(rows(fromDoc, idx).map { it.replace(Regex("\\s+"), " ") }, rows(ours, idx).map { it.replace(Regex("\\s+"), " ") })
-        assertEquals(1L, ours.queryLong("PRAGMA user_version"))
+        assertEquals(GimanoSchema.VERSION.toLong(), ours.queryLong("PRAGMA user_version"))
         // The CHECK and the partial unique index are real: one home only, many favourites.
         ours.exec("INSERT INTO saved_places VALUES ('a','home','H','home',1,1,NULL,NULL,0,'t','t')")
         assertThrows(Exception::class.java) { ours.exec("INSERT INTO saved_places VALUES ('b','home','H2','home',1,1,NULL,NULL,0,'t','t')") }

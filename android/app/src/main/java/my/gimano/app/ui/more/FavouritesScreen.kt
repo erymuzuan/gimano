@@ -96,7 +96,7 @@ fun FavouritesScreen(saved: List<SavedPlace>, me: GeoPoint?, lastBackup: String?
         Row(Modifier.padding(16.dp).fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(c.brandMist).padding(horizontal = 14.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
             Icon(Icons.Filled.Shield, null, tint = c.brand, modifier = Modifier.size(22.dp))
             Spacer(Modifier.width(10.dp))
-            Text(stringResource(R.string.saved_on_phone_backup, lastBackup?.take(16)?.replace('T', ' ') ?: stringResource(R.string.never)), fontSize = 13.sp, fontWeight = FontWeight.ExtraBold, color = c.brandInk)
+            Text(stringResource(R.string.saved_on_phone_backup, lastBackup?.let { my.gimano.app.core.format.Formatters.localStamp(it) } ?: stringResource(R.string.never)), fontSize = 13.sp, fontWeight = FontWeight.ExtraBold, color = c.brandInk)
         }
         Spacer(Modifier.windowInsetsPadding(WindowInsets.navigationBars))
     }

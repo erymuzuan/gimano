@@ -17,7 +17,7 @@ val GimanoJson = Json {
 }
 
 object ApiFactory {
-    fun okHttp(tokenProvider: () -> String?): OkHttpClient = OkHttpClient.Builder()
+    fun okHttp(tokenProvider: () -> String?, signer: SigningInterceptor? = null): OkHttpClient = OkHttpClient.Builder()
         .connectTimeout(6, TimeUnit.SECONDS)
         .readTimeout(20, TimeUnit.SECONDS)
         .addInterceptor { chain ->
@@ -28,6 +28,7 @@ object ApiFactory {
                 .build()
             chain.proceed(req)
         }
+        .apply { if (signer != null) addInterceptor(signer) }
         .apply {
             if (BuildConfig.DEBUG) addInterceptor(HttpLoggingInterceptor().setLevel(HttpLoggingInterceptor.Level.BASIC))
         }

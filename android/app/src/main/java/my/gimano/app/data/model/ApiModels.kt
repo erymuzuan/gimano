@@ -13,6 +13,27 @@ data class DeviceAuthRequest(val deviceId: String, val platform: String = "andro
 @Serializable
 data class DeviceAuthResponse(val token: String, val userId: String, val displayName: String)
 
+/** `POST /auth/register` (docs/identity-and-reputation.md §1). */
+@Serializable
+data class RegisterRequest(val publicKey: String, val platform: String = "android", val locale: String)
+
+/**
+ * `POST /auth/token`: sig = Ed25519 over "GIMANO-AUTH\n" + userId + "\n" + ts.
+ * Recovery-code restore knows only the key: it sends [publicKey] instead of [userId] and signs
+ * "GIMANO-AUTH\n" + publicKey + "\n" + ts (client proposal, see the doc's test vectors section).
+ */
+@Serializable
+data class TokenRequest(val userId: String? = null, val publicKey: String? = null, val ts: Long, val sig: String)
+
+@Serializable
+data class TokenResponse(val token: String, val userId: String? = null, val displayName: String? = null)
+
+@Serializable
+data class AttachKeyRequest(val publicKey: String, val sigByOldKey: String? = null)
+
+@Serializable
+data class NextTier(val name: String = "", val missing: List<String> = emptyList())
+
 @Serializable
 data class User(
     val id: String,
@@ -22,6 +43,13 @@ data class User(
     val points: Int = 0,
     val level: Int = 1,
     val joinedAt: String? = null,
+    /** baharu | perak | emas */
+    val tier: String = "baharu",
+    /** 0–1, null until 5 counted items. */
+    val accuracy: Double? = null,
+    val placesAccepted: Int = 0,
+    val verifierVotes: Int = 0,
+    val nextTier: NextTier? = null,
 )
 
 @Serializable
@@ -84,6 +112,13 @@ data class PlaceSummary(
     val rating: Double? = null,
     val reviewCount: Int = 0,
     val thumbnailUrl: String? = null,
+    /** Vetting (pending community places): weighted confirmations so far / required to publish. */
+    val confirmationsWeighted: Double? = null,
+    val required: Double? = null,
+    /** The place's `rural` flag widens the "nearby" radius from 1 km to 5 km. */
+    val rural: Boolean = false,
+    /** Tier of the contributor (only "emas" is shown, as a badge). */
+    val contributorTier: String? = null,
 )
 
 @Serializable
@@ -116,10 +151,16 @@ data class Place(
     val addedBy: Author? = null,
     val verifiedCount: Int = 0,
     val photos: List<Photo> = emptyList(),
+    val confirmationsWeighted: Double? = null,
+    val required: Double? = null,
+    val rural: Boolean = false,
+    val contributorTier: String? = null,
 ) {
     val isCommunity get() = source == "community"
     val isUnverified get() = isCommunity && status != "published"
-    fun summary() = PlaceSummary(id, name, category, address, lat, lng, distanceM, brand, source, status, rating, reviewCount, thumbnailUrl)
+    val isGold get() = contributorTier == "emas"
+    fun summary() = PlaceSummary(id, name, category, address, lat, lng, distanceM, brand, source, status, rating, reviewCount, thumbnailUrl,
+        confirmationsWeighted, required, rural, contributorTier)
 }
 
 @Serializable
@@ -195,7 +236,20 @@ data class SuggestEditRequest(
 data class SuggestionCreated(val suggestionId: String = "")
 
 @Serializable
-data class VerifyRequest(val exists: Boolean, val correctLocation: Boolean? = null)
+data class VerifyRequest(
+    /** yes | no | unsure */
+    val answer: String,
+    val nameCorrect: Boolean? = null,
+    val locationCorrect: Boolean? = null,
+    val proximity: Proximity,
+    val attestation: Attestation? = null,
+) {
+    @Serializable data class Proximity(val cell: String, val withinM: Int)
+    @Serializable data class Attestation(val platform: String = "android", val token: String)
+}
+
+@Serializable
+data class VerifyResult(val status: String = "pending", val confirmationsWeighted: Double = 0.0, val required: Double = 3.0)
 
 // --- Feedback ---------------------------------------------------------------------------------
 
@@ -212,21 +266,69 @@ data class FeedbackContext(
     val placeId: String? = null,
 )
 
+/** `device` block on feedback (only when the user ticked "Sertakan maklumat peranti") and crash reports. */
+@Serializable
+data class DeviceInfo(
+    val appVersion: String,
+    val appBuild: Int,
+    val platform: String = "android",
+    val osVersion: String,
+    val apiLevel: Int,
+    val deviceModel: String,
+    val manufacturer: String,
+    val screen: ScreenInfo,
+    val locale: String,
+    val theme: String,
+    val dataMode: String,
+) {
+    @Serializable data class ScreenInfo(val widthPx: Int, val heightPx: Int, val density: Float, val widthDp: Int, val heightDp: Int)
+}
+
+/** Rounded to 2 dp on the phone; only with the separate "Sertakan lokasi kasar" tick. */
+@Serializable
+data class CoarseLocation(val lat: Double, val lng: Double)
+
+/** Volunteered for ONE report only (docs/api.md "Contact details"); never prefilled, never stored beyond the outbox item. */
+@Serializable
+data class ContactDetails(val email: String? = null, val whatsapp: String? = null, val consent: Boolean = true)
+
 @Serializable
 data class FeedbackRequest(
     val category: String,
     val message: String,
     val rating: Int? = null,
     val screen: String,
-    val context: FeedbackContext? = null,
+    val device: DeviceInfo? = null,
+    val location: CoarseLocation? = null,
+    val contact: ContactDetails? = null,
+    val routeId: String? = null,
+    val placeId: String? = null,
     val screenshot: String? = null,
 )
+
+@Serializable
+data class CrashReportRequest(
+    val occurredAt: String,
+    /** crash | anr | native | hang */
+    val kind: String,
+    val exception: String,
+    val message: String? = null,
+    val stack: String,
+    val threads: String? = null,
+    val screen: String? = null,
+    val uptimeS: Long? = null,
+    val device: DeviceInfo,
+    val contact: ContactDetails? = null,
+)
+
+@Serializable
+data class CrashCreated(val id: String = "", val signature: String? = null)
 
 @Serializable
 data class FeedbackCreated(val id: String, val createdAt: String = "")
 
 @Serializable
-data class FeedbackSummary(val id: String, val category: String, val message: String, val status: String = "received", val createdAt: String = "")
+data class FeedbackSummary(val id: String, val category: String, val message: String, val status: String = "received", val createdAt: String = "", val hasContact: Boolean = false)
 
 @Serializable
 data class ReverseGeocode(val name: String, val address: String = "", val lat: Double, val lng: Double)

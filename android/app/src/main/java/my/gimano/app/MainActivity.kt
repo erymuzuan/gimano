@@ -66,6 +66,7 @@ class MainActivity : AppCompatActivity() {
             val fix = uiState.myLocation?.point
             val dark = ThemeMode.isDark(ThemeMode.from(st.theme), systemDark, now, fix?.lat, fix?.lng)
             LaunchedEffect(dark) {
+                (application as GimanoApp).container.darkTheme = dark
                 val bars = if (dark) SystemBarStyle.dark(Color.TRANSPARENT) else SystemBarStyle.light(Color.TRANSPARENT, Color.TRANSPARENT)
                 enableEdgeToEdge(statusBarStyle = bars, navigationBarStyle = bars)
             }

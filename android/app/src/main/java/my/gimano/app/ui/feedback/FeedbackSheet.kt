@@ -1,5 +1,9 @@
 package my.gimano.app.ui.feedback
 
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.getValue
 import android.graphics.BitmapFactory
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -55,8 +59,10 @@ fun FeedbackCategoryIcon(cat: String, size: androidx.compose.ui.unit.Dp) {
 }
 
 @Composable
-fun FeedbackSheet(vm: FeedbackViewModel, d: FeedbackDraft, onSend: () -> Unit) {
+fun FeedbackSheet(vm: FeedbackViewModel, d: FeedbackDraft, onSend: () -> Unit, here: () -> Pair<Double, Double>? = { null }) {
     val c = Gimano.colors
+    var preview by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf<String?>(null) }
+    preview?.let { JsonPreviewDialog(stringResource(R.string.fb_what_is_sent), it) { preview = null } }
     ModalBottomSheet(
         onDismissRequest = vm::close,
         sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
@@ -106,8 +112,14 @@ fun FeedbackSheet(vm: FeedbackViewModel, d: FeedbackDraft, onSend: () -> Unit) {
                 val bmp = remember(d.screenshot) { BitmapFactory.decodeByteArray(d.screenshot, 0, d.screenshot.size)?.asImageBitmap() }
                 if (bmp != null) Image(bmp, stringResource(R.string.fb_include_screenshot), Modifier.height(140.dp).clip(RoundedCornerShape(Radius.sm)), contentScale = ContentScale.Fit)
             }
-            ToggleRow(stringResource(R.string.fb_include_diagnostics), d.includeDiagnostics) { v -> vm.update { it.copy(includeDiagnostics = v) } }
-            Text(stringResource(R.string.fb_diagnostics_note), fontSize = 12.sp, color = c.textMuted)
+            ToggleRow(stringResource(R.string.fb_include_device), d.includeDevice) { v -> vm.update { it.copy(includeDevice = v) } }
+            Text(stringResource(R.string.fb_device_note), fontSize = 12.sp, color = c.textMuted)
+            ToggleRow(stringResource(R.string.fb_include_location), d.includeLocation) { v -> vm.update { it.copy(includeLocation = v) } }
+            Text(stringResource(R.string.fb_location_note), fontSize = 12.sp, color = c.textMuted)
+            if (d.includeDevice || d.includeLocation) TextButton(onClick = { val h = here(); preview = vm.previewJson(h?.first, h?.second) }) {
+                Text(stringResource(R.string.fb_what_is_sent), fontWeight = FontWeight.ExtraBold, color = c.brandInk)
+            }
+            ContactSection(d.email, d.whatsapp, d.consent) { e, w, k -> vm.update { it.copy(email = e, whatsapp = w, consent = k) } }
             Spacer(Modifier.height(14.dp))
             Button(
                 onClick = onSend, enabled = d.canSend, modifier = Modifier.fillMaxWidth().height(56.dp), shape = RoundedCornerShape(Radius.md),

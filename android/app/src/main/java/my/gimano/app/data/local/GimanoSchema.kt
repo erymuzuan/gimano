@@ -6,11 +6,13 @@ package my.gimano.app.data.local
  * PRAGMA user_version = [VERSION].
  */
 object GimanoSchema {
-    const val VERSION = 1
+    const val VERSION = 2
     const val DB_NAME = "gimano.db"
 
     /** Tables that make up a backup (outbox is device-local and never backed up). */
-    val BACKED_UP_TABLES = listOf("saved_places", "recents", "private_places", "private_place_photos", "planned_drives", "settings")
+    val BACKED_UP_TABLES = listOf("saved_places", "recents", "private_places", "private_place_photos", "planned_drives", "settings", "identity")
+    /** Tables every backup has (schema 1 backups have no `identity`). */
+    val REQUIRED_TABLES = BACKED_UP_TABLES - "identity"
     val ALL_TABLES = BACKED_UP_TABLES + "outbox"
 
     val DDL: List<String> = listOf(
@@ -41,9 +43,16 @@ object GimanoSchema {
   id TEXT PRIMARY KEY, name TEXT, origin_json TEXT, destination_json TEXT NOT NULL,
   waypoints_json TEXT, vehicle TEXT NOT NULL, depart_at TEXT, created_at TEXT NOT NULL)""",
         "CREATE TABLE settings (key TEXT PRIMARY KEY, value TEXT NOT NULL)",
+        IDENTITY_DDL,
         """CREATE TABLE outbox (id TEXT PRIMARY KEY, kind TEXT NOT NULL, payload_json TEXT NOT NULL,
   attempts INTEGER NOT NULL DEFAULT 0, next_attempt_at TEXT NOT NULL)""",
     )
+
+    /** Schema 2: the contributor pseudonym's signing key (single row). */
+    const val IDENTITY_DDL = """CREATE TABLE identity (
+  user_id TEXT PRIMARY KEY, display_name TEXT,
+  seed_b64 TEXT NOT NULL,
+  created_at TEXT NOT NULL)"""
 
     /** Applies the schema to an empty database (used by Room's onCreate and by tests on plain SQLite). */
     fun create(exec: (String) -> Unit) {

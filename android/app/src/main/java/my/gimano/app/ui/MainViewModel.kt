@@ -58,6 +58,9 @@ sealed interface Screen {
     data object Favourites : Screen
     data object Inbox : Screen
     data object Theme : Screen
+    data object Account : Screen
+    data object About : Screen
+    data object Licences : Screen
 }
 
 data class PlaceSel(
@@ -127,6 +130,8 @@ data class UiState(
     /** Private places drawn from the local DB only. */
     val privatePins: List<Pair<String, GeoPoint>> = emptyList(),
     val inbox: List<InboxItem> = emptyList(),
+    /** Nearby pending community place to confirm (shown only while parked; see VerifyPromptGate). */
+    val vetPrompt: PlaceSummary? = null,
 )
 
 sealed interface UiEvent {
@@ -151,6 +156,7 @@ val DEFAULT_POINT = GeoPoint(3.1340, 101.6865)
 
 @OptIn(FlowPreview::class)
 class MainViewModel(private val c: AppContainer) : ViewModel() {
+    val container: AppContainer get() = c
     private val repo = c.repo
     private val local = c.local
     private val settings = c.settings
@@ -233,6 +239,9 @@ class MainViewModel(private val c: AppContainer) : ViewModel() {
 
     fun markInboxRead() = viewModelScope.launch { settings.markInboxRead(_ui.value.inbox.map { it.id }) }
 
+    /** Shown under "Can't reach the server": path + status or exception type only (no query, no coordinates). */
+    fun fallbackReason(): String? = repo.lastFallbackReason
+
     fun retryServer() {
         repo.retryRemote()
         c.liveHub.start()
@@ -258,12 +267,53 @@ class MainViewModel(private val c: AppContainer) : ViewModel() {
     }
 
     private fun onFix(f: Fix) {
+        val prev = _ui.value.myLocation
         c.lastFix = f.point
         _ui.update { it.copy(myLocation = f) }
+        maybeAskNearby(f, prev)
         if (!centeredOnce) {
             centeredOnce = true
             _ui.update { it.copy(camera = CameraCommand.MoveTo(f.point, 14.5, animate = false)) }
         }
+    }
+
+    // ---------------------------------------------------------------- nearby verify prompt
+
+    private val vetGate = my.gimano.app.core.vetting.VerifyPromptGate()
+
+    private fun maybeAskNearby(f: Fix, prev: Fix?) {
+        if (f.simulated) return
+        val kmh = f.speedMps?.let { it * 3.6 } ?: prev?.let { p ->
+            val dt = (f.timeMs - p.timeMs) / 1000.0
+            if (dt in 0.5..30.0) GeoMath.distanceM(p.point, f.point) / dt * 3.6 else null
+        }
+        val fg = androidx.lifecycle.ProcessLifecycleOwner.get().lifecycle.currentState.isAtLeast(androidx.lifecycle.Lifecycle.State.STARTED)
+        if (!vetGate.onFix(kmh, f.timeMs, nav.value.active, fg)) return
+        val s = _ui.value
+        if (s.screen != Screen.Home || s.vetPrompt != null || s.reportOpen) return
+        vetGate.markPrompted(f.timeMs)
+        viewModelScope.launch {
+            val cell = my.gimano.app.core.vetting.Geohash.encode(f.point.lat, f.point.lng, 6)
+            val answered = c.vetting.answered()
+            val pick = runCatching { repo.pendingNearby(cell) }.getOrDefault(emptyList())
+                .filter { it.id !in answered }
+                .mapNotNull { p -> my.gimano.app.core.vetting.Proximity.withinM(f.point, GeoPoint(p.lat, p.lng), p.rural)?.let { p to GeoMath.distanceM(f.point, GeoPoint(p.lat, p.lng)) } }
+                .minByOrNull { it.second }
+                ?: return@launch
+            if (_ui.value.screen == Screen.Home && !nav.value.active) _ui.update { it.copy(vetPrompt = pick.first.copy(distanceM = pick.second)) }
+        }
+    }
+
+    /** Recovery code accepted by the server: refresh the profile under the restored pseudonym. */
+    fun onIdentityRestored(name: String) {
+        _events.tryEmit(UiEvent.ToastText(c.app.getString(R.string.recovery_restored, name)))
+        refreshAccount()
+    }
+
+    fun dismissNearby(remember: Boolean) {
+        val p = _ui.value.vetPrompt ?: return
+        _ui.update { it.copy(vetPrompt = null) }
+        if (remember) viewModelScope.launch { c.vetting.markAnswered(p.id) }
     }
 
     fun here(): GeoPoint = nav.value.fix?.point ?: _ui.value.myLocation?.point ?: boundsFlow.value?.center ?: DEFAULT_POINT
@@ -818,7 +868,8 @@ class MainViewModel(private val c: AppContainer) : ViewModel() {
                 Screen.PlaceCard -> goHome()
                 Screen.RoutePreview -> if (s.place != null) _ui.update { it.copy(screen = Screen.PlaceCard, plan = null) } else _ui.update { it.copy(screen = Screen.Home, plan = null) }
                 Screen.Settings -> goHome()
-                Screen.Backup, Screen.MyFeedback -> _ui.update { it.copy(screen = Screen.Settings) }
+                Screen.Backup, Screen.MyFeedback, Screen.Account, Screen.About -> _ui.update { it.copy(screen = Screen.Settings) }
+                Screen.Licences -> _ui.update { it.copy(screen = Screen.About) }
                 Screen.Contributions, Screen.AddPlace, Screen.Planned, Screen.Favourites, Screen.Inbox -> goHome()
                 Screen.Theme -> goHome()
                 Screen.Navigating -> when {

@@ -81,6 +81,7 @@ class PlacesLogicTest {
     @Test fun onlyNearbyPeopleVerifyUnverifiedCommunityPlaces() {
         assertTrue(Verification.canVerify(true, "pending", 120.0))
         assertFalse(Verification.canVerify(true, "pending", 1200.0))
+        assertTrue("rural: 5 km", Verification.canVerify(true, "pending", 4200.0, rural = true))
         assertFalse(Verification.canVerify(true, "published", 50.0))
         assertFalse(Verification.canVerify(false, null, 10.0))
         assertFalse(Verification.canVerify(true, "pending", null))

@@ -12,6 +12,8 @@
     <!-- Planned drives: "leave by" reminders. Exact alarms need user consent on Android 14+. -->
     <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <!-- In-app update of the sideloaded APK (PackageInstaller session). -->
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
 
     <queries>
         <intent>
@@ -84,5 +86,9 @@
                 android:name="autoStoreLocales"
                 android:value="true" />
         </service>
+            <receiver android:name=".data.update.InstallResultReceiver" android:exported="false" />
+        <receiver android:name=".data.update.PackageReplacedReceiver" android:exported="false">
+            <intent-filter><action android:name="android.intent.action.MY_PACKAGE_REPLACED" /></intent-filter>
+        </receiver>
     </application>
 </manifest>

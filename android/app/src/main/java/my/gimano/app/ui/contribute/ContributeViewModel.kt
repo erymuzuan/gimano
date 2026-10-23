@@ -68,6 +68,7 @@ data class ReviewsState(
 
 sealed interface ContribEvent {
     data class Message(val res: Int) : ContribEvent
+    data class Text(val text: String) : ContribEvent
     data class ShowPlace(val summary: PlaceSummary) : ContribEvent
 }
 
@@ -160,10 +161,30 @@ class ContributeViewModel(private val c: AppContainer) : ViewModel() {
 
     // ---------------------------------------------------------------- verify / suggest an edit
 
-    fun verify(placeId: String, exists: Boolean, onDone: (Place) -> Unit) = viewModelScope.launch {
-        runCatching { c.repo.verifyPlace(placeId, exists) }
-            .onSuccess { onDone(it); _events.tryEmit(ContribEvent.Message(R.string.thanks_verify)) }
-            .onFailure { _events.tryEmit(ContribEvent.Message(R.string.action_failed)) }
+    /**
+     * Vote on a pending community place (docs/identity-and-reputation.md §4). The phone checks it is within
+     * 1 km (5 km rural) and sends only {cell, withinM}; the request is signed by the interceptor.
+     */
+    fun verify(target: VetTarget, answer: String, nameCorrect: Boolean?, locationCorrect: Boolean?, onDone: (VerifyResult) -> Unit = {}) = viewModelScope.launch {
+        val me = c.lastFix ?: run { _events.tryEmit(ContribEvent.Message(R.string.vet_need_location)); return@launch }
+        val within = my.gimano.app.core.vetting.Proximity.withinM(me, my.gimano.app.core.geo.GeoPoint(target.lat, target.lng), target.rural)
+            ?: run { _events.tryEmit(ContribEvent.Text(c.app.getString(R.string.vet_too_far, my.gimano.app.core.format.Formatters.distance(my.gimano.app.core.vetting.Proximity.limitM(target.rural).toDouble())))); return@launch }
+        val cell = my.gimano.app.core.vetting.Geohash.encode(me.lat, me.lng, 6)
+        val ts = c.remote.nowTs()
+        val att = c.integrity.token(my.gimano.app.core.identity.RequestSigning.attestClientData(target.id, ts))?.let { VerifyRequest.Attestation("android", it) }
+        runCatching { c.repo.verifyPlace(target.id, VerifyRequest(answer, nameCorrect, locationCorrect, VerifyRequest.Proximity(cell, within), att), ts) }
+            .onSuccess { r ->
+                c.vetting.markAnswered(target.id)
+                onDone(r)
+                _events.tryEmit(
+                    if (r.status == "published") ContribEvent.Message(R.string.vet_published)
+                    else ContribEvent.Text(c.app.getString(R.string.vet_thanks, fmtWeight(r.confirmationsWeighted), fmtWeight(r.required))),
+                )
+            }
+            .onFailure { e ->
+                val msg = (e as? retrofit2.HttpException)?.response()?.errorBody()?.string()?.let(::problemDetail)
+                _events.tryEmit(if (msg != null) ContribEvent.Text(msg) else ContribEvent.Message(R.string.action_failed))
+            }
     }
 
     fun suggestEdit(placeId: String, body: SuggestEditRequest) = viewModelScope.launch {
@@ -266,3 +287,14 @@ class ContributeViewModel(private val c: AppContainer) : ViewModel() {
 
 @kotlinx.serialization.Serializable
 data class DuplicateProblem(val place: Place? = null)
+
+/** What a vote needs about the place. */
+data class VetTarget(val id: String, val lat: Double, val lng: Double, val rural: Boolean) {
+    companion object {
+        fun of(p: PlaceSummary) = VetTarget(p.id, p.lat, p.lng, p.rural)
+        fun of(p: Place) = VetTarget(p.id, p.lat, p.lng, p.rural)
+    }
+}
+
+/** "1", "1.5", "2" */
+fun fmtWeight(w: Double): String = if (w % 1.0 == 0.0) w.toLong().toString() else "%.1f".format(java.util.Locale.US, w)

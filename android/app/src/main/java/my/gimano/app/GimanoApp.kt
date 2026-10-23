@@ -37,7 +37,14 @@ class AppContainer(val app: Application) {
     val db = GimanoDatabase.build(app)
     val local = LocalStore(db)
 
-    val remote = RemoteRepository(settings)
+    /** The contributor pseudonym's key (docs/identity-and-reputation.md). Seed wrapped with an Android Keystore key. */
+    private val seedWrapper = my.gimano.app.data.identity.KeystoreSeedWrapper()
+    val identity = my.gimano.app.data.identity.IdentityService(
+        my.gimano.app.data.identity.IdentityStore({ my.gimano.app.data.backup.AndroidSqlPort(db.openHelper.writableDatabase) }, seedWrapper),
+        my.gimano.app.core.identity.Ed25519(LazySodiumAndroid(SodiumAndroid())),
+        bip39 = { my.gimano.app.core.identity.Bip39(app.assets.open("bip39-english.txt").bufferedReader().readLines().filter { it.isNotBlank() }) },
+    )
+    val remote = RemoteRepository(settings, identity)
     val repo = SwitchingRepository(
         settings, remote,
         DemoRepository(
@@ -71,9 +78,23 @@ class AppContainer(val app: Application) {
 
     val crypto by lazy { BackupCrypto(LazySodiumAndroid(SodiumAndroid())) }
     val backup by lazy {
-        BackupManager(app, db, crypto, exportSettings = { settings.current.toBackupMap() }, importSettings = { settings.applyBackupMap(it) })
+        BackupManager(
+            app, db, crypto, exportSettings = { settings.current.toBackupMap() }, importSettings = { settings.applyBackupMap(it) },
+            seedToPlain = { s -> if (seedWrapper.isWrapped(s)) java.util.Base64.getEncoder().encodeToString(seedWrapper.unwrap(s)) else s },
+            afterRestore = {
+                kotlinx.coroutines.withContext(Dispatchers.IO) { identity.reload() }
+                remote.adoptRestoredIdentity()
+            },
+        )
     }
     val drive by lazy { DriveBackup(app) }
+    val integrity by lazy { my.gimano.app.data.vetting.Integrity(app, BuildConfig.CLOUD_PROJECT_NUMBER) }
+    val vetting = my.gimano.app.data.vetting.VettingMemory(db.settings())
+    val updater = my.gimano.app.data.update.AppUpdater(app).also { it.onAppStart() }
+    /** Effective theme (set by MainActivity) for the device block of feedback / crash reports. */
+    @Volatile var darkTheme: Boolean = false
+    val deviceInfo = my.gimano.app.data.feedback.DeviceInfoProvider(app, locale = { lang().tag }, dark = { darkTheme }, demo = { repo.isDemo || repo.fallbackActive.value })
+    val crashes = my.gimano.app.data.crash.CrashReporter(app, db.outbox(), repo, deviceInfo)
 
     /** Backup passphrases are never stored (docs/privacy-and-backup.md): auto-backups are unencrypted. */
     fun backupPassphrase(): String? = null
@@ -98,5 +119,6 @@ class GimanoApp : Application() {
     override fun onCreate() {
         super.onCreate()
         container = AppContainer(this)
+        container.crashes.install()
     }
 }

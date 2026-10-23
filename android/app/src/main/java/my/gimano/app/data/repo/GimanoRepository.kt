@@ -32,10 +32,14 @@ interface GimanoRepository : my.gimano.app.data.share.ShareApi {
 
     suspend fun sendFeedback(body: FeedbackRequest): FeedbackCreated
     suspend fun myFeedback(): List<FeedbackSummary>
+    suspend fun deleteFeedbackContact(id: String)
+    suspend fun sendCrashReport(body: CrashReportRequest): CrashCreated
 
     suspend fun createPlace(body: CreatePlaceRequest): Place
     suspend fun suggestEdit(placeId: String, body: SuggestEditRequest): SuggestionCreated
-    suspend fun verifyPlace(placeId: String, exists: Boolean): Place
+    suspend fun verifyPlace(placeId: String, body: VerifyRequest, ts: Long? = null): VerifyResult
+    /** Pending community places in the geohash-6 [cell] and its 8 neighbours (excludes my own). */
+    suspend fun pendingNearby(cell: String): List<PlaceSummary>
     suspend fun contributedPlaces(): List<PlaceSummary>
 
     suspend fun reviews(placeId: String, sort: String = "recent"): ReviewsPage
