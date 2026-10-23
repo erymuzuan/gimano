@@ -204,10 +204,21 @@ public static class OsmCategoryMapper
     }
 
     /// <summary>Tags kept on the place record (the full tag set is noisy).</summary>
+    /// <summary>
+    /// Up to 60 tags, dropping source/note/fixme and translations other than name:en/name:ms (big cities carry hundreds of
+    /// name:xx tags, which used to push out "place" and "addr:*").
+    /// </summary>
     public static Dictionary<string, string> KeepTags(IReadOnlyDictionary<string, string> tags) =>
         tags.Where(kv => !kv.Key.StartsWith("source", StringComparison.Ordinal) && !kv.Key.StartsWith("note", StringComparison.Ordinal)
-                         && !kv.Key.StartsWith("fixme", StringComparison.OrdinalIgnoreCase) && kv.Key != "created_by")
+                         && !kv.Key.StartsWith("fixme", StringComparison.OrdinalIgnoreCase) && kv.Key != "created_by"
+                         && !(IsTranslation(kv.Key) && kv.Key is not ("name:en" or "name:ms")))
+            .OrderBy(kv => kv.Key.Contains(':') ? 1 : 0).ThenBy(kv => kv.Key, StringComparer.Ordinal)
             .Take(60).ToDictionary(kv => kv.Key, kv => kv.Value);
+
+    private static bool IsTranslation(string key) =>
+        (key.StartsWith("name:", StringComparison.Ordinal) || key.StartsWith("official_name:", StringComparison.Ordinal)
+         || key.StartsWith("alt_name:", StringComparison.Ordinal) || key.StartsWith("old_name:", StringComparison.Ordinal)
+         || key.StartsWith("short_name:", StringComparison.Ordinal)) && key.Count(c => c == ':') == 1;
 
     /// <summary>Static popularity prior used as a search boost.</summary>
     public static double Popularity(PlaceCategory category, IReadOnlyDictionary<string, string> tags)

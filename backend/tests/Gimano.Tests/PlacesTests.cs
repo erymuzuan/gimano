@@ -212,3 +212,18 @@ public class RoadRulesTests
         Assert.Equal((false, false), RoadRules.Oneway("motorway", "no", null));
     }
 }
+
+public class KeepTagsTests
+{
+    [Fact]
+    public void Place_and_address_survive_hundreds_of_translations()
+    {
+        var tags = new Dictionary<string, string> { ["name"] = "Kuala Lumpur", ["place"] = "city", ["name:en"] = "Kuala Lumpur", ["addr:postcode"] = "50000" };
+        for (var i = 0; i < 300; i++) tags[$"name:x{i:000}"] = "KL";
+        var kept = OsmCategoryMapper.KeepTags(tags);
+        Assert.Equal("city", kept["place"]);
+        Assert.Equal("50000", kept["addr:postcode"]);
+        Assert.True(kept.ContainsKey("name:en"));
+        Assert.DoesNotContain(kept.Keys, k => k.StartsWith("name:x"));
+    }
+}
