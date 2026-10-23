@@ -31,6 +31,11 @@ class SwitchingRepository(
         if (isDemo) return demo.block()
         return try {
             remote.block()
+        } catch (e: retrofit2.HttpException) {
+            // The proxy answers but the API behind it is down (500/502/503/504 HTML page): same as unreachable.
+            if (!my.gimano.app.core.net.Reachability.isGatewayDown(e.code())) throw e
+            _fallbackActive.value = true
+            demo.block()
         } catch (e: IOException) {
             // A dropped keep-alive connection ("unexpected end of stream") is not an outage: retry once.
             try {
