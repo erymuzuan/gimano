@@ -55,6 +55,11 @@ public sealed class SearchPipeline(PlaceSearchIndex index, Func<AliasTable> alia
         return distanceM + (i < 0 ? 2 : i) * SecondaryCategoryPenaltyM;
     }
 
+    /// <summary>For "surau", OSM suraus named "Madrasah …" (often religious schools) come after the other suraus nearby.</summary>
+    internal static double SurauOrder(double order, string name, PlaceCategory category, IReadOnlyList<PlaceCategory> cats) =>
+        cats.Count > 0 && cats[0] == PlaceCategory.Surau && category == PlaceCategory.Surau
+            && name.StartsWith("madrasah", StringComparison.OrdinalIgnoreCase) ? order + 1_500 : order;
+
     /// <summary>
     /// Results that came only through typo tolerance are labelled: when none of the top 3 literally contains the query (after
     /// normalisation and aliases), correctedQuery = the top result's brand or name ("famly mart" → "FamilyMart").
@@ -171,7 +176,7 @@ public sealed class SearchPipeline(PlaceSearchIndex index, Func<AliasTable> alia
         var list = SearchResults.Dedupe(ranked.Hits, h => h.Name, h => (h.Lat, h.Lng), ranked.Hits.Count);
         if (!ranked.KeepOrder) list = SearchResults.ChainsNearestFirst(list, h => SearchResults.ChainKey(h.Name, h.Brand), FromOrigin);
         if (ranked.Interpretation.Kind is "category" or "category_area" && ranked.Interpretation.Categories is { Count: > 1 } cats)
-            list = list.OrderBy(h => CategoryOrder(FromOrigin(h) ?? 0, h.Category, cats)).ToList();
+            list = list.OrderBy(h => SurauOrder(CategoryOrder(FromOrigin(h) ?? 0, h.Category, cats), h.Name, h.Category, cats)).ToList();
         else if (r.SortNearest || ranked.Interpretation.Kind is "category" or "category_area")
             list = list.OrderBy(h => FromOrigin(h) ?? 0).ToList();
         list = list.Take(limit).ToList();
@@ -419,6 +424,44 @@ public sealed class SearchService(PlaceSearchIndex index, AliasStore aliases, Ar
         return new SearchResponse([summary], Interpretation: new SearchInterpretation(kind, TextNormalizer.Normalize(r.Q)));
     }
 
+    private sealed record ContainingRow(string? City, string? AdminCity, string? Local, bool HasAdmin);
+
+    /// <summary>
+    /// City and neighbourhood from the admin boundaries that CONTAIN the point (smallest first), not merely the nearest place
+    /// node: KLCC is in Kuala Lumpur, not Ampang Jaya across the border. City = the nearest city/town node inside the smallest
+    /// containing boundary of level ≤ 6, else that boundary's name; area = the nearest suburb/neighbourhood inside the smallest
+    /// containing boundary. Without boundary data, the nearest place nodes are used.
+    /// </summary>
+    private async Task<(string? Local, string? Town)> ContainingAreasAsync(GeoPoint p, CancellationToken ct)
+    {
+        const string sql = """
+            WITH pt AS (SELECT ST_SetSRID(ST_MakePoint(@lng, @lat), 4326)::geography AS g),
+            inside AS (SELECT a.name, a.admin_level, a.geom, ST_Area(a.geom) AS area FROM admin_areas a, pt WHERE ST_Covers(a.geom, pt.g)),
+            city_area AS (SELECT name, geom FROM inside WHERE admin_level <= 6 ORDER BY admin_level DESC, area ASC LIMIT 1),
+            local_area AS (SELECT geom FROM inside ORDER BY admin_level DESC, area ASC LIMIT 1)
+            SELECT
+              (SELECT pl.name FROM places pl, pt, city_area c
+                 WHERE pl.category = 'Area' AND pl.tags->>'place' IN ('city', 'town') AND ST_DWithin(pl.location, pt.g, 25000)
+                   AND ST_Covers(c.geom, pl.location)
+                 ORDER BY pl.location <-> pt.g LIMIT 1) AS "City",
+              (SELECT name FROM city_area) AS "AdminCity",
+              (SELECT pl.name FROM places pl, pt, local_area l
+                 WHERE pl.category = 'Area' AND pl.tags->>'place' IN ('suburb', 'neighbourhood', 'quarter', 'village')
+                   AND ST_DWithin(pl.location, pt.g, 2500) AND ST_Covers(l.geom, pl.location)
+                 ORDER BY pl.location <-> pt.g LIMIT 1) AS "Local",
+              EXISTS (SELECT 1 FROM inside) AS "HasAdmin"
+            """;
+        try
+        {
+            var row = await db.Database.SqlQueryRaw<ContainingRow>(sql,
+                new Npgsql.NpgsqlParameter("lat", p.Lat), new Npgsql.NpgsqlParameter("lng", p.Lng)).FirstAsync(ct);
+            if (row.HasAdmin) return (row.Local, row.City ?? row.AdminCity);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException) { logger.LogWarning("Admin-area lookup failed: {Message}", ex.Message); }
+        var (local, town) = (await areaDirectory.GetAsync(ct)).Locate(p.Lat, p.Lng);
+        return (local?.Name, town?.Name);
+    }
+
     /// <summary>"Dekat 18, Jalan SS 2/24, SS2, Petaling Jaya" / "Near …"; "Pin di peta" / "Dropped pin" when nothing is known.</summary>
     public static string ReverseLabel(string? houseNumber, string? street, string? area, string? city, string lang)
     {
@@ -437,10 +480,9 @@ public sealed class SearchService(PlaceSearchIndex index, AliasStore aliases, Ar
         var postcode = addr?.Postcode ?? await db.StreetAddresses.AsNoTracking()
             .Where(a => a.Postcode != null && a.Location.IsWithinDistance(pt, 1000)).OrderBy(a => a.Location.Distance(pt))
             .Select(a => a.Postcode).FirstOrDefaultAsync(ct);
-        var areas = await areaDirectory.GetAsync(ct);
-        var (local, town) = areas.Locate(p.Lat, p.Lng);
+        var (localName, townName) = await ContainingAreasAsync(p, ct);
 
-        var label = ReverseLabel(addr?.HouseNumber, street, local?.Name, town?.Name ?? addr?.City, lang);
+        var label = ReverseLabel(addr?.HouseNumber, street, localName, townName ?? addr?.City, lang);
 
         var nearby = (await places.NearbyAsync(p, null, 50, 8, viewer, ct))
             .Where(s => s.Category is not (PlaceCategory.Area or PlaceCategory.Parking)).Take(5).ToList();
@@ -448,7 +490,7 @@ public sealed class SearchService(PlaceSearchIndex index, AliasStore aliases, Ar
         var name = basic.Name == "Dropped pin" ? L10n.DroppedPin(lang) : basic.Name;
         return basic with
         {
-            Name = name, Label = label, HouseNumber = addr?.HouseNumber, Street = street, Area = local?.Name, City = town?.Name ?? addr?.City,
+            Name = name, Label = label, HouseNumber = addr?.HouseNumber, Street = street, Area = localName, City = townName ?? addr?.City,
             Postcode = postcode, Nearby = nearby,
         };
     }

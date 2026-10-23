@@ -193,6 +193,15 @@ public class FindingPlacesUnitTests
     }
 
     [Fact]
+    public void Boundary_rings_are_assembled_from_unordered_reversed_ways()
+    {
+        var rings = Gimano.Importer.OsmImporter.AssembleRings([[1, 2, 3], [5, 4, 3], [5, 6, 1], [10, 11]]);
+        var ring = Assert.Single(rings);
+        Assert.Equal([1L, 2, 3, 4, 5, 6, 1], ring);
+        Assert.Equal(2, Gimano.Importer.OsmImporter.AssembleRings([[1, 2, 3, 1], [7, 8, 9, 7]]).Count);
+    }
+
+    [Fact]
     public void Brand_plus_area_split_and_typo_distance()
     {
         var areas = new AreaLocator([
@@ -214,6 +223,8 @@ public class FindingPlacesUnitTests
         Assert.Null(SearchPipeline.CorrectedFor(["family mart"], [S("Family Mart Damansara", "FamilyMart")]));
         Assert.Null(SearchPipeline.CorrectedFor(["petronas zaaba"], [S("Petronas", "Petronas", "Persiaran Zaaba")]));
         Assert.Null(SearchPipeline.CorrectedFor(null, [S("Toilet", null)]));
+        Assert.True(SearchPipeline.SurauOrder(1300, "Madrasah Salahuddin", PlaceCategory.Surau, [PlaceCategory.Surau, PlaceCategory.Mosque])
+                    > SearchPipeline.SurauOrder(1800, "Surau Al-Ikhlas", PlaceCategory.Surau, [PlaceCategory.Surau, PlaceCategory.Mosque]));
         Assert.True(SearchPipeline.CategoryOrder(1800, PlaceCategory.Surau, [PlaceCategory.Surau, PlaceCategory.Mosque])
                     < SearchPipeline.CategoryOrder(1000, PlaceCategory.Mosque, [PlaceCategory.Surau, PlaceCategory.Mosque]));
         static PlaceSummary S(string name, string? brand, string address = "") => new("n1", name, PlaceCategory.Other, address, 3, 101, null, brand);

@@ -26,6 +26,38 @@ namespace Gimano.Core.Data.Migrations
             NpgsqlModelBuilderExtensions.HasPostgresExtension(modelBuilder, "postgis");
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
+            modelBuilder.Entity("Gimano.Core.Domain.AdminArea", b =>
+                {
+                    b.Property<long>("Id")
+                        .HasColumnType("bigint")
+                        .HasColumnName("id");
+
+                    b.Property<int>("AdminLevel")
+                        .HasColumnType("integer")
+                        .HasColumnName("admin_level");
+
+                    b.Property<MultiPolygon>("Geom")
+                        .IsRequired()
+                        .HasColumnType("geography (multipolygon, 4326)")
+                        .HasColumnName("geom");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("name");
+
+                    b.HasKey("Id")
+                        .HasName("pk_admin_areas");
+
+                    b.HasIndex("Geom")
+                        .HasDatabaseName("ix_admin_areas_geom");
+
+                    NpgsqlIndexBuilderExtensions.HasMethod(b.HasIndex("Geom"), "gist");
+
+                    b.ToTable("admin_areas", (string)null);
+                });
+
             modelBuilder.Entity("Gimano.Core.Domain.Announcement", b =>
                 {
                     b.Property<Guid>("Id")

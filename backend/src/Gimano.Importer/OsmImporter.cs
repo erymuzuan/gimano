@@ -54,6 +54,7 @@ public sealed class OsmImporter(GimanoDbContext db, NpgsqlDataSource dataSource,
             var waterWays = new List<(long Id, long[] Nodes)>();
             var adminAreas = new List<(long Id, long LabelNode, Dictionary<string, string> Tags)>();
             var addrWays = new List<(long Id, long[] Nodes, Dictionary<string, string> Tags)>();
+            var boundaries = new List<(long Id, string Name, int Level, long[] OuterWays)>();
             var needed = new List<long>();
             await using (var fs = File.OpenRead(o.PbfPath))
             {
@@ -69,6 +70,7 @@ public sealed class OsmImporter(GimanoDbContext db, NpgsqlDataSource dataSource,
                             adminAreas.Add(a);
                             needed.Add(a.LabelNode);
                         }
+                        if (o.Places && g.Tags is { Count: > 0 } && Boundary((Relation)g) is { } b) boundaries.Add(b);
                         continue;
                     }
                     var w = (Way)g;
@@ -100,6 +102,24 @@ public sealed class OsmImporter(GimanoDbContext db, NpgsqlDataSource dataSource,
                         needed.AddRange(w.Nodes);
                     }
                 }
+            }
+            // ---- Pass 1b: outer ways of admin boundaries (ways come before relations, so a second look) ----
+            var boundaryWays = new Dictionary<long, long[]>();
+            if (boundaries.Count > 0)
+            {
+                var wanted = boundaries.SelectMany(b => b.OuterWays).ToHashSet();
+                await using var fs = File.OpenRead(o.PbfPath);
+                foreach (var g in new PBFOsmStreamSource(fs))
+                {
+                    if (g.Type == OsmGeoType.Node) continue;
+                    if (g.Type == OsmGeoType.Relation) break;
+                    if (g.Id is { } wid && wanted.Contains(wid) && ((Way)g).Nodes is { Length: >= 2 } wn)
+                    {
+                        boundaryWays[wid] = wn;
+                        needed.AddRange(wn);
+                    }
+                }
+                logger.LogInformation("Pass 1b: {Boundaries} admin boundaries, {Ways} outer ways", boundaries.Count, boundaryWays.Count);
             }
             var neededIds = needed.Distinct().Order().ToArray();
             needed = null!;
@@ -191,6 +211,7 @@ public sealed class OsmImporter(GimanoDbContext db, NpgsqlDataSource dataSource,
             if (o.Roads) await WriteRoadsAsync(roads, TryCoord, ct);
             if (o.Places) await UpsertPlacesAsync(places, ct);
             if (o.Places) await WriteAddressesAsync(addresses, ct);
+            if (o.Places) await WriteBoundariesAsync(boundaries, boundaryWays, TryCoord, ct);
             if (o.Places && o.Roads) await EnrichAddressesAsync(ct);
         }
 
@@ -306,6 +327,76 @@ public sealed class OsmImporter(GimanoDbContext db, NpgsqlDataSource dataSource,
             await writer.CompleteAsync(ct);
         }
         logger.LogInformation("Wrote {Count} inland water areas", count);
+    }
+
+    /// <summary>admin_level 4–8 boundary relations with a name, and their outer member ways.</summary>
+    internal static (long Id, string Name, int Level, long[] OuterWays)? Boundary(Relation r)
+    {
+        var tags = ToDict(r.Tags);
+        if (tags.GetValueOrDefault("boundary") != "administrative" || !tags.TryGetValue("name", out var name) || name.Length == 0) return null;
+        if (!int.TryParse(tags.GetValueOrDefault("admin_level"), out var level) || level is < 4 or > 8) return null;
+        var outers = (r.Members ?? []).Where(m => m.Type == OsmGeoType.Way && m.Role is "outer" or "" or null).Select(m => m.Id).ToArray();
+        return outers.Length == 0 ? null : (r.Id!.Value, name, level, outers);
+    }
+
+    /// <summary>Joins way node lists end-to-end into closed rings (reversing ways as needed); open leftovers are dropped.</summary>
+    internal static List<List<long>> AssembleRings(IEnumerable<long[]> ways)
+    {
+        var pending = ways.Where(w => w.Length >= 2).Select(w => w.ToList()).ToList();
+        var rings = new List<List<long>>();
+        while (pending.Count > 0)
+        {
+            var ring = pending[0];
+            pending.RemoveAt(0);
+            var guard = 0;
+            while (ring[0] != ring[^1] && guard++ < 100_000)
+            {
+                var end = ring[^1];
+                var i = pending.FindIndex(w => w[0] == end || w[^1] == end);
+                if (i < 0) break;
+                var next = pending[i];
+                pending.RemoveAt(i);
+                if (next[^1] == end) next.Reverse();
+                ring.AddRange(next.Skip(1));
+            }
+            if (ring.Count >= 4 && ring[0] == ring[^1]) rings.Add(ring);
+        }
+        return rings;
+    }
+
+    private async Task WriteBoundariesAsync(List<(long Id, string Name, int Level, long[] OuterWays)> boundaries, Dictionary<long, long[]> ways,
+        CoordLookup coord, CancellationToken ct)
+    {
+        await using var conn = await dataSource.OpenConnectionAsync(ct);
+        await using (var trunc = new NpgsqlCommand("TRUNCATE admin_areas;", conn)) await trunc.ExecuteNonQueryAsync(ct);
+        var count = 0;
+        await using (var writer = await conn.BeginBinaryImportAsync("COPY admin_areas (id, name, admin_level, geom) FROM STDIN (FORMAT BINARY)", ct))
+        {
+            foreach (var b in boundaries.DistinctBy(b => b.Id))
+            {
+                var polys = new List<NetTopologySuite.Geometries.Polygon>();
+                foreach (var ring in AssembleRings(b.OuterWays.Where(ways.ContainsKey).Select(id => ways[id])))
+                {
+                    var pts = new List<NetTopologySuite.Geometries.Coordinate>(ring.Count);
+                    foreach (var n in ring) if (coord(n, out var p)) pts.Add(new(p.Lng, p.Lat));
+                    if (pts.Count < 4 || !pts[0].Equals2D(pts[^1])) continue;
+                    var poly = GeoMath.Factory.CreatePolygon(pts.ToArray());
+                    if (!poly.IsValid) poly = poly.Buffer(0) as NetTopologySuite.Geometries.Polygon ?? poly;
+                    if (!poly.IsValid || poly.IsEmpty) continue;
+                    if (!poly.Shell.IsCCW) poly = (NetTopologySuite.Geometries.Polygon)poly.Reverse();
+                    polys.Add(poly);
+                }
+                if (polys.Count == 0) continue;
+                await writer.StartRowAsync(ct);
+                await writer.WriteAsync(b.Id, NpgsqlDbType.Bigint, ct);
+                await writer.WriteAsync(Truncate(b.Name, 200), NpgsqlDbType.Text, ct);
+                await writer.WriteAsync(b.Level, NpgsqlDbType.Integer, ct);
+                await writer.WriteAsync(GeoMath.Factory.CreateMultiPolygon(polys.ToArray()), NpgsqlDbType.Geography, ct);
+                count++;
+            }
+            await writer.CompleteAsync(ct);
+        }
+        logger.LogInformation("Wrote {Count} admin boundaries", count);
     }
 
     internal static bool IsAddress(IReadOnlyDictionary<string, string> tags) =>

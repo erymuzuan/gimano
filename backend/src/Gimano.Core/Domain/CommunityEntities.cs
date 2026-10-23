@@ -236,3 +236,12 @@ public sealed class SearchMiss
     public required string Week { get; set; }
     public int Count { get; set; }
 }
+
+/// <summary>An OSM administrative boundary (admin_level 4–8) for "which city is this point in" (reverse geocoding). Public map data.</summary>
+public sealed class AdminArea
+{
+    public long Id { get; set; }
+    public required string Name { get; set; }
+    public int AdminLevel { get; set; }
+    public required MultiPolygon Geom { get; set; }
+}

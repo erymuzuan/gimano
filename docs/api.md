@@ -137,6 +137,10 @@ Result ids: `n…`/`w…`/`r…` OSM places and areas, `c_…` community places;
 `name`/`address` are as before (a place within 40 m, else the street). Added: `label` ("Dekat 18, Jalan SS 2/24, SS2,
 Petaling Jaya" / "Near …"), `houseNumber`, `street`, `area` (suburb/neighbourhood), `city`, `postcode`, and `nearby` =
 places within 50 m, nearest first (max 5), for "Adakah ini FamilyMart?".
+`city`/`area` come from the OSM administrative boundaries that contain the point (smallest first): `city` is the
+nearest city/town inside the smallest containing boundary of admin_level ≤ 6 (else that boundary's name), `area` the
+nearest suburb/neighbourhood inside the smallest containing boundary, so KLCC is "Kuala Lumpur", not a town across the
+border.
 
 ### Search misses (anonymous zero-result counts)
 

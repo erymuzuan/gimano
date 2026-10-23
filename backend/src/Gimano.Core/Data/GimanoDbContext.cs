@@ -38,6 +38,7 @@ public sealed class GimanoDbContext(DbContextOptions<GimanoDbContext> options) :
     public DbSet<Announcement> Announcements => Set<Announcement>();
     public DbSet<StreetAddress> StreetAddresses => Set<StreetAddress>();
     public DbSet<SearchMiss> SearchMisses => Set<SearchMiss>();
+    public DbSet<AdminArea> AdminAreas => Set<AdminArea>();
 
     protected override void OnModelCreating(ModelBuilder b)
     {
@@ -327,6 +328,15 @@ public sealed class GimanoDbContext(DbContextOptions<GimanoDbContext> options) :
             e.Property(x => x.Country).HasMaxLength(2);
             e.Property(x => x.Location).HasColumnType("geography (point, 4326)");
             e.HasIndex(x => x.Location).HasMethod("gist");
+        });
+
+        b.Entity<AdminArea>(e =>
+        {
+            e.ToTable("admin_areas");
+            e.Property(x => x.Id).ValueGeneratedNever();
+            e.Property(x => x.Name).HasMaxLength(200);
+            e.Property(x => x.Geom).HasColumnType("geography (multipolygon, 4326)");
+            e.HasIndex(x => x.Geom).HasMethod("gist");
         });
 
         b.Entity<SearchMiss>(e =>
