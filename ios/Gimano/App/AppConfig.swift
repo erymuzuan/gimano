@@ -83,6 +83,16 @@ final class AppConfig {
         return URL(string: "https://tiles.openfreemap.org/styles/dark")!
     }
 
+    /// What About / Settings show as "Server": the public server is just "Manotu" (its host name is infrastructure);
+    /// any other server (dev, a developer override) shows its host. Same rule as Android's `ServerLabel`.
+    var serverLabel: String {
+        #if DEBUG
+        ServerLabel.text(current: apiBaseURL.absoluteString, builtIn: bundleAPIBaseURL, debug: true)
+        #else
+        ServerLabel.text(current: apiBaseURL.absoluteString, builtIn: bundleAPIBaseURL, debug: false)
+        #endif
+    }
+
     /// `ws(s)://host/hubs/live`, derived from the API base URL (`…/api/v1/` stripped).
     var liveHubURL: URL {
         Self.hubURL(fromAPIBase: apiBaseURL)
@@ -118,5 +128,18 @@ final class AppConfig {
         static let mode = "debug.dataMode"
         static let simulate = "debug.simulateDrive"
         static let speedup = "debug.simulationSpeedup"
+    }
+}
+
+/// Release builds talking to their built-in server show the app's name instead of a host name.
+enum ServerLabel {
+    static func isPublic(current: String, builtIn: String, debug: Bool) -> Bool {
+        func trimmed(_ s: String) -> String { s.trimmingCharacters(in: CharacterSet(charactersIn: "/ ")) }
+        return !debug && trimmed(current) == trimmed(builtIn)
+    }
+
+    static func text(current: String, builtIn: String, debug: Bool) -> String {
+        if isPublic(current: current, builtIn: builtIn, debug: debug) { return AppInfo.name }
+        return URL(string: current)?.host() ?? current
     }
 }

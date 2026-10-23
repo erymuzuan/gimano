@@ -60,9 +60,13 @@ struct RoutePreviewView: View {
                 StopsSheet(planner: planner) { stopCountdown() }.presentationDetents([.medium, .large])
             }
             .onChange(of: planner.isLoading) { _, loading in
-                // `-GimanoNoAutoStart YES` (UI tests) disables the auto-start countdown.
-                // Auto-start only from a fresh GPS fix (never from a chosen start).
-                if !loading, planner.selected != nil, planner.departAt == nil, planner.start.isGPS,
+                // The 10 s countdown is off by default (Settings → Start navigation automatically) and, when on, only runs
+                // for one-tap trips from a fresh GPS fix (AutoStart, same rule as Android). `-GimanoNoAutoStart YES` (UI tests)
+                // disables it regardless.
+                if !loading, planner.selected != nil,
+                   AutoStart.shouldCountdown(enabled: model.autoStartNav, quickPick: planner.quickPick, originIsGPS: planner.start.isGPS,
+                                             hasStops: !planner.stops.isEmpty, departLater: planner.departAt != nil,
+                                             foreground: model.isForeground),
                    !UserDefaults.standard.bool(forKey: "GimanoNoAutoStart") { startCountdown() }
             }
             .task(id: countdownToken) {

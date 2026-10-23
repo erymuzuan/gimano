@@ -5,6 +5,8 @@ import SwiftUI
 /// Same paths as the boards; rendered with the shared SVG path parser (`SVGPath`).
 enum FlatIcon: String, CaseIterable, Sendable {
     case home, work, star, fuel, food, surau, parking, ev, atm, shop, more, recent
+    // Place card (boards TempatIntai / TempatPenuh).
+    case save, call, share, website, camera, review, edit
 
     /// (base, detail) path data.
     var paths: (base: String, detail: String) {
@@ -24,6 +26,15 @@ enum FlatIcon: String, CaseIterable, Sendable {
                      "M2 3h3l3 13h11v2H6.4L3.4 5H2zM8 20a1.5 1.5 0 1 0 3 0 1.5 1.5 0 0 0-3 0zM16 20a1.5 1.5 0 1 0 3 0 1.5 1.5 0 0 0-3 0z")
         case .more: ("M12 2a10 10 0 1 1 0 20 10 10 0 0 1 0-20z", "M11 7h2v4h4v2h-4v4h-2v-4H7v-2h4z")
         case .recent: ("M12 2a10 10 0 1 1 0 20 10 10 0 0 1 0-20z", "M11 6h2v5.4l3.8 2.2-1 1.7-4.8-2.8z")
+        case .save: ("M6 3h12v18l-6-4-6 4z", "M9 7h6v2H9z")
+        case .call: ("M5 3h4l2 5-2.5 1.5a11 11 0 0 0 6 6L16 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 5a2 2 0 0 1 2-2z",
+                     "M14 3a7 7 0 0 1 7 7h-2a5 5 0 0 0-5-5z")
+        case .share: ("M8.6 10.7 15 7.4l.9 1.8-6.4 3.3zM9.5 13.5l6.4 3.3-.9 1.8-6.4-3.3z",
+                      "M18 2a3 3 0 1 1 0 6 3 3 0 0 1 0-6zM6 9a3 3 0 1 1 0 6 3 3 0 0 1 0-6zM18 16a3 3 0 1 1 0 6 3 3 0 0 1 0-6z")
+        case .website: ("M12 2a10 10 0 1 1 0 20 10 10 0 0 1 0-20z", "M2.5 11h19v2h-19zM11 2.2h2c2.6 2.6 2.6 17 0 19.6h-2c-2.6-2.6-2.6-17 0-19.6z")
+        case .camera: ("M3 7h4l2-3h6l2 3h4v13H3z", "M12 9a4 4 0 1 1 0 8 4 4 0 0 1 0-8z")
+        case .review: ("M3 4h18v13H8l-5 4z", "m12 6.5 1.4 2.9 3.1.4-2.3 2.2.6 3.1L12 13.6l-2.8 1.5.6-3.1-2.3-2.2 3.1-.4z")
+        case .edit: ("M4 16 15 5l4 4L8 20H4z", "m16 4 2-2 4 4-2 2z")
         }
     }
 

@@ -432,7 +432,7 @@ struct HomeRecents: View {
             }
             ForEach(model.recents.prefix(limit)) { r in
                 Button {
-                    model.planRoute(to: Destination(name: r.name, address: r.address, location: r.location, placeId: r.placeId))
+                    model.planRoute(to: Destination(name: r.name, address: r.address, location: r.location, placeId: r.placeId), quickPick: true)
                 } label: {
                     HomePanelRow(icon: .recent, title: r.name, subtitle: r.address, distanceM: Geo.distance(model.position, r.location))
                 }

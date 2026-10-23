@@ -49,3 +49,12 @@ enum RouteStart: Equatable {
 
     var chosenName: String? { if case .chosen(let n, _, _) = self { n } else { nil } }
 }
+
+/// The route preview's 10 s "Go" countdown (Android `AutoStart`). Off by default (Settings → "Start navigation
+/// automatically"); even then only for one-tap destinations (Home, Work, a favourite, a recent, a planned drive), never
+/// after a search, never with a chosen start, stops or a departure time, and never while the app is in the background.
+enum AutoStart {
+    static func shouldCountdown(enabled: Bool, quickPick: Bool, originIsGPS: Bool, hasStops: Bool, departLater: Bool, foreground: Bool) -> Bool {
+        enabled && quickPick && originIsGPS && !hasStops && !departLater && foreground
+    }
+}

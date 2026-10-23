@@ -27,6 +27,9 @@ enum CameraMode: Equatable {
     case overview(BBox)
     /// Center on a coordinate once.
     case center(LatLng, zoom: Double)
+    /// Place card: the place's pin centred in the map left visible above the card (`placeBottomInset`),
+    /// re-centred whenever the card changes height.
+    case place(LatLng, zoom: Double)
 }
 
 /// Everything the map renders. Owned by `AppModel`, observed by the map coordinator.
@@ -52,6 +55,8 @@ final class MapState {
     var overviewInsets = (top: 140.0, bottom: 360.0)
     /// Height (pt) the home panel covers at the bottom; north-up tracking keeps the puck centred above it.
     var homeBottomInset: Double = 0
+    /// Height (pt) the place card covers at the bottom; the place camera centres the pin above it.
+    var placeBottomInset: Double = 0
 
     /// Coordinates to project to screen points (route duration bubbles).
     var bubbleAnchors: [String: LatLng] = [:]
@@ -74,6 +79,12 @@ final class MapState {
     func setCamera(_ mode: CameraMode) {
         camera = mode
         cameraRevision += 1
+    }
+
+    /// The place camera is holding the card's pin centred (until the user pans).
+    var isPlaceCentred: Bool {
+        if case .place = camera { return true }
+        return false
     }
 
     var isFollowing: Bool {

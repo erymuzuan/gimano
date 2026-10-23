@@ -81,6 +81,16 @@
         }
       }
     },
+    "%@ stars": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ bintang"
+          }
+        }
+      }
+    },
     "%@ · %@": {
       "shouldTranslate": false
     },
@@ -444,7 +454,7 @@
         "ms": {
           "stringUnit": {
             "state": "translated",
-            "value": "Tambah gambar"
+            "value": "Tambah foto"
           }
         }
       }
@@ -471,6 +481,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Ditambah oleh pengguna Manotu"
+          }
+        }
+      }
+    },
+    "After 10 s on the route preview, for Home, Work, favourites, recent places and planned drives. Never after a search.": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Selepas 10 s pada pratonton laluan, untuk Rumah, Kerja, kegemaran, tempat terkini dan perjalanan dirancang. Tidak selepas carian."
           }
         }
       }
@@ -1106,7 +1126,7 @@
         "ms": {
           "stringUnit": {
             "state": "translated",
-            "value": "Telefon"
+            "value": "Hubungi"
           }
         }
       }
@@ -3936,6 +3956,16 @@
         }
       }
     },
+    "No reviews yet": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Belum ada ulasan"
+          }
+        }
+      }
+    },
     "No reviews yet. Be the first!": {
       "localizations": {
         "ms": {
@@ -4417,7 +4447,7 @@
         "ms": {
           "stringUnit": {
             "state": "translated",
-            "value": "Gambar"
+            "value": "Foto"
           }
         }
       }
@@ -4438,6 +4468,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "Data tempat © penyumbang OpenStreetMap"
+          }
+        }
+      }
+    },
+    "Place details, collapsed. Swipe up for reviews and photos.": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Butiran tempat, ringkas. Leret ke atas untuk ulasan dan foto."
+          }
+        }
+      }
+    },
+    "Place details, expanded. Swipe down to show the map.": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Butiran tempat, penuh. Leret ke bawah untuk melihat peta."
           }
         }
       }
@@ -5970,6 +6020,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Mula dari"
+          }
+        }
+      }
+    },
+    "Start navigation automatically": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mula navigasi secara automatik"
           }
         }
       }

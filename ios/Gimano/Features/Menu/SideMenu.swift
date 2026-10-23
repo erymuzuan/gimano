@@ -228,6 +228,12 @@ struct SettingsView: View {
                 }
             }
             Section {
+                Toggle("Start navigation automatically", isOn: $model.autoStartNav)
+                    .accessibilityIdentifier("autoStartNav")
+            } footer: {
+                Text("After 10 s on the route preview, for Home, Work, favourites, recent places and planned drives. Never after a search.")
+            }
+            Section {
                 LanguagePicker()
                 Button("Language settings for Gimano") {
                     if let url = URL(string: UIApplication.openSettingsURLString) { openURL(url) }
@@ -247,7 +253,7 @@ struct SettingsView: View {
                 NavigationLink { AboutView() } label: { Label("About Gimano", systemImage: "info.circle") }
                     .accessibilityIdentifier("settingsAbout")
                 LabeledContent("Version", value: AppInfo.versionString)
-                LabeledContent("Server", value: model.config.apiBaseURL.host() ?? "")
+                LabeledContent("Server", value: model.config.serverLabel)
                     .accessibilityIdentifier("serverHost")
                 if let name = model.user?.displayName {
                     LabeledContent("Your pseudonym", value: name).accessibilityIdentifier("pseudonym")
@@ -556,7 +562,7 @@ struct AboutView: View {
                     }
                 }
                 LabeledContent("Server") {
-                    Text(verbatim: "\(model.config.apiBaseURL.host() ?? "?") · \(statusText)")
+                    Text(verbatim: "\(model.config.serverLabel) · \(statusText)")
                 }
                 .accessibilityIdentifier("aboutServer")
                 LabeledContent("Latest version", value: AppInfo.version)

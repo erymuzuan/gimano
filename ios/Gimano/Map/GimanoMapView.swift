@@ -55,6 +55,7 @@ struct GimanoMapView: UIViewRepresentable {
         private var lastDestination: LatLng?
         private var lastPuckMove = Date.distantPast
         private var lastHomeInset: Double = 0
+        private var lastPlaceInset: Double = 0
 
         init(state: MapState) {
             self.state = state
@@ -87,6 +88,7 @@ struct GimanoMapView: UIViewRepresentable {
             let camera = state.camera
             _ = state.bubbleAnchors
             let homeInset = state.homeBottomInset
+            let placeInset = state.placeBottomInset
 
             guard let map else { return }
             if lastStyleURL != styleURL {
@@ -110,6 +112,14 @@ struct GimanoMapView: UIViewRepresentable {
                     // Keep the puck centred in the part of the map the home panel leaves visible.
                     map.setContentInset(trackInsets, animated: true, completionHandler: nil)
                     if let puck { map.setCenter(puck.coordinate, animated: true) }
+                }
+            }
+            if placeInset != lastPlaceInset {
+                lastPlaceInset = placeInset
+                if case .place(let p, _) = camera, cameraRevision == appliedCameraRevision {
+                    // The card changed height (peek ↔ full, Dynamic Type): keep the pin centred in the visible map.
+                    map.setContentInset(placeInsets, animated: false, completionHandler: nil)
+                    map.setCenter(p.coordinate, animated: true)
                 }
             }
             if cameraRevision != appliedCameraRevision {
@@ -151,7 +161,14 @@ struct GimanoMapView: UIViewRepresentable {
             case .center(let p, let zoom):
                 map.setContentInset(.zero, animated: false, completionHandler: nil)
                 map.setCenter(p.coordinate, zoomLevel: zoom, direction: map.direction, animated: animated)
+            case .place(let p, let zoom):
+                map.setContentInset(placeInsets, animated: false, completionHandler: nil)
+                map.setCenter(p.coordinate, zoomLevel: zoom, direction: 0, animated: animated)
             }
+        }
+
+        private var placeInsets: UIEdgeInsets {
+            UIEdgeInsets(top: 0, left: 0, bottom: CGFloat(state.placeBottomInset), right: 0)
         }
 
         private var trackInsets: UIEdgeInsets {

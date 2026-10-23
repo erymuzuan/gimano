@@ -43,6 +43,9 @@ final class RoutePlanner {
     var ignoredIssues: Set<String> = []
     /// The start is under 50 m from the destination: "You're already here", no route.
     var alreadyHere = false
+    /// Opened with one tap (Home, Work, a favourite, a recent, a planned drive), not from a search: the only
+    /// trips the optional auto-start countdown may run for.
+    var quickPick = false
 
     init(destination: Destination, vehicle: Vehicle) {
         self.destination = destination
@@ -128,6 +131,8 @@ final class AppModel {
     var toast: String?
     var soundMode: SoundMode = .on { didSet { voice.mode = soundMode } }
     var vehicle: Vehicle = .car
+    /// Settings → "Start navigation automatically" (local settings table; off by default, like Android).
+    var autoStartNav = false { didSet { try? store.setSetting("auto_start_nav", autoStartNav ? "1" : nil) } }
     /// Settings → Theme (persisted in the local settings table; default Light).
     var theme: ThemeMode = .light {
         didSet {
@@ -185,6 +190,7 @@ final class AppModel {
         #endif
         if let raw = UserDefaults.standard.string(forKey: "travelMode"), let v = Vehicle(rawValue: raw) { vehicle = v }
         if let raw = try? store.setting("theme"), let t = ThemeMode(rawValue: raw) { theme = t }
+        autoStartNav = (try? store.setting("auto_start_nav")) == "1"
         #if DEBUG
         if let raw = UserDefaults.standard.string(forKey: "GimanoTheme"), let t = ThemeMode(rawValue: raw) { theme = t }
         #endif
@@ -462,7 +468,7 @@ final class AppModel {
         showMenu = false
         menuSheet = nil
         planRoute(to: Destination(name: d.destination.name ?? d.title, address: d.destination.address ?? "",
-                                  location: d.destination.location, placeId: d.destination.placeId), stops: d.waypoints)
+                                  location: d.destination.location, placeId: d.destination.placeId), stops: d.waypoints, quickPick: true)
     }
 
     /// Reloads favourites and recents from the on-device store.
@@ -552,6 +558,8 @@ final class AppModel {
     }
 
     func recenter() {
+        // While a place card is open, recentre returns to the place's pin, not to the user.
+        if case .place(let p) = screen { map.setCamera(.place(p.location, zoom: 16)); return }
         map.setCamera(screen == .navigating ? .navigation : .trackNorth(zoom: 15))
     }
 
@@ -560,7 +568,7 @@ final class AppModel {
     private func wireMap() {
         map.onUserGesture = { [weak self] in
             guard let self else { return }
-            if self.map.isFollowing { self.map.camera = .free }
+            if self.map.isFollowing || self.map.isPlaceCentred { self.map.camera = .free }
             // While navigating, follow the puck again 10 s after the last pan.
             self.followResume?.cancel()
             guard self.screen == .navigating else { return }
@@ -664,7 +672,8 @@ final class AppModel {
         case .home:
             map.setCamera(.trackNorth(zoom: 15))
         case .place(let p):
-            map.setCamera(.center(LatLng(lat: p.lat - 0.004, lng: p.lng), zoom: 14.5))
+            // The card reports its height (placeBottomInset); the pin is centred in the map above it.
+            map.setCamera(.place(p.location, zoom: 16))
         case .routePreview, .search:
             break
         case .navigating:
@@ -710,12 +719,13 @@ final class AppModel {
         openPlace(summary)
     }
 
-    func planRoute(to d: Destination, stops: [TripStop] = []) {
+    func planRoute(to d: Destination, stops: [TripStop] = [], quickPick: Bool = false) {
         // Recents stay on the device.
         try? store.recordRecent(name: d.name, address: d.address, lat: d.location.lat, lng: d.location.lng, placeId: d.placeId)
         recents = (try? store.recents()) ?? recents
         let planner = RoutePlanner(destination: d, vehicle: vehicle)
         planner.stops = stops
+        planner.quickPick = quickPick
         self.planner = planner
         go(.routePreview)
         Task { await resolveStartAndFetch(planner) }
@@ -1113,7 +1123,7 @@ final class AppModel {
     }
 
     func navigate(to saved: SavedPlace) {
-        planRoute(to: Destination(name: saved.name, address: saved.address, location: saved.location, placeId: saved.placeId))
+        planRoute(to: Destination(name: saved.name, address: saved.address, location: saved.location, placeId: saved.placeId), quickPick: true)
     }
 
     /// Local favourites matching a search query (shown before server results).
