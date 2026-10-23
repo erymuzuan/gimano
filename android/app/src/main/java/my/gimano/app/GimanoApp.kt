@@ -28,7 +28,10 @@ class AppContainer(app: Application) {
     val liveHub = LiveHub(scope, { settings.current.apiBaseUrl }, { settings.current.token })
     val locations = FusedLocationSource(app)
     val voice = VoiceGuide(app)
-    val navigation = NavigationController(app, scope, repo, settings, locations, voice, ::voiceLang)
+    val navigation = NavigationController(
+        scope, repo, my.gimano.app.nav.FusedFixSource(locations), voice, my.gimano.app.nav.AndroidNavServiceControl(app),
+        soundMode = { settings.current.soundMode }, langProvider = ::voiceLang,
+    )
 
     /** UI language (per-app locale if set, else system). */
     fun lang(): Lang {

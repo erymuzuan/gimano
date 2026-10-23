@@ -187,4 +187,7 @@
     <string name="rs_map_issue">Map</string>
     <string name="rs_weather">Weather</string>
     <string name="rs_animal">Animal</string>
+    <string name="stop_nav_title">Stop navigation?</string>
+    <string name="keep_driving">Keep driving</string>
+    <string name="end_nav">End navigation</string>
 </resources>

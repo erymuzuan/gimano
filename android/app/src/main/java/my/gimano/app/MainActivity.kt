@@ -20,11 +20,24 @@ import my.gimano.app.ui.SearchPurpose
 import my.gimano.app.ui.theme.GimanoTheme
 
 class MainActivity : AppCompatActivity() {
+    /** Debug builds only: `adb shell am start -n my.gimano.app/.MainActivity --ez gimano.simulateDrive true`. */
+    private fun applyDebugExtras(i: Intent?) {
+        if (!BuildConfig.DEBUG || i == null) return
+        if (i.hasExtra("gimano.simulateDrive")) vm.setSimulate(i.getBooleanExtra("gimano.simulateDrive", false))
+        if (i.hasExtra("gimano.demoMode")) vm.setDemoMode(i.getBooleanExtra("gimano.demoMode", false))
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        applyDebugExtras(intent)
+    }
+
     private val vm: MainViewModel by viewModels { MainViewModel.Factory((application as GimanoApp).container) }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
+        applyDebugExtras(intent)
         setContent {
             GimanoTheme {
                 val permLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { res ->

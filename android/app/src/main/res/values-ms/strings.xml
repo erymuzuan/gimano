@@ -186,4 +186,7 @@
     <string name="rs_map_issue">Peta</string>
     <string name="rs_weather">Cuaca</string>
     <string name="rs_animal">Haiwan</string>
+    <string name="stop_nav_title">Hentikan navigasi?</string>
+    <string name="keep_driving">Teruskan memandu</string>
+    <string name="end_nav">Tamatkan navigasi</string>
 </resources>

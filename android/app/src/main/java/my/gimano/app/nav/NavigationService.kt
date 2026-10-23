@@ -17,6 +17,7 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.takeWhile
 import kotlinx.coroutines.launch
 import my.gimano.app.GimanoApp
 import my.gimano.app.MainActivity
@@ -35,8 +36,16 @@ class NavigationService : Service() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         val app = application as GimanoApp
         if (intent?.action == ACTION_STOP) {
-            app.container.navigation.stop()
-            stopSelf()
+            app.container.navigation.stop() // also stops this service and cancels the notification
+            removeNotificationAndStop()
+            return START_NOT_STICKY
+        }
+        if (!app.container.navigation.state.value.active) {
+            // Restarted by the system with no drive in progress (process was killed): never
+            // resurrect a "Navigating" notification for a drive that no longer exists.
+            ensureChannel()
+            runCatching { ServiceCompat.startForeground(this, NOTIF_ID, build(getString(R.string.nav_notification_title), ""), if (Build.VERSION.SDK_INT >= 29) ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION else 0) }
+            removeNotificationAndStop()
             return START_NOT_STICKY
         }
         ensureChannel()
@@ -50,8 +59,12 @@ class NavigationService : Service() {
             stopSelf()
             return START_NOT_STICKY
         }
+        if (collecting) return START_NOT_STICKY
+        collecting = true
         scope.launch {
             app.container.navigation.state
+                // Only a live drive may (re)post the ongoing notification.
+                .takeWhile { it.active && !it.arrived }
                 .map { s ->
                     val lang = app.container.lang()
                     val next = s.progress?.nextManeuver
@@ -68,7 +81,22 @@ class NavigationService : Service() {
                     getSystemService(NotificationManager::class.java).notify(NOTIF_ID, build(t, x))
                 }
         }
-        return START_STICKY
+        return START_NOT_STICKY
+    }
+
+    private var collecting = false
+
+    private fun removeNotificationAndStop() {
+        ServiceCompat.stopForeground(this, ServiceCompat.STOP_FOREGROUND_REMOVE)
+        getSystemService(NotificationManager::class.java).cancel(NOTIF_ID)
+        stopSelf()
+    }
+
+    /** Swiping Gimano away from Recents ends the drive: no orphaned service or notification. */
+    override fun onTaskRemoved(rootIntent: Intent?) {
+        (application as GimanoApp).container.navigation.stop()
+        removeNotificationAndStop()
+        super.onTaskRemoved(rootIntent)
     }
 
     private fun build(title: String, text: String): Notification {
@@ -101,6 +129,8 @@ class NavigationService : Service() {
 
     override fun onDestroy() {
         scope.cancel()
+        ServiceCompat.stopForeground(this, ServiceCompat.STOP_FOREGROUND_REMOVE)
+        getSystemService(NotificationManager::class.java).cancel(NOTIF_ID)
         super.onDestroy()
     }
 

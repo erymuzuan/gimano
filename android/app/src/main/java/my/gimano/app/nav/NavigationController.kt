@@ -1,8 +1,5 @@
 package my.gimano.app.nav
 
-import android.content.Context
-import android.content.Intent
-import android.os.Build
 import android.util.Log
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
@@ -23,11 +20,9 @@ import my.gimano.app.core.nav.PuckPlacement
 import my.gimano.app.core.nav.VoicePromptPlanner
 import my.gimano.app.core.nav.headingDiff
 import my.gimano.app.data.location.DriveSimulator
-import my.gimano.app.data.location.FusedLocationSource
 import my.gimano.app.data.location.Fix
 import my.gimano.app.data.model.*
 import my.gimano.app.data.repo.GimanoRepository
-import my.gimano.app.data.settings.SettingsStore
 import my.gimano.app.data.settings.SoundMode
 import java.time.Instant
 
@@ -59,12 +54,12 @@ data class NavState(
  * Lives in the app container so the foreground service and UI observe the same state.
  */
 class NavigationController(
-    private val context: Context,
     private val scope: CoroutineScope,
     private val repo: GimanoRepository,
-    private val settings: SettingsStore,
-    private val locations: FusedLocationSource,
-    private val voice: VoiceGuide,
+    private val fixSource: FixSource,
+    private val voice: Speaker,
+    private val service: NavServiceControl,
+    private val soundMode: () -> SoundMode,
     private val langProvider: () -> Lang,
 ) {
     private val _state = MutableStateFlow(NavState())
@@ -87,10 +82,10 @@ class NavigationController(
         _state.value = NavState(active = true, route = route, destination = destination, simulated = simulate, startedAt = Instant.now())
         val lang = langProvider()
         val first = route.maneuvers.firstOrNull()
-        if (settings.current.soundMode == SoundMode.ON && first != null) {
+        if (soundMode() == SoundMode.ON && first != null) {
             voice.speak(ManeuverFormatter.spokenNow(first, lang), lang, flush = true)
         }
-        startService()
+        service.start()
         job = scope.launch {
             fixes(route, simulate).collect { onFix(it) }
         }
@@ -101,7 +96,7 @@ class NavigationController(
         return if (simulate) {
             val avg = (route.distanceM / route.effectiveDurationS * 3.6).coerceIn(25.0, 70.0)
             DriveSimulator.drive(t.geometry, avg * 1.6)
-        } else locations.updates()
+        } else fixSource.updates()
     }
 
     private suspend fun onFix(fix: Fix) {
@@ -109,7 +104,7 @@ class NavigationController(
         val p = t.update(fix.point) ?: return
         val speed = ((fix.speedMps ?: 0f) * 3.6f).toInt()
         val lang = langProvider()
-        val sound = settings.current.soundMode
+        val sound = soundMode()
 
         // Voice prompts for maneuvers.
         val next = p.nextManeuver
@@ -149,7 +144,8 @@ class NavigationController(
         }
 
         if (p.arrived) {
-            if (sound == SoundMode.ON && announcedAlerts.add("__arrived")) voice.speak(if (lang == Lang.MS) "Anda telah tiba di destinasi" else "You have arrived at your destination", lang)
+            if (sound == SoundMode.ON) voice.speak(if (lang == Lang.MS) "Anda telah tiba di destinasi" else "You have arrived at your destination", lang)
+            finishTracking()
             return
         }
 
@@ -177,7 +173,7 @@ class NavigationController(
         val route = _state.value.route ?: return
         _state.update { it.copy(rerouting = true) }
         val lang = langProvider()
-        if (settings.current.soundMode == SoundMode.ON) voice.speak(if (lang == Lang.MS) "Mengira semula laluan" else "Recalculating route", lang)
+        if (soundMode() == SoundMode.ON) voice.speak(if (lang == Lang.MS) "Mengira semula laluan" else "Recalculating route", lang)
         try {
             val routes = repo.reroute(route.id, RerouteRequest(fix.point.lat, fix.point.lng, fix.bearing?.toDouble()))
             routes.firstOrNull()?.let { replaceRoute(it) }
@@ -224,19 +220,28 @@ class NavigationController(
         _state.update { if (it.upcomingAlert?.id == id) it.copy(upcomingAlert = null) else it }
     }
 
+    /** Ends the drive from any exit path (End button, Back, notification, Done, task removed). */
     fun stop() = stopInternal(flush = true)
+
+    /**
+     * Arrived: stop GPS, pings and the foreground service (and its notification) but keep the
+     * final state so the UI can show the arrival card until the driver taps Done.
+     */
+    private fun finishTracking() {
+        job?.cancel()
+        job = null
+        batcher.drain()?.let { send(it) }
+        service.stop()
+    }
 
     private fun stopInternal(flush: Boolean) {
         job?.cancel()
         job = null
         voice.stop()
-        if (flush) {
-            batcher.drain()?.let { send(it) }
-        }
-        if (_state.value.active) {
-            _state.value = NavState()
-            context.stopService(Intent(context, NavigationService::class.java))
-        }
+        if (flush) batcher.drain()?.let { send(it) }
+        val wasActive = _state.value.active
+        _state.value = NavState()
+        if (wasActive) service.stop()
     }
 
     private fun send(points: List<LocationPoint>) {
@@ -244,12 +249,4 @@ class NavigationController(
         scope.launch { runCatching { repo.postLocations(LocationBatch(routeId, points)) } }
     }
 
-    private fun startService() {
-        val i = Intent(context, NavigationService::class.java)
-        try {
-            if (Build.VERSION.SDK_INT >= 26) context.startForegroundService(i) else context.startService(i)
-        } catch (e: Exception) {
-            Log.w("Nav", "Could not start foreground service", e)
-        }
-    }
 }

@@ -7,7 +7,7 @@ import my.gimano.app.core.format.Lang
 import java.util.Locale
 
 /** TextToSpeech wrapper for English and Bahasa Melayu prompts. */
-class VoiceGuide(context: Context) : TextToSpeech.OnInitListener {
+class VoiceGuide(context: Context) : TextToSpeech.OnInitListener, Speaker {
     private val tts = TextToSpeech(context.applicationContext, this)
     private var ready = false
     private var currentLang: Lang? = null
@@ -35,7 +35,7 @@ class VoiceGuide(context: Context) : TextToSpeech.OnInitListener {
         Log.w("VoiceGuide", "No TTS voice for $lang, using default")
     }
 
-    fun speak(text: String, lang: Lang, flush: Boolean = false) {
+    override fun speak(text: String, lang: Lang, flush: Boolean) {
         if (!ready) {
             pending += text to lang
             return
@@ -44,7 +44,8 @@ class VoiceGuide(context: Context) : TextToSpeech.OnInitListener {
         tts.speak(text, if (flush) TextToSpeech.QUEUE_FLUSH else TextToSpeech.QUEUE_ADD, null, "gimano-${text.hashCode()}")
     }
 
-    fun stop() {
+    override fun stop() {
+        pending.clear()
         if (ready) tts.stop()
     }
 

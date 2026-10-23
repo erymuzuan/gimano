@@ -39,6 +39,9 @@ import my.gimano.app.ui.report.currentLang
 import my.gimano.app.ui.theme.Gimano
 import my.gimano.app.ui.theme.GimanoType
 import my.gimano.app.ui.theme.Radius
+import my.gimano.app.ui.theme.Sizes
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import java.time.Instant
 import java.time.ZoneId
 
@@ -75,6 +78,12 @@ fun NavigationOverlay(nav: NavState, ui: UiState, settings: AppSettings, vm: Mai
             Modifier.align(Alignment.TopEnd).windowInsetsPadding(WindowInsets.statusBars).padding(top = 180.dp, end = 14.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
+            // Big, always-visible End button (no need to open the trip sheet).
+            val endLabel = stringResource(R.string.end_nav)
+            FloatingSurface(
+                Modifier.size(Sizes.roundFab).semantics { contentDescription = endLabel },
+                CircleShape, color = c.report, onClick = { vm.askStop(true) },
+            ) { GIcon("close", null, size = Sizes.roundFabIcon, stroke = c.reportOn, fill = c.reportOn) }
             SoundFab(settings.soundMode, onClick = vm::cycleSound)
             if (!ui.following) RoundFab(Icons.Filled.Navigation, stringResource(R.string.recenter), onClick = vm::recenter)
         }
@@ -93,7 +102,8 @@ fun NavigationOverlay(nav: NavState, ui: UiState, settings: AppSettings, vm: Mai
                     )
                 }
             }
-            Row(Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 10.dp), verticalAlignment = Alignment.Bottom) {
+            // Hidden while the trip sheet is expanded so it can't ride up over the sound/End buttons.
+            if (!ui.navExpanded) Row(Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 10.dp), verticalAlignment = Alignment.Bottom) {
                 Column {
                     if (nav.simulated) {
                         Pill(stringResource(R.string.simulated), icon = Icons.Filled.Science)
@@ -109,6 +119,28 @@ fun NavigationOverlay(nav: NavState, ui: UiState, settings: AppSettings, vm: Mai
             if (nav.arrived) ArrivedCard(nav, vm) else EtaBar(nav, ui, settings, vm, now)
         }
     }
+    if (ui.confirmStop) StopDialog(vm)
+}
+
+@Composable
+private fun StopDialog(vm: MainViewModel) {
+    val c = Gimano.colors
+    AlertDialog(
+        onDismissRequest = { vm.askStop(false) },
+        title = { Text(stringResource(R.string.stop_nav_title), style = GimanoType.title) },
+        confirmButton = {
+            Button(
+                onClick = vm::stopNavigation, Modifier.height(56.dp), shape = RoundedCornerShape(Radius.md),
+                colors = ButtonDefaults.buttonColors(containerColor = c.report, contentColor = c.reportOn),
+            ) { Text(stringResource(R.string.stop), fontSize = 18.sp, fontWeight = FontWeight.ExtraBold) }
+        },
+        dismissButton = {
+            Button(
+                onClick = { vm.askStop(false) }, Modifier.height(56.dp), shape = RoundedCornerShape(Radius.md),
+                colors = ButtonDefaults.buttonColors(containerColor = c.brand, contentColor = c.brandOn),
+            ) { Text(stringResource(R.string.keep_driving), fontSize = 18.sp, fontWeight = FontWeight.ExtraBold) }
+        },
+    )
 }
 
 @Composable
@@ -201,6 +233,8 @@ private fun ExpandedRow(icon: ImageVector, label: String, onClick: () -> Unit) {
 @Composable
 private fun ArrivedCard(nav: NavState, vm: MainViewModel) {
     val c = Gimano.colors
+    // Tracking already stopped on arrival; close the card by itself if the driver doesn't.
+    LaunchedEffect(Unit) { delay(20_000); vm.stopNavigation() }
     SheetSurface(Modifier.fillMaxWidth()) {
         Column(Modifier.fillMaxWidth().windowInsetsPadding(WindowInsets.navigationBars).padding(20.dp), horizontalAlignment = Alignment.CenterHorizontally) {
             Icon(Icons.Filled.SportsScore, null, tint = c.brand, modifier = Modifier.size(48.dp))

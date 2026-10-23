@@ -85,6 +85,7 @@ data class UiState(
     val following: Boolean = true,
     val departureSlots: List<DepartureSlot>? = null,
     val navExpanded: Boolean = false,
+    val confirmStop: Boolean = false,
 )
 
 sealed interface UiEvent {
@@ -516,8 +517,11 @@ class MainViewModel(private val c: AppContainer) : ViewModel() {
 
     fun stopNavigation() {
         c.navigation.stop()
-        _ui.update { it.copy(screen = Screen.Home, plan = null, navExpanded = false, following = true, camera = CameraCommand.Reset2D(here(), 15.0)) }
+        _ui.update { it.copy(screen = Screen.Home, plan = null, navExpanded = false, confirmStop = false, following = true, camera = CameraCommand.Reset2D(here(), 15.0)) }
     }
+
+    /** Back / End during a drive asks first; never traps the driver, never keeps navigating silently. */
+    fun askStop(v: Boolean) = _ui.update { it.copy(confirmStop = v) }
 
     fun setNavExpanded(v: Boolean) = _ui.update { it.copy(navExpanded = v) }
 
@@ -554,7 +558,11 @@ class MainViewModel(private val c: AppContainer) : ViewModel() {
             Screen.PlaceCard -> goHome()
             Screen.RoutePreview -> if (s.place != null) _ui.update { it.copy(screen = Screen.PlaceCard, plan = null) } else _ui.update { it.copy(screen = Screen.Home, plan = null) }
             Screen.Settings -> goHome()
-            Screen.Navigating -> setNavExpanded(false)
+            Screen.Navigating -> when {
+                s.navExpanded -> setNavExpanded(false)
+                nav.value.arrived -> stopNavigation()
+                else -> askStop(true)
+            }
             Screen.Home -> Unit
         }
     }
