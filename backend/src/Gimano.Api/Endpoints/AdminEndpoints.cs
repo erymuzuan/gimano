@@ -165,11 +165,12 @@ public static class AdminEndpoints
     private static async Task<Results<NoContent, NotFound, ValidationProblem>> SetCrashStatus(string signature, AdminStatusRequest req, GimanoDbContext db,
         TimeProvider clock, CancellationToken ct)
     {
-        if (!GimanoJson.TryParseWire<CrashGroupStatus>(req.Status, out var status)) return Validation.Problem("status", "open|done|wont_fix");
+        if (!GimanoJson.TryParseWire<CrashGroupStatus>(req.Status, out var status)) return Validation.Problem("status", "open|triaged|fixing|regressed|done|wont_fix");
         var g = await db.CrashGroups.FirstOrDefaultAsync(x => x.Signature == signature, ct);
         if (g is null) return TypedResults.NotFound();
         g.Status = status;
-        g.ClosedAt = status == CrashGroupStatus.Open ? null : g.ClosedAt ?? clock.GetUtcNow();
+        // Only done/wont_fix are closed (start the 30-day contact clock); open/triaged/fixing/regressed are not.
+        g.ClosedAt = CrashGroup.IsClosed(status) ? g.ClosedAt ?? clock.GetUtcNow() : null;
         await db.SaveChangesAsync(ct);
         return TypedResults.NoContent();
     }

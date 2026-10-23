@@ -12,7 +12,7 @@ old URL, so never create a new repo named `gimano`, or the redirect breaks). Loc
 
 | Path | What |
 |---|---|
-| `backend/` | .NET 10 solution `Gimano.slnx` (Api, Worker, Importer, Core, Tests) |
+| `backend/` | .NET 10 solution `Gimano.slnx` (Api, BackOffice, Worker, Importer, Core, Tests) |
 | `android/` | Kotlin / Compose + MapLibre app |
 | `ios/` | Swift / SwiftUI + MapLibre app |
 | `deploy/` | `docker-compose.yml` (project `gimano`), Dockerfiles, `.env.example` |
@@ -31,6 +31,7 @@ old URL, so never create a new repo named `gimano`, or the redirect breaks). Loc
 | RabbitMQ | 5673 (AMQP), 15673 (management UI) |
 | OpenSearch | 9210 |
 | Valhalla | 8002 |
+| BackOffice (maintainers, Blazor) | 5090 → `http://100.101.150.9:5090`; agents use `http://100.101.150.9:5080/mcp` (`docs/back-office.md`) |
 
 - **Leave other projects' containers alone** (never stop / modify / prune them):
   `postgres18_dev` :5432, `sentinel-smartpay-eis-postgres` :5443, `opensearch1` :9201,

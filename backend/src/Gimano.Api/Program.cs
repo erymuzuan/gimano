@@ -1,14 +1,17 @@
 using System.Text.Json;
 using Gimano.Api;
+using Gimano.Api.Admin;
 using Gimano.Api.Auth;
 using Gimano.Api.Endpoints;
 using Gimano.Api.Health;
 using Gimano.Api.Live;
 using Gimano.Api.Services;
+using Gimano.Core.BackOffice;
 using Gimano.Core.Community;
 using Gimano.Core.Contracts;
 using Gimano.Core.Data;
 using Gimano.Core.Infrastructure;
+using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.EntityFrameworkCore;
@@ -62,7 +65,9 @@ if (string.IsNullOrEmpty(config["Jwt:SigningKey"]))
     builder.Services.PostConfigure<JwtOptions>(o => o.SigningKey = devKey);
 }
 builder.Services.AddSingleton<JwtTokenService>();
-builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme).AddJwtBearer();
+builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme).AddJwtBearer()
+    // AI agents (back office): "Bearer agt_…" tokens minted by a maintainer, for /admin/v1 and /mcp only.
+    .AddScheme<AuthenticationSchemeOptions, AgentTokenAuthenticationHandler>(AgentTokenAuthenticationHandler.SchemeName, null);
 builder.Services.AddOptions<JwtBearerOptions>(JwtBearerDefaults.AuthenticationScheme)
     .Configure<IOptions<JwtOptions>>((o, jwt) =>
     {
@@ -85,7 +90,16 @@ builder.Services.AddOptions<JwtBearerOptions>(JwtBearerDefaults.AuthenticationSc
             },
         };
     });
-builder.Services.AddAuthorization();
+builder.Services.AddAuthorization(o => o.AddPolicy(AgentTokenAuthenticationHandler.Policy, p => p
+    .AddAuthenticationSchemes(AgentTokenAuthenticationHandler.SchemeName).RequireAuthenticatedUser().RequireClaim(AgentTokenAuthenticationHandler.AgentClaim)));
+
+// Back office for AI agents (docs/back-office.md): /admin/v1 REST + the MCP server at /mcp, same rules as the Blazor app.
+builder.Services.AddScoped<TriageService>();
+builder.Services.Configure<AdminOptions>(config.GetSection(AdminOptions.Section));
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddMcpServer(o => o.ServerInfo = new() { Name = "gimano-backoffice", Title = "Manotu back office", Version = "1.0.0" })
+    .WithHttpTransport(o => o.Stateless = true)
+    .WithTools<BackOfficeMcpTools>();
 
 // Live
 builder.Services.AddSignalR().AddJsonProtocol(o => GimanoJson.Configure(o.PayloadSerializerOptions));
@@ -138,6 +152,8 @@ app.UseGimanoEdge();
 app.UseExceptionHandler();
 app.UseStatusCodePages();
 app.UseCors();
+// /admin/v1 and /mcp: 404 when disabled, from the public edge, or outside Admin:AllowedNetworks.
+app.UseMiddleware<AdminAccessMiddleware>();
 app.UseRateLimiter();
 app.UseAuthentication();
 app.UseAuthorization();
@@ -157,6 +173,8 @@ app.MapHealthChecks("/readyz", new HealthCheckOptions { Predicate = c => c.Tags.
 var api = app.MapGroup("/api/v1");
 api.MapAuthAndMe().MapPlaces().MapRoutes().MapLive().MapFeedback().MapPrivacy().MapCommunity().MapShares().MapInbox().MapIdentity().MapCrashReports().MapAdmin().MapIssues();
 app.MapMedia();
+app.MapAgentAdmin();
+app.MapMcp("/mcp").RequireAuthorization(AgentTokenAuthenticationHandler.Policy);
 
 app.MapHub<LiveHub>("/hubs/live");
 

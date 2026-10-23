@@ -12,13 +12,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Gimano.Api.Services;
 
-public sealed class ValidationException(string field, string message) : Exception(message)
-{
-    public string Field { get; } = field;
-}
-
 public sealed class RateLimitedException(string message) : Exception(message);
-public sealed class ForbiddenException(string message) : Exception(message);
 
 /// <summary>409 with the existing place, so the app can ask "Is it this one?".</summary>
 public sealed class DuplicatePlaceException(PlaceSummary existing) : Exception($"A similar place already exists nearby: {existing.Name}.")

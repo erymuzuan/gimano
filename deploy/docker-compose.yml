@@ -3,7 +3,7 @@
 #   docker compose -f deploy/docker-compose.yml up -d --build
 #   docker compose -f deploy/docker-compose.yml --profile tools run --rm importer
 # Host ports are overridable via deploy/.env (defaults avoid clashing with other stacks on the same host).
-# Only the API listens on all interfaces; PostGIS/RabbitMQ/OpenSearch/Valhalla bind to 127.0.0.1 (INFRA_BIND) by default.
+# Only the API (and the maintainers' back office, Tailscale) listen on all interfaces; PostGIS/RabbitMQ/OpenSearch/Valhalla bind to 127.0.0.1 (INFRA_BIND) by default.
 name: gimano
 
 x-dotnet-env: &dotnet-env
@@ -136,6 +136,30 @@ services:
       opensearch: { condition: service_started }
       valhalla: { condition: service_started }
 
+  # Maintainer back office (Blazor): feedback, crash groups, agent runs and tokens (docs/back-office.md).
+  # Tailscale only; never expose publicly. Passkeys need HTTPS (`tailscale serve`); password + authenticator works over HTTP.
+  backoffice:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile.backoffice
+    image: gimano/backoffice:dev
+    restart: unless-stopped
+    environment:
+      <<: *dotnet-env
+      # Always Production: Development would let ANY email register as a maintainer (appsettings.Development.json).
+      DOTNET_ENVIRONMENT: Production
+      ASPNETCORE_ENVIRONMENT: Production
+      Urls: "http://+:8080"
+      # Same key as the api: needed to reveal volunteered contacts (empty = reveal disabled).
+      Feedback__ContactKey: ${FEEDBACK_CONTACT_KEY:-}
+      BackOffice__Maintainers__0: ${BACKOFFICE_MAINTAINER:-}
+      BackOffice__ApiBaseUrl: ${BACKOFFICE_API_BASE_URL:-http://100.101.150.9:5080}
+      DataProtection__KeysPath: /data/keys
+    ports: ["${BACKOFFICE_PORT:-5090}:8080"]
+    volumes: ["backofficekeys:/data/keys"]
+    depends_on:
+      api: { condition: service_started }   # the API applies the main EF migrations; the back office migrates only its own schema
+
   worker:
     build:
       context: ..
@@ -170,6 +194,7 @@ services:
       opensearch: { condition: service_healthy }
 
 volumes:
+  backofficekeys:   # ASP.NET Data Protection keys for back-office sign-in cookies
   media:      # photos (content-addressed WebP); set Media__Provider=s3 + Media__S3__* to use object storage instead
   pgdata:
   osdata:

@@ -204,6 +204,16 @@ public sealed class Feedback
     public string? ExternalUrl { get; set; }
     public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;
 
+    // Back-office triage (docs/back-office.md).
+    public Severity? Severity { get; set; }
+    public Guid? DuplicateOfId { get; set; }
+    /// <summary>Linked crash group.</summary>
+    public string? CrashSignature { get; set; }
+    public string? TriageNote { get; set; }
+    /// <summary>A maintainer shared this one screenshot with agent tokens.</summary>
+    public bool ScreenshotSharedWithAgents { get; set; }
+    public DateTimeOffset? UpdatedAt { get; set; }
+
     public FeedbackSummary ToSummary() => new(Id, Category, Message, Status, CreatedAt);
 }
 
@@ -242,7 +252,11 @@ public sealed class ReportContact
     public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;
 }
 
-public enum CrashGroupStatus { Open, Done, WontFix }
+/// <summary>
+/// A crash group's lifecycle. Done and WontFix are closed (they start the 30-day contact clock).
+/// <c>Regressed</c> = a group marked done in build n got a new crash from build n or later.
+/// </summary>
+public enum CrashGroupStatus { Open, Triaged, Fixing, Regressed, Done, WontFix }   // stored by name (string column)
 
 /// <summary>One crash group per signature = sha256(exception + top 5 app frames).</summary>
 public sealed class CrashGroup
@@ -254,6 +268,30 @@ public sealed class CrashGroup
     public DateTimeOffset LastSeen { get; set; }
     public CrashGroupStatus Status { get; set; } = CrashGroupStatus.Open;
     public DateTimeOffset? ClosedAt { get; set; }
+
+    // Back-office triage (docs/back-office.md). Platform/kind/versions come from the reports' consented device info.
+    public string? Platform { get; set; }
+    public CrashKind? Kind { get; set; }
+    /// <summary>The latest report's scrubbed message.</summary>
+    public string? Message { get; set; }
+    /// <summary>The first app frame, for list titles.</summary>
+    public string? TopFrame { get; set; }
+    public Severity? Severity { get; set; }
+    public string? FirstVersion { get; set; }
+    public string? LatestVersion { get; set; }
+    public int? LatestBuild { get; set; }
+    /// <summary>App build the fix shipped in; a crash from this build or later reopens the group as regressed.</summary>
+    public int? FixedInBuild { get; set; }
+    public string? FixedInVersion { get; set; }
+    /// <summary>Issue or PR on GitHub.</summary>
+    public string? ExternalUrl { get; set; }
+    public string? TriageNote { get; set; }
+    /// <summary>Root-cause analysis written by an agent (markdown).</summary>
+    public string? Analysis { get; set; }
+    public string? AnalysisBy { get; set; }
+    public DateTimeOffset? UpdatedAt { get; set; }
+
+    public static bool IsClosed(CrashGroupStatus s) => s is CrashGroupStatus.Done or CrashGroupStatus.WontFix;
 }
 
 public sealed class CrashReport

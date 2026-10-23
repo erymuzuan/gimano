@@ -612,11 +612,19 @@ POST /me/inbox/read          {upTo: ISO time}   → 204   (everything created at
 - `report_thanked` and `review_helpful` are **aggregated per day** (Malaysia time) into one item, e.g. "24 drivers thanked
   you" (`count: 24`). Each new thank moves it to the top as unread.
 - `place_published` / `place_rejected`: `refType: "place"`, `refId` = the community place id.
-- `feedback_status`: `refType: "feedback"`.
+- `feedback_status`: `refType: "feedback"`. Created when a feedback item's status changes, or when a maintainer approves a
+  reply (possibly drafted by an agent) in the back office; then `body` is the reply text.
 - `announcement`: broadcast to everyone (a server-side table that operators fill), with `refType: "url"` and `refId` = a link when present.
 - `title`/`body` follow the request's `Accept-Language` (English default, Malay when preferred). The app may also render
   its own text from `kind` + `count`.
 - Newest first, keyset-paged with `cursor` (30 per page). `unread` counts everything newer than the read mark.
+
+## Back office & AI agents (not for the apps)
+
+`/admin/v1/*` and the MCP endpoint `POST /mcp` (server `gimano-backoffice`) are for maintainers' AI agents. They take
+`Authorization: Bearer agt_…` tokens minted in the back office (scopes `read`, `triage:write`, `runs:write`,
+`replies:draft`; 8 h max) and answer 404 to requests that came through the public edge. They never return contact
+details, user ids or device tokens. Details and the tool list: [`back-office.md`](back-office.md).
 
 ## Location pings
 

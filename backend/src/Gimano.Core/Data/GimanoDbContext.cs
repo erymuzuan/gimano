@@ -43,6 +43,11 @@ public sealed class GimanoDbContext(DbContextOptions<GimanoDbContext> options) :
     public DbSet<IssueVote> IssueVotes => Set<IssueVote>();
     public DbSet<IssueSalt> IssueSalts => Set<IssueSalt>();
     public DbSet<SegmentTraversalCount> SegmentTraversalCounts => Set<SegmentTraversalCount>();
+    public DbSet<AgentToken> AgentTokens => Set<AgentToken>();
+    public DbSet<AuditEntry> AuditLog => Set<AuditEntry>();
+    public DbSet<AgentRun> AgentRuns => Set<AgentRun>();
+    public DbSet<ReplyDraft> ReplyDrafts => Set<ReplyDraft>();
+    public DbSet<AppBuild> AppBuilds => Set<AppBuild>();
 
     protected override void OnModelCreating(ModelBuilder b)
     {
@@ -148,6 +153,10 @@ public sealed class GimanoDbContext(DbContextOptions<GimanoDbContext> options) :
             e.Property(x => x.Device).HasColumnType("jsonb").HasConversion(DeviceJson.Converter, DeviceJson.Comparer);
             e.Property(x => x.RouteId).HasMaxLength(64);
             e.Property(x => x.PlaceId).HasMaxLength(40);
+            e.Property(x => x.Severity).HasConversion<string>().HasMaxLength(4);
+            e.Property(x => x.CrashSignature).HasMaxLength(64);
+            e.Property(x => x.TriageNote).HasMaxLength(2000);
+            e.HasIndex(x => x.CrashSignature);
             e.HasIndex(x => new { x.Status, x.ClosedAt });
             e.HasIndex(x => new { x.UserId, x.CreatedAt });
             e.HasOne<User>().WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.SetNull);
@@ -278,6 +287,78 @@ public sealed class GimanoDbContext(DbContextOptions<GimanoDbContext> options) :
             e.Property(x => x.Signature).HasMaxLength(64);
             e.Property(x => x.Exception).HasMaxLength(300);
             e.Property(x => x.Status).HasConversion<string>().HasMaxLength(10);
+            e.Property(x => x.Platform).HasMaxLength(10);
+            e.Property(x => x.Kind).HasConversion<string>().HasMaxLength(8);
+            e.Property(x => x.Severity).HasConversion<string>().HasMaxLength(4);
+            e.Property(x => x.Message).HasMaxLength(500);
+            e.Property(x => x.TopFrame).HasMaxLength(300);
+            e.Property(x => x.FirstVersion).HasMaxLength(30);
+            e.Property(x => x.LatestVersion).HasMaxLength(30);
+            e.Property(x => x.FixedInVersion).HasMaxLength(30);
+            e.Property(x => x.ExternalUrl).HasMaxLength(300);
+            e.Property(x => x.TriageNote).HasMaxLength(2000);
+            e.Property(x => x.Analysis).HasMaxLength(20_000);
+            e.Property(x => x.AnalysisBy).HasMaxLength(100);
+            e.HasIndex(x => new { x.Status, x.LastSeen });
+        });
+
+        // ---- Back office (docs/back-office.md) ----
+        b.Entity<AgentToken>(e =>
+        {
+            e.Property(x => x.Name).HasMaxLength(60);
+            e.Property(x => x.Prefix).HasMaxLength(16);
+            e.Property(x => x.TokenHash).HasMaxLength(64);
+            e.Property(x => x.CreatedBy).HasMaxLength(100);
+            e.HasIndex(x => x.TokenHash).IsUnique();
+        });
+
+        b.Entity<AuditEntry>(e =>
+        {
+            e.ToTable("audit_log");
+            e.Property(x => x.Actor).HasMaxLength(100);
+            e.Property(x => x.ActorKind).HasMaxLength(8);
+            e.Property(x => x.Action).HasMaxLength(60);
+            e.Property(x => x.TargetType).HasMaxLength(20);
+            e.Property(x => x.TargetId).HasMaxLength(80);
+            e.Property(x => x.Detail).HasMaxLength(500);
+            e.HasIndex(x => x.At);
+            e.HasIndex(x => new { x.TargetType, x.TargetId });
+        });
+
+        b.Entity<AgentRun>(e =>
+        {
+            e.Property(x => x.Title).HasMaxLength(200);
+            e.Property(x => x.TargetType).HasMaxLength(10);
+            e.Property(x => x.TargetId).HasMaxLength(80);
+            e.Property(x => x.Status).HasConversion<string>().HasMaxLength(20);
+            e.Property(x => x.Agent).HasMaxLength(100);
+            e.Property(x => x.Branch).HasMaxLength(120);
+            e.Property(x => x.PrUrl).HasMaxLength(300);
+            e.Property(x => x.Summary).HasMaxLength(20_000);
+            e.Property(x => x.Steps).HasColumnType("jsonb").HasConversion(RunStepsJson.Converter, RunStepsJson.Comparer);
+            e.HasIndex(x => new { x.TargetType, x.TargetId });
+            e.HasIndex(x => x.UpdatedAt);
+        });
+
+        b.Entity<ReplyDraft>(e =>
+        {
+            e.Property(x => x.Message).HasMaxLength(1000);
+            e.Property(x => x.NewStatus).HasConversion<string>().HasMaxLength(12);
+            e.Property(x => x.Status).HasConversion<string>().HasMaxLength(10);
+            e.Property(x => x.DraftedBy).HasMaxLength(100);
+            e.Property(x => x.DecidedBy).HasMaxLength(100);
+            e.HasIndex(x => new { x.Status, x.CreatedAt });
+            e.HasIndex(x => x.FeedbackId);
+            e.HasOne<Feedback>().WithMany().HasForeignKey(x => x.FeedbackId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        b.Entity<AppBuild>(e =>
+        {
+            e.Property(x => x.Platform).HasMaxLength(10);
+            e.Property(x => x.Version).HasMaxLength(30);
+            e.Property(x => x.Commit).HasMaxLength(40);
+            e.Property(x => x.SymbolsUrl).HasMaxLength(300);
+            e.HasIndex(x => new { x.Platform, x.Build }).IsUnique();
         });
 
         b.Entity<CrashReport>(e =>
@@ -449,6 +530,17 @@ public sealed class DesignTimeFactory : IDesignTimeDbContextFactory<GimanoDbCont
         GimanoDb.Configure(o, GimanoDb.BuildDataSource(cs));
         return new GimanoDbContext(o.Options);
     }
+}
+
+/// <summary>Agent run steps ↔ jsonb. Steps are replaced, never mutated in place, so reference equality tracks changes.</summary>
+internal static class RunStepsJson
+{
+    private static readonly System.Text.Json.JsonSerializerOptions O = new(System.Text.Json.JsonSerializerDefaults.Web);
+    public static readonly Microsoft.EntityFrameworkCore.Storage.ValueConversion.ValueConverter<List<AgentRunStep>, string> Converter = new(
+        v => System.Text.Json.JsonSerializer.Serialize(v, O),
+        v => System.Text.Json.JsonSerializer.Deserialize<List<AgentRunStep>>(v, O) ?? new List<AgentRunStep>());
+    public static readonly Microsoft.EntityFrameworkCore.ChangeTracking.ValueComparer<List<AgentRunStep>> Comparer = new(
+        (a, b) => a != null && b != null && a.SequenceEqual(b), v => v.Count, v => v.ToList());
 }
 
 /// <summary>DeviceInfo ↔ jsonb (camelCase, like the API).</summary>

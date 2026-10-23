@@ -16,6 +16,10 @@ public static class ReportRetention
     public static bool ContactExpired(DateTimeOffset createdAt, DateTimeOffset? reportClosedAt, DateTimeOffset now) =>
         now - createdAt >= ContactMax || (reportClosedAt is { } c && now - c >= ContactAfterClose);
 
+    /// <summary>When the sweep deletes a contact at the latest: min(created + 90 d, closed + 30 d). Reopening (closedAt null) restores created + 90 d.</summary>
+    public static DateTimeOffset ContactExpiresAt(DateTimeOffset createdAt, DateTimeOffset? reportClosedAt) =>
+        reportClosedAt is { } c && c + ContactAfterClose < createdAt + ContactMax ? c + ContactAfterClose : createdAt + ContactMax;
+
     public static async Task<(int Contacts, int Crashes, int Groups)> RunAsync(GimanoDbContext db, DateTimeOffset now, CancellationToken ct)
     {
         var maxCut = now - ContactMax;

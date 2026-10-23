@@ -1,0 +1,42 @@
+@page "/audit"
+@inherits BackOfficePage
+
+<PageTitle>Audit log · Manotu back office</PageTitle>
+
+<header class="page-head">
+    <div>
+        <h1>Audit log</h1>
+        <p>Every change by maintainers and agents, and every contact reveal with its reason. Returned content is never stored. Kept for a year.</p>
+    </div>
+</header>
+
+<section class="table-box">
+    <table class="grid">
+        <thead><tr><th scope="col">When (MYT)</th><th scope="col">Who</th><th scope="col">Action</th><th scope="col">Target</th><th scope="col">Detail</th></tr></thead>
+        <tbody>
+            @foreach (var a in entries)
+            {
+                <tr>
+                    <td class="nowrap small">@Fmt.Short(a.At)</td>
+                    <td><Pill Text="@a.ActorKind" Kind="@(a.ActorKind == "agent" ? "agent" : "neutral")" /> @a.Actor</td>
+                    <td class="mono">@a.Action</td>
+                    <td class="small">@a.TargetType @(a.TargetId is { } t ? (t.Length > 14 ? t[..12] + "…" : t) : "")</td>
+                    <td class="small">@a.Detail</td>
+                </tr>
+            }
+        </tbody>
+    </table>
+    @if (entries.Count == 0) { <p class="empty">Nothing yet.</p> }
+</section>
+@if (entries.Count > 0)
+{
+    <p style="margin-top: 12px;"><a href="audit?before=@entries[^1].Id">Older →</a></p>
+}
+
+@code {
+    [SupplyParameterFromQuery] private long? Before { get; set; }
+
+    private IReadOnlyList<AuditView> entries = [];
+
+    protected override async Task OnParametersSetAsync() => entries = await Triage.AuditAsync(200, Before);
+}

@@ -1,4 +1,5 @@
 using Gimano.Api.Services;
+using Gimano.Core.Contracts;
 using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Mvc;
 

@@ -1,0 +1,13 @@
+@if (Error is not null)
+{
+    <div class="alert error" role="alert">@Error</div>
+}
+@if (Notice is not null)
+{
+    <div class="alert ok" role="status">@Notice</div>
+}
+
+@code {
+    [Parameter] public string? Error { get; set; }
+    [Parameter] public string? Notice { get; set; }
+}

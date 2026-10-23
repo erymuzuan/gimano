@@ -1,4 +1,5 @@
 using Gimano.Api.Auth;
+using Gimano.Core.BackOffice;
 using Gimano.Core.Contracts;
 using Gimano.Core.Data;
 using Gimano.Core.Domain;
@@ -49,23 +50,21 @@ public static class CrashEndpoints
     }
 
     /// <summary>
-    /// Saves a crash report into its group. An existing group is bumped with one atomic UPDATE (count + 1, last seen, and a
-    /// closed group reopens, restarting its contact retention), so concurrent reports never lose a count. A new group is
+    /// Saves a crash report into its group. An existing group is bumped with one atomic UPDATE (count + 1, last seen, summary
+    /// fields, and a closed group reopens or regresses: CrashLifecycle), so concurrent reports never lose a count. A new group is
     /// inserted with count 1; if another request inserted it first (unique signature), this one falls back to the bump.
     /// </summary>
     internal static async Task RecordAsync(GimanoDbContext db, CrashReport report, string exception, DateTimeOffset now,
         Action<GimanoDbContext> addContact, CancellationToken ct)
     {
         var signature = report.Signature;
-        Task<int> BumpAsync() => db.CrashGroups.Where(g => g.Signature == signature).ExecuteUpdateAsync(s => s
-            .SetProperty(g => g.Count, g => g.Count + 1)
-            .SetProperty(g => g.LastSeen, now)
-            .SetProperty(g => g.Status, CrashGroupStatus.Open)
-            .SetProperty(g => g.ClosedAt, (DateTimeOffset?)null), ct);
+        Task<int> BumpAsync() => CrashLifecycle.BumpAsync(db, report, now, ct);
 
         if (await BumpAsync() == 0)
         {
-            db.CrashGroups.Add(new CrashGroup { Signature = signature, Exception = exception, FirstSeen = now, LastSeen = now, Count = 1 });
+            var group = new CrashGroup { Signature = signature, Exception = exception, FirstSeen = now };
+            CrashLifecycle.OnReport(group, report, now);   // count 1, summary fields
+            db.CrashGroups.Add(group);
             db.CrashReports.Add(report);
             addContact(db);
             try

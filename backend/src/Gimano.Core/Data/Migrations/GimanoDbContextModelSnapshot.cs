@@ -58,6 +58,147 @@ namespace Gimano.Core.Data.Migrations
                     b.ToTable("admin_areas", (string)null);
                 });
 
+            modelBuilder.Entity("Gimano.Core.Domain.AgentRun", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasColumnName("id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Agent")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("agent");
+
+                    b.Property<string>("Branch")
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)")
+                        .HasColumnName("branch");
+
+                    b.Property<string>("PrUrl")
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)")
+                        .HasColumnName("pr_url");
+
+                    b.Property<DateTimeOffset>("StartedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("started_at");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("status");
+
+                    b.Property<string>("Steps")
+                        .IsRequired()
+                        .HasColumnType("jsonb")
+                        .HasColumnName("steps");
+
+                    b.Property<string>("Summary")
+                        .HasMaxLength(20000)
+                        .HasColumnType("character varying(20000)")
+                        .HasColumnName("summary");
+
+                    b.Property<string>("TargetId")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)")
+                        .HasColumnName("target_id");
+
+                    b.Property<string>("TargetType")
+                        .IsRequired()
+                        .HasMaxLength(10)
+                        .HasColumnType("character varying(10)")
+                        .HasColumnName("target_type");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("title");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.HasKey("Id")
+                        .HasName("pk_agent_runs");
+
+                    b.HasIndex("UpdatedAt")
+                        .HasDatabaseName("ix_agent_runs_updated_at");
+
+                    b.HasIndex("TargetType", "TargetId")
+                        .HasDatabaseName("ix_agent_runs_target_type_target_id");
+
+                    b.ToTable("agent_runs", (string)null);
+                });
+
+            modelBuilder.Entity("Gimano.Core.Domain.AgentToken", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("CreatedBy")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("created_by");
+
+                    b.Property<DateTimeOffset>("ExpiresAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("expires_at");
+
+                    b.Property<DateTimeOffset?>("LastUsedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("last_used_at");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(60)
+                        .HasColumnType("character varying(60)")
+                        .HasColumnName("name");
+
+                    b.Property<string>("Prefix")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)")
+                        .HasColumnName("prefix");
+
+                    b.Property<DateTimeOffset?>("RevokedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("revoked_at");
+
+                    b.PrimitiveCollection<string[]>("Scopes")
+                        .IsRequired()
+                        .HasColumnType("text[]")
+                        .HasColumnName("scopes");
+
+                    b.Property<string>("TokenHash")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("token_hash");
+
+                    b.HasKey("Id")
+                        .HasName("pk_agent_tokens");
+
+                    b.HasIndex("TokenHash")
+                        .IsUnique()
+                        .HasDatabaseName("ix_agent_tokens_token_hash");
+
+                    b.ToTable("agent_tokens", (string)null);
+                });
+
             modelBuilder.Entity("Gimano.Core.Domain.Announcement", b =>
                 {
                     b.Property<Guid>("Id")
@@ -140,6 +281,115 @@ namespace Gimano.Core.Data.Migrations
                         .HasDatabaseName("ix_app_attest_keys_user_id");
 
                     b.ToTable("app_attest_keys", (string)null);
+                });
+
+            modelBuilder.Entity("Gimano.Core.Domain.AppBuild", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasColumnName("id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("Build")
+                        .HasColumnType("integer")
+                        .HasColumnName("build");
+
+                    b.Property<string>("Commit")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)")
+                        .HasColumnName("commit");
+
+                    b.Property<string>("Platform")
+                        .IsRequired()
+                        .HasMaxLength(10)
+                        .HasColumnType("character varying(10)")
+                        .HasColumnName("platform");
+
+                    b.Property<DateTimeOffset>("ReleasedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("released_at");
+
+                    b.Property<string>("SymbolsUrl")
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)")
+                        .HasColumnName("symbols_url");
+
+                    b.Property<string>("Version")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)")
+                        .HasColumnName("version");
+
+                    b.HasKey("Id")
+                        .HasName("pk_app_builds");
+
+                    b.HasIndex("Platform", "Build")
+                        .IsUnique()
+                        .HasDatabaseName("ix_app_builds_platform_build");
+
+                    b.ToTable("app_builds", (string)null);
+                });
+
+            modelBuilder.Entity("Gimano.Core.Domain.AuditEntry", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint")
+                        .HasColumnName("id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+
+                    b.Property<string>("Action")
+                        .IsRequired()
+                        .HasMaxLength(60)
+                        .HasColumnType("character varying(60)")
+                        .HasColumnName("action");
+
+                    b.Property<string>("Actor")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("actor");
+
+                    b.Property<string>("ActorKind")
+                        .IsRequired()
+                        .HasMaxLength(8)
+                        .HasColumnType("character varying(8)")
+                        .HasColumnName("actor_kind");
+
+                    b.Property<DateTimeOffset>("At")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("at");
+
+                    b.Property<string>("Detail")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("detail");
+
+                    b.Property<string>("TargetId")
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)")
+                        .HasColumnName("target_id");
+
+                    b.Property<string>("TargetType")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("target_type");
+
+                    b.HasKey("Id")
+                        .HasName("pk_audit_log");
+
+                    b.HasIndex("At")
+                        .HasDatabaseName("ix_audit_log_at");
+
+                    b.HasIndex("TargetType", "TargetId")
+                        .HasDatabaseName("ix_audit_log_target_type_target_id");
+
+                    b.ToTable("audit_log", (string)null);
                 });
 
             modelBuilder.Entity("Gimano.Core.Domain.CommunityPlace", b =>
@@ -276,6 +526,16 @@ namespace Gimano.Core.Data.Migrations
                         .HasColumnType("character varying(64)")
                         .HasColumnName("signature");
 
+                    b.Property<string>("Analysis")
+                        .HasMaxLength(20000)
+                        .HasColumnType("character varying(20000)")
+                        .HasColumnName("analysis");
+
+                    b.Property<string>("AnalysisBy")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("analysis_by");
+
                     b.Property<DateTimeOffset?>("ClosedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("closed_at");
@@ -290,13 +550,61 @@ namespace Gimano.Core.Data.Migrations
                         .HasColumnType("character varying(300)")
                         .HasColumnName("exception");
 
+                    b.Property<string>("ExternalUrl")
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)")
+                        .HasColumnName("external_url");
+
                     b.Property<DateTimeOffset>("FirstSeen")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("first_seen");
 
+                    b.Property<string>("FirstVersion")
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)")
+                        .HasColumnName("first_version");
+
+                    b.Property<int?>("FixedInBuild")
+                        .HasColumnType("integer")
+                        .HasColumnName("fixed_in_build");
+
+                    b.Property<string>("FixedInVersion")
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)")
+                        .HasColumnName("fixed_in_version");
+
+                    b.Property<string>("Kind")
+                        .HasMaxLength(8)
+                        .HasColumnType("character varying(8)")
+                        .HasColumnName("kind");
+
                     b.Property<DateTimeOffset>("LastSeen")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("last_seen");
+
+                    b.Property<int?>("LatestBuild")
+                        .HasColumnType("integer")
+                        .HasColumnName("latest_build");
+
+                    b.Property<string>("LatestVersion")
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)")
+                        .HasColumnName("latest_version");
+
+                    b.Property<string>("Message")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("message");
+
+                    b.Property<string>("Platform")
+                        .HasMaxLength(10)
+                        .HasColumnType("character varying(10)")
+                        .HasColumnName("platform");
+
+                    b.Property<string>("Severity")
+                        .HasMaxLength(4)
+                        .HasColumnType("character varying(4)")
+                        .HasColumnName("severity");
 
                     b.Property<string>("Status")
                         .IsRequired()
@@ -304,8 +612,25 @@ namespace Gimano.Core.Data.Migrations
                         .HasColumnType("character varying(10)")
                         .HasColumnName("status");
 
+                    b.Property<string>("TopFrame")
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)")
+                        .HasColumnName("top_frame");
+
+                    b.Property<string>("TriageNote")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)")
+                        .HasColumnName("triage_note");
+
+                    b.Property<DateTimeOffset?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
                     b.HasKey("Signature")
                         .HasName("pk_crash_groups");
+
+                    b.HasIndex("Status", "LastSeen")
+                        .HasDatabaseName("ix_crash_groups_status_last_seen");
 
                     b.ToTable("crash_groups", (string)null);
                 });
@@ -405,6 +730,11 @@ namespace Gimano.Core.Data.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("closed_at");
 
+                    b.Property<string>("CrashSignature")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("crash_signature");
+
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("created_at");
@@ -412,6 +742,10 @@ namespace Gimano.Core.Data.Migrations
                     b.Property<string>("Device")
                         .HasColumnType("jsonb")
                         .HasColumnName("device");
+
+                    b.Property<Guid?>("DuplicateOfId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("duplicate_of_id");
 
                     b.Property<string>("ExternalUrl")
                         .HasMaxLength(300)
@@ -460,11 +794,29 @@ namespace Gimano.Core.Data.Migrations
                         .HasColumnType("character varying(20)")
                         .HasColumnName("screenshot_content_type");
 
+                    b.Property<bool>("ScreenshotSharedWithAgents")
+                        .HasColumnType("boolean")
+                        .HasColumnName("screenshot_shared_with_agents");
+
+                    b.Property<string>("Severity")
+                        .HasMaxLength(4)
+                        .HasColumnType("character varying(4)")
+                        .HasColumnName("severity");
+
                     b.Property<string>("Status")
                         .IsRequired()
                         .HasMaxLength(12)
                         .HasColumnType("character varying(12)")
                         .HasColumnName("status");
+
+                    b.Property<string>("TriageNote")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)")
+                        .HasColumnName("triage_note");
+
+                    b.Property<DateTimeOffset?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
 
                     b.Property<Guid?>("UserId")
                         .HasColumnType("uuid")
@@ -472,6 +824,9 @@ namespace Gimano.Core.Data.Migrations
 
                     b.HasKey("Id")
                         .HasName("pk_feedback");
+
+                    b.HasIndex("CrashSignature")
+                        .HasDatabaseName("ix_feedback_crash_signature");
 
                     b.HasIndex("Status", "ClosedAt")
                         .HasDatabaseName("ix_feedback_status_closed_at");
@@ -1290,6 +1645,65 @@ namespace Gimano.Core.Data.Migrations
                         .HasDatabaseName("ix_recents_user_id_last_used_at");
 
                     b.ToTable("recents", (string)null);
+                });
+
+            modelBuilder.Entity("Gimano.Core.Domain.ReplyDraft", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<DateTimeOffset?>("DecidedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("decided_at");
+
+                    b.Property<string>("DecidedBy")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("decided_by");
+
+                    b.Property<string>("DraftedBy")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("drafted_by");
+
+                    b.Property<Guid>("FeedbackId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("feedback_id");
+
+                    b.Property<string>("Message")
+                        .IsRequired()
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)")
+                        .HasColumnName("message");
+
+                    b.Property<string>("NewStatus")
+                        .HasMaxLength(12)
+                        .HasColumnType("character varying(12)")
+                        .HasColumnName("new_status");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(10)
+                        .HasColumnType("character varying(10)")
+                        .HasColumnName("status");
+
+                    b.HasKey("Id")
+                        .HasName("pk_reply_drafts");
+
+                    b.HasIndex("FeedbackId")
+                        .HasDatabaseName("ix_reply_drafts_feedback_id");
+
+                    b.HasIndex("Status", "CreatedAt")
+                        .HasDatabaseName("ix_reply_drafts_status_created_at");
+
+                    b.ToTable("reply_drafts", (string)null);
                 });
 
             modelBuilder.Entity("Gimano.Core.Domain.Report", b =>
@@ -2283,6 +2697,16 @@ namespace Gimano.Core.Data.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
                         .HasConstraintName("fk_recents_users_user_id");
+                });
+
+            modelBuilder.Entity("Gimano.Core.Domain.ReplyDraft", b =>
+                {
+                    b.HasOne("Gimano.Core.Domain.Feedback", null)
+                        .WithMany()
+                        .HasForeignKey("FeedbackId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_reply_drafts_feedback_feedback_id");
                 });
 
             modelBuilder.Entity("Gimano.Core.Domain.Report", b =>

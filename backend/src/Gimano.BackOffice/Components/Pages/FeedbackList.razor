@@ -1,0 +1,99 @@
+@page "/feedback"
+@inherits BackOfficePage
+
+<PageTitle>Feedback · Manotu back office</PageTitle>
+
+<header class="page-head">
+    <div>
+        <h1>Feedback</h1>
+        <p>What people sent from the in-app “Add feedback” menu.</p>
+    </div>
+</header>
+
+<form class="card form-grid" method="get" style="margin-bottom: 20px;">
+    <label class="field">Status
+        <select name="status">
+            <option value="">Open (any)</option>
+            @foreach (var s in Enum.GetValues<FeedbackStatus>())
+            {
+                <option value="@Fmt.Wire(s)" selected="@(Status == Fmt.Wire(s))">@Fmt.Label(Fmt.Wire(s))</option>
+            }
+            <option value="all" selected="@(Status == "all")">All</option>
+        </select>
+    </label>
+    <label class="field">Category
+        <select name="category">
+            <option value="">Any</option>
+            @foreach (var c in Enum.GetValues<FeedbackCategory>())
+            {
+                <option value="@Fmt.Wire(c)" selected="@(Category == Fmt.Wire(c))">@Fmt.Label(Fmt.Wire(c))</option>
+            }
+        </select>
+    </label>
+    <label class="field">Platform
+        <select name="platform">
+            <option value="">Both</option>
+            <option value="android" selected="@(Platform == "android")">Android</option>
+            <option value="ios" selected="@(Platform == "ios")">iOS</option>
+        </select>
+    </label>
+    <label class="field">Search
+        <input type="search" name="text" value="@Text" placeholder="Words in the message" />
+    </label>
+    <button class="btn primary" type="submit">Filter</button>
+</form>
+
+<section class="table-box">
+    @if (items is null || items.Count == 0)
+    {
+        <p class="empty">@(items is null ? "Loading…" : "No feedback matches.")</p>
+    }
+    else
+    {
+        <table class="grid">
+            <thead><tr><th scope="col">Message</th><th scope="col">Rating</th><th scope="col">App</th><th scope="col">Status</th><th scope="col">Severity</th><th scope="col">Received</th></tr></thead>
+            <tbody>
+                @foreach (var f in items)
+                {
+                    <tr>
+                        <td>
+                            <div class="hrow" style="align-items: flex-start; flex-wrap: nowrap; gap: 12px;">
+                                <Pill Text="@Fmt.Wire(f.Category)" />
+                                <div style="min-width: 0;">
+                                    <a class="title" href="feedback/@f.Id">“@(f.Message.Length > 140 ? f.Message[..139] + "…" : f.Message)”</a>
+                                    <div class="sub">
+                                        @(f.Screen is { } s ? Fmt.Wire(s) : "no screen")
+                                        @if (f.HasScreenshot) { <span> · screenshot</span> }
+                                        @if (f.HasContact) { <span> · </span><Pill Text="contact sealed" Kind="lock" /> }
+                                    </div>
+                                </div>
+                            </div>
+                        </td>
+                        <td>@(f.Rating is { } r ? $"{r}/5" : "—")</td>
+                        <td class="small nowrap">@($"{f.Platform} {f.AppVersion}".Trim() is { Length: > 0 } app ? app : "—")</td>
+                        <td><Pill Text="@Fmt.Wire(f.Status)" /></td>
+                        <td>@if (f.Severity is { } sev) { <Pill Text="@Fmt.Wire(sev)" /> } else { <span class="muted">—</span> }</td>
+                        <td class="nowrap muted small">@Fmt.Ago(f.CreatedAt)</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+</section>
+
+@code {
+    [SupplyParameterFromQuery] private string? Status { get; set; }
+    [SupplyParameterFromQuery] private string? Category { get; set; }
+    [SupplyParameterFromQuery] private string? Platform { get; set; }
+    [SupplyParameterFromQuery] private string? Text { get; set; }
+
+    private IReadOnlyList<FeedbackListItem>? items;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        FeedbackStatus? status = GimanoJson.TryParseWire<FeedbackStatus>(Status, out var s) ? s : null;
+        FeedbackCategory? category = GimanoJson.TryParseWire<FeedbackCategory>(Category, out var c) ? c : null;
+        items = await Triage.SearchFeedbackAsync(new FeedbackQuery(status, category, null, Platform is { Length: > 0 } ? Platform : null, Text,
+            OpenOnly: string.IsNullOrEmpty(Status), Take: 200));
+    }
+}

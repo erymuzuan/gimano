@@ -10,7 +10,9 @@ backend/
   global.json                                         (.NET 10 SDK, Microsoft.Testing.Platform)
   src/Gimano.Core       domain, contracts (DTOs), EF Core DbContext + migrations, rules
                         (alerts, jams, OSM mapping, search query, Valhalla mapping), RabbitMQ/OpenSearch plumbing
-  src/Gimano.Api        minimal APIs (/api/v1), JWT device auth, SignalR /hubs/live, Valhalla proxy, health, OpenAPI
+  src/Gimano.Api        minimal APIs (/api/v1), JWT device auth, SignalR /hubs/live, Valhalla proxy, health, OpenAPI,
+                        agent API /admin/v1 + MCP server /mcp (docs/back-office.md)
+  src/Gimano.BackOffice Blazor back office for maintainers: feedback, crash groups, agent runs/tokens (Identity + passkeys)
   src/Gimano.Worker     RabbitMQ consumers: TrafficAggregator, AlertLifecycle, SearchIndexer (+ jam publisher, expiry sweeper)
   src/Gimano.Importer   OSM PBF → Postgres (places, road_segments) + OpenSearch `places` index
   tests/Gimano.Tests    xUnit v3 unit tests
@@ -35,6 +37,7 @@ curl http://localhost:5080/readyz
 | opensearch | 127.0.0.1:9210 | 2.x single node, security plugin disabled (dev only, never published) |
 | rabbitmq | 127.0.0.1:5673 / 15673 | AMQP / management UI, user `gimano`, password from `deploy/.env` |
 | valhalla | 127.0.0.1:8002 | builds routing tiles from the Geofabrik extract on first start (10–30 min) |
+| backoffice | 5090 | maintainer back office; Tailscale only (set `BACKOFFICE_MAINTAINER`, `FEEDBACK_CONTACT_KEY`) |
 | worker | – | consumes `gimano.events` |
 
 All ports are overridable in `deploy/.env`. Until Valhalla has finished building tiles,
@@ -49,7 +52,7 @@ ports are bound to 127.0.0.1, so run the apps on the Docker host, or tunnel to i
 
 ```bash
 cd backend
-for p in src/Gimano.Api src/Gimano.Worker src/Gimano.Importer; do
+for p in src/Gimano.Api src/Gimano.Worker src/Gimano.Importer src/Gimano.BackOffice; do
   dotnet user-secrets --project $p set "Postgres:Password" "<POSTGRES_PASSWORD from deploy/.env>"
   dotnet user-secrets --project $p set "RabbitMq:Password" "<RABBITMQ_PASSWORD from deploy/.env>"
 done
@@ -57,6 +60,7 @@ dotnet user-secrets --project src/Gimano.Api set "Jwt:SigningKey" "$(openssl ran
 
 dotnet run --project src/Gimano.Api          # http://0.0.0.0:5080
 dotnet run --project src/Gimano.Worker
+dotnet run --project src/Gimano.BackOffice   # http://localhost:5090; Development allows any email to register
 dotnet run --project src/Gimano.Importer -- --dry-run   # parse the extract only, no DB needed (~30 s)
 ```
 
@@ -88,6 +92,11 @@ dotnet test            # Microsoft.Testing.Platform (configured in global.json)
 | `Jwt:SigningKey` | *(none; ephemeral random key in Development)* | ≥ 32 chars, **required outside Development** |
 | `Jwt:Issuer` / `Jwt:Audience` / `Jwt:LifetimeDays` | `gimano` / `gimano-app` / `365` | |
 | `Urls` | `http://0.0.0.0:5080` | bound on all interfaces so phones on the LAN/Tailscale can connect |
+| `Feedback:ContactKey` | *(none)* | api + backoffice: base64 of 32 bytes; unset = volunteered contacts are dropped (api) / can't be revealed (backoffice) |
+| `Admin:Enabled` / `AllowPublic` / `AllowedNetworks` | `true` / `false` / `[]` | api: guards the agent endpoints `/admin/v1` and `/mcp` |
+| `BackOffice:Maintainers` | `[]` (`["*"]` in Development) | backoffice: emails allowed to register / sign in |
+| `BackOffice:ApiBaseUrl` | `http://100.101.150.9:5080` | backoffice: shown in the MCP setup command |
+| `DataProtection:KeysPath` | *(none)* | backoffice: persist cookie keys (set in compose) |
 
 ## Maintainer view (feedback & crash reports)
 
@@ -96,6 +105,8 @@ dotnet test            # Microsoft.Testing.Platform (configured in global.json)
 `GET feedback/{id}/screenshot`, `GET crash-groups`, `GET crash-groups/{signature}/reports`,
 `PATCH crash-groups/{signature} {status}`, and `POST contacts/{feedback|crash}/{id}/reveal`. Reveal is the only way to see a
 volunteered contact. It's audit-logged (subject, id, key fingerprint, IP) without the values.
+The Blazor back office (`src/Gimano.BackOffice`, port 5090) and the agent API (`/admin/v1`, `/mcp`) are the fuller
+version of this: [`docs/back-office.md`](../docs/back-office.md).
 
 ## Migrations
 
@@ -103,6 +114,8 @@ volunteered contact. It's audit-logged (subject, id, key fingerprint, IP) withou
 cd backend
 dotnet tool restore
 dotnet ef migrations add <Name> -p src/Gimano.Core -s src/Gimano.Api -o Data/Migrations
+# back-office maintainer accounts (schema "backoffice"; applied by the back office on start)
+dotnet ef migrations add <Name> -p src/Gimano.BackOffice -s src/Gimano.BackOffice -o Data/Migrations -c ApplicationDbContext
 ```
 
 ## Behaviour notes

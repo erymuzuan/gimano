@@ -1,0 +1,77 @@
+@page "/builds"
+@rendermode InteractiveServer
+@inherits BackOfficePage
+
+<PageTitle>Releases · Manotu back office</PageTitle>
+
+<header class="page-head">
+    <div>
+        <h1>Releases</h1>
+        <p>Each shipped build’s git commit and symbol files (R8 mapping.txt, dSYM), so agents can check out the right code and regressions can be detected.</p>
+    </div>
+</header>
+
+<Messages Error="@Error" Notice="@Notice" />
+
+<div class="split">
+    <div class="primary">
+        <section class="table-box">
+            @if (builds.Count == 0)
+            {
+                <p class="empty">No builds registered yet.</p>
+            }
+            else
+            {
+                <table class="grid">
+                    <thead><tr><th scope="col">Build</th><th scope="col">Commit</th><th scope="col">Symbols</th><th scope="col">Registered</th></tr></thead>
+                    <tbody>
+                        @foreach (var b in builds)
+                        {
+                            <tr>
+                                <td><strong>@b.Platform @b.Version</strong> <span class="muted">(@b.Build)</span></td>
+                                <td class="mono"><a href="https://github.com/erymuzuan/gimano/commit/@b.Commit" target="_blank" rel="noopener">@b.Commit[..Math.Min(10, b.Commit.Length)]</a></td>
+                                <td class="small">@if (b.SymbolsUrl is { } s) { <span style="overflow-wrap: anywhere;">@s</span> } else { <span class="muted">—</span> }</td>
+                                <td class="small muted nowrap">@Fmt.Short(b.ReleasedAt)</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            }
+        </section>
+    </div>
+    <aside class="aside">
+        <section class="card stack" style="gap: 12px;">
+            <h2 style="margin: 0;">Register a build</h2>
+            <label class="field">Platform
+                <select @bind="platform"><option value="android">Android</option><option value="ios">iOS</option></select>
+            </label>
+            <div class="form-grid">
+                <label class="field">Version <input @bind="version" placeholder="0.2.2" /></label>
+                <label class="field">Build <input type="number" @bind="build" /></label>
+            </div>
+            <label class="field">Git commit <input @bind="commit" class="mono" placeholder="370e76a" /></label>
+            <label class="field">Symbols location (optional) <input @bind="symbols" placeholder="CI artifact URL or path" /></label>
+            <button class="btn primary" @onclick="Add">Register</button>
+        </section>
+    </aside>
+</div>
+
+@code {
+    private IReadOnlyList<AppBuildView> builds = [];
+    private string platform = "android";
+    private string? version, commit, symbols;
+    private int build;
+
+    protected override async Task OnInitializedAsync() => builds = await Triage.BuildsAsync();
+
+    private async Task Add()
+    {
+        var me = await MeAsync();
+        if (await TryAsync(() => Triage.AddBuildAsync(platform, version ?? "", build, commit ?? "", symbols, me), "Registered."))
+        {
+            builds = await Triage.BuildsAsync();
+            version = commit = symbols = null;
+            build = 0;
+        }
+    }
+}

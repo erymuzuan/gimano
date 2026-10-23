@@ -11,6 +11,7 @@
     <ProjectReference Include="..\..\src\Gimano.Api\Gimano.Api.csproj" />
     <ProjectReference Include="..\..\src\Gimano.Worker\Gimano.Worker.csproj" />
     <ProjectReference Include="..\..\src\Gimano.Importer\Gimano.Importer.csproj" />
+    <ProjectReference Include="..\..\src\Gimano.BackOffice\Gimano.BackOffice.csproj" />
   </ItemGroup>
   <ItemGroup>
     <Using Include="Xunit" />

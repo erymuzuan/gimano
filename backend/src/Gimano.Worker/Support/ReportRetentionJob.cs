@@ -20,6 +20,8 @@ public sealed class ReportRetentionJob(IServiceScopeFactory scopes, TimeProvider
                 if (misses > 0) logger.LogInformation("Retention: dropped {Count} search-miss rows", misses);
                 if (contacts + crashes + groups > 0)
                     logger.LogInformation("Retention: deleted {Contacts} contacts, {Crashes} crash reports, {Groups} crash groups", contacts, crashes, groups);
+                var (tokens, audit) = await Gimano.Core.BackOffice.BackOfficeRetention.RunAsync(db, clock.GetUtcNow(), stoppingToken);
+                if (tokens + audit > 0) logger.LogInformation("Retention: deleted {Tokens} dead agent tokens, {Audit} audit rows", tokens, audit);
             }
             catch (Exception ex) when (ex is not OperationCanceledException) { logger.LogWarning("Report retention failed: {Message}", ex.Message); }
         } while (await timer.WaitForNextTickAsync(stoppingToken));

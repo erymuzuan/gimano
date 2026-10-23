@@ -1,0 +1,42 @@
+@page "/runs"
+@inherits BackOfficePage
+
+<PageTitle>Agent runs · Manotu back office</PageTitle>
+
+<header class="page-head">
+    <div>
+        <h1>Agent runs</h1>
+        <p>What AI agents did on a crash group or feedback item: steps, branch and draft PR. Merging stays with you.</p>
+    </div>
+</header>
+
+<section class="table-box">
+    @if (runs.Count == 0)
+    {
+        <p class="empty">No runs yet. Create an agent token under <a href="agent-access">Agent access</a> and use the prompt on a crash group.</p>
+    }
+    else
+    {
+        <table class="grid">
+            <thead><tr><th scope="col">Run</th><th scope="col">Target</th><th scope="col">Status</th><th scope="col">PR</th><th scope="col">Updated</th></tr></thead>
+            <tbody>
+                @foreach (var r in runs)
+                {
+                    <tr>
+                        <td><a class="title" href="runs/@r.Id">#@r.Id @r.Title</a><div class="sub">@r.Agent · @r.Steps.Count steps</div></td>
+                        <td class="small"><a href="@(r.TargetType == "crash" ? $"crashes/{r.TargetId}" : $"feedback/{r.TargetId}")">@r.TargetType @(r.TargetType == "crash" ? Fmt.Sig(r.TargetId) : r.TargetId[..Math.Min(8, r.TargetId.Length)])</a></td>
+                        <td><Pill Text="@Fmt.Wire(r.Status)" /></td>
+                        <td class="small">@if (r.PrUrl is { } pr) { <a href="@pr" target="_blank" rel="noopener">@pr.Split('/').Last()</a> } else { <span class="muted">—</span> }</td>
+                        <td class="nowrap muted small">@Fmt.Ago(r.UpdatedAt)</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+</section>
+
+@code {
+    private IReadOnlyList<AgentRunView> runs = [];
+
+    protected override async Task OnInitializedAsync() => runs = await Triage.RunsAsync(take: 100);
+}

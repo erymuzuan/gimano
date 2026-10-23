@@ -9,8 +9,6 @@ using Microsoft.Extensions.Caching.Memory;
 
 namespace Gimano.Api.Services;
 
-public sealed class NotFoundException(string message) : Exception(message);
-public sealed class ConflictException(string message) : Exception(message);
 
 public sealed class ReportService(GimanoDbContext db, IEventPublisher bus, GeoLookup geo, TimeProvider clock, IMemoryCache cache)
 {

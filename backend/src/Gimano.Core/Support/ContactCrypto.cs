@@ -102,6 +102,15 @@ public static partial class CrashScrubber
         return Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(input)));
     }
 
+    /// <summary>The first app frame (as sent, trimmed, ≤ 300 chars), for crash-group titles; null when there is none.</summary>
+    public static string? TopFrame(string? stack)
+    {
+        var frame = (stack ?? "").Split('\n', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries)
+            .Where(l => l.StartsWith("at ", StringComparison.Ordinal) || FrameLike().IsMatch(l))
+            .FirstOrDefault(IsAppFrame);
+        return frame is null ? null : frame.Length <= 300 ? frame : frame[..300];
+    }
+
     internal static bool IsAppFrame(string frame) =>
         frame.Contains("my.gimano", StringComparison.Ordinal) || frame.Contains("Gimano", StringComparison.Ordinal);
 

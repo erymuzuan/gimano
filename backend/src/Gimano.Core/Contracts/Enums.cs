@@ -41,6 +41,14 @@ public enum FeedbackScreen { Home, Search, Place, RoutePreview, Navigation, Repo
 
 public enum FeedbackStatus { Received, Triaged, Planned, Done, WontFix }
 
+/// <summary>Back-office triage severity: S1 = crash or data loss for many, S4 = cosmetic.</summary>
+public enum Severity { S1, S2, S3, S4 }
+
+/// <summary>A reply to a feedback reporter: drafted (possibly by an agent), then sent or discarded by a maintainer.</summary>
+public enum ReplyStatus { Draft, Sent, Discarded }
+
+public enum AgentRunStatus { Running, WaitingForReview, Done, Cancelled, Failed }
+
 public enum PlaceSource { Osm, Community }
 
 /// <summary>Community place lifecycle. Only <c>pending</c>/<c>published</c> appear in PlaceSummary.status.</summary>
