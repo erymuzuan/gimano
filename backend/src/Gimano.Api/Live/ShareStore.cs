@@ -57,6 +57,10 @@ public sealed class ShareStore(TimeProvider clock)
         if (ciphertext.Length > MaxCiphertextBytes) return Result.TooLarge;
         lock (s!)
         {
+            // Re-checked under the share's lock: a Delete/expiry that ended it after Authorize must win, or this write would
+            // park a ciphertext on a tombstone until the next sweep.
+            var now = clock.GetUtcNow();
+            if (!IsActive(s, now)) { End(s, now); return Result.Gone; }
             s.Nonce = nonce;
             s.Ciphertext = ciphertext;
             s.UpdatedAt = clock.GetUtcNow();
@@ -68,8 +72,11 @@ public sealed class ShareStore(TimeProvider clock)
     {
         if (!_shares.TryGetValue(id, out var s)) return (Result.NotFound, null);
         var now = clock.GetUtcNow();
-        if (!IsActive(s, now)) { End(s, now); return (Result.Gone, null); }
-        lock (s) return (Result.Ok, new Blob(s.Nonce, s.Ciphertext, s.UpdatedAt, s.ExpiresAt));
+        lock (s)
+        {
+            if (!IsActive(s, now)) { End(s, now); return (Result.Gone, null); }
+            return (Result.Ok, new Blob(s.Nonce, s.Ciphertext, s.UpdatedAt, s.ExpiresAt));
+        }
     }
 
     public Result Delete(string id, string? token)

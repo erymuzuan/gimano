@@ -206,6 +206,28 @@ public class InboxUnreadRegressionTests
     }
 }
 
+public class ShareEndRaceRegressionTests
+{
+    /// <summary>Returns the queued times in order (then the last one): lets a share end between Authorize and the write.</summary>
+    private sealed class SteppingClock(params DateTimeOffset[] times) : TimeProvider
+    {
+        private int _i;
+        public override DateTimeOffset GetUtcNow() => times[Math.Min(_i++, times.Length - 1)];
+    }
+
+    [Fact]
+    public void A_write_that_loses_the_race_with_the_end_of_a_share_is_not_stored()
+    {
+        var t0 = new DateTimeOffset(2026, 10, 23, 8, 0, 0, TimeSpan.Zero);
+        var expires = t0.AddMinutes(15);
+        // Create (2 reads) at t0; Put's Authorize just before expiry; the write itself just after.
+        var store = new Gimano.Api.Live.ShareStore(new SteppingClock(t0, t0, expires.AddSeconds(-1), expires.AddSeconds(1)));
+        var (_, c) = store.Create(Guid.NewGuid(), 15);
+        Assert.Equal(Gimano.Api.Live.ShareStore.Result.Gone, store.Put(c!.ShareId, c.WriteToken, new byte[24], new byte[100]));   // before: Ok, blob kept on a tombstone
+        Assert.Equal(Gimano.Api.Live.ShareStore.Result.Gone, store.Get(c.ShareId).Item1);
+    }
+}
+
 public class BBoxRegressionTests
 {
     [Theory]
