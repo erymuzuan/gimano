@@ -20,7 +20,7 @@ data class RegisterRequest(val publicKey: String, val platform: String = "androi
 /**
  * `POST /auth/token`: sig = Ed25519 over "GIMANO-AUTH\n" + userId + "\n" + ts.
  * Recovery-code restore knows only the key: it sends [publicKey] instead of [userId] and signs
- * "GIMANO-AUTH\n" + publicKey + "\n" + ts (client proposal, see the doc's test vectors section).
+ * "GIMANO1-LOGIN\n" + publicKey + "\n" + ts (docs/identity-and-reputation.md §7–8).
  */
 @Serializable
 data class TokenRequest(val userId: String? = null, val publicKey: String? = null, val ts: Long, val sig: String)

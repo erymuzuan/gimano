@@ -138,7 +138,15 @@ private fun RestoreDialog(c: AppContainer, onClose: () -> Unit, onRestored: (Str
                         scope.launch {
                             runCatching { c.remote.restoreFromSeed(r.entropy) }
                                 .onSuccess { onRestored(it) }
-                                .onFailure { error = ctx.getString(R.string.recovery_failed); busy = false }
+                                .onFailure { e ->
+                                    error = ctx.getString(when ((e as? retrofit2.HttpException)?.code()) {
+                                        401 -> R.string.recovery_unknown_key      // no account has this key (or it was rotated away)
+                                        429 -> R.string.recovery_rate_limited
+                                        null -> if (e is java.io.IOException) R.string.recovery_offline else R.string.recovery_failed
+                                        else -> R.string.recovery_failed
+                                    })
+                                    busy = false
+                                }
                         }
                     }
                 }

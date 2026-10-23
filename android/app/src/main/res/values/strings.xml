@@ -522,4 +522,7 @@
     <string name="closed_location">Google Play services location: turns GPS, Wi-Fi and mobile signals into your position on the phone, for the map and navigation.</string>
     <string name="closed_drive">Google sign-in and Drive authorisation: only when you choose Google Drive backup. Drive receives only the backup YOU send to your own Drive.</string>
     <string name="closed_integrity">Play Integrity: when you confirm a nearby place, checks the vote comes from a real phone. Only a pass/fail verdict reaches Gimano.</string>
+    <string name="recovery_unknown_key">No Gimano account uses this recovery code. Check the words; a code stops working after the key is replaced.</string>
+    <string name="recovery_rate_limited">Too many attempts. Wait a minute and try again.</string>
+    <string name="recovery_offline">Can\'t reach the Gimano server. Check your connection and try again.</string>
 </resources>

@@ -152,6 +152,23 @@ class ServerVectorsTest {
     @Test fun signatureLogin() = assertEquals("aApOheYmDSVKSLICJI8tuRW9Cp06hzkHJQKwdLab1N5sYCPAwvKFum8s+fnw6+6QsktcXji/+OLZzEQqijW+Cw==",
         RequestSigning.b64(ed.sign(kp, RequestSigning.authMessage("01a16676-0000-7000-8000-000000000001", 1792713600).toByteArray())))
 
+    @Test fun signInByPublicKey() {
+        val pk = RequestSigning.b64(kp.publicKey)
+        assertEquals("GIMANO1-LOGIN\nA6EHv/POEL4dcN0Y50vAmWfk1jCbpQ1fHdyGZBJVMbg=\n1792713600", RequestSigning.keyLoginMessage(pk, 1792713600))
+        assertEquals("61uR1jjsZqzZb7I0Oq3t0ZgVkyxeyutovBXfKWH9GvedLaFb2TzIXtKuotj9CgnRf6njJJDUBOwf6yy3ZkfFDQ==",
+            RequestSigning.b64(ed.sign(kp, RequestSigning.keyLoginMessage(pk, 1792713600).toByteArray())))
+    }
+
+    @Test fun recoveryWordsSignTheSameLogin() {
+        // 24 words → seed → key → the exact vector signature: the full recovery path.
+        val bip = Bip39(File("src/main/assets/bip39-english.txt").readLines().filter { it.isNotBlank() })
+        val seed = (bip.decode(bip.encode(ByteArray(32) { it.toByte() }).joinToString(" ")) as Bip39.Result.Ok).entropy
+        val k = ed.keyPair(seed)
+        val pk = RequestSigning.b64(k.publicKey)
+        assertEquals("61uR1jjsZqzZb7I0Oq3t0ZgVkyxeyutovBXfKWH9GvedLaFb2TzIXtKuotj9CgnRf6njJJDUBOwf6yy3ZkfFDQ==",
+            RequestSigning.b64(ed.sign(k, RequestSigning.keyLoginMessage(pk, 1792713600).toByteArray())))
+    }
+
     @Test fun attestationClientDataHash() = assertEquals("ff664bac6820f2ce7bb5823ae9a2b33b103e47bca5bb6aa4ec11af46a9aa78be",
         RequestSigning.sha256Hex(RequestSigning.attestClientData("c01a166b7f9c67924976aff1beb56c2cd", 1792713600).toByteArray()))
 
