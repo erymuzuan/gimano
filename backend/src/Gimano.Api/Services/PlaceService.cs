@@ -63,9 +63,24 @@ public sealed class PlaceService(GimanoDbContext db, PlaceSearchIndex index, Tim
     public async Task<List<PlaceSummary>> ApplyIssuesAsync(IEnumerable<PlaceSummary> results, string lang, CancellationToken ct)
     {
         var s = await issues.GetAsync(ct);
+        return ApplyIssues(results, s, lang, TimeZoneInfo.ConvertTime(clock.GetUtcNow(), ValhallaMapper.MalaysiaTime).DateTime);
+    }
+
+    /// <summary>
+    /// Hides confirmed-closed places, adds badges, and makes <c>openNow</c> agree with the place card: false while closed,
+    /// and computed from confirmed corrected opening hours when there are some (as <see cref="GetAsync"/> does).
+    /// </summary>
+    internal static List<PlaceSummary> ApplyIssues(IEnumerable<PlaceSummary> results, IssueDirectory.Snapshot s, string lang, DateTime localNow)
+    {
         if (s.PlaceBadges.Count == 0) return results.ToList();
         return results.Where(r => !s.ClosedPlaces.Contains(r.Id))
-            .Select(r => IssueDirectory.Badge(s, r.Id, lang) is { } b ? r with { Badge = b, OpenNow = s.IsClosedNow(r.Id) ? false : r.OpenNow } : r).ToList();
+            .Select(r => IssueDirectory.Badge(s, r.Id, lang) is { } b
+                ? r with
+                {
+                    Badge = b,
+                    OpenNow = s.IsClosedNow(r.Id) ? false : s.Hours.TryGetValue(r.Id, out var hours) ? OpeningHours.IsOpen(hours, localNow) : r.OpenNow,
+                }
+                : r).ToList();
     }
 
     public async Task<IReadOnlyList<PlaceSummary>> NearbyAsync(GeoPoint at, PlaceCategory? category, double radiusM, int limit, Guid? viewer, CancellationToken ct, string lang = "en")

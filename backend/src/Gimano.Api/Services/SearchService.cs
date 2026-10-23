@@ -384,7 +384,9 @@ public sealed class SearchService(PlaceSearchIndex index, AliasStore aliases, Ar
         catch (Exception ex) when (ex is SearchUnavailableException or HttpRequestException)
         {
             logger.LogWarning("OpenSearch unavailable ({Message}); falling back to Postgres search", ex.Message);
-            var fallback = await places.SearchAsync(new SearchQuery(r.Q, oLat, oLng, r.Limit, r.Category, r.Country, r.Viewer), ct);
+            // Same complaint rules as the index path: confirmed permanently closed places stay hidden.
+            var fallback = await places.ApplyIssuesAsync(
+                await places.SearchAsync(new SearchQuery(r.Q, oLat, oLng, r.Limit, r.Category, r.Country, r.Viewer), ct), r.Lang, ct);
             return new SearchResponse(fallback, NoMatch: fallback.Count == 0);
         }
         results = await places.ApplyIssuesAsync(results, r.Lang, ct);

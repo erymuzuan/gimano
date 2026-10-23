@@ -163,6 +163,25 @@ public class ReportVoteRegressionTests
     }
 }
 
+public class SearchOpenNowRegressionTests
+{
+    [Fact]
+    public void Search_and_nearby_use_confirmed_corrected_hours_like_the_place_card()
+    {
+        var now = new DateTimeOffset(2026, 10, 23, 7, 0, 0, TimeSpan.Zero);   // 15:00 in Malaysia
+        var hoursFix = new Issue { Kind = IssueKind.PlaceHoursWrong, State = IssueState.Confirmed, PlaceId = "n1", ConfirmedAt = now.AddDays(-1),
+            Location = new GeoPoint(3.1, 101.6).ToPoint(), Payload = new() { ["openingHours"] = "Mo-Su 08:00-10:00" }, ExpiresAt = now.AddDays(100) };
+        var s = IssueDirectory.Compose([hoursFix], new Dictionary<(long, int), IReadOnlyList<GeoPoint>>(), now);
+        // The index still has the OSM hours (24/7), so the summary arrives saying open.
+        var fromIndex = new PlaceSummary("n1", "Kedai Pak Ali", PlaceCategory.Convenience, "", 3.1, 101.6, null, null, OpenNow: true);
+
+        var result = PlaceService.ApplyIssues([fromIndex], s, "en", new DateTime(2026, 10, 23, 15, 0, 0));
+
+        Assert.False(result.Single().OpenNow);   // before: true in /search and /places/nearby while GET /places/n1 said false
+        Assert.NotNull(result.Single().Badge);
+    }
+}
+
 public class IssueDirectoryExpiryRegressionTests
 {
     private static readonly DateTimeOffset Now = new(2026, 10, 23, 10, 0, 0, TimeSpan.Zero);
