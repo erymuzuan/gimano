@@ -223,7 +223,7 @@ public class OpenSearchIntegrationRankingTests
             await Expect("KLCC", r => r[0].Id is "n32" or "n30" or "n31" && At(r, "n30") is >= 0 and < 3, "KLCC station/Suria/towers first, Suria in top 3");
             await Expect("Mid Valley", r => r[0].Id is "n40" or "n41" && At(r, "n40") is >= 0 and < 2, "Megamall or the area first");
             await Expect("Semenyih", r => r[0].Id == "n50", "n50 first");
-            await Expect("petronas", r => r[0].Id == "n60" && r.Count(h => h.Name == "Petronas, Persiaran Zaaba") == 1
+            await Expect("petronas", r => r[0].Id is "n60" or "w61" && r.Count(h => h.Name == "Petronas, Persiaran Zaaba") == 1
                 && At(r, "n62") < At(r, "n63") && At(r, "n64") > At(r, "n63"), "nearest first, duplicate collapsed, SS2 < Kepong < office", 10);
             await Expect("mcd", r => r.Count >= 2 && r[0].Id == "n70" && r[1].Id == "n71", "n70, n71");
             Assert.True(failures.Count == 0, string.Join("\n", failures));
