@@ -8,7 +8,8 @@ seconds, speeds in km/h.
 Auth: `Authorization: Bearer <jwt>`. Anonymous use is allowed: the app calls
 `POST /auth/device` on first launch and stores the token.
 
-Errors: RFC 7807 `application/problem+json`.
+Errors: RFC 7807 `application/problem+json`. A write that raced another request on the same thing (two votes on one
+report at the same instant, a double-tapped vote) is **409** ("changed at the same time; please try again"), never 500.
 
 Language: server-written text (problem `title`, inbox `title`/`body`, area kinds in `address` such as "Bandar raya" /
 "City", reverse-geocode labels, search suggestions) follows `Accept-Language`: **English by default, Malay when the header

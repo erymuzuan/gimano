@@ -79,6 +79,49 @@ public class SignatureReplayRegressionTests
     }
 }
 
+public class ExceptionMappingRegressionTests
+{
+    private sealed class Problems : Microsoft.AspNetCore.Http.IProblemDetailsService
+    {
+        public Microsoft.AspNetCore.Mvc.ProblemDetails? Last;
+        public ValueTask WriteAsync(ProblemDetailsContext context) { Last = context.ProblemDetails; return ValueTask.CompletedTask; }
+    }
+
+    public static TheoryData<Exception> Races() =>
+    [
+        // Two drivers vote on the same hazard at once: the second save hits the reports.xmin concurrency token.
+        new Microsoft.EntityFrameworkCore.DbUpdateConcurrencyException("The database operation was expected to affect 1 row(s)"),
+        // A double-tapped vote: both requests pass the "already voted?" check, the second insert hits the unique index.
+        new Microsoft.EntityFrameworkCore.DbUpdateException("save failed",
+            new Npgsql.PostgresException("duplicate key value violates unique constraint \"ix_place_votes_place_id_voter_id\"", "ERROR", "ERROR", "23505")),
+    ];
+
+    [Theory]
+    [MemberData(nameof(Races))]
+    public async Task Request_races_are_409_without_leaking_database_details(Exception ex)
+    {
+        var problems = new Problems();
+        var handler = new Gimano.Api.ApiExceptionHandler(problems, Microsoft.Extensions.Logging.Abstractions.NullLogger<Gimano.Api.ApiExceptionHandler>.Instance);
+        var ctx = new DefaultHttpContext();
+        await handler.TryHandleAsync(ctx, ex, CancellationToken.None);
+        Assert.Equal(409, ctx.Response.StatusCode);
+        Assert.Equal(409, problems.Last!.Status);
+        Assert.DoesNotContain("constraint", problems.Last.Detail);
+        Assert.DoesNotContain("row(s)", problems.Last.Detail);
+    }
+
+    [Fact]
+    public async Task Other_database_errors_stay_500()
+    {
+        var problems = new Problems();
+        var handler = new Gimano.Api.ApiExceptionHandler(problems, Microsoft.Extensions.Logging.Abstractions.NullLogger<Gimano.Api.ApiExceptionHandler>.Instance);
+        var ctx = new DefaultHttpContext();
+        await handler.TryHandleAsync(ctx, new Microsoft.EntityFrameworkCore.DbUpdateException("x",
+            new Npgsql.PostgresException("value too long", "ERROR", "ERROR", "22001")), CancellationToken.None);
+        Assert.Equal(500, ctx.Response.StatusCode);
+    }
+}
+
 public class IssueDirectoryExpiryRegressionTests
 {
     private static readonly DateTimeOffset Now = new(2026, 10, 23, 10, 0, 0, TimeSpan.Zero);

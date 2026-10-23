@@ -37,6 +37,11 @@ public sealed class ApiExceptionHandler(IProblemDetailsService problems, ILogger
             NoRouteException => (StatusCodes.Status422UnprocessableEntity, "No route found"),
             NotFoundException => (StatusCodes.Status404NotFound, "Not found"),
             ConflictException => (StatusCodes.Status409Conflict, "Conflict"),
+            // Two requests raced: a row changed under us (xmin) or the same unique row was inserted twice (a double-tapped
+            // vote). The client's request was fine; the state moved. 409 with a retryable message, not a logged 500.
+            Microsoft.EntityFrameworkCore.DbUpdateConcurrencyException => (StatusCodes.Status409Conflict, "Conflict"),
+            Microsoft.EntityFrameworkCore.DbUpdateException { InnerException: Npgsql.PostgresException { SqlState: Npgsql.PostgresErrorCodes.UniqueViolation } }
+                => (StatusCodes.Status409Conflict, "Conflict"),
             UnauthorizedAccessException => (StatusCodes.Status401Unauthorized, "Unauthorized"),
             BadHttpRequestException b => (b.StatusCode, "Bad request"),
             _ => (StatusCodes.Status500InternalServerError, "Unexpected error"),
@@ -54,7 +59,10 @@ public sealed class ApiExceptionHandler(IProblemDetailsService problems, ILogger
             {
                 Status = status,
                 Title = title,
-                Detail = status == 500 ? "An unexpected error occurred." : exception.Message,
+                // Database exception messages can name tables/constraints: never echo them.
+                Detail = status == 500 ? "An unexpected error occurred."
+                    : exception is Microsoft.EntityFrameworkCore.DbUpdateException ? "This changed at the same time as your request; please try again."
+                    : exception.Message,
             },
         });
     }
