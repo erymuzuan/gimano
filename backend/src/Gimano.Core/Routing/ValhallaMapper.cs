@@ -19,7 +19,8 @@ public static partial class ValhallaMapper
 
     // ---- Request ----------------------------------------------------------
 
-    public static JsonObject BuildRouteRequest(RouteRequest req, double? originHeading = null, string language = "en-US")
+    /// <param name="excludePolygons">Confirmed closures (docs/complaints.md): Valhalla avoids edges crossing these rings.</param>
+    public static JsonObject BuildRouteRequest(RouteRequest req, double? originHeading = null, string language = "en-US", JsonArray? excludePolygons = null)
     {
         // Every waypoint is a stop ("break") so that it becomes its own leg.
         var locations = new JsonArray { Location(req.Origin, originHeading) };
@@ -65,6 +66,7 @@ public static partial class ValhallaMapper
 
         if (req.DepartAt is { } departAt)
             body["date_time"] = new JsonObject { ["type"] = 1, ["value"] = ToValhallaLocal(departAt) };
+        if (excludePolygons is { Count: > 0 }) body["exclude_polygons"] = excludePolygons;
         return body;
     }
 

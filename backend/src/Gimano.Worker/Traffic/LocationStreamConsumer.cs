@@ -41,7 +41,7 @@ public sealed class TrafficMetrics
 /// </summary>
 public sealed class LocationStreamConsumer(
     LocationStreamConnection connection, RoadIndexHolder roads, SpeedWindow window, DriverStore drivers, TrafficMetrics metrics,
-    ILogger<LocationStreamConsumer> logger) : BackgroundService
+    TraversalCounter traversals, ILogger<LocationStreamConsumer> logger) : BackgroundService
 {
     public const ushort Prefetch = 2000;
     public static readonly TimeSpan StatsEvery = TimeSpan.FromSeconds(30);
@@ -103,10 +103,12 @@ public sealed class LocationStreamConsumer(
                 drivers.Update(b.SessionId, p.Lat, p.Lng, p.Heading, p.SpeedKmh, b.Mood, p.TsUnixMs);
                 if (index is null) { noIndex++; continue; }
                 double? heading = p.Heading is >= 0 and <= 360 ? p.Heading : null;
-                if (index.Snap(p.Lat, p.Lng, heading, p.SpeedKmh) is { } seg)
+                if (index.SnapDirected(p.Lat, p.Lng, heading, p.SpeedKmh) is { } hit)
                 {
                     snapped++;
-                    window.Add(seg, new SpeedSample(b.SessionId, p.SpeedKmh, DateTimeOffset.FromUnixTimeMilliseconds(p.TsUnixMs)));
+                    var ts = DateTimeOffset.FromUnixTimeMilliseconds(p.TsUnixMs);
+                    window.Add(hit.SegmentId, new SpeedSample(b.SessionId, p.SpeedKmh, ts));
+                    traversals.Add(hit.SegmentId, hit.Direction, b.SessionId, ts);
                 }
                 else unsnapped++;
             }

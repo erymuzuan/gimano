@@ -57,6 +57,9 @@ public static class PrivacyEndpoints
         await db.ReportContacts.Where(c => (c.SubjectType == ContactSubject.Feedback && fbIds.Contains(c.SubjectId))
                                            || (c.SubjectType == ContactSubject.Crash && crashIds.Contains(c.SubjectId))).ExecuteDeleteAsync(ct);
         await db.ReportVotes.Where(v => v.UserId == uid).ExecuteDeleteAsync(ct);
+        // Complaints are public contributions: kept, anonymised. Open votes are deleted (closed ones are already unlinked).
+        await db.IssueVotes.Where(v => v.VoterId == uid).ExecuteDeleteAsync(ct);
+        await db.Issues.Where(i => i.CreatedBy == uid).ExecuteUpdateAsync(s => s.SetProperty(i => i.CreatedBy, (Guid?)null), ct);
         await db.Reports.Where(r => r.ReporterId == uid).ExecuteUpdateAsync(s => s.SetProperty(r => r.ReporterId, (Guid?)null), ct);
         await db.Feedback.Where(f => f.UserId == uid).ExecuteUpdateAsync(s => s
             .SetProperty(f => f.UserId, (Guid?)null)

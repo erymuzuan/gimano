@@ -387,6 +387,7 @@ public sealed class SearchService(PlaceSearchIndex index, AliasStore aliases, Ar
             var fallback = await places.SearchAsync(new SearchQuery(r.Q, oLat, oLng, r.Limit, r.Category, r.Country, r.Viewer), ct);
             return new SearchResponse(fallback, NoMatch: fallback.Count == 0);
         }
+        results = await places.ApplyIssuesAsync(results, r.Lang, ct);
         if (results.Count > 0)
         {
             // Typo-only matches always say so (exact=true: only literal matches, otherwise nothing). A different single shop

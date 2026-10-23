@@ -54,7 +54,26 @@ public enum FlagReason { Spam, Offensive, OffTopic, ConflictOfInterest, Other }
 
 public enum PhotoStatus { Processing, Published, Rejected }
 
-public enum InboxKind { PlacePublished, PlaceRejected, ReportThanked, ReviewHelpful, EditAccepted, FeedbackStatus, Announcement, PlaceExpired }
+public enum InboxKind { PlacePublished, PlaceRejected, ReportThanked, ReviewHelpful, EditAccepted, FeedbackStatus, Announcement, PlaceExpired,
+    IssueConfirmed, IssueRefuted, IssueResolved }
+
+/// <summary>Road and place complaints (docs/complaints.md, docs/api.md "Issues").</summary>
+public enum IssueKind
+{
+    RoadClosedTemp, RoadNotExist, OnewayWrongClosedDir, OnewayWrongOpenDir, TurnNotAllowed, OddRoute, NewRoad,
+    PlaceClosedPerm, PlaceClosedTemp, PlaceHoursWrong, PlaceEntranceWrong, PlaceInfoWrong, PlaceDuplicate,
+}
+
+/// <summary>reported (feedback-only kinds) · suspected · confirmed · refuted · expired · resolved.</summary>
+public enum IssueState { Reported, Suspected, Confirmed, Refuted, Expired, Resolved }
+
+/// <summary>Which way along the segment (relative to the OSM digitised direction) the issue applies.</summary>
+public enum IssueDirection { Both, Forward, Backward }
+
+public enum IssueSource { Report, Deviation, PlaceEdit }
+
+/// <summary>Vote on an issue: it still holds · it's cleared / was never true · unsure (weight 0).</summary>
+public enum IssueAnswer { Still, Cleared, Unsure }
 
 /// <summary>Contributor trust tier (docs/identity-and-reputation.md).</summary>
 public enum Tier { Baharu, Perak, Emas }

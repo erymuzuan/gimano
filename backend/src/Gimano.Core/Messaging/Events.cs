@@ -22,6 +22,7 @@ public static class RoutingKeys
     public const string PlaceVerified = "place.verified";
     public const string SuggestionApplied = "suggestion.applied";
     public const string FeedbackStatusChanged = "feedback.status";
+    public const string IssueChanged = "issue.changed";
 }
 
 public sealed record ReportVotedEvent(Guid ReportId, bool StillThere, Guid UserId);
@@ -38,3 +39,6 @@ public sealed record ReviewHelpfulEvent(Guid ReviewId);
 public sealed record PlaceVerifiedEvent(string PlaceId, PlaceStatus Status);
 public sealed record SuggestionAppliedEvent(Guid SuggestionId);
 public sealed record FeedbackStatusEvent(Guid FeedbackId, FeedbackStatus Status);
+
+/// <summary>An issue was created, voted on or changed state (for map updates and the reporter's inbox).</summary>
+public sealed record IssueChangedEvent(Guid IssueId, Contracts.IssueState State, bool StateChanged);

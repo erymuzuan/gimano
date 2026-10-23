@@ -33,7 +33,13 @@ public sealed record PlaceSummary(
     string Id, string Name, PlaceCategory Category, string Address, double Lat, double Lng, double? DistanceM, string? Brand,
     PlaceSource Source = PlaceSource.Osm, PlaceStatus? Status = null, double? Rating = null, int ReviewCount = 0, string? ThumbnailUrl = null,
     double? ConfirmationsWeighted = null, double? Required = null, ChainGroup? ChainGroup = null, bool? OpenNow = null,
-    double? AnchorDistanceM = null);
+    double? AnchorDistanceM = null, PlaceBadge? Badge = null);
+
+/// <summary>
+/// A place's open complaint, for the card/list badge: "Dilaporkan tutup · sahkan?" (suspected place_closed_perm),
+/// "Tutup sementara sehingga …" (until), "Waktu mungkin berubah" (place_hours_wrong). The app words it from kind+state.
+/// </summary>
+public sealed record PlaceBadge(Guid IssueId, IssueKind Kind, IssueState State, string Label, string? Until = null);
 
 /// <summary>Several results of one chain ("FamilyMart · 12 berdekatan"): <c>countNearby</c> = outlets within 10 km of the search origin.</summary>
 public sealed record ChainGroup(string Key, string Name, int CountNearby);
@@ -43,7 +49,11 @@ public sealed record PlaceDto(
     string? Phone, string? Website, string? OpeningHours, bool? OpenNow,
     IReadOnlyList<string> Amenities, IReadOnlyDictionary<string, string> Tags, string? OsmType, long? OsmId,
     PlaceSource Source = PlaceSource.Osm, PlaceStatus? Status = null, double? Rating = null, int ReviewCount = 0, string? ThumbnailUrl = null,
-    string? Description = null, AddedBy? AddedBy = null, int VerifiedCount = 0, IReadOnlyList<PhotoDto>? Photos = null);
+    string? Description = null, AddedBy? AddedBy = null, int VerifiedCount = 0, IReadOnlyList<PhotoDto>? Photos = null,
+    PlaceBadge? Badge = null, NavigationPoint? NavigationPoint = null);
+
+/// <summary>A confirmed place_entrance_wrong: route here instead of the display pin.</summary>
+public sealed record NavigationPoint(double Lat, double Lng, Guid IssueId);
 
 public sealed record AddedBy(string DisplayName);
 
@@ -121,9 +131,10 @@ public sealed record ReverseGeocodeResponse(string Name, string Address, double 
 public sealed record LatLng(double Lat, double Lng, string? PlaceId = null, string? Name = null);
 public sealed record AvoidOptions(bool Tolls = false, bool Highways = false, bool Ferries = false);
 
+/// <param name="IgnoreIssues">"Lalu juga": confirmed issues not to avoid for this trip only.</param>
 public sealed record RouteRequest(
     LatLng Origin, LatLng Destination, IReadOnlyList<LatLng>? Waypoints, Vehicle? Vehicle,
-    AvoidOptions? Avoid, DateTimeOffset? DepartAt, int? Alternatives);
+    AvoidOptions? Avoid, DateTimeOffset? DepartAt, int? Alternatives, IReadOnlyList<Guid>? IgnoreIssues = null);
 
 /// <summary><c>NextStopIndex</c>: index into the original waypoints of the next stop not yet reached (default 0).</summary>
 public sealed record RerouteRequest(double Lat, double Lng, double? Heading, int? NextStopIndex = null);
@@ -135,7 +146,36 @@ public sealed record RouteDto(
     string Summary, string TrafficDescription, Vehicle Vehicle,
     bool HasTolls, decimal? TollEstimateMyr, bool TollFareComplete, IReadOnlyList<TollOnRoute> Tolls,
     string Polyline, double[] Bbox, IReadOnlyList<RouteLeg> Legs,
-    IReadOnlyList<TrafficSegment> TrafficSegments, IReadOnlyList<AlertOnRoute> Alerts);
+    IReadOnlyList<TrafficSegment> TrafficSegments, IReadOnlyList<AlertOnRoute> Alerts, IReadOnlyList<RouteIssue>? Issues = null);
+
+/// <summary>
+/// An issue relevant to a route. avoided = true: a confirmed closure/no-road the route goes around ("Mengelak Jln X");
+/// avoided = false: a suspected or warn-only issue the route passes (show a warning; distanceAlongRouteM says where).
+/// </summary>
+public sealed record RouteIssue(Guid Id, IssueKind Kind, string? Subtype, IssueState State, bool Avoided, string Summary,
+    int Confirmations, DateTimeOffset LastEvidenceAt, IssueSegment? Segment, double Lat, double Lng, double? DistanceAlongRouteM);
+
+// ---- Issues (docs/complaints.md) ----------------------------------------------------
+
+public sealed record IssueSegment(long WayId, int Seq, string? Name, string? Highway, IssueDirection Direction);
+
+/// <param name="Payload">Kind-specific: until (yyyy-MM-dd), openingHours, navLat/navLng, name/category/phone/website,
+/// duplicateOf, toLat/toLng (turn), from/to + chosen/taken (odd_route), trace [[lat,lng],…] (new_road).</param>
+public sealed record CreateIssueRequest(IssueKind? Kind, string? Subtype, double Lat, double Lng, double? Heading, string? PlaceId,
+    Vehicle? Vehicle, string? DurationHint, IssueSource? Source, System.Text.Json.Nodes.JsonObject? Payload);
+
+public sealed record IssueVoteRequest(IssueAnswer? Answer, ProximityClaim? Proximity);
+
+public sealed record IssueVoteResult(IssueState State, double ConfirmationsWeighted, double RefutationsWeighted, double Required);
+
+public sealed record IssueDto(
+    Guid Id, IssueKind Kind, string? Subtype, IssueState State, IssueSource Source, double Lat, double Lng, IssueDirection Direction,
+    IssueSegment? Segment, string? PlaceId, Vehicle? Vehicle, string Summary,
+    double ConfirmationsWeighted, double RefutationsWeighted, double Required, int StillVotes, int ClearedVotes, double Confidence,
+    DateTimeOffset CreatedAt, DateTimeOffset LastEvidenceAt, DateTimeOffset? ExpiresAt, DateTimeOffset? ConfirmedAt,
+    AddedBy? ReportedBy, bool Mine, IssueAnswer? MyVote, IReadOnlyDictionary<string, string> Payload, bool Merged = false);
+
+public sealed record IssuesResponse(IReadOnlyList<IssueDto> Issues);
 
 public sealed record RouteLeg(double DurationS, double DistanceM, LegEnd To, IReadOnlyList<ManeuverDto> Maneuvers);
 

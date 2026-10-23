@@ -14,7 +14,8 @@ public sealed class InboxGenerator(RabbitMqConnection connection, IServiceScopeF
 {
     protected override string QueueName => "gimano.worker.inbox";
     protected override IReadOnlyList<string> RoutingKeyBindings =>
-        [RoutingKeys.ReportThanked, RoutingKeys.ReviewHelpful, RoutingKeys.PlaceVerified, RoutingKeys.SuggestionApplied, RoutingKeys.FeedbackStatusChanged];
+        [RoutingKeys.ReportThanked, RoutingKeys.ReviewHelpful, RoutingKeys.PlaceVerified, RoutingKeys.SuggestionApplied, RoutingKeys.FeedbackStatusChanged,
+         RoutingKeys.IssueChanged];
 
     protected override async Task HandleAsync(JsonElement message, string routingKey, CancellationToken ct)
     {
@@ -54,6 +55,24 @@ public sealed class InboxGenerator(RabbitMqConnection connection, IServiceScopeF
                 var e = message.Deserialize<SuggestionAppliedEvent>(o)!;
                 var sgn = await db.PlaceSuggestions.AsNoTracking().FirstOrDefaultAsync(x => x.Id == e.SuggestionId, ct);
                 if (sgn?.UserId is { } uid) await AddAsync(db, uid, InboxKind.EditAccepted, await PlaceNameAsync(db, sgn.PlaceId, ct), "place", sgn.PlaceId, ct);
+                break;
+            }
+            case RoutingKeys.IssueChanged:
+            {
+                var e = message.Deserialize<IssueChangedEvent>(o)!;
+                if (!e.StateChanged) break;
+                var kind = e.State switch
+                {
+                    IssueState.Confirmed => InboxKind.IssueConfirmed, IssueState.Refuted => InboxKind.IssueRefuted,
+                    IssueState.Resolved => InboxKind.IssueResolved, _ => (InboxKind?)null,
+                };
+                if (kind is not { } k) break;
+                var issue = await db.Issues.AsNoTracking().FirstOrDefaultAsync(x => x.Id == e.IssueId, ct);
+                if (issue?.CreatedBy is not { } uid) break;
+                var placeName = issue.PlaceId is { } pid ? await PlaceNameAsync(db, pid, ct) : null;
+                // Subject = the road or place name (language-neutral; the title around it follows the reader's language).
+                var subject = placeName ?? issue.RoadName ?? Gimano.Core.Issues.IssueText.Kind(issue.Kind, "ms");
+                await AddAsync(db, uid, k, subject, "issue", issue.Id.ToString(), ct);
                 break;
             }
             case RoutingKeys.FeedbackStatusChanged:

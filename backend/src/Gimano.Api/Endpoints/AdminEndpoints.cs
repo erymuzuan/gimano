@@ -16,6 +16,10 @@ public sealed record AdminCrashGroup(string Signature, string Exception, int Cou
 public sealed record AdminCrashReport(Guid Id, CrashKind Kind, string Exception, string? Message, string? Stack, string? Screen, long? UptimeS,
     DeviceInfo? Device, DateTimeOffset? OccurredAt, bool HasContact);
 public sealed record AdminStatusRequest(string Status);
+/// <summary>An OSM note to file by hand (v1 never posts to OSM). note = suggested text; links point at the OSM object.</summary>
+public sealed record AdminOsmNote(Guid IssueId, IssueKind Kind, string? Subtype, IssueState State, double Lat, double Lng, string Note,
+    string? OsmUrl, string? NoteUrl, int StillVotes, int ClearedVotes, DateTimeOffset CreatedAt, DateTimeOffset? ConfirmedAt,
+    DateTimeOffset? ExportedAt, IReadOnlyDictionary<string, string> Payload);
 public sealed record AdminSearchMiss(string Query, string Cell, string Week, int Count);
 
 /// <summary>
@@ -35,9 +39,50 @@ public static class AdminEndpoints
         g.MapPatch("/crash-groups/{signature}", SetCrashStatus);
         g.MapPost("/contacts/{subject}/{id:guid}/reveal", RevealContact);
         g.MapGet("/search-misses", SearchMissReport);
+        g.MapGet("/osm-queue", OsmQueue);
+        g.MapPost("/osm-queue/{id:guid}/exported", MarkExported);
         g.MapPost("/search/aliases/reload", (Services.AliasStore store) => TypedResults.Ok(new { rows = store.Reload() }));
         return api;
     }
+
+    /// <summary>
+    /// OSM notes queue (export only): odd routes, new roads, "actually two-way", and issues confirmed for 7+ days that
+    /// the map should fix (no road, one-way, turn, place details). Coordinates at 5 dp; nothing about the reporter.
+    /// </summary>
+    private static async Task<Ok<List<AdminOsmNote>>> OsmQueue(bool? includeExported, GimanoDbContext db, TimeProvider clock, CancellationToken ct)
+    {
+        var settled = clock.GetUtcNow().AddDays(-7);
+        var q = db.Issues.AsNoTracking().Where(i =>
+            ((i.Kind == IssueKind.OddRoute || i.Kind == IssueKind.NewRoad || i.Kind == IssueKind.OnewayWrongOpenDir)
+                && (i.State == IssueState.Reported || i.State == IssueState.Suspected || i.State == IssueState.Confirmed))
+            || (i.State == IssueState.Confirmed && i.ConfirmedAt < settled && i.Kind != IssueKind.RoadClosedTemp && i.Kind != IssueKind.PlaceClosedTemp));
+        if (includeExported != true) q = q.Where(i => i.ExportedAt == null);
+        var rows = await q.OrderBy(i => i.CreatedAt).Take(500).ToListAsync(ct);
+        return TypedResults.Ok(rows.Select(i =>
+        {
+            var lat = Math.Round(i.Location.Y, 5); var lng = Math.Round(i.Location.X, 5);
+            var osm = i.WayId is { } w ? $"https://www.openstreetmap.org/way/{w}"
+                : i.PlaceId is { } pid && pid.Length > 1 && pid[0] is 'n' or 'w' or 'r' && long.TryParse(pid[1..], out var oid)
+                    ? $"https://www.openstreetmap.org/{(pid[0] == 'n' ? "node" : pid[0] == 'w' ? "way" : "relation")}/{oid}" : null;
+            var note = Gimano.Core.Issues.IssueText.Summary(i, "en") + (i.Kind switch
+            {
+                IssueKind.RoadNotExist => " — drivers report there is no usable road here (gate/private/track).",
+                IssueKind.OnewayWrongClosedDir => " — drivers report this is one-way (the map says two-way).",
+                IssueKind.OnewayWrongOpenDir => " — vehicles use both directions (the map says one-way).",
+                IssueKind.TurnNotAllowed => " — drivers report this turn is not allowed.",
+                IssueKind.NewRoad => " — a road that is not on the map (trace attached).",
+                IssueKind.OddRoute => " — the suggested route seemed wrong here.",
+                _ => ".",
+            }) + $" {i.StillVotes} confirmation(s), {i.ClearedVotes} against. (Manotu/Gimano community report; please survey before editing.)";
+            return new AdminOsmNote(i.Id, i.Kind, i.Subtype, i.State, lat, lng, note, osm,
+                string.Create(System.Globalization.CultureInfo.InvariantCulture, $"https://www.openstreetmap.org/note/new#map=19/{lat}/{lng}"),
+                i.StillVotes, i.ClearedVotes, i.CreatedAt, i.ConfirmedAt, i.ExportedAt, i.Payload);
+        }).ToList());
+    }
+
+    private static async Task<Results<NoContent, NotFound>> MarkExported(Guid id, GimanoDbContext db, TimeProvider clock, CancellationToken ct) =>
+        await db.Issues.Where(i => i.Id == id).ExecuteUpdateAsync(s => s.SetProperty(i => i.ExportedAt, clock.GetUtcNow()), ct) > 0
+            ? TypedResults.NoContent() : TypedResults.NotFound();
 
     /// <summary>Anonymous zero-result counts: query, ~11 km cell, ISO week, count (nothing else exists to show).</summary>
     private static async Task<Ok<List<AdminSearchMiss>>> SearchMissReport(string? week, int? minCount, int? take, GimanoDbContext db, TimeProvider clock, CancellationToken ct)

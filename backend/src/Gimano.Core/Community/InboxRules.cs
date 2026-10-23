@@ -46,6 +46,15 @@ public static class InboxRules
             InboxKind.FeedbackStatus => ms
                 ? ("Maklum balas anda telah dikemas kini", $"Status: {s}")
                 : ("Your feedback was updated", $"Status: {s}"),
+            InboxKind.IssueConfirmed => ms
+                ? ($"Laporan anda disahkan: {s}", "Pemandu lain mengesahkannya. Laluan kini mengambil kira laporan ini.")
+                : ($"Your report was confirmed: {s}", "Other drivers confirmed it. Routes now take it into account."),
+            InboxKind.IssueRefuted => ms
+                ? ($"Laporan anda tidak lagi aktif: {s}", "Pemandu lain atau aliran trafik menunjukkan ia sudah tiada. Terima kasih kerana melapor.")
+                : ($"Your report is no longer active: {s}", "Other drivers or traffic flow show it has cleared. Thanks for reporting."),
+            InboxKind.IssueResolved => ms
+                ? ($"Peta telah dibetulkan: {s}", "Data peta kini sepadan dengan laporan anda. Terima kasih!")
+                : ($"The map was fixed: {s}", "The map data now matches your report. Thank you!"),
             _ => (s, ""),
         };
     }
@@ -54,7 +63,8 @@ public static class InboxRules
 
     /// <summary>Kinds whose text needs the subject (place name/status); legacy rows without one keep their stored text.</summary>
     private static bool NeedsSubject(InboxKind k) => k is InboxKind.ReviewHelpful or InboxKind.PlacePublished or InboxKind.PlaceRejected
-        or InboxKind.PlaceExpired or InboxKind.EditAccepted or InboxKind.FeedbackStatus;
+        or InboxKind.PlaceExpired or InboxKind.EditAccepted or InboxKind.FeedbackStatus
+        or InboxKind.IssueConfirmed or InboxKind.IssueRefuted or InboxKind.IssueResolved;
 
     /// <summary>Title/body in the reader's language ("en"/"ms", from Accept-Language), re-rendered from kind, count and subject.</summary>
     public static (string Title, string Body) Render(Domain.InboxItem i, string lang)

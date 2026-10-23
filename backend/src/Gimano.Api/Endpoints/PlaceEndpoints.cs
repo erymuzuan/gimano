@@ -66,13 +66,13 @@ public static class PlaceEndpoints
             cat = c;
         }
         var r = Math.Clamp(radius ?? 5000, 50, 50_000);
-        var results = await places.NearbyAsync(new GeoPoint(lat, lng), cat, r, Math.Clamp(limit ?? 20, 1, 100), http.User.UserId(), ct);
+        var results = await places.NearbyAsync(new GeoPoint(lat, lng), cat, r, Math.Clamp(limit ?? 20, 1, 100), http.User.UserId(), ct, http.Lang());
         return TypedResults.Ok(new SearchResponse(results));
     }
 
     private static async Task<Results<Ok<PlaceDto>, NotFound>> GetPlace(string id, double? lat, double? lng, HttpContext http, PlaceService places, CancellationToken ct)
     {
-        var p = await places.GetAsync(id, lat, lng, http.User.UserId(), ct);
+        var p = await places.GetAsync(id, lat, lng, http.User.UserId(), ct, http.Lang());
         return p is null ? TypedResults.NotFound() : TypedResults.Ok(p);
     }
 

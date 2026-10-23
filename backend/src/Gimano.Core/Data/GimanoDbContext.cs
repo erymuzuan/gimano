@@ -39,6 +39,10 @@ public sealed class GimanoDbContext(DbContextOptions<GimanoDbContext> options) :
     public DbSet<StreetAddress> StreetAddresses => Set<StreetAddress>();
     public DbSet<SearchMiss> SearchMisses => Set<SearchMiss>();
     public DbSet<AdminArea> AdminAreas => Set<AdminArea>();
+    public DbSet<Issue> Issues => Set<Issue>();
+    public DbSet<IssueVote> IssueVotes => Set<IssueVote>();
+    public DbSet<IssueSalt> IssueSalts => Set<IssueSalt>();
+    public DbSet<SegmentTraversalCount> SegmentTraversalCounts => Set<SegmentTraversalCount>();
 
     protected override void OnModelCreating(ModelBuilder b)
     {
@@ -328,6 +332,50 @@ public sealed class GimanoDbContext(DbContextOptions<GimanoDbContext> options) :
             e.Property(x => x.Country).HasMaxLength(2);
             e.Property(x => x.Location).HasColumnType("geography (point, 4326)");
             e.HasIndex(x => x.Location).HasMethod("gist");
+        });
+
+        b.Entity<Issue>(e =>
+        {
+            e.ToTable("issues");
+            e.Property(x => x.Kind).HasConversion<string>().HasMaxLength(32);
+            e.Property(x => x.State).HasConversion<string>().HasMaxLength(12);
+            e.Property(x => x.Source).HasConversion<string>().HasMaxLength(12);
+            e.Property(x => x.Direction).HasConversion<string>().HasMaxLength(10);
+            e.Property(x => x.Vehicle).HasConversion<string>().HasMaxLength(12);
+            e.Property(x => x.Subtype).HasMaxLength(20);
+            e.Property(x => x.PlaceId).HasMaxLength(40);
+            e.Property(x => x.Highway).HasMaxLength(20);
+            e.Property(x => x.RoadName).HasMaxLength(200);
+            e.Property(x => x.Location).HasColumnType("geography (point, 4326)");
+            e.Property(x => x.Payload).HasColumnType("jsonb");
+            e.Property(x => x.History).HasColumnType("jsonb");
+            e.HasIndex(x => x.Location).HasMethod("gist");
+            e.HasIndex(x => new { x.State, x.Kind });
+            e.HasIndex(x => new { x.WayId, x.Seq });
+            e.HasIndex(x => x.PlaceId);
+            e.HasIndex(x => x.CreatedBy);
+        });
+
+        b.Entity<IssueVote>(e =>
+        {
+            e.ToTable("issue_votes");
+            e.Property(x => x.Answer).HasConversion<string>().HasMaxLength(10);
+            e.HasIndex(x => new { x.IssueId, x.VoterId }).IsUnique().HasFilter("voter_id IS NOT NULL");
+            e.HasIndex(x => new { x.VoterId, x.Day });
+        });
+
+        b.Entity<IssueSalt>(e =>
+        {
+            e.ToTable("issue_salts");
+            e.HasKey(x => x.IssueId);
+        });
+
+        b.Entity<SegmentTraversalCount>(e =>
+        {
+            e.ToTable("segment_traversal_counts");
+            e.HasKey(x => new { x.WayId, x.Seq, x.Direction, x.Hour });
+            e.Property(x => x.Direction).HasConversion<string>().HasMaxLength(10);
+            e.HasIndex(x => x.Hour);
         });
 
         b.Entity<AdminArea>(e =>

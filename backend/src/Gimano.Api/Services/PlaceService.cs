@@ -10,7 +10,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Gimano.Api.Services;
 
-public sealed class PlaceService(GimanoDbContext db, PlaceSearchIndex index, TimeProvider clock, ILogger<PlaceService> logger)
+public sealed class PlaceService(GimanoDbContext db, PlaceSearchIndex index, TimeProvider clock, ILogger<PlaceService> logger, IssueDirectory issues)
 {
     public async Task<IReadOnlyList<PlaceSummary>> SearchAsync(SearchQuery q, CancellationToken ct)
     {
@@ -59,7 +59,16 @@ public sealed class PlaceService(GimanoDbContext db, PlaceSearchIndex index, Tim
             .Take(limit).ToList();
     }
 
-    public async Task<IReadOnlyList<PlaceSummary>> NearbyAsync(GeoPoint at, PlaceCategory? category, double radiusM, int limit, Guid? viewer, CancellationToken ct)
+    /// <summary>Complaints on places: confirmed permanently closed → hidden; others → a badge (docs/api.md "Issues").</summary>
+    public async Task<List<PlaceSummary>> ApplyIssuesAsync(IEnumerable<PlaceSummary> results, string lang, CancellationToken ct)
+    {
+        var s = await issues.GetAsync(ct);
+        if (s.PlaceBadges.Count == 0) return results.ToList();
+        return results.Where(r => !s.ClosedPlaces.Contains(r.Id))
+            .Select(r => IssueDirectory.Badge(s, r.Id, lang) is { } b ? r with { Badge = b } : r).ToList();
+    }
+
+    public async Task<IReadOnlyList<PlaceSummary>> NearbyAsync(GeoPoint at, PlaceCategory? category, double radiusM, int limit, Guid? viewer, CancellationToken ct, string lang = "en")
     {
         var pt = at.ToPoint();
         var query = db.Places.AsNoTracking().Where(p => p.Location.IsWithinDistance(pt, radiusM));
@@ -77,10 +86,30 @@ public sealed class PlaceService(GimanoDbContext db, PlaceSearchIndex index, Tim
         var local = TimeZoneInfo.ConvertTime(clock.GetUtcNow(), ValhallaMapper.MalaysiaTime).DateTime;
         return rows.Select(p => ToSummary(p, at.Lat, at.Lng, agg.GetValueOrDefault(p.Id)) with { OpenNow = OpeningHours.IsOpen(p.OpeningHours, local) })
             .Concat(crow.Select(p => ToSummary(p, at.Lat, at.Lng, agg.GetValueOrDefault(p.Id)) with { OpenNow = OpeningHours.IsOpen(p.OpeningHours, local) }))
-            .OrderBy(s => s.DistanceM).Take(limit).ToList();
+            .OrderBy(s => s.DistanceM).Take(limit)
+            .ToList() is var list ? await ApplyIssuesAsync(list, lang, ct) : [];
     }
 
-    public async Task<PlaceDto?> GetAsync(string id, double? lat, double? lng, Guid? viewer, CancellationToken ct)
+    public async Task<PlaceDto?> GetAsync(string id, double? lat, double? lng, Guid? viewer, CancellationToken ct, string lang = "en")
+    {
+        var dto = await GetRawAsync(id, lat, lng, viewer, ct);
+        if (dto is null) return null;
+        var s = await issues.GetAsync(ct);
+        var local = TimeZoneInfo.ConvertTime(clock.GetUtcNow(), ValhallaMapper.MalaysiaTime).DateTime;
+        NavigationPoint? nav = s.NavPoints.TryGetValue(id, out var ni)
+            && double.TryParse(ni.Payload.GetValueOrDefault("navLat"), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var nla)
+            && double.TryParse(ni.Payload.GetValueOrDefault("navLng"), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var nlo)
+            ? new NavigationPoint(nla, nlo, ni.Id) : null;
+        // Confirmed corrected opening hours replace the OSM ones until the map catches up.
+        var hours = s.Hours.TryGetValue(id, out var h) ? h : dto.OpeningHours;
+        return dto with
+        {
+            Badge = IssueDirectory.Badge(s, id, lang), NavigationPoint = nav,
+            OpeningHours = hours, OpenNow = hours == dto.OpeningHours ? dto.OpenNow : OpeningHours.IsOpen(hours, local),
+        };
+    }
+
+    private async Task<PlaceDto?> GetRawAsync(string id, double? lat, double? lng, Guid? viewer, CancellationToken ct)
     {
         var local = TimeZoneInfo.ConvertTime(clock.GetUtcNow(), ValhallaMapper.MalaysiaTime).DateTime;
         var agg = (await PlaceDocuments.AggregatesAsync(db, [id], ct)).GetValueOrDefault(id);

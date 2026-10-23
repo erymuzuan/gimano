@@ -13,7 +13,7 @@ namespace Gimano.Api.Services;
 
 public sealed class RouteService(
     ValhallaClient valhalla, ReportService reports, GeoLookup geo, GimanoDbContext db,
-    IMemoryCache cache, TimeProvider clock)
+    IMemoryCache cache, TimeProvider clock, IssueDirectory issues)
 {
     private static readonly TimeSpan CacheFor = TimeSpan.FromHours(3);
 
@@ -23,8 +23,12 @@ public sealed class RouteService(
     public async Task<IReadOnlyList<RouteDto>> RouteAsync(RouteRequest req, Guid? userId, CancellationToken ct, double? originHeading = null, RouteRequest? cacheAs = null)
     {
         var vehicle = req.Vehicle ?? Vehicle.Car;
-        var stops = (req.Waypoints ?? []).Append(req.Destination).ToList();
-        var response = await valhalla.RouteAsync(ValhallaMapper.BuildRouteRequest(req, originHeading), ct);
+        var snapshot = await issues.GetAsync(ct);
+        var routed = WithNavigationPoints(req, snapshot);
+        var stops = (routed.Waypoints ?? []).Append(routed.Destination).ToList();
+        var excluded = Exclusions(routed, vehicle, snapshot);
+        var response = await valhalla.RouteAsync(
+            ValhallaMapper.BuildRouteRequest(routed, originHeading, excludePolygons: Gimano.Core.Issues.IssueGeometry.ToValhalla(excluded.Select(e => e.Ring))), ct);
         var candidates = ValhallaMapper.MapResponse(response, stops);
         if (candidates.Count == 0) throw new NoRouteException("No route found.");
 
@@ -50,11 +54,62 @@ public sealed class RouteService(
             tariffs = plazas.Count > 0 ? await TariffsAsync(ct) : [];
         }
 
-        var routes = RouteDecorator.Decorate(candidates, activeReports, jams, () => Guid.CreateVersion7().ToString("N"), vehicle, plazas, tariffs);
+        var routes = RouteDecorator.Decorate(candidates, activeReports, jams, () => Guid.CreateVersion7().ToString("N"), vehicle, plazas, tariffs)
+            .Select(r => r with { Issues = IssuesFor(r, excluded, snapshot, req.IgnoreIssues) }).ToList();
         foreach (var r in routes) cache.Set(CacheKey(r.Id), cacheAs ?? req, CacheFor);
 
         // Privacy rule: destinations/recents are never recorded server-side (they live on the device).
         return routes;
+    }
+
+    /// <summary>A confirmed entrance correction replaces a place stop's coordinates (the display pin is unchanged).</summary>
+    internal static RouteRequest WithNavigationPoints(RouteRequest req, IssueDirectory.Snapshot s)
+    {
+        LatLng Nav(LatLng p) => p.PlaceId is { } id && s.NavPoints.TryGetValue(id, out var i)
+            && double.TryParse(i.Payload.GetValueOrDefault("navLat"), NumberStyles.Float, CultureInfo.InvariantCulture, out var la)
+            && double.TryParse(i.Payload.GetValueOrDefault("navLng"), NumberStyles.Float, CultureInfo.InvariantCulture, out var lo)
+            ? p with { Lat = la, Lng = lo } : p;
+        return req with { Destination = Nav(req.Destination), Waypoints = req.Waypoints?.Select(Nav).ToList() };
+    }
+
+    /// <summary>
+    /// Confirmed closures / no-road (for this vehicle) around the trip, minus "Lalu juga" ones; nearest to the origin first,
+    /// at most 60 (Valhalla's exclude-polygon perimeter limit).
+    /// </summary>
+    internal static List<IssueDirectory.RoadIssue> Exclusions(RouteRequest req, Vehicle vehicle, IssueDirectory.Snapshot s)
+    {
+        if (!ValhallaMapper.IsMotorised(vehicle) && vehicle != Vehicle.Bicycle) return [];
+        var pts = new[] { req.Origin }.Concat(req.Waypoints ?? []).Append(req.Destination).ToList();
+        var box = new BBox(pts.Min(p => p.Lng), pts.Min(p => p.Lat), pts.Max(p => p.Lng), pts.Max(p => p.Lat));
+        var span = GeoMath.HaversineM(box.MinLat, box.MinLng, box.MaxLat, box.MaxLng);
+        box = box.Expand(Math.Max(30_000, span * 0.3));
+        var ignore = req.IgnoreIssues?.ToHashSet() ?? [];
+        return s.Exclusions
+            .Where(e => !ignore.Contains(e.Issue.Id) && e.Ring.Count > 0 && box.Contains(e.Mid.Lat, e.Mid.Lng)
+                        && (e.Issue.Kind != IssueKind.RoadNotExist || e.Issue.Vehicle is null || e.Issue.Vehicle == vehicle))
+            .OrderBy(e => GeoMath.HaversineM(req.Origin.Lat, req.Origin.Lng, e.Mid.Lat, e.Mid.Lng))
+            .Take(Gimano.Core.Issues.IssueGeometry.MaxPolygons).ToList();
+    }
+
+    /// <summary>avoided: an applied exclusion within 1.5 km of the route; not avoided: any other open road issue on it (≤ 25 m).</summary>
+    internal static List<RouteIssue> IssuesFor(RouteDto route, IReadOnlyList<IssueDirectory.RoadIssue> excluded, IssueDirectory.Snapshot s,
+        IReadOnlyList<Guid>? ignored, string lang = "ms")
+    {
+        var line = Polyline.Decode(route.Polyline);
+        var result = new List<RouteIssue>();
+        RouteIssue Dto(IssueDirectory.RoadIssue e, bool avoided, double? along) => new(
+            e.Issue.Id, e.Issue.Kind, e.Issue.Subtype, e.Issue.State, avoided, Gimano.Core.Issues.IssueText.Summary(e.Issue, lang),
+            e.Issue.StillVotes, e.Issue.LastEvidenceAt,
+            e.Issue.WayId is { } w ? new IssueSegment(w, e.Issue.Seq ?? 0, e.Issue.RoadName, e.Issue.Highway, e.Issue.Direction) : null,
+            e.Mid.Lat, e.Mid.Lng, along);
+        foreach (var e in excluded)
+            if (Gimano.Core.Issues.IssueGeometry.Near(line, e.Mid, Gimano.Core.Issues.IssueGeometry.AvoidedWithinM) is not null)
+                result.Add(Dto(e, true, null));
+        var ignoredSet = ignored?.ToHashSet() ?? [];
+        foreach (var w in s.Warnings.Concat(s.Exclusions.Where(x => ignoredSet.Contains(x.Issue.Id))))
+            if (Gimano.Core.Issues.IssueGeometry.Near(line, w.Mid, Gimano.Core.Issues.IssueGeometry.OnRouteWithinM) is { } hit)
+                result.Add(Dto(w, false, Math.Round(hit.AlongM)));
+        return result;
     }
 
     public async Task<IReadOnlyList<RouteDto>> RerouteAsync(string routeId, RerouteRequest r, Guid? userId, CancellationToken ct)

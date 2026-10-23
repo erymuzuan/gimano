@@ -98,7 +98,14 @@ public sealed class RoadIndex
     private static long Key(int cy, int cx) => ((long)cy << 32) ^ (uint)cx;
 
     /// <summary>Returns the snapped segment id, or null.</summary>
-    public long? Snap(double lat, double lng, double? heading, double? speedKmh = null)
+    public long? Snap(double lat, double lng, double? heading, double? speedKmh = null) =>
+        SnapDirected(lat, lng, heading, speedKmh) is { } s ? s.SegmentId : null;
+
+    /// <summary>
+    /// Snapped segment plus the travel direction relative to the digitised geometry (Both when the heading is unknown or
+    /// too slow to trust).
+    /// </summary>
+    public (long SegmentId, Contracts.IssueDirection Direction)? SnapDirected(double lat, double lng, double? heading, double? speedKmh = null)
     {
         var useHeading = heading is >= 0 and <= 360 && (speedKmh ?? 10) >= 5;
         var cy = Cell(lat); var cx = Cell(lng);
@@ -107,6 +114,7 @@ public sealed class RoadIndex
 
         var best = -1;
         var bestDist = double.MaxValue;
+        var bestForward = (bool?)null;
         Span<int> seen = stackalloc int[64];
         var seenCount = 0;
 
@@ -139,17 +147,22 @@ public sealed class RoadIndex
                         }
                     }
                     if (segBest > SegmentSnapper.MaxSnapDistanceM || segBest >= bestDist) continue;
+                    bool? fwd = null;
                     if (useHeading)
                     {
                         var h = heading!.Value;
                         var forward = GeoMath.HeadingDelta(h, segBearing) <= SegmentSnapper.HeadingToleranceDeg;
                         var backward = GeoMath.HeadingDelta(h, (segBearing + 180) % 360) <= SegmentSnapper.HeadingToleranceDeg;
                         if (!(forward || (!_oneway[s] && backward))) continue;
+                        fwd = forward;
                     }
                     best = s;
                     bestDist = segBest;
+                    bestForward = fwd;
                 }
             }
-        return best < 0 ? null : _ids[best];
+        if (best < 0) return null;
+        var dir = bestForward switch { true => Contracts.IssueDirection.Forward, false => Contracts.IssueDirection.Backward, _ => Contracts.IssueDirection.Both };
+        return (_ids[best], dir);
     }
 }

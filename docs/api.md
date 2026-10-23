@@ -330,6 +330,101 @@ GET  /routes/departure-times?originLat=&originLng=&destLat=&destLng=&date=&vehic
   // vehicle optional (car|motorcycle, default car)
 ```
 
+## Issues (road and place complaints)
+
+Spec: [complaints.md](complaints.md). One report never closes a road; corrections only make routing more cautious;
+traffic that drives through refutes "closed"; everything expires. Reports are public contributions under the pseudonym.
+No per-user location history: road reports are snapped to the road and stored at ≈ 5 m, odd-route ends at ≈ 1 km, and
+passive evidence is anonymous per-segment hourly counts.
+
+```
+POST /issues                       (auth, signed)  CreateIssue → 201 Issue      (a duplicate is merged: same Issue, merged: true)
+GET  /issues/nearby?bbox=minLng,minLat,maxLng,maxLat&kinds=road_closed_temp,place_closed_perm   → {issues: Issue[]}
+GET  /issues/{id}                                    → Issue
+POST /issues/{id}/votes            (auth, signed)  {answer: "still"|"cleared"|"unsure", proximity: {cell, withinM}}
+                                                    → {state, confirmationsWeighted, refutationsWeighted, required}
+```
+
+`CreateIssue = {kind, subtype?, lat, lng, heading?, placeId?, vehicle?, durationHint?, source: "report"|"deviation"|"place_edit", payload?}`
+
+| kind | needs | subtype / payload |
+|---|---|---|
+| `road_closed_temp` | lat, lng, heading | subtype `accident`·`flood`·`event`·`roadworks`; `durationHint` `unknown`·`today`·`few_days`·`long_roadworks` |
+| `road_not_exist` | lat, lng, heading, `vehicle` | subtype `gate`·`private`·`track` |
+| `oneway_wrong_closed_dir` | lat, lng, heading (the direction you can't drive) | |
+| `oneway_wrong_open_dir` | lat, lng, heading (the direction the map forbids) | |
+| `turn_not_allowed` | lat, lng, heading | payload `toLat`, `toLng` (where you wanted to go) |
+| `odd_route` | lat, lng | payload `fromLat/fromLng/toLat/toLng` (stored at 2 dp), `chosen`, `taken`, `comment` |
+| `new_road` | lat, lng | payload `trace: [[lat,lng],…]` (only that road; 200 m trimmed at each end server-side, must be > 400 m), `name` |
+| `place_closed_perm` | placeId | |
+| `place_closed_temp` | placeId | payload `until` (yyyy-MM-dd, ≤ 60 days) |
+| `place_hours_wrong` | placeId | payload `openingHours` (OSM syntax) |
+| `place_entrance_wrong` | placeId | payload `navLat`, `navLng` (+ `kind`: `entrance`·`parking`) |
+| `place_info_wrong` | placeId | payload any of `name`, `category`, `phone`, `website`, `comment` |
+| `place_duplicate` | placeId | payload `duplicateOf` (place id) |
+
+Road reports snap to the nearest road segment within 30 m whose direction fits `heading` (400 if none). A report of the
+same kind on the same segment / place (or within 50 m) while one is open is **merged**: it counts as a "still" vote and
+the existing issue is returned with `merged: true`. Limits: 30 reports and 20 answers per pseudonym per day; answers
+need `proximity` like place vetting (`cell` = geohash-6 around the issue, `withinM` ≤ 1000). One answer per pseudonym:
+answering again replaces it.
+
+`Issue = {id, kind, subtype?, state, source, lat, lng, direction: "both"|"forward"|"backward",
+          segment?: {wayId, seq, name?, highway?, direction}, placeId?, vehicle?, summary,
+          confirmationsWeighted, refutationsWeighted, required, stillVotes, clearedVotes, confidence,
+          createdAt, lastEvidenceAt, expiresAt?, confirmedAt?, reportedBy?: {displayName}, mine, myVote?, payload, merged}`
+
+`summary` is in the request language ("Jalan SS 2/24: ditutup (banjir)"). `payload` is public except for `odd_route` and
+`new_road` (maintainers only). `direction` is relative to the OSM way's digitised direction.
+
+**States**: `reported` (odd_route/new_road: feedback, never voted on) · `suspected` (on creation) → `confirmed`; or
+`refuted`, `expired`, `resolved` (the imported map now matches: the way is gone, the one-way flag flipped, the place was
+removed). Votes: still = it holds · cleared = cleared / never true / "masih buka" · unsure (weight 0). Weights:
+baharu 1, perak 1.5, emas 2; accounts under 7 days 0; the reporter's report is the first "still".
+
+| kind | confirmed when | refuted when | effect |
+|---|---|---|---|
+| `road_closed_temp` | still ≥ 2, or still ≥ 1 + no traffic for 30 min on a normally busy road (≥ 24/day), or one Emas. **Major roads** (motorway/trunk/primary incl. links; Malaysian toll expressways): still ≥ 3 **and** that passive evidence | cleared ≥ 2 (and ≥ still), or ≥ 5 vehicles through in full hours after the report | suspected: warn on routes; confirmed: avoided (all vehicles) |
+| `road_not_exist` | still ≥ 2 and no traversals in 14 days | same | confirmed: avoided for the reported `vehicle` |
+| `oneway_wrong_closed_dir` | still ≥ 2 and no traversals in that direction for 14 days | same | v1: warn only |
+| `oneway_wrong_open_dir` | one Emas and ≥ 5 traversals in that direction in 14 days | cleared ≥ 2 | never changes routing; maintainer/OSM queue |
+| `turn_not_allowed` | still ≥ 2 | cleared ≥ 2 | v1: warn on routes |
+| `place_closed_perm` | still ≥ 3, or one Emas | cleared ≥ 2 ("masih buka"), also after confirmation | suspected: badge; confirmed: hidden from search/nearby |
+| `place_closed_temp` | still ≥ 2 | cleared ≥ 2 | badge "Tutup sementara sehingga …" until the date |
+| `place_hours_wrong` | still ≥ 2 | cleared ≥ 2 | suspected: badge; confirmed: `openingHours`/`openNow` use the new hours |
+| `place_entrance_wrong` | still ≥ 2, or one Emas | cleared ≥ 2 | confirmed: `Place.navigationPoint`, used as the routing destination |
+| `place_info_wrong` / `place_duplicate` | still ≥ 2, or one Emas | cleared ≥ 2 | maintainer queue |
+
+Expiry: closures accident 2 h · flood 6 h · event 12 h · roadworks 7 d · unknown 6 h (`durationHint`: today = end of the
+Malaysian day, few_days 3 d, long_roadworks 30 d); every "still" extends to now + the subtype's duration.
+`place_closed_temp` expires at its date; odd_route/new_road after 90 days; everything else after 180 days unless resolved.
+A worker job runs every 15 minutes (passive evidence, expiry, resolution). Each transition is kept in the issue's audit
+trail. When an issue closes, its votes are unlinked like place votes (HMAC with a per-issue salt, deleted 30 days later).
+
+**Reputation**: confirmed → the reporter's accepted count +1; refuted by votes before ever being confirmed → rejected +1
+(traffic clearing a real closure doesn't count against anyone). Voters: a "still" agrees with confirmed, a "cleared"
+with refuted; each vote is scored once.
+
+**Inbox**: the reporter gets `issue_confirmed`, `issue_refuted`, `issue_resolved` (`refType: "issue"`, `refId` = issue id).
+
+**Routing**: `POST /routes` accepts `ignoreIssues: [issueId]` ("Lalu juga": not avoided for this trip only; kept for
+reroutes). Confirmed `road_closed_temp`/`road_not_exist` within the trip's area (≥ 30 km around it, nearest 60) become
+Valhalla `exclude_polygons` (a 50 m × 10 m box across the middle of the segment, so the junctions stay usable).
+`routes[].issues` = `[{id, kind, subtype?, state, avoided, summary, confirmations, lastEvidenceAt, segment?, lat, lng,
+distanceAlongRouteM?}]`: `avoided: true` = a confirmed closure within 1.5 km of the route that it goes around
+("Mengelak Jln X"); `avoided: false` = an open road issue on the route (≤ 25 m; suspected closures, one-way, turns, and
+ignored ones), with `distanceAlongRouteM`.
+
+**Places**: `PlaceSummary.badge?` / `Place.badge?` = `{issueId, kind, state, label, until?}` for open `place_closed_perm`,
+`place_closed_temp`, `place_hours_wrong` (`label` in the request language: "Dilaporkan tutup · sahkan?", "Tutup sementara
+sehingga 2026-11-01", "Waktu mungkin berubah"). Confirmed `place_closed_perm` places are left out of `/search` and
+`/search/nearby`. `Place.navigationPoint?` = `{lat, lng, issueId}` (confirmed entrance correction; the display pin is
+unchanged).
+
+**Maintainers** (X-Admin-Key): `GET /admin/osm-queue?includeExported=` lists odd routes, new roads, "actually two-way"
+and issues confirmed for 7+ days that OSM should fix, with a suggested note text and links (export only; nothing is posted
+to OSM in v1); `POST /admin/osm-queue/{id}/exported` marks one done.
+
 ## Live map (alerts, jams, drivers)
 
 ```

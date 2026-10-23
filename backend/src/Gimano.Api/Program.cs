@@ -44,7 +44,8 @@ builder.Services.AddHttpClient<ValhallaClient>(c =>
 });
 builder.Services.AddScoped<GeoLookup>().AddScoped<ReportService>().AddScoped<RouteService>().AddScoped<PlaceService>()
     .AddScoped<CommunityService>().AddScoped<ReviewService>().AddScoped<PhotoService>()
-    .AddScoped<SearchService>().AddScoped<SearchMissRecorder>();
+    .AddScoped<SearchService>().AddScoped<SearchMissRecorder>().AddScoped<IssueService>();
+builder.Services.AddSingleton<IssueDirectory>();
 builder.Services.AddSingleton<AliasStore>().AddHostedService(sp => sp.GetRequiredService<AliasStore>());
 builder.Services.AddSingleton<AreaDirectory>();
 builder.Services.AddGimanoMedia(config);
@@ -154,7 +155,7 @@ app.MapHealthChecks("/healthz", new HealthCheckOptions { Predicate = _ => false,
 app.MapHealthChecks("/readyz", new HealthCheckOptions { Predicate = c => c.Tags.Contains("ready"), ResponseWriter = HealthWriter.WriteAsync });
 
 var api = app.MapGroup("/api/v1");
-api.MapAuthAndMe().MapPlaces().MapRoutes().MapLive().MapFeedback().MapPrivacy().MapCommunity().MapShares().MapInbox().MapIdentity().MapCrashReports().MapAdmin();
+api.MapAuthAndMe().MapPlaces().MapRoutes().MapLive().MapFeedback().MapPrivacy().MapCommunity().MapShares().MapInbox().MapIdentity().MapCrashReports().MapAdmin().MapIssues();
 app.MapMedia();
 
 app.MapHub<LiveHub>("/hubs/live");

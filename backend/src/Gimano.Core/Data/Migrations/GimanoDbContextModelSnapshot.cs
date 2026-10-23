@@ -556,6 +556,255 @@ namespace Gimano.Core.Data.Migrations
                     b.ToTable("inbox_items", (string)null);
                 });
 
+            modelBuilder.Entity("Gimano.Core.Domain.Issue", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<int>("ClearedVotes")
+                        .HasColumnType("integer")
+                        .HasColumnName("cleared_votes");
+
+                    b.Property<DateTimeOffset?>("ClosedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("closed_at");
+
+                    b.Property<double>("Confidence")
+                        .HasColumnType("double precision")
+                        .HasColumnName("confidence");
+
+                    b.Property<DateTimeOffset?>("ConfirmedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("confirmed_at");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<Guid?>("CreatedBy")
+                        .HasColumnType("uuid")
+                        .HasColumnName("created_by");
+
+                    b.Property<string>("Direction")
+                        .IsRequired()
+                        .HasMaxLength(10)
+                        .HasColumnType("character varying(10)")
+                        .HasColumnName("direction");
+
+                    b.Property<bool>("EmasSupport")
+                        .HasColumnType("boolean")
+                        .HasColumnName("emas_support");
+
+                    b.Property<DateTimeOffset?>("ExpiresAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("expires_at");
+
+                    b.Property<DateTimeOffset?>("ExportedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("exported_at");
+
+                    b.Property<string>("Highway")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("highway");
+
+                    b.PrimitiveCollection<string>("History")
+                        .IsRequired()
+                        .HasColumnType("jsonb")
+                        .HasColumnName("history");
+
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("kind");
+
+                    b.Property<DateTimeOffset>("LastEvidenceAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("last_evidence_at");
+
+                    b.Property<Point>("Location")
+                        .IsRequired()
+                        .HasColumnType("geography (point, 4326)")
+                        .HasColumnName("location");
+
+                    b.Property<bool>("MajorRoad")
+                        .HasColumnType("boolean")
+                        .HasColumnName("major_road");
+
+                    b.Property<long?>("NodeId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("node_id");
+
+                    b.Property<Dictionary<string, string>>("Payload")
+                        .IsRequired()
+                        .HasColumnType("jsonb")
+                        .HasColumnName("payload");
+
+                    b.Property<string>("PlaceId")
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)")
+                        .HasColumnName("place_id");
+
+                    b.Property<string>("RoadName")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("road_name");
+
+                    b.Property<int?>("Seq")
+                        .HasColumnType("integer")
+                        .HasColumnName("seq");
+
+                    b.Property<string>("Source")
+                        .IsRequired()
+                        .HasMaxLength(12)
+                        .HasColumnType("character varying(12)")
+                        .HasColumnName("source");
+
+                    b.Property<string>("State")
+                        .IsRequired()
+                        .HasMaxLength(12)
+                        .HasColumnType("character varying(12)")
+                        .HasColumnName("state");
+
+                    b.Property<int>("StillVotes")
+                        .HasColumnType("integer")
+                        .HasColumnName("still_votes");
+
+                    b.Property<string>("Subtype")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("subtype");
+
+                    b.Property<string>("Vehicle")
+                        .HasMaxLength(12)
+                        .HasColumnType("character varying(12)")
+                        .HasColumnName("vehicle");
+
+                    b.Property<long?>("WayId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("way_id");
+
+                    b.Property<double>("WeightedCleared")
+                        .HasColumnType("double precision")
+                        .HasColumnName("weighted_cleared");
+
+                    b.Property<double>("WeightedStill")
+                        .HasColumnType("double precision")
+                        .HasColumnName("weighted_still");
+
+                    b.HasKey("Id")
+                        .HasName("pk_issues");
+
+                    b.HasIndex("CreatedBy")
+                        .HasDatabaseName("ix_issues_created_by");
+
+                    b.HasIndex("Location")
+                        .HasDatabaseName("ix_issues_location");
+
+                    NpgsqlIndexBuilderExtensions.HasMethod(b.HasIndex("Location"), "gist");
+
+                    b.HasIndex("PlaceId")
+                        .HasDatabaseName("ix_issues_place_id");
+
+                    b.HasIndex("State", "Kind")
+                        .HasDatabaseName("ix_issues_state_kind");
+
+                    b.HasIndex("WayId", "Seq")
+                        .HasDatabaseName("ix_issues_way_id_seq");
+
+                    b.ToTable("issues", (string)null);
+                });
+
+            modelBuilder.Entity("Gimano.Core.Domain.IssueSalt", b =>
+                {
+                    b.Property<Guid>("IssueId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("issue_id");
+
+                    b.Property<DateTimeOffset?>("ResolvedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("resolved_at");
+
+                    b.Property<byte[]>("Salt")
+                        .IsRequired()
+                        .HasColumnType("bytea")
+                        .HasColumnName("salt");
+
+                    b.HasKey("IssueId")
+                        .HasName("pk_issue_salts");
+
+                    b.ToTable("issue_salts", (string)null);
+                });
+
+            modelBuilder.Entity("Gimano.Core.Domain.IssueVote", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint")
+                        .HasColumnName("id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+
+                    b.Property<string>("Answer")
+                        .IsRequired()
+                        .HasMaxLength(10)
+                        .HasColumnType("character varying(10)")
+                        .HasColumnName("answer");
+
+                    b.Property<DateTimeOffset?>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<DateOnly>("Day")
+                        .HasColumnType("date")
+                        .HasColumnName("day");
+
+                    b.Property<bool>("Emas")
+                        .HasColumnType("boolean")
+                        .HasColumnName("emas");
+
+                    b.Property<bool>("IsReport")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_report");
+
+                    b.Property<Guid>("IssueId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("issue_id");
+
+                    b.Property<bool>("Scored")
+                        .HasColumnType("boolean")
+                        .HasColumnName("scored");
+
+                    b.Property<byte[]>("VoterHash")
+                        .HasColumnType("bytea")
+                        .HasColumnName("voter_hash");
+
+                    b.Property<Guid?>("VoterId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("voter_id");
+
+                    b.Property<double>("Weight")
+                        .HasColumnType("double precision")
+                        .HasColumnName("weight");
+
+                    b.HasKey("Id")
+                        .HasName("pk_issue_votes");
+
+                    b.HasIndex("IssueId", "VoterId")
+                        .IsUnique()
+                        .HasDatabaseName("ix_issue_votes_issue_id_voter_id")
+                        .HasFilter("voter_id IS NOT NULL");
+
+                    b.HasIndex("VoterId", "Day")
+                        .HasDatabaseName("ix_issue_votes_voter_id_day");
+
+                    b.ToTable("issue_votes", (string)null);
+                });
+
             modelBuilder.Entity("Gimano.Core.Domain.Jam", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1508,6 +1757,38 @@ namespace Gimano.Core.Data.Migrations
                         .HasDatabaseName("ix_segment_speeds_updated_at");
 
                     b.ToTable("segment_speeds", (string)null);
+                });
+
+            modelBuilder.Entity("Gimano.Core.Domain.SegmentTraversalCount", b =>
+                {
+                    b.Property<long>("WayId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("way_id");
+
+                    b.Property<int>("Seq")
+                        .HasColumnType("integer")
+                        .HasColumnName("seq");
+
+                    b.Property<string>("Direction")
+                        .HasMaxLength(10)
+                        .HasColumnType("character varying(10)")
+                        .HasColumnName("direction");
+
+                    b.Property<DateTimeOffset>("Hour")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("hour");
+
+                    b.Property<int>("Count")
+                        .HasColumnType("integer")
+                        .HasColumnName("count");
+
+                    b.HasKey("WayId", "Seq", "Direction", "Hour")
+                        .HasName("pk_segment_traversal_counts");
+
+                    b.HasIndex("Hour")
+                        .HasDatabaseName("ix_segment_traversal_counts_hour");
+
+                    b.ToTable("segment_traversal_counts", (string)null);
                 });
 
             modelBuilder.Entity("Gimano.Core.Domain.StreetAddress", b =>

@@ -11,6 +11,9 @@ builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddGimanoData(builder.Configuration).AddGimanoSearch(builder.Configuration).AddGimanoMessaging(builder.Configuration);
 
 builder.Services.AddSingleton<SpeedWindow>();
+builder.Services.AddSingleton<Gimano.Worker.Traffic.TraversalCounter>();
+builder.Services.AddHostedService<Gimano.Worker.Traffic.TraversalFlusher>();
+builder.Services.AddHostedService<Gimano.Worker.Issues.IssueMaintenance>();
 builder.Services.AddSingleton<TrafficMetrics>();
 builder.Services.AddSingleton<DriverStore>();
 builder.Services.AddSingleton<RoadIndexHolder>();
