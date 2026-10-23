@@ -45,6 +45,8 @@ public sealed class Issue
     public DateTimeOffset? ExportedAt { get; set; }
     /// <summary>Audit trail: "2026-10-23T10:00Z suspected→confirmed (votes 2.0)".</summary>
     public List<string> History { get; set; } = [];
+    /// <summary>Postgres xmin: optimistic concurrency, so two votes saved at once can't overwrite each other's weights.</summary>
+    public uint Version { get; set; }
 }
 
 /// <summary>One vote per pseudonym per issue. Unlinked when the issue closes (VoterId → HMAC(per-issue salt), time → day).</summary>

@@ -349,6 +349,7 @@ public sealed class GimanoDbContext(DbContextOptions<GimanoDbContext> options) :
             e.Property(x => x.Location).HasColumnType("geography (point, 4326)");
             e.Property(x => x.Payload).HasColumnType("jsonb");
             e.Property(x => x.History).HasColumnType("jsonb");
+            e.Property(x => x.Version).IsRowVersion();
             e.HasIndex(x => x.Location).HasMethod("gist");
             e.HasIndex(x => new { x.State, x.Kind });
             e.HasIndex(x => new { x.WayId, x.Seq });

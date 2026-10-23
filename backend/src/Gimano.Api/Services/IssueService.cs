@@ -61,7 +61,7 @@ public sealed class IssueService(GimanoDbContext db, IEventPublisher bus, IssueD
         // Dedupe: the same open issue on the same segment / place (or within 50 m for anything else) gets a supporting vote.
         if (!IssueRules.IsFeedbackOnly(kind) && await FindDuplicateAsync(kind, snap, placeId, at, direction, ct) is { } existing)
         {
-            await VoteInternalAsync(existing, user, IssueAnswer.Still, now, isReport: false, ct);
+            existing = await VoteInternalAsync(existing, user, IssueAnswer.Still, now, isReport: false, ct);
             await PublishAsync(existing, existing.State, ct);
             return ToDto(existing, userId, IssueAnswer.Still, lang, await PlaceNameAsync(existing.PlaceId, ct)) with { Merged = true };
         }
@@ -83,7 +83,7 @@ public sealed class IssueService(GimanoDbContext db, IEventPublisher bus, IssueD
         issue.History.Add(string.Create(CultureInfo.InvariantCulture, $"{now:yyyy-MM-ddTHH:mm}Z created ({GimanoJson.ToWire(issue.State)})"));
         db.Issues.Add(issue);
         await db.SaveChangesAsync(ct);
-        if (!IssueRules.IsFeedbackOnly(kind)) await VoteInternalAsync(issue, user, IssueAnswer.Still, now, isReport: true, ct);
+        if (!IssueRules.IsFeedbackOnly(kind)) issue = await VoteInternalAsync(issue, user, IssueAnswer.Still, now, isReport: true, ct);
         else await PublishAsync(issue, issue.State, ct);
         // Coordinates in logs at 2 dp at most (privacy rule).
         logger.LogInformation("Issue {Kind} created near {Lat:F2},{Lng:F2} ({State})", kind, at.Lat, at.Lng, issue.State);
@@ -155,21 +155,60 @@ public sealed class IssueService(GimanoDbContext db, IEventPublisher bus, IssueD
         var today = DateOnly.FromDateTime(now.UtcDateTime);
         if (await db.IssueVotes.CountAsync(v => v.VoterId == userId && v.Day == today, ct) >= IssueRules.VotesPerDay)
             throw new RateLimitedException($"At most {IssueRules.VotesPerDay} answers per day.");
-        await VoteInternalAsync(issue, user, answer, now, isReport: false, ct);
+        issue = await VoteInternalAsync(issue, user, answer, now, isReport: false, ct);
         return new IssueVoteResult(issue.State, Math.Round(issue.WeightedStill, 2), Math.Round(issue.WeightedCleared, 2), IssueRules.Required(issue));
     }
 
+    public const int VoteAttempts = 3;
+
+    /// <summary>
+    /// Applies the vote, retrying when another writer got there first: a concurrent vote or the worker changed the issue
+    /// (xmin), or the same pseudonym's double-tap inserted the vote row first (unique index). Each retry reloads the issue and
+    /// the user and re-applies on fresh numbers, so no vote weight is lost. Returns the (possibly reloaded) issue.
+    /// </summary>
+    private async Task<Issue> VoteInternalAsync(Issue issue, User user, IssueAnswer answer, DateTimeOffset now, bool isReport, CancellationToken ct)
+    {
+        for (var attempt = 1; ; attempt++)
+        {
+            try
+            {
+                await ApplyVoteOnceAsync(issue, user, answer, now, isReport, ct);
+                return issue;
+            }
+            catch (DbUpdateException ex) when (attempt < VoteAttempts && IsWriteRace(ex))
+            {
+                var (issueId, userId) = (issue.Id, user.Id);
+                db.ChangeTracker.Clear();
+                issue = await db.Issues.FirstAsync(i => i.Id == issueId, ct);
+                user = await db.Users.FirstAsync(u => u.Id == userId, ct);
+                if (!IssueRules.IsOpen(issue.State)) throw new ConflictException("This issue was closed just now.");
+            }
+        }
+    }
+
+    internal static bool IsWriteRace(DbUpdateException ex) =>
+        ex is DbUpdateConcurrencyException || ex.InnerException is Npgsql.PostgresException { SqlState: Npgsql.PostgresErrorCodes.UniqueViolation };
+
     /// <summary>One vote per pseudonym; answering again replaces the earlier answer. Then the state machine runs.</summary>
-    private async Task VoteInternalAsync(Issue issue, User user, IssueAnswer answer, DateTimeOffset now, bool isReport, CancellationToken ct)
+    private async Task ApplyVoteOnceAsync(Issue issue, User user, IssueAnswer answer, DateTimeOffset now, bool isReport, CancellationToken ct)
     {
         var hasKey = await db.UserKeys.AnyAsync(k => k.UserId == user.Id && k.RevokedAt == null, ct);
         var tier = Reputation.CapForLegacy(user.Tier, hasKey);
         var weight = Reputation.VoteWeight(tier, user.JoinedAt, now, answer == IssueAnswer.Unsure ? VoteAnswer.Unsure : VoteAnswer.Yes, hasKey);
         var emas = tier == Tier.Emas;
         var vote = await db.IssueVotes.FirstOrDefaultAsync(v => v.IssueId == issue.Id && v.VoterId == user.Id, ct);
+        // Same answer again (a repeat, or a retry after the vote itself was saved but the evaluation raced): nothing to apply,
+        // but the state machine still runs so the evaluation isn't lost.
+        if (vote is not null && vote.Answer == answer)
+        {
+            var was = issue.State;
+            await IssueLedger.EvaluateAsync(db, issue, now, ct);
+            await db.SaveChangesAsync(ct);
+            if (issue.State != was) await PublishAsync(issue, was, ct);
+            return;
+        }
         if (vote is not null)
         {
-            if (vote.Answer == answer) return;
             Unapply(issue, vote);
             // A withdrawn Emas "still" no longer supports the issue unless another Emas "still" does.
             if (vote is { Answer: IssueAnswer.Still, Emas: true })

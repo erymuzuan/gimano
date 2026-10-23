@@ -34,26 +34,40 @@ public sealed class IssueMaintenance(IServiceScopeFactory scopes, IEventPublishe
         var db = scope.ServiceProvider.GetRequiredService<GimanoDbContext>();
         var open = await db.Issues.Where(i => i.State == IssueState.Reported || i.State == IssueState.Suspected || i.State == IssueState.Confirmed)
             .OrderBy(i => i.CreatedAt).Take(5000).ToListAsync(ct);
-        var changed = 0; var resolved = 0;
+        var changed = 0; var resolved = 0; var skipped = 0;
         foreach (var issue in open)
         {
+            // An earlier conflict cleared the change tracker: re-attach with the xmin read at load time (a stale one conflicts again).
+            if (db.Entry(issue).State == EntityState.Detached) db.Attach(issue);
             var before = issue.State;
-            if (await MapNowMatchesAsync(db, issue, ct))
+            try
             {
-                if (await IssueLedger.MoveAsync(db, issue, IssueState.Resolved, "map updated", now, ct)) resolved++;
+                if (await MapNowMatchesAsync(db, issue, ct))
+                {
+                    if (await IssueLedger.MoveAsync(db, issue, IssueState.Resolved, "map updated", now, ct)) resolved++;
+                }
+                else await IssueLedger.EvaluateAsync(db, issue, now, ct);
+                if (issue.State != before)
+                {
+                    changed++;
+                    await db.SaveChangesAsync(ct);
+                    await bus.PublishAsync(RoutingKeys.IssueChanged, new IssueChangedEvent(issue.Id, issue.State, true), ct);
+                }
             }
-            else await IssueLedger.EvaluateAsync(db, issue, now, ct);
-            if (issue.State != before)
+            catch (DbUpdateConcurrencyException)
             {
-                changed++;
-                await db.SaveChangesAsync(ct);
-                await bus.PublishAsync(RoutingKeys.IssueChanged, new IssueChangedEvent(issue.Id, issue.State, true), ct);
+                // A vote changed this issue while we evaluated it (xmin): the API already re-ran the rules on fresh numbers,
+                // and the next tick will see it again. Drop our stale changes and carry on with the rest.
+                db.ChangeTracker.Clear();
+                skipped++;
             }
         }
         await db.SaveChangesAsync(ct);
         var saltCutoff = now.AddDays(-30);
         await db.IssueSalts.Where(s => s.ResolvedAt != null && s.ResolvedAt < saltCutoff).ExecuteDeleteAsync(ct);
-        if (changed > 0) logger.LogInformation("Issues: {Changed} state changes ({Resolved} resolved by the map) of {Open} open", changed, resolved, open.Count);
+        if (changed > 0 || skipped > 0)
+            logger.LogInformation("Issues: {Changed} state changes ({Resolved} resolved by the map) of {Open} open; {Skipped} changed concurrently, retried next tick",
+                changed, resolved, open.Count, skipped);
         return (changed, resolved);
     }
 

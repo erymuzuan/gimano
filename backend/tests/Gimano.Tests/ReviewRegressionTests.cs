@@ -228,6 +228,31 @@ public class ShareEndRaceRegressionTests
     }
 }
 
+public class IssueVoteRetryTests
+{
+    [Fact]
+    public void Retries_only_on_write_races()
+    {
+        Assert.True(IssueService.IsWriteRace(new Microsoft.EntityFrameworkCore.DbUpdateConcurrencyException("xmin changed")));
+        Assert.True(IssueService.IsWriteRace(new Microsoft.EntityFrameworkCore.DbUpdateException("dup",
+            new Npgsql.PostgresException("duplicate key", "ERROR", "ERROR", "23505"))));
+        Assert.False(IssueService.IsWriteRace(new Microsoft.EntityFrameworkCore.DbUpdateException("too long",
+            new Npgsql.PostgresException("value too long", "ERROR", "ERROR", "22001"))));
+    }
+
+    [Fact]
+    public void Issues_carry_an_xmin_concurrency_token()
+    {
+        var o = new Microsoft.EntityFrameworkCore.DbContextOptionsBuilder<Gimano.Core.Data.GimanoDbContext>();
+        using var ds = Gimano.Core.Data.GimanoDb.BuildDataSource("Host=localhost;Database=x");   // never opened
+        Gimano.Core.Data.GimanoDb.Configure(o, ds);
+        using var db = new Gimano.Core.Data.GimanoDbContext(o.Options);
+        var p = db.Model.FindEntityType(typeof(Issue))!.FindProperty(nameof(Issue.Version))!;
+        Assert.True(p.IsConcurrencyToken);
+        Assert.Equal("xmin", Microsoft.EntityFrameworkCore.RelationalPropertyExtensions.GetColumnName(p));
+    }
+}
+
 public class BBoxRegressionTests
 {
     [Theory]

@@ -186,6 +186,30 @@ public sealed class PostgresIntegrationIssueTests : IAsyncLifetime
         Assert.Null(await IssueLedger.EvaluateAsync(fresh, issue, clock.Now, default));   // before: confirmed on the withdrawn Emas vote
     }
 
+    [Fact]
+    public async Task Concurrent_votes_on_one_issue_all_count()
+    {
+        if (_ds is null) { Assert.Skip("GIMANO_PG_TEST not set"); return; }
+        var users = await SeedAsync(9, highway: "trunk");   // major road: 3 weighted + passive needed, so it stays open throughout
+        var clock = new Clock(T0);
+        var (svc0, _, _) = Service(clock);
+        var a = await svc0.CreateAsync(users[0].Id, Closed("flood"), "en", default);
+
+        // Eight drivers answer at the same moment, each through its own request scope (DbContext).
+        await Task.WhenAll(users.Skip(1).Select(async u =>
+        {
+            var (svc, _, _) = Service(clock);
+            await svc.VoteAsync(u.Id, a.Id, new IssueVoteRequest(IssueAnswer.Still, Near), default);
+        }));
+
+        await using var check = NewDb();
+        var issue = await check.Issues.FirstAsync(i => i.Id == a.Id);
+        // Before the xmin token, concurrent saves overwrote each other's WeightedStill/StillVotes.
+        Assert.Equal(9, issue.StillVotes);
+        Assert.Equal(9, issue.WeightedStill);
+        Assert.Equal(9, await check.IssueVotes.CountAsync(v => v.IssueId == a.Id));
+    }
+
     // (Crash grouping lives here because this class owns the throwaway PostGIS database.)
     [Fact]
     public async Task Crash_groups_count_concurrent_reports_exactly_and_reopen_when_closed()

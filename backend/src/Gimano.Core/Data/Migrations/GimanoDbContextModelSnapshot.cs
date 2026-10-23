@@ -683,6 +683,12 @@ namespace Gimano.Core.Data.Migrations
                         .HasColumnType("character varying(12)")
                         .HasColumnName("vehicle");
 
+                    b.Property<uint>("Version")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("xid")
+                        .HasColumnName("xmin");
+
                     b.Property<long?>("WayId")
                         .HasColumnType("bigint")
                         .HasColumnName("way_id");
