@@ -66,8 +66,18 @@ Smoke test from the Mac: `curl http://100.101.150.9:5080/readyz`.
   so keep them stable.
 - Hosted on **IIS at 172.30.30.13** (BespokeTech network, reachable only with the BespokeTech VPN connected on
   WS556-SERVER), folder `C:\apps\websites\www.bukitbunga.com\gimano\`, behind Cloudflare.
+- The folder is reachable from WS556-SERVER as the UNC share
+  `\\172.30.30.13\apps\websites\www.bukitbunga.com\gimano` (VPN must be up).
 - Deploy = copy `site/gimano/*` into that folder, **additive only**. Never touch the site root, its `web.config`
-  or other IIS sites on that box. Ask the Claude session **SERVER.HiRO** on WS556-SERVER to do it.
+  or other folders (`hiro`, `sma.eis`, `smartpay-eis`, …). From an Orca terminal on WS556-SERVER (PowerShell):
+  ```powershell
+  $tmp = Join-Path $env:TEMP "gimano-site"; Remove-Item $tmp -Recurse -Force -EA SilentlyContinue
+  Invoke-WebRequest https://github.com/erymuzuan/gimano/archive/refs/heads/main.zip -OutFile "$tmp.zip"
+  Expand-Archive "$tmp.zip" $tmp
+  robocopy "$tmp\gimano-main\site\gimano" "\\172.30.30.13\apps\websites\www.bukitbunga.com\gimano" /E /NP /NFL /NDL
+  ```
+  (`/E` without `/MIR`, so nothing is ever deleted on the server.) Alternatively ask the Claude session
+  **SERVER.HiRO** on WS556-SERVER to do it.
 - Verify: `curl -I https://www.bukitbunga.com/gimano/privacy/` → 200 (Cloudflare cache status is DYNAMIC).
 
 ## Mac (build machine) toolchain
