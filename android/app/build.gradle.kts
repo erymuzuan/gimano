@@ -106,15 +106,15 @@ android {
         create("gimano") {
             dimension = "brand"
             applicationId = "my.gimano.app"
-            versionCode = prop("gimano.versionCode", "6").toInt()
-            versionName = prop("gimano.versionName", "0.2.4")
+            versionCode = prop("gimano.versionCode", "7").toInt()
+            versionName = prop("gimano.versionName", "0.2.5")
             buildConfigField("String", "UPDATE_MANIFEST_URL", "\"https://www.bukitbunga.com/gimano/download/version.json\"")
         }
         create("manotu") {
             dimension = "brand"
             applicationId = "my.manotu.app"
-            versionCode = prop("manotu.versionCode", "7").toInt()
-            versionName = prop("manotu.versionName", "0.3.1")
+            versionCode = prop("manotu.versionCode", "8").toInt()
+            versionName = prop("manotu.versionName", "0.3.2")
             buildConfigField("String", "UPDATE_MANIFEST_URL", "\"https://manotu.app/download/version.json\"")
         }
     }
