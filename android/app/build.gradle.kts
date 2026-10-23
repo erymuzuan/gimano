@@ -15,6 +15,7 @@ fun prop(key: String, default: String): String =
 
 val apiBaseUrl = prop("gimano.apiBaseUrl", "http://100.101.150.9:5080/api/v1/").let { if (it.endsWith("/")) it else "$it/" }
 val mapStyleUrl = prop("gimano.mapStyleUrl", "https://tiles.openfreemap.org/styles/liberty")
+val mapStyleDarkUrl = prop("gimano.mapStyleDarkUrl", "https://tiles.openfreemap.org/styles/dark")
 val demoMode = prop("gimano.demoMode", "false").toBoolean()
 
 // Google Drive backup: OAuth client id lives in git-ignored android/gimano.local.properties
@@ -56,6 +57,7 @@ android {
 
         buildConfigField("String", "API_BASE_URL", "\"$apiBaseUrl\"")
         buildConfigField("String", "MAP_STYLE_URL", "\"$mapStyleUrl\"")
+        buildConfigField("String", "MAP_STYLE_DARK_URL", "\"$mapStyleDarkUrl\"")
         buildConfigField("boolean", "DEMO_MODE_DEFAULT", "$demoMode")
         buildConfigField("String", "GOOGLE_OAUTH_CLIENT_ID", "\"$googleOauthClientId\"")
     }

@@ -211,8 +211,8 @@ fun GimanoMap(
         style = null
         map.setStyle(Style.Builder().fromUri(styleUrl)) { s ->
             if (!colors.isDark) s.getLayer("background")?.setProperties(PF.backgroundColor(colors.mapBackground.toArgb()))
-            // The basemap is a light style, so route/traffic colours always use the light palette.
-            installLayers(s, my.gimano.app.ui.theme.LightTokens, iconBitmaps)
+            // Route/traffic colours follow the basemap (light or dark style).
+            installLayers(s, if (colors.isDark) my.gimano.app.ui.theme.DarkTokens else my.gimano.app.ui.theme.LightTokens, iconBitmaps)
             style = s
         }
     }

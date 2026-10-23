@@ -282,4 +282,9 @@
     <string name="arrived_at_stop">Arrived at %1$s</string>
     <string name="next_stop">Next stop: %1$s · %2$s</string>
     <string name="got_it">Got it</string>
+    <string name="theme">Theme</string>
+    <string name="theme_light">Light</string>
+    <string name="theme_dark">Dark</string>
+    <string name="theme_system">Follow phone</string>
+    <string name="theme_auto">Auto day/night</string>
 </resources>

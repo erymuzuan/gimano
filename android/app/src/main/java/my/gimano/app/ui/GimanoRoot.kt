@@ -168,7 +168,7 @@ fun GimanoRoot(vm: MainViewModel, onMic: () -> Unit, onExit: () -> Unit) {
     ) {
         Box(Modifier.fillMaxSize()) {
             GimanoMap(
-                styleUrl = settings.mapStyleUrl,
+                styleUrl = if (Gimano.colors.isDark) my.gimano.app.BuildConfig.MAP_STYLE_DARK_URL else settings.mapStyleUrl,
                 state = renderState,
                 camera = ui.camera,
                 handle = handle,

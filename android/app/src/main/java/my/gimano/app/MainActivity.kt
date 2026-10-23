@@ -9,6 +9,17 @@ import android.speech.RecognizerIntent
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.SystemBarStyle
+import android.graphics.Color
+import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import kotlinx.coroutines.delay
+import my.gimano.app.core.theme.ThemeMode
+import java.time.Instant
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
@@ -39,7 +50,19 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         applyDebugExtras(intent)
         setContent {
-            GimanoTheme {
+            // Theme: Light by default (even on a dark-mode phone), Dark, Follow phone, or Auto by sunset.
+            val st by vm.settingsState.collectAsStateWithLifecycle()
+            val uiState by vm.ui.collectAsStateWithLifecycle()
+            val systemDark = isSystemInDarkTheme()
+            var now by remember { mutableStateOf(Instant.now()) }
+            LaunchedEffect(Unit) { while (true) { delay(60_000); now = Instant.now() } }
+            val fix = uiState.myLocation?.point
+            val dark = ThemeMode.isDark(ThemeMode.from(st.theme), systemDark, now, fix?.lat, fix?.lng)
+            LaunchedEffect(dark) {
+                val bars = if (dark) SystemBarStyle.dark(Color.TRANSPARENT) else SystemBarStyle.light(Color.TRANSPARENT, Color.TRANSPARENT)
+                enableEdgeToEdge(statusBarStyle = bars, navigationBarStyle = bars)
+            }
+            GimanoTheme(dark = dark) {
                 val permLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { res ->
                     vm.onLocationPermission(res[Manifest.permission.ACCESS_FINE_LOCATION] == true || res[Manifest.permission.ACCESS_COARSE_LOCATION] == true)
                 }

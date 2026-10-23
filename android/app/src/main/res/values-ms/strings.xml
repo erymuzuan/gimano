@@ -281,4 +281,9 @@
     <string name="arrived_at_stop">Tiba di %1$s</string>
     <string name="next_stop">Hentian seterusnya: %1$s · %2$s</string>
     <string name="got_it">Faham</string>
+    <string name="theme">Tema</string>
+    <string name="theme_light">Cerah</string>
+    <string name="theme_dark">Gelap</string>
+    <string name="theme_system">Ikut telefon</string>
+    <string name="theme_auto">Auto siang/malam</string>
 </resources>

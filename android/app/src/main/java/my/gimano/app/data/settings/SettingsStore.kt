@@ -44,6 +44,7 @@ data class AppSettings(
     val legacyMigrated: Boolean = false,
     val privacyCardDismissed: Boolean = false,
     val feedbackDiagnostics: Boolean = false,
+    val theme: String = "light",
 )
 
 /** User-facing settings that travel with a backup (DB `settings` table, shared with iOS). */
@@ -55,6 +56,7 @@ fun AppSettings.toBackupMap(): Map<String, String> = mapOf(
     "show_traffic" to showTraffic.toString(),
     "show_alerts" to showAlerts.toString(),
     "show_drivers" to showDrivers.toString(),
+    "theme" to theme,
 )
 
 /** DataStore-backed settings mirrored into a StateFlow so non-suspending code can read them. */
@@ -83,6 +85,7 @@ class SettingsStore(private val context: Context, private val scope: CoroutineSc
         val legacyMigrated = booleanPreferencesKey("legacyMigrated")
         val privacyCardDismissed = booleanPreferencesKey("privacyCardDismissed")
         val feedbackDiagnostics = booleanPreferencesKey("feedbackDiagnostics")
+        val theme = stringPreferencesKey("theme")
     }
 
     private val _state: MutableStateFlow<AppSettings>
@@ -124,6 +127,7 @@ class SettingsStore(private val context: Context, private val scope: CoroutineSc
         legacyMigrated = p[K.legacyMigrated] ?: false,
         privacyCardDismissed = p[K.privacyCardDismissed] ?: false,
         feedbackDiagnostics = p[K.feedbackDiagnostics] ?: false,
+        theme = p[K.theme] ?: "light",
     )
 
     suspend fun deviceId(): String {
@@ -162,6 +166,7 @@ class SettingsStore(private val context: Context, private val scope: CoroutineSc
     suspend fun setLegacyMigrated() = context.dataStore.edit { it[K.legacyMigrated] = true }
     suspend fun setPrivacyCardDismissed() = context.dataStore.edit { it[K.privacyCardDismissed] = true }
     suspend fun setFeedbackDiagnostics(v: Boolean) = context.dataStore.edit { it[K.feedbackDiagnostics] = v }
+    suspend fun setTheme(v: String) = context.dataStore.edit { it[K.theme] = v }
 
     /** Applies settings restored from a backup's `settings` table. */
     suspend fun applyBackupMap(m: Map<String, String>) = context.dataStore.edit { p ->
@@ -172,5 +177,6 @@ class SettingsStore(private val context: Context, private val scope: CoroutineSc
         m["show_traffic"]?.let { p[K.showTraffic] = it.toBoolean() }
         m["show_alerts"]?.let { p[K.showAlerts] = it.toBoolean() }
         m["show_drivers"]?.let { p[K.showDrivers] = it.toBoolean() }
+        m["theme"]?.let { p[K.theme] = it }
     }
 }
