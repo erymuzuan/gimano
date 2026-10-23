@@ -15,4 +15,8 @@ jobs:
       - uses: actions/setup-dotnet@v4
         with:
           global-json-file: backend/global.json
-      - run: dotnet test backend/Gimano.slnx -c Release
+      # Run from backend/ so backend/global.json applies: it selects Microsoft.Testing.Platform,
+      # which the .NET 10 SDK requires for `dotnet test` (VSTest mode is no longer supported).
+      - name: Test
+        working-directory: backend
+        run: dotnet test --solution Gimano.slnx -c Release
