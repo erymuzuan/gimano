@@ -103,14 +103,9 @@ fun RoutePreviewOverlay(plan: RoutePlan, settings: AppSettings, vm: MainViewMode
                     else -> RouteInfo(r, plan, vm)
                 }
                 Spacer(Modifier.height(16.dp))
-                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Button(
-                        onClick = vm::openLeaveLater,
-                        modifier = Modifier.weight(1f).height(56.dp),
-                        shape = RoundedCornerShape(Radius.md),
-                        colors = ButtonDefaults.buttonColors(containerColor = c.surfaceAlt, contentColor = c.text),
-                        enabled = !plan.loading && !plan.error,
-                    ) { Text(stringResource(R.string.leave_later), fontSize = 17.sp, fontWeight = FontWeight.ExtraBold, maxLines = 1) }
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
+                    BigIconButton("add_stop", stringResource(R.string.add_stop), enabled = plan.stops.size < RouteLegs.MAX_STOPS, onClick = vm::addStopInPreview)
+                    BigIconButton("recent", stringResource(R.string.plan_this_drive), enabled = !plan.loading && !plan.error, onClick = vm::planThisDrive)
                     GoNowButton(plan, Modifier.weight(1f), onGo = vm::startNavigation)
                 }
             }
@@ -119,11 +114,25 @@ fun RoutePreviewOverlay(plan: RoutePlan, settings: AppSettings, vm: MainViewMode
 }
 
 @Composable
+private fun BigIconButton(icon: String, label: String, enabled: Boolean, onClick: () -> Unit) {
+    val c = Gimano.colors
+    Box(
+        Modifier.size(58.dp).clip(RoundedCornerShape(20.dp)).background(c.surfaceAlt).clickable(enabled = enabled, onClick = onClick).semantics { contentDescription = label },
+        contentAlignment = Alignment.Center,
+    ) { GIcon(icon, null, size = 30.dp, stroke = if (enabled) c.brandInk else c.outline, fill = if (enabled) c.brandTint else c.surfaceAlt) }
+}
+
+@Composable
 private fun Overflow(vm: MainViewModel) {
     var open by remember { mutableStateOf(false) }
     Box {
         IconButton(onClick = { open = true }) { Icon(Icons.Filled.MoreVert, stringResource(R.string.more), tint = Gimano.colors.text) }
         DropdownMenu(open, onDismissRequest = { open = false }) {
+            DropdownMenuItem(
+                text = { Text(stringResource(R.string.leave_later), fontWeight = FontWeight.Bold) },
+                leadingIcon = { Icon(Icons.Filled.Schedule, null) },
+                onClick = { open = false; vm.openLeaveLater() },
+            )
             DropdownMenuItem(
                 text = { Text(stringResource(R.string.plan_this_drive), fontWeight = FontWeight.Bold) },
                 leadingIcon = { GIcon("recent", null, size = 24.dp) },
@@ -207,6 +216,7 @@ private fun StopsPanel(plan: RoutePlan, settings: AppSettings, vm: MainViewModel
     }
 }
 
+@OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 @Composable
 private fun RouteInfo(r: Route, plan: RoutePlan, vm: MainViewModel) {
     val c = Gimano.colors
@@ -230,18 +240,28 @@ private fun RouteInfo(r: Route, plan: RoutePlan, vm: MainViewModel) {
             if (r.alerts.isNotEmpty()) add(stringResource(R.string.reports_on_route, r.alerts.size))
         }
         Text(bits.joinToString(" · "), fontSize = 14.sp, color = c.textMuted, modifier = Modifier.weight(1f))
-        // Toll / fare badge (car & motorcycle only). Tap → plazas with fares and sources.
-        val badge = if (plan.mode.isMotorised) tollBadgeText(TollBadge.of(r)) else null
-        if (badge != null) {
+        Unit
+    }
+    // Toll chips (car & motorcycle): fare · plazas · Avoid tolls. Tap → plaza list with fares and sources.
+    val badge = if (plan.mode.isMotorised) tollBadgeText(TollBadge.of(r)) else null
+    if (badge != null) {
+        androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.padding(top = 8.dp)) {
             Row(
-                Modifier.clip(RoundedCornerShape(Radius.pill)).background(c.brandMist).clickable { vm.cancelCountdown(); vm.openTolls(r) }
-                    .padding(horizontal = 10.dp, vertical = 6.dp),
+                Modifier.height(38.dp).clip(RoundedCornerShape(Radius.pill)).background(c.brandMist).clickable { vm.cancelCountdown(); vm.openTolls(r) }.padding(horizontal = 12.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                GIcon("fare", null, size = 22.dp)
-                Spacer(Modifier.width(6.dp))
+                GIcon("fare", null, size = 22.dp); Spacer(Modifier.width(6.dp))
                 Text(badge, fontWeight = FontWeight.Black, fontSize = 15.sp, color = c.brandInk)
             }
+            if (r.tolls.isNotEmpty()) {
+                val hw = r.tolls.mapNotNull { it.highway }.distinct().take(2).joinToString(", ")
+                Text(stringResource(R.string.plaza_count, r.tolls.size) + if (hw.isNotEmpty()) " · $hw" else "",
+                    Modifier.height(38.dp).clip(RoundedCornerShape(Radius.pill)).background(c.background).clickable { vm.cancelCountdown(); vm.openTolls(r) }.padding(horizontal = 12.dp, vertical = 9.dp),
+                    fontSize = 14.sp, fontWeight = FontWeight.ExtraBold, color = c.textMuted)
+            }
+            Text(stringResource(R.string.avoid_tolls_action),
+                Modifier.height(38.dp).clip(RoundedCornerShape(Radius.pill)).border(2.dp, c.outline, RoundedCornerShape(Radius.pill)).clickable { vm.cancelCountdown(); vm.setAvoid(plan.avoid.copy(tolls = true)) }.padding(horizontal = 12.dp, vertical = 8.dp),
+                fontSize = 14.sp, fontWeight = FontWeight.Black, color = c.brandInk)
         }
     }
 }

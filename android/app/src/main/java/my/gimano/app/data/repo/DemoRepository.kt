@@ -274,6 +274,15 @@ class DemoRepository(
 
     override suspend fun myFeedback(): List<FeedbackSummary> = feedbackStore.toList()
 
+    override suspend fun inbox(): List<InboxItem> {
+        val now = Instant.now()
+        return buildList {
+            community.values.filter { it.status == "published" }.forEach { add(InboxItem("pub-${it.id}", "place_published", "Place published", "\"${it.name}\" was confirmed by 3 drivers. +20 points", now.toString(), it.id)) }
+            feedbackStore.forEach { add(InboxItem("fb-${it.id}", "feedback_status", "Feedback received", it.message.take(80), it.createdAt)) }
+            add(InboxItem("welcome", "announcement", "Welcome to Gimano", "Light theme, planned drives and Share my drive are here.", now.minusSeconds(86_400).toString()))
+        }
+    }
+
     // --- Community places, reviews, photos (demo) ------------------------------------------
     private val community = java.util.concurrent.ConcurrentHashMap<String, Place>()
     private val verifications = java.util.concurrent.ConcurrentHashMap<String, Int>()

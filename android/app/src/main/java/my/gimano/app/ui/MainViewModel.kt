@@ -55,6 +55,9 @@ sealed interface Screen {
     data object Contributions : Screen
     data object AddPlace : Screen
     data object Planned : Screen
+    data object Favourites : Screen
+    data object Inbox : Screen
+    data object Theme : Screen
 }
 
 data class PlaceSel(
@@ -123,6 +126,7 @@ data class UiState(
     val addPlaceSeed: Pair<GeoPoint, String>? = null,
     /** Private places drawn from the local DB only. */
     val privatePins: List<Pair<String, GeoPoint>> = emptyList(),
+    val inbox: List<InboxItem> = emptyList(),
 )
 
 sealed interface UiEvent {
@@ -177,6 +181,9 @@ class MainViewModel(private val c: AppContainer) : ViewModel() {
         viewModelScope.launch {
             while (isActive) {
                 delay(45_000)
+                if (repo.fallbackActive.value && !settings.current.demoMode && repo.probeRemote()) {
+                    c.liveHub.start(); refreshAccount()
+                }
                 boundsFlow.value?.let { loadLive(it) }
                 runCatching { c.feedback.retryDue() }
             }
@@ -199,6 +206,7 @@ class MainViewModel(private val c: AppContainer) : ViewModel() {
             runCatching { repo.ensureAuth() }.onSuccess { u -> _ui.update { it.copy(user = u) } }
                 .onFailure { GLog.w("VM", "auth failed: ${it.javaClass.simpleName}") }
             migrateLegacy()
+            refreshInbox()
             runCatching { c.feedback.retryDue() }
         }
     }
@@ -216,6 +224,14 @@ class MainViewModel(private val c: AppContainer) : ViewModel() {
         ).run()
         GLog.i("VM", "legacy migration: $outcome")
     }
+
+    // --- Inbox (public-contribution news; read state kept on the device) -------------------------
+
+    fun refreshInbox() = viewModelScope.launch {
+        runCatching { repo.inbox() }.onSuccess { l -> _ui.update { it.copy(inbox = l.sortedByDescending { m -> m.createdAt }) } }
+    }
+
+    fun markInboxRead() = viewModelScope.launch { settings.markInboxRead(_ui.value.inbox.map { it.id }) }
 
     fun retryServer() {
         repo.retryRemote()
@@ -328,6 +344,7 @@ class MainViewModel(private val c: AppContainer) : ViewModel() {
         viewModelScope.launch {
             runCatching { repo.createReport(CreateReportRequest(type, subtype, p.lat, p.lng, fix?.bearing?.toDouble(), comment?.takeIf { it.isNotBlank() })) }
                 .onSuccess { r ->
+                    runCatching { my.gimano.app.data.places.ContributionLog(c.db.outbox()).report(r.id, r.type) }
                     _ui.update { s -> s.copy(alerts = s.alerts.filterNot { it.id == r.id } + r) }
                     _events.tryEmit(UiEvent.Toast(R.string.report_sent))
                 }
@@ -801,7 +818,8 @@ class MainViewModel(private val c: AppContainer) : ViewModel() {
                 Screen.RoutePreview -> if (s.place != null) _ui.update { it.copy(screen = Screen.PlaceCard, plan = null) } else _ui.update { it.copy(screen = Screen.Home, plan = null) }
                 Screen.Settings -> goHome()
                 Screen.Backup, Screen.MyFeedback -> _ui.update { it.copy(screen = Screen.Settings) }
-                Screen.Contributions, Screen.AddPlace, Screen.Planned -> goHome()
+                Screen.Contributions, Screen.AddPlace, Screen.Planned, Screen.Favourites, Screen.Inbox -> goHome()
+                Screen.Theme -> goHome()
                 Screen.Navigating -> when {
                     s.navExpanded -> setNavExpanded(false)
                     nav.value.arrived -> stopNavigation()

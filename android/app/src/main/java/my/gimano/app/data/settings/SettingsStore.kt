@@ -45,6 +45,7 @@ data class AppSettings(
     val privacyCardDismissed: Boolean = false,
     val feedbackDiagnostics: Boolean = false,
     val theme: String = "light",
+    val inboxRead: Set<String> = emptySet(),
 )
 
 /** User-facing settings that travel with a backup (DB `settings` table, shared with iOS). */
@@ -86,6 +87,7 @@ class SettingsStore(private val context: Context, private val scope: CoroutineSc
         val privacyCardDismissed = booleanPreferencesKey("privacyCardDismissed")
         val feedbackDiagnostics = booleanPreferencesKey("feedbackDiagnostics")
         val theme = stringPreferencesKey("theme")
+        val inboxRead = androidx.datastore.preferences.core.stringSetPreferencesKey("inboxRead")
     }
 
     private val _state: MutableStateFlow<AppSettings>
@@ -128,6 +130,7 @@ class SettingsStore(private val context: Context, private val scope: CoroutineSc
         privacyCardDismissed = p[K.privacyCardDismissed] ?: false,
         feedbackDiagnostics = p[K.feedbackDiagnostics] ?: false,
         theme = p[K.theme] ?: "light",
+        inboxRead = p[K.inboxRead] ?: emptySet(),
     )
 
     suspend fun deviceId(): String {
@@ -167,6 +170,10 @@ class SettingsStore(private val context: Context, private val scope: CoroutineSc
     suspend fun setPrivacyCardDismissed() = context.dataStore.edit { it[K.privacyCardDismissed] = true }
     suspend fun setFeedbackDiagnostics(v: Boolean) = context.dataStore.edit { it[K.feedbackDiagnostics] = v }
     suspend fun setTheme(v: String) = context.dataStore.edit { it[K.theme] = v }
+    /** Local read/unread state for the inbox (kept to the last 500 ids). */
+    suspend fun markInboxRead(ids: Collection<String>) = context.dataStore.edit { p ->
+        p[K.inboxRead] = ((p[K.inboxRead] ?: emptySet()) + ids).toList().takeLast(500).toSet()
+    }
 
     /** Applies settings restored from a backup's `settings` table. */
     suspend fun applyBackupMap(m: Map<String, String>) = context.dataStore.edit { p ->

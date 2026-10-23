@@ -100,6 +100,9 @@ interface GimanoApi {
     @DELETE("shares/{id}")
     suspend fun deleteShare(@Path("id") id: String, @retrofit2.http.Header("Authorization") auth: String): Response<ResponseBody>
 
+    @GET("me/inbox")
+    suspend fun inbox(): List<InboxItem>
+
     // --- Feedback ---
     @POST("feedback")
     suspend fun feedback(@Body body: FeedbackRequest): FeedbackCreated

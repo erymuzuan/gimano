@@ -32,11 +32,24 @@ class SwitchingRepository(
         return try {
             remote.block()
         } catch (e: IOException) {
-            // Server unreachable (wrong base URL, no backend running, offline): keep the app usable.
-            _fallbackActive.value = true
-            demo.block()
+            // A dropped keep-alive connection ("unexpected end of stream") is not an outage: retry once.
+            try {
+                kotlinx.coroutines.delay(300)
+                remote.block()
+            } catch (e2: IOException) {
+                if (!isUnreachable(e2)) throw e2
+                // Server unreachable (wrong base URL, no backend, no Tailscale, offline): keep the app usable.
+                _fallbackActive.value = true
+                demo.block()
+            }
         }
     }
+
+    /** True only for "can't reach the server at all" failures. */
+    fun isUnreachable(e: IOException): Boolean = my.gimano.app.core.net.Reachability.isUnreachable(e)
+
+    /** While falling back, the app probes the server and switches back as soon as it answers. */
+    suspend fun probeRemote(): Boolean = try { remote.ensureAuth(); _fallbackActive.value = false; true } catch (e: Exception) { false }
 
     /**
      * Writes the user expects to reach the real server (feedback, places, reviews, photos) never
@@ -62,6 +75,7 @@ class SwitchingRepository(
     override suspend fun thank(reportId: String) = pick { thank(reportId) }
     override suspend fun postLocations(batch: LocationBatch) = pick { postLocations(batch) }
 
+    override suspend fun inbox() = pick { inbox() }
     override suspend fun sendFeedback(body: FeedbackRequest) = write { sendFeedback(body) }
     override suspend fun myFeedback() = write { myFeedback() }
     override suspend fun createPlace(body: CreatePlaceRequest) = write { createPlace(body) }

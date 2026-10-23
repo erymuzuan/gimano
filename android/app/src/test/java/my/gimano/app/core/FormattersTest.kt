@@ -93,4 +93,11 @@ class FormattersTest {
         assertEquals(Lang.EN, Lang.from("en"))
         assertEquals(Lang.EN, Lang.from(null))
     }
+
+    @Test fun backupTimesShowInLocalTime() {
+        val kl = java.time.ZoneId.of("Asia/Kuala_Lumpur")
+        org.junit.Assert.assertEquals("2026-10-23 10:59", Formatters.localStamp("2026-10-23T02:59:12.345Z", kl))
+        org.junit.Assert.assertEquals("2026-10-24 07:30", Formatters.localStamp("2026-10-23T23:30:00Z", kl))
+        org.junit.Assert.assertEquals("garbage", Formatters.localStamp("garbage", kl))
+    }
 }

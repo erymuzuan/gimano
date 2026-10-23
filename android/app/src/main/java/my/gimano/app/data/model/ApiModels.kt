@@ -425,3 +425,19 @@ data class ProblemDetails(
     val detail: String? = null,
     @SerialName("errors") val errors: JsonElement? = null,
 )
+
+
+/**
+ * Inbox: news about the user's PUBLIC contributions only (place published/rejected, report thanks,
+ * review marked helpful, edit accepted, feedback status) and app announcements. GET /me/inbox.
+ * Parsed leniently until the contract is final.
+ */
+@Serializable
+data class InboxItem(
+    val id: String,
+    val kind: String = "announcement",
+    val title: String = "",
+    val body: String = "",
+    val createdAt: String = "",
+    val placeId: String? = null,
+)

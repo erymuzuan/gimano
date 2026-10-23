@@ -27,6 +27,9 @@ interface GimanoRepository : my.gimano.app.data.share.ShareApi {
     suspend fun thank(reportId: String)
     suspend fun postLocations(batch: LocationBatch)
 
+    /** Inbox (public-contribution news); empty when the server has no inbox yet. */
+    suspend fun inbox(): List<InboxItem>
+
     suspend fun sendFeedback(body: FeedbackRequest): FeedbackCreated
     suspend fun myFeedback(): List<FeedbackSummary>
 

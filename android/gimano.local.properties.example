@@ -1,4 +1,4 @@
-# Copy to gimano.local.properties (git-ignored) and fill in.
+# Put in local.properties or gimano.local.properties (both git-ignored).
 # OAuth client id for Google Drive backup (scope drive.appdata). Create it in Google Cloud Console:
 # Android OAuth client for package my.gimano.app + the SHA-1 of your debug/release signing key.
-gimano.googleOauthClientId=
+gimano.googleAndroidClientId=
