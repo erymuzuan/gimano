@@ -367,4 +367,19 @@ class DemoRepository(
     }
 
     override suspend fun photos(placeId: String): PhotosPage = PhotosPage(photoStore[placeId].orEmpty().map(::settle))
+
+    // --- Share my drive (demo relay: keeps only the latest ciphertext, like the server) ---
+    val demoShares = java.util.concurrent.ConcurrentHashMap<String, MutableList<my.gimano.app.data.share.SealedShare>>()
+
+    override suspend fun createShare(expiresInMinutes: Int): my.gimano.app.data.share.ShareCreated {
+        val id = UUID.randomUUID().toString().replace("-", "")
+        demoShares[id] = CopyOnWriteArrayList()
+        return my.gimano.app.data.share.ShareCreated(id, UUID.randomUUID().toString(), Instant.now().plusSeconds(expiresInMinutes * 60L).toString())
+    }
+
+    override suspend fun updateShare(shareId: String, writeToken: String, sealed: my.gimano.app.data.share.SealedShare) {
+        demoShares[shareId]?.add(sealed)
+    }
+
+    override suspend fun deleteShare(shareId: String, writeToken: String) { demoShares.remove(shareId) }
 }

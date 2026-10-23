@@ -45,6 +45,7 @@ fun GimanoRoot(vm: MainViewModel, onMic: () -> Unit, onExit: () -> Unit) {
     val fvm: my.gimano.app.ui.feedback.FeedbackViewModel = androidx.lifecycle.viewmodel.compose.viewModel(factory = my.gimano.app.ui.feedback.FeedbackViewModel.Factory(container))
     val bvm: my.gimano.app.ui.backup.BackupViewModel = androidx.lifecycle.viewmodel.compose.viewModel(factory = my.gimano.app.ui.backup.BackupViewModel.Factory(container))
     val feedbackDraft by fvm.draft.collectAsStateWithLifecycle()
+    val pvm: my.gimano.app.ui.planned.PlannedViewModel = androidx.lifecycle.viewmodel.compose.viewModel(factory = my.gimano.app.ui.planned.PlannedViewModel.Factory(container))
     val ui by vm.ui.collectAsStateWithLifecycle()
     val nav by vm.nav.collectAsStateWithLifecycle()
     val settings by vm.settingsState.collectAsStateWithLifecycle()
@@ -82,6 +83,7 @@ fun GimanoRoot(vm: MainViewModel, onMic: () -> Unit, onExit: () -> Unit) {
                     fvm.open(e.screen, jpeg, e.routeId, e.placeId)
                 }
                 is UiEvent.AddPlace -> vm.startAddPlace(e.at, e.name)
+                is UiEvent.PlanDrive -> pvm.newPlan(e.dest, e.origin, e.waypoints, e.vehicle)
                 is UiEvent.Dial -> runCatching { context.startActivity(Intent(Intent.ACTION_DIAL, Uri.parse("tel:${e.phone}"))) }
                 is UiEvent.Web -> runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(e.url))) }
             }
@@ -153,7 +155,7 @@ fun GimanoRoot(vm: MainViewModel, onMic: () -> Unit, onExit: () -> Unit) {
             SideMenu(
                 ui.user,
                 onProfile = { scope.launch { drawer.close() }; vm.openSettings() },
-                onPlanned = { scope.launch { drawer.close() }; vm.toast(R.string.coming_soon) },
+                onPlanned = { scope.launch { drawer.close() }; vm.open(Screen.Planned) },
                 onInbox = { scope.launch { drawer.close() }; vm.toast(R.string.coming_soon) },
                 onSettings = { scope.launch { drawer.close() }; vm.openSettings() },
                 onHelp = { scope.launch { drawer.close() }; vm.openWeb("https://github.com/erymuzuan/gimano") },
@@ -196,6 +198,8 @@ fun GimanoRoot(vm: MainViewModel, onMic: () -> Unit, onExit: () -> Unit) {
                 Screen.MyFeedback -> my.gimano.app.ui.feedback.MyFeedbackScreen(fvm, onBack = vm::back, onNew = { vm.requestFeedback("settings") })
                 Screen.Contributions -> my.gimano.app.ui.contribute.ContributionsScreen(container, vm)
                 Screen.AddPlace -> my.gimano.app.ui.contribute.AddPlaceScreen(container, vm, handle)
+                Screen.Planned -> my.gimano.app.ui.planned.PlannedDrivesScreen(pvm, settings.use24h, onBack = vm::back,
+                    onAdd = { vm.openSearch(SearchPurpose.PLAN_DRIVE) }, onGo = vm::goPlanned)
             }
             // Below the right-hand FAB column (3 × 64 dp + gaps) so it never covers controls.
             SnackbarHost(snackbar, Modifier.align(Alignment.TopCenter).windowInsetsPadding(WindowInsets.statusBars).padding(top = 250.dp, start = 16.dp, end = 16.dp))

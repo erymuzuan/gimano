@@ -125,6 +125,11 @@ private fun Overflow(vm: MainViewModel) {
         IconButton(onClick = { open = true }) { Icon(Icons.Filled.MoreVert, stringResource(R.string.more), tint = Gimano.colors.text) }
         DropdownMenu(open, onDismissRequest = { open = false }) {
             DropdownMenuItem(
+                text = { Text(stringResource(R.string.plan_this_drive), fontWeight = FontWeight.Bold) },
+                leadingIcon = { GIcon("recent", null, size = 24.dp) },
+                onClick = { open = false; vm.planThisDrive() },
+            )
+            DropdownMenuItem(
                 text = { Text(stringResource(R.string.add_feedback), fontWeight = FontWeight.Bold) },
                 leadingIcon = { GIcon("feedback", null, size = 24.dp) },
                 onClick = { open = false; vm.requestFeedback("route_preview") },

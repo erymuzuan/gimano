@@ -76,4 +76,7 @@ class SwitchingRepository(
     override suspend fun flagReview(reviewId: String, reason: String) = write { flagReview(reviewId, reason) }
     override suspend fun uploadPhoto(placeId: String, jpeg: ByteArray, caption: String?) = write { uploadPhoto(placeId, jpeg, caption) }
     override suspend fun photos(placeId: String) = pick { photos(placeId) }
+    override suspend fun createShare(expiresInMinutes: Int) = write { createShare(expiresInMinutes) }
+    override suspend fun updateShare(shareId: String, writeToken: String, sealed: my.gimano.app.data.share.SealedShare) = write { updateShare(shareId, writeToken, sealed) }
+    override suspend fun deleteShare(shareId: String, writeToken: String) = write { deleteShare(shareId, writeToken) }
 }

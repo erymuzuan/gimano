@@ -41,7 +41,7 @@ import my.gimano.app.ui.map.VisibleBounds
 import java.time.Instant
 import java.time.ZoneId
 
-enum class SearchPurpose { NAVIGATE, SET_HOME, SET_WORK, ADD_STOP, ADD_STOP_PREVIEW, ADD_FAVORITE }
+enum class SearchPurpose { NAVIGATE, SET_HOME, SET_WORK, ADD_STOP, ADD_STOP_PREVIEW, ADD_FAVORITE, PLAN_DRIVE }
 
 sealed interface Screen {
     data object Home : Screen
@@ -54,6 +54,7 @@ sealed interface Screen {
     data object MyFeedback : Screen
     data object Contributions : Screen
     data object AddPlace : Screen
+    data object Planned : Screen
 }
 
 data class PlaceSel(val summary: PlaceSummary, val detail: Place? = null, val loading: Boolean = false, val savedId: String? = null)
@@ -125,6 +126,11 @@ sealed interface UiEvent {
     data class Web(val url: String) : UiEvent
     /** Open the feedback sheet; the root captures a screenshot of what's behind it first. */
     data class OpenFeedback(val screen: String, val routeId: String?, val placeId: String?) : UiEvent
+    /** Open the planned-drive editor for this destination. */
+    data class PlanDrive(
+        val dest: my.gimano.app.data.planned.PlacePoint, val origin: my.gimano.app.data.planned.PlacePoint?,
+        val waypoints: List<my.gimano.app.data.planned.PlacePoint>, val vehicle: String,
+    ) : UiEvent
     /** Open the add-a-place flow at this point (round 3). */
     data class AddPlace(val at: GeoPoint, val name: String) : UiEvent
 }
@@ -228,6 +234,7 @@ class MainViewModel(private val c: AppContainer) : ViewModel() {
     }
 
     private fun onFix(f: Fix) {
+        c.lastFix = f.point
         _ui.update { it.copy(myLocation = f) }
         if (!centeredOnce) {
             centeredOnce = true
@@ -381,6 +388,10 @@ class MainViewModel(private val c: AppContainer) : ViewModel() {
                     _events.tryEmit(UiEvent.Toast(if (ok) R.string.stop_added else R.string.stops_full))
                 }
             }
+            SearchPurpose.PLAN_DRIVE -> {
+                _ui.update { it.copy(screen = Screen.Planned) }
+                _events.tryEmit(UiEvent.PlanDrive(p.toPoint(), null, emptyList(), settings.current.vehicle))
+            }
             SearchPurpose.ADD_STOP_PREVIEW -> {
                 val plan = _ui.value.plan
                 _ui.update { it.copy(screen = Screen.RoutePreview) }
@@ -390,6 +401,26 @@ class MainViewModel(private val c: AppContainer) : ViewModel() {
             }
         }
     }
+
+    private fun PlaceSummary.toPoint() = my.gimano.app.data.planned.PlacePoint(lat, lng, name, address, id.takeUnless { it.startsWith("pin:") || it.startsWith("private:") })
+    private fun NavDestination.toPoint() = my.gimano.app.data.planned.PlacePoint(point.lat, point.lng, name, address, placeId)
+    private fun my.gimano.app.data.planned.PlacePoint.toDestination() = NavDestination(name, address, GeoPoint(lat, lng), placeId)
+
+    /** Route preview overflow → "Plan this drive". */
+    fun planThisDrive() {
+        val plan = _ui.value.plan ?: return
+        cancelCountdown()
+        _events.tryEmit(UiEvent.PlanDrive(plan.destination.toPoint(), null, plan.stops.map { it.toPoint() }, plan.mode.wire))
+        _ui.update { it.copy(screen = Screen.Planned) }
+    }
+
+    /** Planned drive "Go" or its reminder notification → route preview. */
+    fun goPlanned(d: my.gimano.app.data.planned.PlannedDrive) {
+        viewModelScope.launch { settings.setVehicle(d.vehicle) }
+        routeTo(d.destination.toDestination(), d.waypoints.map { it.toDestination() })
+    }
+
+    fun openPlannedDrive(id: String) = viewModelScope.launch { c.planned.byId(id)?.let { goPlanned(it) } }
 
     private fun PlaceSummary.toDestination() = NavDestination(name, address, GeoPoint(lat, lng), id.takeUnless { it.startsWith("pin:") || it.startsWith("private:") })
 
@@ -520,6 +551,7 @@ class MainViewModel(private val c: AppContainer) : ViewModel() {
         val st = settings.current
         val prev = _ui.value.plan
         val plan = RoutePlan(destination = dest, origin = origin, stops = stops, mode = TravelMode.from(st.vehicle), avoid = prev?.avoid ?: AvoidOptions())
+        GLog.d("VM", "route preview, ${stops.size} stops")
         _ui.update { it.copy(screen = Screen.RoutePreview, plan = plan, following = false, selectedAlertId = null) }
         viewModelScope.launch { local.recordRecent(dest.name, dest.address, dest.point.lat, dest.point.lng, dest.placeId) }
         fetchRoutes(plan)
@@ -651,6 +683,7 @@ class MainViewModel(private val c: AppContainer) : ViewModel() {
 
     fun stopNavigation() {
         c.navigation.stop()
+        viewModelScope.launch { c.share.stop() }
         _ui.update { it.copy(screen = Screen.Home, plan = null, navExpanded = false, confirmStop = false, passengerPrompt = false, following = true, camera = CameraCommand.Reset2D(here(), 15.0)) }
     }
 
@@ -667,13 +700,25 @@ class MainViewModel(private val c: AppContainer) : ViewModel() {
         _ui.update { it.copy(following = false, camera = CameraCommand.Fit(pts, topDp = 200, bottomDp = 260)) }
     }
 
+    /** "Share my drive": end-to-end encrypted live ETA link (docs/api.md "Share my drive"). */
+    val sharing = c.share.active
+
     fun shareDrive() {
         val s = nav.value
         val d = s.destination ?: return
-        val eta = s.progress?.let { Formatters.etaClock(Instant.now(), it.remainingS, ZoneId.systemDefault(), settings.current.use24h, c.lang()) } ?: "-"
-        _events.tryEmit(UiEvent.Share("__share_drive__|${d.name}|$eta|${osmLink(d.point)}"))
         setNavExpanded(false)
+        viewModelScope.launch {
+            try {
+                val share = c.share.start()
+                val eta = s.progress?.let { Formatters.etaClock(Instant.now(), it.remainingS, ZoneId.systemDefault(), settings.current.use24h, c.lang()) } ?: "-"
+                _events.tryEmit(UiEvent.Share("__share_drive__|${d.name}|$eta|${share.link}"))
+            } catch (e: Exception) {
+                _events.tryEmit(UiEvent.Toast(R.string.share_failed))
+            }
+        }
     }
+
+    fun stopSharing() = viewModelScope.launch { c.share.stop(); _events.tryEmit(UiEvent.Toast(R.string.sharing_stopped)) }
 
     fun addStop() {
         setNavExpanded(false)
@@ -726,7 +771,7 @@ class MainViewModel(private val c: AppContainer) : ViewModel() {
                 Screen.RoutePreview -> if (s.place != null) _ui.update { it.copy(screen = Screen.PlaceCard, plan = null) } else _ui.update { it.copy(screen = Screen.Home, plan = null) }
                 Screen.Settings -> goHome()
                 Screen.Backup, Screen.MyFeedback -> _ui.update { it.copy(screen = Screen.Settings) }
-                Screen.Contributions, Screen.AddPlace -> goHome()
+                Screen.Contributions, Screen.AddPlace, Screen.Planned -> goHome()
                 Screen.Navigating -> when {
                     s.navExpanded -> setNavExpanded(false)
                     nav.value.arrived -> stopNavigation()

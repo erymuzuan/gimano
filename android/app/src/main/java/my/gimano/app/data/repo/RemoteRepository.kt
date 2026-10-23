@@ -100,4 +100,8 @@ class RemoteRepository(private val settings: SettingsStore) : GimanoRepository {
     }
 
     override suspend fun photos(placeId: String) = authed { photos(placeId) }
+
+    override suspend fun createShare(expiresInMinutes: Int) = authed { createShare(my.gimano.app.data.share.CreateShareRequest(expiresInMinutes)) }
+    override suspend fun updateShare(shareId: String, writeToken: String, sealed: my.gimano.app.data.share.SealedShare) { api.updateShare(shareId, "Share $writeToken", sealed).orThrow() }
+    override suspend fun deleteShare(shareId: String, writeToken: String) { api.deleteShare(shareId, "Share $writeToken").orThrow() }
 }

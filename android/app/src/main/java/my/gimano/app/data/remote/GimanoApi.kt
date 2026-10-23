@@ -90,6 +90,16 @@ interface GimanoApi {
     @POST("locations")
     suspend fun postLocations(@Body body: LocationBatch): Response<ResponseBody>
 
+    // --- Share my drive (server relays ciphertext only) ---
+    @POST("shares")
+    suspend fun createShare(@Body body: my.gimano.app.data.share.CreateShareRequest): my.gimano.app.data.share.ShareCreated
+
+    @retrofit2.http.PUT("shares/{id}")
+    suspend fun updateShare(@Path("id") id: String, @retrofit2.http.Header("Authorization") auth: String, @Body body: my.gimano.app.data.share.SealedShare): Response<ResponseBody>
+
+    @DELETE("shares/{id}")
+    suspend fun deleteShare(@Path("id") id: String, @retrofit2.http.Header("Authorization") auth: String): Response<ResponseBody>
+
     // --- Feedback ---
     @POST("feedback")
     suspend fun feedback(@Body body: FeedbackRequest): FeedbackCreated

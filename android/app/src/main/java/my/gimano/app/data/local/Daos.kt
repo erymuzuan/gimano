@@ -100,6 +100,8 @@ interface PlannedDriveDao {
     @Query("SELECT * FROM planned_drives ORDER BY COALESCE(depart_at, created_at)")
     fun observeAll(): Flow<List<PlannedDriveEntity>>
 
+    @Query("SELECT * FROM planned_drives") suspend fun all(): List<PlannedDriveEntity>
+
     @Upsert suspend fun upsert(e: PlannedDriveEntity)
 
     @Query("DELETE FROM planned_drives WHERE id = :id") suspend fun delete(id: String)

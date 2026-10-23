@@ -73,6 +73,22 @@ fun NavigationOverlay(nav: NavState, ui: UiState, settings: AppSettings, vm: Mai
             }
         }
 
+        // ---- "Sharing" chip: tap to stop sharing --------------------------------------------
+        val sharing by vm.sharing.collectAsState()
+        var confirmUnshare by remember { mutableStateOf(false) }
+        if (sharing != null) {
+            Box(Modifier.align(Alignment.TopStart).windowInsetsPadding(WindowInsets.statusBars).padding(top = 196.dp, start = 14.dp)) {
+                Pill(stringResource(R.string.sharing), color = c.brand, textColor = c.brandOn, icon = Icons.Filled.Share, onClick = { confirmUnshare = true })
+            }
+        }
+        if (confirmUnshare) AlertDialog(
+            onDismissRequest = { confirmUnshare = false },
+            title = { Text(stringResource(R.string.stop_sharing_title), style = GimanoType.title) },
+            text = { Text(stringResource(R.string.stop_sharing_body)) },
+            confirmButton = { Button(onClick = { confirmUnshare = false; vm.stopSharing() }) { Text(stringResource(R.string.stop_sharing), fontWeight = FontWeight.ExtraBold) } },
+            dismissButton = { TextButton(onClick = { confirmUnshare = false }) { Text(stringResource(R.string.keep_sharing)) } },
+        )
+
         // ---- Right column: sound + recenter ----------------------------------------------
         Column(
             Modifier.align(Alignment.TopEnd).windowInsetsPadding(WindowInsets.statusBars).padding(top = 180.dp, end = 14.dp),
