@@ -186,6 +186,18 @@ public class TollCalculatorTests
     }
 
     [Fact]
+    public void Booth_lines_of_one_named_plaza_a_few_hundred_metres_apart_are_one_toll()
+    {
+        // Real case: Plaza Tol Pantai (A) and (B) on Kerinchi Link, ~240 m apart along the route.
+        var plazas = new[] { P("n1", "Plaza Tol Pantai (A)", 101.0300), P("n2", "Plaza Tol Pantai (B)", 101.0322) };
+        var tariffs = new[] { new TollTariff("Plaza Tol Pantai (A)", "E23", TollSystem.Open, null, null, 2.50m, "https://src", ["n1", "n2"]) };
+        var r = TollCalculator.Compute(Route, plazas, tariffs, Vehicle.Car);
+        Assert.Single(r.Tolls);
+        Assert.Equal(2.50m, r.EstimateMyr);
+        Assert.True(r.FareComplete);
+    }
+
+    [Fact]
     public void Unknown_fares_make_the_estimate_partial()
     {
         var plazas = new[] { P("n1", "Plaza Tol A", 101.02), P("n2", "Plaza Tol B", 101.06) };

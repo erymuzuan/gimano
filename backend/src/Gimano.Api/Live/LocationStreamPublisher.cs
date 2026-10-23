@@ -15,12 +15,12 @@ public sealed class LocationStreamPublisher : BackgroundService
     public const int QueueCapacity = 100_000;
     public const int MaxBatchesPerMessage = 500;
 
-    private readonly RabbitMqConnection connection;
+    private readonly LocationStreamConnection connection;
     private readonly TimeProvider clock;
     private readonly ILogger<LocationStreamPublisher> logger;
     private readonly Channel<LocationBatchMessage> _queue;
 
-    public LocationStreamPublisher(RabbitMqConnection connection, TimeProvider clock, ILogger<LocationStreamPublisher> logger)
+    public LocationStreamPublisher(LocationStreamConnection connection, TimeProvider clock, ILogger<LocationStreamPublisher> logger)
     {
         this.connection = connection;
         this.clock = clock;

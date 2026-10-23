@@ -40,7 +40,7 @@ public sealed class TrafficMetrics
 /// auto-ack, prefetch 2000. Per ping: in-memory driver update + in-memory snap + speed window. No database I/O.
 /// </summary>
 public sealed class LocationStreamConsumer(
-    RabbitMqConnection connection, RoadIndexHolder roads, SpeedWindow window, DriverStore drivers, TrafficMetrics metrics,
+    LocationStreamConnection connection, RoadIndexHolder roads, SpeedWindow window, DriverStore drivers, TrafficMetrics metrics,
     ILogger<LocationStreamConsumer> logger) : BackgroundService
 {
     public const ushort Prefetch = 2000;
@@ -57,7 +57,9 @@ public sealed class LocationStreamConsumer(
                 var conn = await connection.GetAsync(stoppingToken);
                 await using var channel = await conn.CreateChannelAsync(cancellationToken: stoppingToken);
                 await channel.ExchangeDeclareAsync(LocationStream.Exchange, ExchangeType.Topic, durable: false, autoDelete: false, cancellationToken: stoppingToken);
-                await channel.QueueDeclareAsync(LocationStream.TrafficQueue, durable: false, exclusive: false, autoDelete: false,
+                // RabbitMQ 4 no longer allows transient *non-exclusive* queues: the queue is exclusive to this worker's
+                // stream connection (deleted when it disconnects — pings are worthless after 30 s anyway).
+                await channel.QueueDeclareAsync(LocationStream.TrafficQueue, durable: false, exclusive: true, autoDelete: true,
                     arguments: LocationStream.QueueArguments(), cancellationToken: stoppingToken);
                 await channel.QueueBindAsync(LocationStream.TrafficQueue, LocationStream.Exchange, LocationStream.RoutingKey, cancellationToken: stoppingToken);
                 await channel.BasicQosAsync(0, Prefetch, false, stoppingToken);

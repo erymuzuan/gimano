@@ -76,8 +76,9 @@ public sealed class RouteService(
     private async Task<IReadOnlyList<TollTariff>> TariffsAsync(CancellationToken ct) =>
         await cache.GetOrCreateAsync("toll-tariffs", async e =>
         {
-            e.AbsoluteExpirationRelativeToNow = TariffCacheFor;
             var rows = await db.TollRates.AsNoTracking().Where(t => t.MatchedPlaceIds.Count > 0).ToListAsync(ct);
+            // An empty table (e.g. importer still running) is re-checked soon instead of cached for 10 minutes.
+            e.AbsoluteExpirationRelativeToNow = rows.Count > 0 ? TariffCacheFor : TimeSpan.FromSeconds(30);
             return (IReadOnlyList<TollTariff>)rows.Select(TollRateCsv.ToTariff).ToList();
         }) ?? [];
 

@@ -22,6 +22,7 @@ public static partial class TollCalculator
     public const double MatchM = 25;
     /// <summary>OSM maps one physical plaza as several booth nodes (lanes, directions); nodes this close along the route are one plaza.</summary>
     public const double SamePlazaAlongM = 250;
+    public const double SameNamedPlazaAlongM = 1000;
 
     public static TollResult Compute(IReadOnlyList<GeoPoint> route, IReadOnlyList<TollPlaza> plazas, IReadOnlyList<TollTariff> tariffs, Vehicle vehicle)
     {
@@ -43,7 +44,12 @@ public static partial class TollCalculator
         foreach (var h in hits)
         {
             var last = groups.LastOrDefault();
-            if (last is not null && h.Proj.AlongM - last[0].Proj.AlongM <= SamePlazaAlongM) last.Add(h);
+            var samePlaza = last is not null &&
+                (h.Proj.AlongM - last[0].Proj.AlongM <= SamePlazaAlongM
+                 // Booth lines of one named plaza (e.g. "Pantai (A)" / "(B)") can sit a few hundred metres apart.
+                 || (h.Proj.AlongM - last[0].Proj.AlongM <= SameNamedPlazaAlongM
+                     && SameName(NormalizeName(h.Plaza.Name), NormalizeName(last[0].Plaza.Name))));
+            if (samePlaza) last!.Add(h);
             else groups.Add([h]);
         }
 

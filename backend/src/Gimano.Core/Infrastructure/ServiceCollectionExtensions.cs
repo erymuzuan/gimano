@@ -39,6 +39,7 @@ public static class ServiceCollectionExtensions
     {
         services.Configure<RabbitMqOptions>(config.GetSection(RabbitMqOptions.Section));
         services.AddSingleton<RabbitMqConnection>();
+        services.AddSingleton<LocationStreamConnection>();
         services.AddSingleton<IEventPublisher, RabbitEventPublisher>();
         return services;
     }

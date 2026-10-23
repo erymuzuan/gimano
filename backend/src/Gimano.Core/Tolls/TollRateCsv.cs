@@ -110,12 +110,13 @@ public static class TollRateCsv
 
     public sealed record MatchOutcome(TollRate Row, IReadOnlyList<string> PlaceIds, string Method);
 
-    public const double SiblingRadiusM = 1000;
+    /// <summary>Lane/direction nodes of one plaza are within a few hundred metres; neighbouring plazas with similar names are further.</summary>
+    public const double SiblingRadiusM = 400;
     public const double NameMatchRadiusM = 3000;
 
     /// <summary>
     /// Matches each row to OSM plaza nodes. A plaza is several booth nodes; all nodes sharing the normalised name
-    /// within 1 km of the seed are included. Seed = <c>plaza_osm_id</c> if present, else the nodes whose normalised name
+    /// within 400 m of the seed are included. Seed = <c>plaza_osm_id</c> if present, else the nodes whose normalised name
     /// equals the row's within 3 km of its lat/lng (or anywhere, if the name is unique in the country and no lat/lng is given).
     /// </summary>
     public static IReadOnlyList<MatchOutcome> Match(IReadOnlyList<TollRate> rows, IReadOnlyList<TollPlaza> plazas)

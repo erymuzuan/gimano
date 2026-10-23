@@ -56,7 +56,7 @@ public sealed class DriverStore(TimeProvider clock)
 /// Every 5 s: publishes the anonymised driver cells (≥ 3 drivers, rounded) to the API over the transient stream.
 /// Nothing is written to the database: driver positions exist only in this process's memory.
 /// </summary>
-public sealed class DriverSnapshotPublisher(DriverStore store, RabbitMqConnection connection, TrafficMetrics metrics, ILogger<DriverSnapshotPublisher> logger)
+public sealed class DriverSnapshotPublisher(DriverStore store, LocationStreamConnection connection, TrafficMetrics metrics, ILogger<DriverSnapshotPublisher> logger)
     : BackgroundService
 {
     public static readonly TimeSpan Interval = TimeSpan.FromSeconds(5);

@@ -18,13 +18,15 @@ public sealed class RabbitMqOptions
     public string VirtualHost { get; set; } = "/";
 }
 
-/// <summary>Owns the single AMQP connection per process (lazy, auto-recovering).</summary>
-public sealed class RabbitMqConnection(IOptions<RabbitMqOptions> options, ILogger<RabbitMqConnection> logger) : IAsyncDisposable
+/// <summary>Owns an AMQP connection (lazy, auto-recovering). The durable event bus uses this one.</summary>
+public class RabbitMqConnection(IOptions<RabbitMqOptions> options, ILogger<RabbitMqConnection> logger) : IAsyncDisposable
 {
     private readonly SemaphoreSlim _gate = new(1, 1);
     private IConnection? _connection;
 
     public bool IsOpen => _connection?.IsOpen ?? false;
+
+    protected virtual string NameSuffix => "";
 
     public async Task<IConnection> GetAsync(CancellationToken ct = default)
     {
@@ -39,7 +41,7 @@ public sealed class RabbitMqConnection(IOptions<RabbitMqOptions> options, ILogge
             {
                 HostName = o.Host, Port = o.Port, UserName = o.User, Password = o.Password, VirtualHost = o.VirtualHost,
                 AutomaticRecoveryEnabled = true, TopologyRecoveryEnabled = true,
-                ClientProvidedName = $"gimano-{AppDomain.CurrentDomain.FriendlyName}",
+                ClientProvidedName = $"gimano-{AppDomain.CurrentDomain.FriendlyName}{NameSuffix}",
                 RequestedConnectionTimeout = TimeSpan.FromSeconds(5),
             };
             _connection = await factory.CreateConnectionAsync(ct);
@@ -58,6 +60,16 @@ public sealed class RabbitMqConnection(IOptions<RabbitMqOptions> options, ILogge
     {
         if (_connection is not null) await _connection.DisposeAsync();
     }
+}
+
+/// <summary>
+/// A second connection for the high-volume transient location stream, so its traffic (and any channel/connection
+/// error on it) never affects the durable event bus.
+/// </summary>
+public sealed class LocationStreamConnection(IOptions<RabbitMqOptions> options, ILogger<RabbitMqConnection> logger)
+    : RabbitMqConnection(options, logger)
+{
+    protected override string NameSuffix => "-locations";
 }
 
 public interface IEventPublisher

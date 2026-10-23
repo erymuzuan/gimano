@@ -24,7 +24,7 @@ public sealed class DriverSnapshotStore(TimeProvider clock)
 }
 
 /// <summary>Per-instance exclusive, auto-delete, auto-ack queue for <c>drivers.snapshot</c> on the transient exchange.</summary>
-public sealed class DriverSnapshotConsumer(RabbitMqConnection connection, DriverSnapshotStore store, ILogger<DriverSnapshotConsumer> logger) : BackgroundService
+public sealed class DriverSnapshotConsumer(LocationStreamConnection connection, DriverSnapshotStore store, ILogger<DriverSnapshotConsumer> logger) : BackgroundService
 {
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
