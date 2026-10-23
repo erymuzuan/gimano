@@ -12,6 +12,25 @@ struct DriveView: View {
             ZStack(alignment: .bottom) {
                 VStack(spacing: 0) {
                     TurnBanner(nav: nav)
+                    if let stop = nav.arrivedAtStop {
+                        HStack(spacing: 10) {
+                            GimanoIcon(icon: .addStop, size: 30, stroke: .brandOn, fill: .brandOn)
+                            Text("Arrived at \(stop)").font(Tokens.Font.nunito(18, .black))
+                            Spacer()
+                        }
+                        .foregroundStyle(Color.brandOn)
+                        .padding(14)
+                        .background(Color.brand, in: RoundedRectangle(cornerRadius: Tokens.Radius.lg, style: .continuous))
+                        .padding(.horizontal, 10)
+                        .padding(.top, 6)
+                        .transition(.move(edge: .top).combined(with: .opacity))
+                        .accessibilityIdentifier("arrivedAtStop")
+                    }
+                    // Hidden diagnostics for UI tests (max off-road distance while on route, reroutes).
+                    Text(verbatim: "offroad=\(Int(nav.maxOffRoadM.rounded()));reroutes=\(nav.rerouteCount);stopsLeft=\(nav.stops.count - nav.stopTracker.nextStopIndex)")
+                        .font(.system(size: 1))
+                        .opacity(0.01)
+                        .accessibilityIdentifier("navDebug")
                     HStack {
                         Spacer()
                         VStack(spacing: 12) {
@@ -85,7 +104,8 @@ struct TurnBanner: View {
                             .monospacedDigit()
                             .foregroundStyle(Color.navBannerOn)
                             .accessibilityIdentifier("maneuverDistance")
-                        Text(ManeuverFormatter.roadName(m) ?? ManeuverFormatter.instruction(for: m))
+                        Text(nav.stopName(forManeuverAt: nav.progress?.upcomingIndex).map { String(localized: "Arrive at \($0)") }
+                             ?? ManeuverFormatter.roadName(m) ?? ManeuverFormatter.instruction(for: m, mode: nav.vehicle))
                             .font(Tokens.Font.nunito(20, .bold))
                             .foregroundStyle(Color.navBannerOn.opacity(0.9))
                             .lineLimit(2)
@@ -167,6 +187,17 @@ struct BottomBar: View {
                     VStack(alignment: .leading, spacing: 2) {
                         Text(nav.destination.name).font(Tokens.Font.bodyBold)
                         Text(nav.route.summary).font(Tokens.Font.caption).foregroundStyle(Color.textMuted).lineLimit(1)
+                        let remainingStops = Array(nav.stops.dropFirst(nav.stopTracker.nextStopIndex))
+                        let etas = nav.etaOffsets
+                        ForEach(Array(remainingStops.enumerated()), id: \.element.id) { i, s in
+                            HStack {
+                                Text("\(i + 1)").font(Tokens.Font.nunito(13, .black)).foregroundStyle(Color.brandOn)
+                                    .frame(width: 22, height: 22).background(Color.brand, in: Circle())
+                                Text(s.name).font(Tokens.Font.label).lineLimit(1)
+                                Spacer()
+                                if i < etas.count { Text(ETAFormatter.arrivalTime(remainingS: etas[i])).font(Tokens.Font.label).foregroundStyle(Color.textMuted) }
+                            }
+                        }
                     }
                     HStack(spacing: 10) {
                         Button { expanded = false; model.screen = .search(.addStop) } label: {
@@ -178,6 +209,14 @@ struct BottomBar: View {
                         }
                         .buttonStyle(SecondaryButtonStyle())
                     }
+                    Button {
+                        expanded = false
+                        model.openFeedback(from: .navigation)
+                    } label: {
+                        Label("Add feedback", systemImage: "bubble.left.and.text.bubble.right")
+                    }
+                    .buttonStyle(SecondaryButtonStyle())
+                    .accessibilityIdentifier("navFeedback")
                     HStack(spacing: 10) {
                         Button { expanded = false } label: { Text("Continue") }
                             .buttonStyle(SecondaryButtonStyle())
@@ -310,6 +349,7 @@ struct DriveAlternativesSheet: View {
     let nav: NavigationSession
     @State private var routes: [Route] = []
     @State private var loading = true
+    private var remainingStops: [TripStop] { Array(nav.stops.dropFirst(nav.stopTracker.nextStopIndex)) }
 
     var body: some View {
         NavigationStack {
@@ -317,7 +357,7 @@ struct DriveAlternativesSheet: View {
                 if loading { ProgressView() }
                 ForEach(routes) { r in
                     Button {
-                        nav.setRoute(r)
+                        nav.setRoute(r, stops: remainingStops)
                         dismiss()
                     } label: {
                         HStack {
@@ -341,7 +381,7 @@ struct DriveAlternativesSheet: View {
         .task {
             let req = RouteRequest(origin: RouteEndpoint(lat: model.position.lat, lng: model.position.lng),
                                    destination: RouteEndpoint(lat: nav.destination.location.lat, lng: nav.destination.location.lng, placeId: nav.destination.placeId),
-                                   waypoints: nav.waypoints, vehicle: nav.vehicle, avoid: nav.avoid, alternatives: 2)
+                                   waypoints: remainingStops.map(\.endpoint), vehicle: nav.vehicle, avoid: nav.avoid, alternatives: 2)
             routes = (try? await model.repo.routes(req)) ?? []
             loading = false
         }

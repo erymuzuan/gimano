@@ -120,7 +120,7 @@ struct HomeSheet: View {
     private func baseHeight(_ d: Detent) -> CGFloat {
         switch d {
         case .collapsed: 104
-        case .medium: min(330, maxHeight * 0.45)
+        case .medium: min(model.favorites.isEmpty ? 330 : 440, maxHeight * 0.55)
         case .large: maxHeight * 0.88
         }
     }
@@ -150,8 +150,8 @@ struct HomeSheet: View {
 
             ScrollView {
                 VStack(alignment: .leading, spacing: 18) {
+                    FavoritesRow()
                     ShortcutGrid()
-                    SavedPlacesCarousel()
                     RecentsList()
                 }
                 .padding(.top, 16)
@@ -195,7 +195,7 @@ struct ShortcutGrid: View {
             tile(.work, "Work") { open(saved: model.work, purpose: .setWork) }
             tile(.fuel, "Fuel") { search(.fuel) }
             tile(.food, "Food") { search(.restaurant) }
-            tile(.surau, "Surau") { search(.mosque) }
+            tile(.surau, "Surau") { search(.surau) }
             tile(.parking, "Parking") { search(.parking) }
             tile(.ev, "EV") { search(.evCharging) }
             tile(.recent, "Recent") { model.screen = .search(.destination) }
@@ -230,36 +230,7 @@ struct ShortcutGrid: View {
         }
         .buttonStyle(.plain)
         .accessibilityLabel(Text(title))
-    }
-}
-
-/// Favourites (beyond Home/Work) as compact chips.
-struct SavedPlacesCarousel: View {
-    @Environment(AppModel.self) private var model
-
-    var body: some View {
-        if !model.favorites.isEmpty {
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 10) {
-                    ForEach(model.favorites) { f in
-                        Button {
-                            model.planRoute(to: Destination(name: f.name, address: f.address, location: f.location, placeId: f.placeId))
-                        } label: {
-                            HStack(spacing: 8) {
-                                Image(systemName: "star.fill").foregroundStyle(Color.brand)
-                                Text(f.name).font(Tokens.Font.label).lineLimit(1)
-                            }
-                            .foregroundStyle(Color.textPrimary)
-                            .padding(.horizontal, 14)
-                            .padding(.vertical, 10)
-                            .background(Color.surfaceAlt, in: Capsule())
-                        }
-                        .buttonStyle(.plain)
-                    }
-                }
-                .padding(.horizontal, Tokens.Space.gutter)
-            }
-        }
+        .accessibilityIdentifier("shortcut.\(icon.rawValue)")
     }
 }
 

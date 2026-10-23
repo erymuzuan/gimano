@@ -34,10 +34,21 @@ struct DeviceAuthResponse: Codable, Sendable {
     var displayName: String
 }
 
+/// Travel mode (contract `vehicle`): car → auto, motorcycle, bicycle, walk → pedestrian.
 enum Vehicle: String, Codable, Sendable, CaseIterable, Identifiable {
     case car
     case motorcycle
+    case bicycle
+    case walk
     var id: String { rawValue }
+
+    /// Car and motorcycle use roads with tolls/expressways, live traffic and "avoid" options.
+    var isMotorized: Bool { self == .car || self == .motorcycle }
+
+    init(from decoder: any Decoder) throws {
+        let raw = try decoder.singleValueContainer().decode(String.self)
+        self = Vehicle(rawValue: raw) ?? .car
+    }
 }
 
 struct User: Codable, Sendable, Equatable {
@@ -67,20 +78,116 @@ struct SavedPlace: Codable, Sendable, Identifiable, Hashable {
     var id: String
     var kind: SavedPlaceKind
     var name: String
+    /// One of `FavoriteIcon` raw values; home/work always `home`/`work`.
+    var icon: String?
     var lat: Double
     var lng: Double
     var address: String
     var placeId: String?
+    var sortOrder: Int?
+
+    init(id: String, kind: SavedPlaceKind, name: String, icon: String? = nil, lat: Double, lng: Double, address: String,
+         placeId: String? = nil, sortOrder: Int? = nil) {
+        self.id = id; self.kind = kind; self.name = name; self.icon = icon
+        self.lat = lat; self.lng = lng; self.address = address; self.placeId = placeId; self.sortOrder = sortOrder
+    }
 
     var location: LatLng { LatLng(lat: lat, lng: lng) }
+
+    var favoriteIcon: FavoriteIcon {
+        switch kind {
+        case .home: .home
+        case .work: .work
+        case .favorite: icon.flatMap(FavoriteIcon.init(rawValue:)) ?? .star
+        }
+    }
 }
 
 struct SavedPlaceInput: Codable, Sendable {
     var name: String
+    var icon: String?
     var lat: Double
     var lng: Double
     var address: String
     var placeId: String?
+}
+
+/// `PATCH /me/places/{id}` body.
+struct SavedPlacePatch: Codable, Sendable, Equatable {
+    var name: String?
+    var icon: String?
+    var lat: Double?
+    var lng: Double?
+    var address: String?
+    var sortOrder: Int?
+}
+
+/// Favourite icons allowed by the contract.
+enum FavoriteIcon: String, CaseIterable, Sendable, Identifiable {
+    case home, work, kampung, mertua, star, heart, school, surau, food, gym, shop, hospital
+    var id: String { rawValue }
+
+    var gIcon: GIcon {
+        switch self {
+        case .home: .home
+        case .work: .work
+        case .kampung: .kampung
+        case .mertua: .mertua
+        case .star: .star
+        case .heart: .heart
+        case .school: .school
+        case .surau: .surau
+        case .food: .food
+        case .gym: .gym
+        case .shop: .shop
+        case .hospital: .hospital
+        }
+    }
+
+    /// Icons a user may pick for a favourite (home/work are reserved).
+    static let pickable: [FavoriteIcon] = [.kampung, .mertua, .star, .heart, .school, .surau, .food, .gym, .shop, .hospital]
+}
+
+/// Quick label chips on the "Save place" sheet. Labels are Malay proper names and stay as typed.
+struct QuickLabel: Identifiable, Sendable, Hashable {
+    let label: String
+    let icon: FavoriteIcon
+    var id: String { label }
+
+    static let all: [QuickLabel] = [
+        QuickLabel(label: "Kampung", icon: .kampung),
+        QuickLabel(label: "Rumah Mertua", icon: .mertua),
+        QuickLabel(label: "Sekolah", icon: .school),
+        QuickLabel(label: "Surau", icon: .surau),
+        QuickLabel(label: "Gym", icon: .gym),
+        QuickLabel(label: "Kedai", icon: .shop),
+    ]
+
+    /// Suggests an icon for a free-text label ("Sekolah Aina" → school).
+    static func suggestedIcon(for label: String) -> FavoriteIcon? {
+        let l = label.lowercased()
+        let rules: [(String, FavoriteIcon)] = [
+            ("mertua", .mertua), ("kampung", .kampung), ("sekolah", .school), ("school", .school), ("tadika", .school),
+            ("surau", .surau), ("masjid", .surau), ("mosque", .surau), ("gym", .gym), ("kedai", .shop), ("shop", .shop),
+            ("hospital", .hospital), ("klinik", .hospital), ("clinic", .hospital), ("makan", .food), ("restoran", .food),
+            ("food", .food), ("cafe", .food),
+        ]
+        return rules.first { l.contains($0.0) }?.1
+    }
+}
+
+/// Orders saved places as the contract specifies: home, work, then favourites by sortOrder.
+enum SavedPlaceOrdering {
+    static func sorted(_ places: [SavedPlace], localOrder: [String: Int] = [:]) -> [SavedPlace] {
+        func rank(_ p: SavedPlace) -> (Int, Int, String) {
+            switch p.kind {
+            case .home: (0, 0, "")
+            case .work: (1, 0, "")
+            case .favorite: (2, localOrder[p.id] ?? p.sortOrder ?? Int.max, p.name)
+            }
+        }
+        return places.sorted { rank($0) < rank($1) }
+    }
 }
 
 struct Recent: Codable, Sendable, Identifiable, Hashable {
@@ -186,6 +293,8 @@ struct RouteEndpoint: Codable, Sendable, Hashable {
     var lat: Double
     var lng: Double
     var placeId: String?
+    /// Waypoint display name (sent for waypoints).
+    var name: String?
 }
 
 struct RouteRequest: Codable, Sendable, Hashable {
@@ -257,8 +366,34 @@ struct Maneuver: Codable, Sendable, Hashable {
     var verbalPost: String?
 }
 
+struct LegEnd: Codable, Sendable, Hashable {
+    var lat: Double
+    var lng: Double
+    var name: String?
+}
+
 struct RouteLeg: Codable, Sendable, Hashable {
+    var durationS: Double?
+    var distanceM: Double?
+    var to: LegEnd?
     var maneuvers: [Maneuver]
+
+    init(durationS: Double? = nil, distanceM: Double? = nil, to: LegEnd? = nil, maneuvers: [Maneuver]) {
+        self.durationS = durationS; self.distanceM = distanceM; self.to = to; self.maneuvers = maneuvers
+    }
+}
+
+/// A toll plaza on the route with its curated fare (contract `tolls[]`).
+struct TollPlaza: Codable, Sendable, Hashable, Identifiable {
+    var plazaId: String
+    var name: String
+    var highway: String?
+    var lat: Double
+    var lng: Double
+    var fareMyr: Double?
+    var system: String?
+    var source: String?
+    var id: String { plazaId }
 }
 
 struct TrafficSegment: Codable, Sendable, Hashable {
@@ -275,8 +410,11 @@ struct Route: Codable, Sendable, Identifiable, Hashable {
     var trafficDurationS: Double?
     var summary: String
     var trafficDescription: String?
+    var vehicle: Vehicle?
     var hasTolls: Bool
     var tollEstimateMyr: Double?
+    var tollFareComplete: Bool?
+    var tolls: [TollPlaza]?
     var polyline: String
     var bbox: [Double]
     var legs: [RouteLeg]
@@ -295,6 +433,8 @@ struct RerouteRequest: Codable, Sendable {
     var lat: Double
     var lng: Double
     var heading: Double
+    /// Index (into the original waypoints) of the next stop not yet reached; the server keeps the remaining stops.
+    var nextStopIndex: Int?
 }
 
 struct DepartureSlot: Codable, Sendable, Hashable, Identifiable {
@@ -461,4 +601,72 @@ struct BBox: Hashable, Sendable {
         }
         return b
     }
+}
+
+// MARK: - Feedback
+
+enum FeedbackCategory: String, Codable, Sendable, CaseIterable, Identifiable {
+    case bug
+    case idea
+    case mapData = "map_data"
+    case route
+    case search
+    case other
+    var id: String { rawValue }
+
+    init(from decoder: any Decoder) throws {
+        let raw = try decoder.singleValueContainer().decode(String.self)
+        self = FeedbackCategory(rawValue: raw) ?? .other
+    }
+}
+
+enum FeedbackScreen: String, Codable, Sendable {
+    case home, search, place
+    case routePreview = "route_preview"
+    case navigation, report, settings, other
+}
+
+enum FeedbackStatus: String, Codable, Sendable {
+    case received, triaged, planned, done
+    case wontFix = "wont_fix"
+
+    init(from decoder: any Decoder) throws {
+        let raw = try decoder.singleValueContainer().decode(String.self)
+        self = FeedbackStatus(rawValue: raw) ?? .received
+    }
+}
+
+struct FeedbackContext: Codable, Sendable, Hashable {
+    var appVersion: String?
+    var platform: String? = "ios"
+    var osVersion: String?
+    var deviceModel: String?
+    var locale: String?
+    var lat: Double?
+    var lng: Double?
+    var routeId: String?
+    var placeId: String?
+}
+
+struct FeedbackRequest: Codable, Sendable, Hashable {
+    var category: FeedbackCategory
+    var message: String
+    var rating: Int?
+    var screen: FeedbackScreen
+    var context: FeedbackContext?
+    /// Base64 JPEG/PNG, ≤ 1.5 MB decoded.
+    var screenshot: String?
+}
+
+struct FeedbackCreated: Codable, Sendable, Hashable {
+    var id: String
+    var createdAt: Date?
+}
+
+struct FeedbackSummary: Codable, Sendable, Hashable, Identifiable {
+    var id: String
+    var category: FeedbackCategory
+    var message: String
+    var status: FeedbackStatus
+    var createdAt: Date
 }

@@ -93,12 +93,32 @@
         }
       }
     },
+    "%lld stars": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld bintang"
+          }
+        }
+      }
+    },
     "A driver": {
       "localizations": {
         "ms": {
           "stringUnit": {
             "state": "translated",
             "value": "Seorang pemandu"
+          }
+        }
+      }
+    },
+    "A trip can have up to 5 stops": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Satu perjalanan boleh ada hingga 5 hentian"
           }
         }
       }
@@ -143,6 +163,16 @@
         }
       }
     },
+    "Add feedback": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Beri maklum balas"
+          }
+        }
+      }
+    },
     "Add to favourites": {
       "localizations": {
         "ms": {
@@ -183,6 +213,16 @@
         }
       }
     },
+    "App version, device, language and approximate location (about 1 km)": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Versi aplikasi, peranti, bahasa dan lokasi anggaran (lebih kurang 1 km)"
+          }
+        }
+      }
+    },
     "Apply": {
       "localizations": {
         "ms": {
@@ -193,12 +233,42 @@
         }
       }
     },
+    "Are you a passenger?": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Adakah anda penumpang?"
+          }
+        }
+      }
+    },
     "Arrive %@": {
       "localizations": {
         "ms": {
           "stringUnit": {
             "state": "translated",
             "value": "Tiba %@"
+          }
+        }
+      }
+    },
+    "Arrive at %@": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tiba di %@"
+          }
+        }
+      }
+    },
+    "Arrived at %@": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sudah tiba di %@"
           }
         }
       }
@@ -283,12 +353,102 @@
         }
       }
     },
+    "Back up": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sandarkan"
+          }
+        }
+      }
+    },
+    "Back up automatically every day": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sandarkan secara automatik setiap hari"
+          }
+        }
+      }
+    },
+    "Back up now": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sandarkan sekarang"
+          }
+        }
+      }
+    },
+    "Back up to": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sandarkan ke"
+          }
+        }
+      }
+    },
+    "Backed up": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sudah disandarkan"
+          }
+        }
+      }
+    },
     "Backend": {
       "localizations": {
         "ms": {
           "stringUnit": {
             "state": "translated",
             "value": "Pelayan"
+          }
+        }
+      }
+    },
+    "Backing up…": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sedang menyandarkan…"
+          }
+        }
+      }
+    },
+    "Backup": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sandaran"
+          }
+        }
+      }
+    },
+    "Backup & restore": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sandaran & pemulihan"
+          }
+        }
+      }
+    },
+    "Backups are stored in your own cloud or file. Add a passphrase to encrypt them end to end.": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sandaran disimpan dalam awan atau fail kamu sendiri. Tambah kata laluan untuk menyulitkannya hujung ke hujung."
           }
         }
       }
@@ -373,6 +533,26 @@
         }
       }
     },
+    "Bicycle": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Basikal"
+          }
+        }
+      }
+    },
+    "Bike": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Basikal"
+          }
+        }
+      }
+    },
     "Blocked lane": {
       "localizations": {
         "ms": {
@@ -393,6 +573,16 @@
         }
       }
     },
+    "Bug": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pepijat"
+          }
+        }
+      }
+    },
     "Build default comes from the GimanoAPIBaseURL Info.plist key. The iPhone must be on Tailscale to reach WS556.": {
       "localizations": {
         "ms": {
@@ -409,6 +599,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Telefon"
+          }
+        }
+      }
+    },
+    "Cancel": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Batal"
           }
         }
       }
@@ -563,12 +763,52 @@
         }
       }
     },
+    "Cycle along %@": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Berbasikal di sepanjang %@"
+          }
+        }
+      }
+    },
     "Data": {
       "localizations": {
         "ms": {
           "stringUnit": {
             "state": "translated",
             "value": "Data"
+          }
+        }
+      }
+    },
+    "Date": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tarikh"
+          }
+        }
+      }
+    },
+    "Delete": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Padam"
+          }
+        }
+      }
+    },
+    "Deletes the places on this phone first, then restores the backup.": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Memadam tempat dalam telefon ini dahulu, kemudian memulihkan sandaran."
           }
         }
       }
@@ -609,6 +849,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "Laluan demo: tiada laluan dirakam untuk perjalanan ini. Memaparkan yang terdekat, ke %@."
+          }
+        }
+      }
+    },
+    "Demo route: these stops aren't on a captured demo road, so they are skipped.": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Laluan demo: hentian ini tiada di jalan demo yang dirakam, jadi ia dilangkau."
+          }
+        }
+      }
+    },
+    "Developer": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pembangun"
           }
         }
       }
@@ -683,6 +943,16 @@
         }
       }
     },
+    "Drive": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Drive"
+          }
+        }
+      }
+    },
     "Drive smarter with reports from drivers around you. Gimano needs your location to show where you are and guide you turn by turn.": {
       "localizations": {
         "ms": {
@@ -713,12 +983,52 @@
         }
       }
     },
+    "Edit": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sunting"
+          }
+        }
+      }
+    },
+    "Edit favourites": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sunting kegemaran"
+          }
+        }
+      }
+    },
+    "Edit stops": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sunting hentian"
+          }
+        }
+      }
+    },
     "Effective": {
       "localizations": {
         "ms": {
           "stringUnit": {
             "state": "translated",
             "value": "Berkesan"
+          }
+        }
+      }
+    },
+    "End-to-end encrypted. Gimano never stores your passphrase: if you lose it, this backup can't be recovered.": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Disulitkan hujung ke hujung. Gimano tidak pernah menyimpan kata laluan kamu: jika hilang, sandaran ini tidak dapat dipulihkan."
           }
         }
       }
@@ -763,6 +1073,56 @@
         }
       }
     },
+    "Export a .gimano file and keep it anywhere: Files, WhatsApp, email.": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Eksport fail .gimano dan simpan di mana-mana: Fail, WhatsApp, e-mel."
+          }
+        }
+      }
+    },
+    "Export backup file": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Eksport fail sandaran"
+          }
+        }
+      }
+    },
+    "Favourites": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kegemaran"
+          }
+        }
+      }
+    },
+    "Feedback service not available yet (pending backend)": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Perkhidmatan maklum balas belum tersedia (menunggu pelayan)"
+          }
+        }
+      }
+    },
+    "File": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fail"
+          }
+        }
+      }
+    },
     "Flood": {
       "localizations": {
         "ms": {
@@ -789,6 +1149,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Makan"
+          }
+        }
+      }
+    },
+    "For safety, drivers can send feedback only when stopped.": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Demi keselamatan, pemandu hanya boleh menghantar maklum balas semasa berhenti."
           }
         }
       }
@@ -822,6 +1192,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "Pergi sekarang"
+          }
+        }
+      }
+    },
+    "Google Drive isn't configured in this build.": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Google Drive belum dikonfigurasi dalam binaan ini."
+          }
+        }
+      }
+    },
+    "Google Drive: not configured in this build": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Google Drive: belum dikonfigurasi dalam binaan ini"
           }
         }
       }
@@ -926,12 +1316,32 @@
         }
       }
     },
+    "Home, work, kampung, your in-laws' house: your places live on your phone, not on our servers. Gimano never stores your personal data. Backups go straight to your own Google Drive or iCloud, optionally locked with a passphrase only you know.": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rumah, tempat kerja, kampung, rumah mertua: semua tempat kegemaran kamu disimpan dalam telefon kamu sahaja. Gimano tidak menyimpan data peribadi kamu di pelayan kami. Sandaran pergi terus ke Google Drive atau iCloud kamu sendiri, dan boleh dikunci dengan kata laluan yang hanya kamu tahu."
+          }
+        }
+      }
+    },
     "Hospital": {
       "localizations": {
         "ms": {
           "stringUnit": {
             "state": "translated",
             "value": "Hospital"
+          }
+        }
+      }
+    },
+    "I'm a passenger": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Saya penumpang"
           }
         }
       }
@@ -946,12 +1356,32 @@
         }
       }
     },
+    "Idea": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Idea"
+          }
+        }
+      }
+    },
     "In %@, %@": {
       "localizations": {
         "ms": {
           "stringUnit": {
             "state": "translated",
             "value": "Dalam %@, %@"
+          }
+        }
+      }
+    },
+    "In %@, you will arrive at %@": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dalam %@, anda akan tiba di %@"
           }
         }
       }
@@ -982,6 +1412,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "Peti masuk kosong"
+          }
+        }
+      }
+    },
+    "Include diagnostics": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sertakan diagnostik"
+          }
+        }
+      }
+    },
+    "Include screenshot": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sertakan tangkapan skrin"
           }
         }
       }
@@ -1036,6 +1486,36 @@
         }
       }
     },
+    "Keeps your current places and adds or updates places from the backup. Home and Work come from the backup.": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mengekalkan tempat sedia ada dan menambah atau mengemas kini tempat daripada sandaran. Rumah dan Kerja diambil daripada sandaran."
+          }
+        }
+      }
+    },
+    "Label": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Label"
+          }
+        }
+      }
+    },
+    "Label, e.g. Sekolah Aina": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Label, cth. Sekolah Aina"
+          }
+        }
+      }
+    },
     "Lane": {
       "localizations": {
         "ms": {
@@ -1052,6 +1532,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Bahasa"
+          }
+        }
+      }
+    },
+    "Last backup %@%@": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sandaran terakhir %@%@"
           }
         }
       }
@@ -1136,6 +1626,26 @@
         }
       }
     },
+    "Lock with a passphrase": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kunci dengan kata laluan"
+          }
+        }
+      }
+    },
+    "Made on": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dibuat pada"
+          }
+        }
+      }
+    },
     "Major": {
       "localizations": {
         "ms": {
@@ -1162,6 +1672,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Peta"
+          }
+        }
+      }
+    },
+    "Map data": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Data peta"
           }
         }
       }
@@ -1226,6 +1746,16 @@
         }
       }
     },
+    "Merge this backup": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gabungkan sandaran ini"
+          }
+        }
+      }
+    },
     "Minor": {
       "localizations": {
         "ms": {
@@ -1266,6 +1796,26 @@
         }
       }
     },
+    "More": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lagi"
+          }
+        }
+      }
+    },
+    "Moto": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Motosikal"
+          }
+        }
+      }
+    },
     "Motorbike": {
       "localizations": {
         "ms": {
@@ -1276,12 +1826,52 @@
         }
       }
     },
+    "Moved %lld saved places to this phone": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld tempat disimpan dipindahkan ke telefon ini"
+          }
+        }
+      }
+    },
+    "My feedback": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Maklum balas saya"
+          }
+        }
+      }
+    },
     "Name": {
       "localizations": {
         "ms": {
           "stringUnit": {
             "state": "translated",
             "value": "Nama"
+          }
+        }
+      }
+    },
+    "No backups yet": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Belum ada sandaran"
+          }
+        }
+      }
+    },
+    "No feedback yet": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Belum ada maklum balas"
           }
         }
       }
@@ -1326,6 +1916,16 @@
         }
       }
     },
+    "Not sent": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tidak dihantar"
+          }
+        }
+      }
+    },
     "Not there": {
       "localizations": {
         "ms": {
@@ -1346,12 +1946,32 @@
         }
       }
     },
+    "Offline, will retry": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Luar talian, akan cuba lagi"
+          }
+        }
+      }
+    },
     "Oil": {
       "localizations": {
         "ms": {
           "stringUnit": {
             "state": "translated",
             "value": "Minyak tumpah"
+          }
+        }
+      }
+    },
+    "On Wi-Fi while charging, only when something changed. Automatic backups are not passphrase-locked, because Gimano never stores your passphrase.": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Melalui Wi-Fi semasa mengecas, hanya jika ada perubahan. Sandaran automatik tidak dikunci dengan kata laluan kerana Gimano tidak pernah menyimpan kata laluan kamu."
           }
         }
       }
@@ -1396,12 +2016,42 @@
         }
       }
     },
+    "Other": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lain-lain"
+          }
+        }
+      }
+    },
     "Parking": {
       "localizations": {
         "ms": {
           "stringUnit": {
             "state": "translated",
             "value": "Parkir"
+          }
+        }
+      }
+    },
+    "Passphrase": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kata laluan"
+          }
+        }
+      }
+    },
+    "Passphrase (8+ characters)": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kata laluan (8+ aksara)"
           }
         }
       }
@@ -1422,6 +2072,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Rancang perjalanan dari skrin laluan dengan “Bertolak kemudian”."
+          }
+        }
+      }
+    },
+    "Planned": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dirancang"
           }
         }
       }
@@ -1466,12 +2126,32 @@
         }
       }
     },
+    "Private places": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tempat peribadi"
+          }
+        }
+      }
+    },
     "Profile": {
       "localizations": {
         "ms": {
           "stringUnit": {
             "state": "translated",
             "value": "Profil"
+          }
+        }
+      }
+    },
+    "Queued, will retry": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dalam giliran, akan cuba lagi"
           }
         }
       }
@@ -1526,6 +2206,16 @@
         }
       }
     },
+    "Received": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Diterima"
+          }
+        }
+      }
+    },
     "Recent": {
       "localizations": {
         "ms": {
@@ -1546,12 +2236,52 @@
         }
       }
     },
+    "Recents": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Terkini"
+          }
+        }
+      }
+    },
     "Refresh traffic & reports": {
       "localizations": {
         "ms": {
           "stringUnit": {
             "state": "translated",
             "value": "Muat semula trafik & laporan"
+          }
+        }
+      }
+    },
+    "Repeat passphrase": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ulang kata laluan"
+          }
+        }
+      }
+    },
+    "Replace": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ganti"
+          }
+        }
+      }
+    },
+    "Replace with this backup": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ganti dengan sandaran ini"
           }
         }
       }
@@ -1572,6 +2302,46 @@
           "stringUnit": {
             "state": "translated",
             "value": "Set semula token peranti"
+          }
+        }
+      }
+    },
+    "Restore": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pulihkan"
+          }
+        }
+      }
+    },
+    "Restore from file…": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pulihkan daripada fail…"
+          }
+        }
+      }
+    },
+    "Restored": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sudah dipulihkan"
+          }
+        }
+      }
+    },
+    "Retry": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cuba lagi"
           }
         }
       }
@@ -1616,6 +2386,16 @@
         }
       }
     },
+    "Route": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Laluan"
+          }
+        }
+      }
+    },
     "Routes": {
       "localizations": {
         "ms": {
@@ -1646,6 +2426,16 @@
         }
       }
     },
+    "Save places from a place card with the Save button.": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Simpan tempat daripada kad tempat dengan butang Simpan."
+          }
+        }
+      }
+    },
     "Saved": {
       "localizations": {
         "ms": {
@@ -1656,12 +2446,62 @@
         }
       }
     },
+    "Saved places": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tempat disimpan"
+          }
+        }
+      }
+    },
+    "Saved. We'll send it when we can.": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Disimpan. Kami akan menghantarnya apabila boleh."
+          }
+        }
+      }
+    },
+    "Search": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Carian"
+          }
+        }
+      }
+    },
+    "Self-test: back up and restore (file)": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ujian kendiri: sandar dan pulih (fail)"
+          }
+        }
+      }
+    },
     "Send": {
       "localizations": {
         "ms": {
           "stringUnit": {
             "state": "translated",
             "value": "Hantar"
+          }
+        }
+      }
+    },
+    "Sending…": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Menghantar…"
           }
         }
       }
@@ -1692,6 +2532,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Tetapkan alamat rumah"
+          }
+        }
+      }
+    },
+    "Set location": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tetapkan lokasi"
           }
         }
       }
@@ -1732,6 +2582,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Kongsi"
+          }
+        }
+      }
+    },
+    "Share %@": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kongsi %@"
           }
         }
       }
@@ -1796,6 +2656,46 @@
         }
       }
     },
+    "Sign in to Google first.": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Log masuk ke Google dahulu."
+          }
+        }
+      }
+    },
+    "Sign in to iCloud in Settings to back up there.": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Log masuk ke iCloud dalam Tetapan untuk menyandarkan ke sana."
+          }
+        }
+      }
+    },
+    "Sign in with Google": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Log masuk dengan Google"
+          }
+        }
+      }
+    },
+    "Sign out": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Log keluar"
+          }
+        }
+      }
+    },
     "Simulate drive (fake GPS)": {
       "localizations": {
         "ms": {
@@ -1812,6 +2712,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Simulasi"
+          }
+        }
+      }
+    },
+    "Some fares are unknown, so the total is a minimum.": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sesetengah tambang tidak diketahui, jadi jumlah ini adalah minimum."
           }
         }
       }
@@ -1846,6 +2756,16 @@
         }
       }
     },
+    "Source: %@": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sumber: %@"
+          }
+        }
+      }
+    },
     "Speed": {
       "localizations": {
         "ms": {
@@ -1872,6 +2792,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "Tidak bergerak"
+          }
+        }
+      }
+    },
+    "Start cycling": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mula berbasikal"
+          }
+        }
+      }
+    },
+    "Start walking": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mula berjalan"
           }
         }
       }
@@ -1936,6 +2876,16 @@
         }
       }
     },
+    "Stops": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hentian"
+          }
+        }
+      }
+    },
     "Surau": {
       "localizations": {
         "ms": {
@@ -1996,6 +2946,16 @@
         }
       }
     },
+    "Tell us what happened": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ceritakan apa yang berlaku"
+          }
+        }
+      }
+    },
     "Test connection (/healthz)": {
       "localizations": {
         "ms": {
@@ -2046,12 +3006,72 @@
         }
       }
     },
+    "Thanks! Feedback sent": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Terima kasih! Maklum balas dihantar"
+          }
+        }
+      }
+    },
     "Thanks! Your report is live.": {
       "localizations": {
         "ms": {
           "stringUnit": {
             "state": "translated",
             "value": "Terima kasih! Laporan anda kini aktif."
+          }
+        }
+      }
+    },
+    "The backup file is damaged.": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fail sandaran rosak."
+          }
+        }
+      }
+    },
+    "This backup is protected with a passphrase.": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sandaran ini dilindungi dengan kata laluan."
+          }
+        }
+      }
+    },
+    "This backup was made by a newer version of Gimano. Update the app first.": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sandaran ini dibuat oleh versi Gimano yang lebih baharu. Kemas kini aplikasi dahulu."
+          }
+        }
+      }
+    },
+    "This file isn't a Gimano backup.": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fail ini bukan sandaran Gimano."
+          }
+        }
+      }
+    },
+    "This route has tolls, but plaza details aren't available yet.": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Laluan ini ada tol, tetapi butiran plaza belum tersedia."
           }
         }
       }
@@ -2066,12 +3086,52 @@
         }
       }
     },
+    "Toll plazas": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Plaza tol"
+          }
+        }
+      }
+    },
+    "Tolls": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tol"
+          }
+        }
+      }
+    },
+    "Too many feedback messages, will retry later": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Terlalu banyak maklum balas, akan cuba lagi nanti"
+          }
+        }
+      }
+    },
     "Traffic": {
       "localizations": {
         "ms": {
           "stringUnit": {
             "state": "translated",
             "value": "Trafik"
+          }
+        }
+      }
+    },
+    "Triaged": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Disaring"
           }
         }
       }
@@ -2166,6 +3226,26 @@
         }
       }
     },
+    "Unsupported backup format %lld.": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Format sandaran %lld tidak disokong."
+          }
+        }
+      }
+    },
+    "Use Add feedback in the menu to tell us what to fix.": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gunakan Beri maklum balas dalam menu untuk memberitahu kami apa yang perlu dibaiki."
+          }
+        }
+      }
+    },
     "Use build default": {
       "localizations": {
         "ms": {
@@ -2222,6 +3302,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "Carian suara"
+          }
+        }
+      }
+    },
+    "Walk": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Jalan kaki"
+          }
+        }
+      }
+    },
+    "Walk along %@": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Berjalan di sepanjang %@"
           }
         }
       }
@@ -2286,6 +3386,16 @@
         }
       }
     },
+    "Won't fix": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tidak akan dibaiki"
+          }
+        }
+      }
+    },
     "Work": {
       "localizations": {
         "ms": {
@@ -2302,6 +3412,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Kerja jalan"
+          }
+        }
+      }
+    },
+    "Wrong passphrase.": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kata laluan salah."
           }
         }
       }
@@ -2346,12 +3466,72 @@
         }
       }
     },
+    "Your places stay on your phone": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tempat kamu kekal dalam telefon kamu"
+          }
+        }
+      }
+    },
     "driver": {
       "localizations": {
         "ms": {
           "stringUnit": {
             "state": "translated",
             "value": "pemandu"
+          }
+        }
+      }
+    },
+    "from %@": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "dari %@"
+          }
+        }
+      }
+    },
+    "iCloud": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "iCloud"
+          }
+        }
+      }
+    },
+    "iCloud is ready": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "iCloud sedia"
+          }
+        }
+      }
+    },
+    "iCloud isn't enabled in this build": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "iCloud tidak didayakan dalam binaan ini"
+          }
+        }
+      }
+    },
+    "iCloud isn't enabled in this build.": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "iCloud tidak didayakan dalam binaan ini."
           }
         }
       }

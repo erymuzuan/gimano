@@ -1,8 +1,26 @@
 import SwiftUI
 
+import GoogleSignIn
+
 @main
 struct GimanoApp: App {
-    @State private var model = AppModel()
+    @State private var model: AppModel
+
+    init() {
+        let model = AppModel()
+        _model = State(initialValue: model)
+        // Daily automatic backup (BGProcessingTask), registered before launch completes.
+        BackupManager.registerBackgroundTask { bgTask in
+            // BGTask isn't Sendable; it is only completed once, from the main actor.
+            nonisolated(unsafe) let task = bgTask
+            let work = Task { @MainActor in
+                let ok = await model.backup.runAutoBackup()
+                task.setTaskCompleted(success: ok)
+            }
+            task.expirationHandler = { work.cancel() }
+        }
+        if model.backup.autoBackup { BackupManager.schedule() }
+    }
 
     var body: some Scene {
         WindowGroup {
@@ -11,6 +29,11 @@ struct GimanoApp: App {
                 .tint(.brand)
                 .font(Tokens.Font.body)
                 .task { await model.bootstrap() }
+                .onOpenURL { url in
+                    if GIDSignIn.sharedInstance.handle(url) { return }
+                    // A .gimano file opened from Files / WhatsApp / Mail.
+                    if url.pathExtension.lowercased() == "gimano" { model.incomingBackup = url }
+                }
         }
     }
 }
@@ -87,6 +110,30 @@ struct RootView: View {
         .sheet(item: $menuDestination) { dest in
             MenuDestinationView(destination: dest)
         }
+        .sheet(item: $model.savingPlace) { p in
+            SavePlaceSheet(place: p).presentationDetents([.large])
+        }
+        .sheet(item: $model.feedbackDraft) { d in
+            FeedbackForm(draft: d)
+        }
+        .sheet(item: $model.menuSheet) { s in
+            switch s {
+            case .favorites: FavoritesManagerView()
+            case .myFeedback: MyFeedbackView()
+            case .backup: NavigationStack { BackupView().toolbar { ToolbarItem(placement: .topBarTrailing) { Button("Done") { model.menuSheet = nil } } } }
+            }
+        }
+        .sheet(item: Binding(get: { model.incomingBackup.map { IncomingFile(url: $0) } }, set: { model.incomingBackup = $0?.url })) { f in
+            RestoreSheet(pending: BackupView.PendingRestore(file: f.url, manifest: model.backup.manifest(of: f.url))) {
+                model.showToast(String(localized: "Restored"))
+            }
+        }
+        .alert("Are you a passenger?", isPresented: $model.askPassengerForFeedback) {
+            Button("I'm a passenger") { model.openFeedback(from: .navigation, passengerConfirmed: true) }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("For safety, drivers can send feedback only when stopped.")
+        }
         .fullScreenCover(isPresented: $model.showOnboarding) {
             OnboardingView()
         }
@@ -110,3 +157,8 @@ struct DemoBadge: View {
     }
 }
 
+
+struct IncomingFile: Identifiable {
+    let url: URL
+    var id: String { url.absoluteString }
+}

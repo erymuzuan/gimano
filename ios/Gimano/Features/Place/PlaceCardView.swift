@@ -6,7 +6,6 @@ struct PlaceCardView: View {
     @Environment(\.openURL) private var openURL
     let summary: PlaceSummary
     @State private var place: Place?
-    @State private var showSaveOptions = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -21,6 +20,20 @@ struct PlaceCardView: View {
                 }
                 .accessibilityLabel(Text("Back"))
                 Spacer()
+                Menu {
+                    Button { model.openFeedback(from: .place, placeId: summary.id) } label: {
+                        Label("Add feedback", systemImage: "bubble.left.and.text.bubble.right")
+                    }
+                } label: {
+                    Image(systemName: "ellipsis")
+                        .font(.system(size: 20, weight: .bold))
+                        .foregroundStyle(Color.textPrimary)
+                        .frame(width: 48, height: 48)
+                        .background(Color.surface, in: Circle())
+                        .fabShadow()
+                }
+                .accessibilityLabel(Text("More"))
+                .accessibilityIdentifier("placeMore")
             }
             .padding(.horizontal, Tokens.Space.gutter)
             .padding(.top, 8)
@@ -52,7 +65,8 @@ struct PlaceCardView: View {
                 }
 
                 HStack(spacing: 0) {
-                    action("Save", icon: "bookmark") { showSaveOptions = true }
+                    action("Save", icon: "bookmark") { model.savingPlace = summary }
+                        .accessibilityIdentifier("savePlace")
                     action("Call", icon: "phone") {
                         if let phone = place?.phone?.filter({ $0.isNumber || $0 == "+" }), let url = URL(string: "tel:\(phone)") { openURL(url) }
                     }
@@ -107,14 +121,9 @@ struct PlaceCardView: View {
                     .ignoresSafeArea(edges: .bottom)
             )
         }
-        .confirmationDialog("Save place", isPresented: $showSaveOptions) {
-            Button("Set as Home") { model.setSaved(kind: .home, place: summary) }
-            Button("Set as Work") { model.setSaved(kind: .work, place: summary) }
-            Button("Add to favourites") { model.setSaved(kind: .favorite, place: summary) }
-        }
         .task {
-            guard !summary.id.hasPrefix("pin:") else { return }
-            place = try? await model.repo.place(id: summary.id)
+            guard !summary.id.hasPrefix("pin:"), !summary.id.hasPrefix("local:") else { return }
+            place = try? await model.repo.place(id: summary.id, near: model.position)
         }
     }
 

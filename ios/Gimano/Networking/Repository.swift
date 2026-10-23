@@ -7,26 +7,28 @@ protocol GimanoRepository: Sendable {
     func me() async throws -> User
     func updateMe(_ patch: UserPatch) async throws -> User
 
-    func savedPlaces() async throws -> [SavedPlace]
-    func setPlace(kind: SavedPlaceKind, _ input: SavedPlaceInput) async throws -> SavedPlace
-    func addFavorite(_ input: SavedPlaceInput) async throws -> SavedPlace
-    func deletePlace(id: String) async throws
-    func recents() async throws -> [Recent]
+    /// One-time migration of personal data the server held for earlier app versions (`GET /me/data/export`).
+    func legacyExport() async throws -> LegacyDataMigration.Export
+    /// Permanently deletes that legacy server copy (`DELETE /me/data`).
+    func deleteLegacyData() async throws
 
     func search(query: String, near: LatLng, category: PlaceCategory?, limit: Int) async throws -> [PlaceSummary]
     func nearby(near: LatLng, category: PlaceCategory, radiusM: Int) async throws -> [PlaceSummary]
-    func place(id: String) async throws -> Place
+    func place(id: String, near: LatLng?) async throws -> Place
     func reverseGeocode(_ p: LatLng) async throws -> ReverseGeocode
 
     func routes(_ request: RouteRequest) async throws -> [Route]
     func reroute(routeId: String, _ request: RerouteRequest) async throws -> [Route]
-    func departureTimes(origin: LatLng, destination: LatLng, date: Date) async throws -> [DepartureSlot]
+    func departureTimes(origin: LatLng, destination: LatLng, date: Date, vehicle: Vehicle) async throws -> [DepartureSlot]
 
     func live(bbox: BBox) async throws -> LiveResponse
     func createReport(_ report: NewReport) async throws -> Report
     func vote(reportId: String, stillThere: Bool) async throws -> Report
     func thank(reportId: String) async throws
     func sendLocations(_ batch: LocationBatch) async throws
+
+    func sendFeedback(_ feedback: FeedbackRequest) async throws -> FeedbackCreated
+    func myFeedback() async throws -> [FeedbackSummary]
 
     func health() async -> Bool
 }
@@ -85,23 +87,15 @@ final class LiveRepository: GimanoRepository {
         try await authed { try await self.client.send("PATCH", "me", body: patch) }
     }
 
-    // MARK: places
+    // MARK: legacy personal data (migration only — personal data now lives on the device)
 
-    func savedPlaces() async throws -> [SavedPlace] { try await authed { try await self.client.get("me/places") } }
-
-    func setPlace(kind: SavedPlaceKind, _ input: SavedPlaceInput) async throws -> SavedPlace {
-        try await authed { try await self.client.send("PUT", "me/places/\(kind.rawValue)", body: input) }
+    func legacyExport() async throws -> LegacyDataMigration.Export {
+        try await authed { try await self.client.get("me/data/export") }
     }
 
-    func addFavorite(_ input: SavedPlaceInput) async throws -> SavedPlace {
-        try await authed { try await self.client.send("POST", "me/places", body: input) }
+    func deleteLegacyData() async throws {
+        try await authed { try await self.client.sendNoContent("DELETE", "me/data", body: Optional<Empty>.none) }
     }
-
-    func deletePlace(id: String) async throws {
-        try await authed { try await self.client.sendNoContent("DELETE", "me/places/\(id)", body: Optional<Empty>.none) }
-    }
-
-    func recents() async throws -> [Recent] { try await authed { try await self.client.get("me/recents") } }
 
     func search(query: String, near: LatLng, category: PlaceCategory?, limit: Int) async throws -> [PlaceSummary] {
         var q = [
@@ -127,9 +121,10 @@ final class LiveRepository: GimanoRepository {
         return res.results
     }
 
-    func place(id: String) async throws -> Place {
+    func place(id: String, near: LatLng?) async throws -> Place {
         let escaped = id.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? id
-        return try await authed { try await self.client.get("places/\(escaped)") }
+        let q = near.map { [URLQueryItem(name: "lat", value: String($0.lat)), URLQueryItem(name: "lng", value: String($0.lng))] } ?? []
+        return try await authed { try await self.client.get("places/\(escaped)", query: q) }
     }
 
     func reverseGeocode(_ p: LatLng) async throws -> ReverseGeocode {
@@ -152,9 +147,13 @@ final class LiveRepository: GimanoRepository {
         return res.routes
     }
 
-    func departureTimes(origin: LatLng, destination: LatLng, date: Date) async throws -> [DepartureSlot] {
-        let day = date.formatted(Date.ISO8601FormatStyle().year().month().day())
+    func departureTimes(origin: LatLng, destination: LatLng, date: Date, vehicle: Vehicle) async throws -> [DepartureSlot] {
+        var cal = Calendar(identifier: .gregorian)
+        cal.timeZone = TimeZone(identifier: "Asia/Kuala_Lumpur")!
+        let c = cal.dateComponents([.year, .month, .day], from: date)
+        let day = String(format: "%04d-%02d-%02d", c.year ?? 2026, c.month ?? 1, c.day ?? 1)
         let q = [
+            URLQueryItem(name: "vehicle", value: vehicle.isMotorized ? vehicle.rawValue : Vehicle.car.rawValue),
             URLQueryItem(name: "originLat", value: String(origin.lat)), URLQueryItem(name: "originLng", value: String(origin.lng)),
             URLQueryItem(name: "destLat", value: String(destination.lat)), URLQueryItem(name: "destLng", value: String(destination.lng)),
             URLQueryItem(name: "date", value: day),
@@ -190,6 +189,14 @@ final class LiveRepository: GimanoRepository {
         try await authed { try await self.client.sendNoContent("POST", "locations", body: batch) }
     }
 
+    func sendFeedback(_ feedback: FeedbackRequest) async throws -> FeedbackCreated {
+        try await authed { try await self.client.send("POST", "feedback", body: feedback) }
+    }
+
+    func myFeedback() async throws -> [FeedbackSummary] {
+        try await authed { try await self.client.get("me/feedback") }
+    }
+
     func health() async -> Bool {
         // healthz lives at the host root, not under /api/v1.
         var c = URLComponents(url: baseURL, resolvingAgainstBaseURL: false)!
@@ -218,7 +225,10 @@ final class FallbackRepository: GimanoRepository {
         self.onStatus = onStatus
     }
 
-    private func run<T: Sendable>(_ liveOp: @Sendable (LiveRepository) async throws -> T,
+    /// - Parameter gapFallback: serve demo data when the endpoint is missing (404/5xx). Off for writes, so
+    ///   user data is never silently written to the local demo store while the backend is online.
+    private func run<T: Sendable>(gapFallback: Bool = true,
+                                  _ liveOp: @Sendable (LiveRepository) async throws -> T,
                                   demoOp: @Sendable (DemoRepository) async throws -> T) async throws -> T {
         if await state.shouldSkipLive() { return try await demoOp(demo) }
         do {
@@ -228,23 +238,17 @@ final class FallbackRepository: GimanoRepository {
         } catch let e as APIError where e.isUnreachable {
             if await state.markOffline() { await onStatus(true) }
             return try await demoOp(demo)
-        } catch let e as APIError where e.isServerSideGap {
+        } catch let e as APIError where e.isServerSideGap && gapFallback {
             return try await demoOp(demo)
         }
     }
 
     func signIn() async throws -> DeviceAuthResponse { try await run({ try await $0.signIn() }, demoOp: { try await $0.signIn() }) }
     func me() async throws -> User { try await run({ try await $0.me() }, demoOp: { try await $0.me() }) }
-    func updateMe(_ patch: UserPatch) async throws -> User { try await run({ try await $0.updateMe(patch) }, demoOp: { try await $0.updateMe(patch) }) }
-    func savedPlaces() async throws -> [SavedPlace] { try await run({ try await $0.savedPlaces() }, demoOp: { try await $0.savedPlaces() }) }
-    func setPlace(kind: SavedPlaceKind, _ input: SavedPlaceInput) async throws -> SavedPlace {
-        try await run({ try await $0.setPlace(kind: kind, input) }, demoOp: { try await $0.setPlace(kind: kind, input) })
-    }
-    func addFavorite(_ input: SavedPlaceInput) async throws -> SavedPlace {
-        try await run({ try await $0.addFavorite(input) }, demoOp: { try await $0.addFavorite(input) })
-    }
-    func deletePlace(id: String) async throws { try await run({ try await $0.deletePlace(id: id) }, demoOp: { try await $0.deletePlace(id: id) }) }
-    func recents() async throws -> [Recent] { try await run({ try await $0.recents() }, demoOp: { try await $0.recents() }) }
+    func updateMe(_ patch: UserPatch) async throws -> User { try await run(gapFallback: false, { try await $0.updateMe(patch) }, demoOp: { try await $0.updateMe(patch) }) }
+    /// Migration calls go only to the real backend (never demo).
+    func legacyExport() async throws -> LegacyDataMigration.Export { try await live.legacyExport() }
+    func deleteLegacyData() async throws { try await live.deleteLegacyData() }
     func search(query: String, near: LatLng, category: PlaceCategory?, limit: Int) async throws -> [PlaceSummary] {
         try await run({ try await $0.search(query: query, near: near, category: category, limit: limit) },
                       demoOp: { try await $0.search(query: query, near: near, category: category, limit: limit) })
@@ -253,18 +257,18 @@ final class FallbackRepository: GimanoRepository {
         try await run({ try await $0.nearby(near: near, category: category, radiusM: radiusM) },
                       demoOp: { try await $0.nearby(near: near, category: category, radiusM: radiusM) })
     }
-    func place(id: String) async throws -> Place { try await run({ try await $0.place(id: id) }, demoOp: { try await $0.place(id: id) }) }
+    func place(id: String, near: LatLng?) async throws -> Place { try await run({ try await $0.place(id: id, near: near) }, demoOp: { try await $0.place(id: id, near: near) }) }
     func reverseGeocode(_ p: LatLng) async throws -> ReverseGeocode { try await run({ try await $0.reverseGeocode(p) }, demoOp: { try await $0.reverseGeocode(p) }) }
     func routes(_ request: RouteRequest) async throws -> [Route] { try await run({ try await $0.routes(request) }, demoOp: { try await $0.routes(request) }) }
     func reroute(routeId: String, _ request: RerouteRequest) async throws -> [Route] {
         try await run({ try await $0.reroute(routeId: routeId, request) }, demoOp: { try await $0.reroute(routeId: routeId, request) })
     }
-    func departureTimes(origin: LatLng, destination: LatLng, date: Date) async throws -> [DepartureSlot] {
-        try await run({ try await $0.departureTimes(origin: origin, destination: destination, date: date) },
-                      demoOp: { try await $0.departureTimes(origin: origin, destination: destination, date: date) })
+    func departureTimes(origin: LatLng, destination: LatLng, date: Date, vehicle: Vehicle) async throws -> [DepartureSlot] {
+        try await run({ try await $0.departureTimes(origin: origin, destination: destination, date: date, vehicle: vehicle) },
+                      demoOp: { try await $0.departureTimes(origin: origin, destination: destination, date: date, vehicle: vehicle) })
     }
     func live(bbox: BBox) async throws -> LiveResponse { try await run({ try await $0.live(bbox: bbox) }, demoOp: { try await $0.live(bbox: bbox) }) }
-    func createReport(_ report: NewReport) async throws -> Report { try await run({ try await $0.createReport(report) }, demoOp: { try await $0.createReport(report) }) }
+    func createReport(_ report: NewReport) async throws -> Report { try await run(gapFallback: false, { try await $0.createReport(report) }, demoOp: { try await $0.createReport(report) }) }
     func vote(reportId: String, stillThere: Bool) async throws -> Report {
         try await run({ try await $0.vote(reportId: reportId, stillThere: stillThere) }, demoOp: { try await $0.vote(reportId: reportId, stillThere: stillThere) })
     }
@@ -272,6 +276,10 @@ final class FallbackRepository: GimanoRepository {
     func sendLocations(_ batch: LocationBatch) async throws {
         try await run({ try await $0.sendLocations(batch) }, demoOp: { try await $0.sendLocations(batch) })
     }
+    /// Feedback never goes to the demo store while in auto mode: failures leave it in the outbox for retry.
+    func sendFeedback(_ feedback: FeedbackRequest) async throws -> FeedbackCreated { try await live.sendFeedback(feedback) }
+    func myFeedback() async throws -> [FeedbackSummary] { try await live.myFeedback() }
+
     func health() async -> Bool { await live.health() }
 
     var isOffline: Bool { get async { await state.offline } }

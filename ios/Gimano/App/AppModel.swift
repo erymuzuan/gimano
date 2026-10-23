@@ -33,6 +33,8 @@ final class RoutePlanner {
     var departAt: Date?
     var isLoading = false
     var error: String?
+    /// Intermediate stops, in order (≤ 5).
+    var stops: [TripStop] = []
 
     init(destination: Destination, vehicle: Vehicle) {
         self.destination = destination
@@ -40,6 +42,22 @@ final class RoutePlanner {
     }
 
     var selected: Route? { routes.first { $0.id == selectedId } ?? routes.first }
+
+    /// Seconds from departure to each stop, then the destination.
+    var schedule: StopSchedule? { selected.map { StopSchedule.make(route: $0, stops: stops.map(\.location)) } }
+}
+
+/// What the feedback sheet was opened for.
+struct FeedbackDraft: Identifiable {
+    let id = UUID()
+    var screen: FeedbackScreen
+    var screenshot: Data?
+    var context: FeedbackContext
+}
+
+enum MenuSheet: String, Identifiable {
+    case favorites, myFeedback, backup
+    var id: String { rawValue }
 }
 
 @MainActor
@@ -71,6 +89,23 @@ final class AppModel {
     var vehicle: Vehicle = .car
     /// Category pre-selected when opening search from a home shortcut tile.
     var searchCategory: PlaceCategory?
+    /// Place being saved from the place card ("Save" sheet).
+    var savingPlace: PlaceSummary?
+    var feedbackDraft: FeedbackDraft?
+    /// Navigation feedback while moving: ask "Are you a passenger?" first.
+    var askPassengerForFeedback = false
+    var menuSheet: MenuSheet?
+    /// A `.gimano` file opened from another app.
+    var incomingBackup: URL?
+    /// On-device personal data (favourites, recents, private places, settings).
+    let store: LocalStore
+    let backup: BackupManager
+    let feedbackOutbox: FeedbackOutbox
+    /// Server-side "My feedback" (merged with the local outbox in the UI).
+    private(set) var serverFeedback: [FeedbackSummary] = []
+    /// DEBUG/UI tests: fixed position instead of GPS (`-GimanoFakeLocation lat,lng`).
+    @ObservationIgnored private var fixedLocation: LatLng?
+    @ObservationIgnored private var outboxTimer: Task<Void, Never>?
 
     /// Latest position (simulated during demo drives) and motion.
     private(set) var position: LatLng = DemoRepository.defaultLocation
@@ -80,14 +115,44 @@ final class AppModel {
 
     @ObservationIgnored private var toastTask: Task<Void, Never>?
 
-    init(config: AppConfig = AppConfig()) {
+    init(config: AppConfig = AppConfig(), store: LocalStore = .shared) {
         self.config = config
         self.map = MapState(styleURL: config.styleURL)
         self.repo = DemoRepository()
+        self.store = store
+        self.backup = BackupManager(store: store)
+        #if DEBUG
+        Self.applyTestLaunchArguments(store: store)
+        #endif
+        self.feedbackOutbox = FeedbackOutbox(storage: LocalStoreOutboxStorage(store: store))
+        #if DEBUG
+        if let raw = UserDefaults.standard.string(forKey: "GimanoFakeLocation") {
+            let parts = raw.split(separator: ",").compactMap { Double($0.trimmingCharacters(in: .whitespaces)) }
+            if parts.count == 2 { fixedLocation = LatLng(lat: parts[0], lng: parts[1]); position = fixedLocation! }
+        }
+        #endif
+        if let raw = UserDefaults.standard.string(forKey: "travelMode"), let v = Vehicle(rawValue: raw) { vehicle = v }
         wireMap()
         location.onFix = { [weak self] fix in self?.handleRealFix(fix) }
         rebuildRepository()
+        startOutboxTimer()
     }
+
+    #if DEBUG
+    /// `-GimanoFreshDevice YES`: new anonymous device + empty local state (UI tests start clean).
+    private static func applyTestLaunchArguments(store: LocalStore) {
+        let d = UserDefaults.standard
+        if d.bool(forKey: "GimanoFreshDevice") {
+            Keychain.set(nil, for: "device.id")
+            for key in ["travelMode", "location.askedAlways"] { d.removeObject(forKey: key) }
+            for base in [AppConfig().apiBaseURL] { TokenStore.save(nil, for: base) }
+            try? store.wipePersonalData()
+            try? store.replaceOutbox(kind: "feedback", items: [])
+            try? store.setSetting(LegacyDataMigration.doneKey, nil)
+        }
+        if d.bool(forKey: "GimanoSkipOnboarding") { d.set(true, forKey: "onboarding.done") }
+    }
+    #endif
 
     // MARK: bootstrap
 
@@ -175,11 +240,36 @@ final class AppModel {
         }
         if let u = try? await repo.me() {
             user = u
-            if let v = u.vehicle { vehicle = v }
+            if let v = u.vehicle, UserDefaults.standard.string(forKey: "travelMode") == nil { vehicle = v }
             if backendStatus == .unknown, config.dataMode == .live { backendStatus = .online }
         }
-        if let p = try? await repo.savedPlaces() { savedPlaces = p }
-        if let r = try? await repo.recents() { recents = r }
+        await migrateLegacyDataIfNeeded()
+        reloadLocal()
+        await flushFeedback()
+    }
+
+    /// Reloads favourites and recents from the on-device store.
+    func reloadLocal() {
+        savedPlaces = (try? store.savedPlaces()) ?? []
+        recents = (try? store.recents()) ?? []
+    }
+
+    /// First launch after the on-device switch: download any server-side copy once, import it, then delete it
+    /// on the server. A 404/410 (not deployed yet / already gone) just marks the migration done.
+    func migrateLegacyDataIfNeeded() async {
+        guard config.dataMode != .demo, (try? store.setting(LegacyDataMigration.doneKey)) == nil else { return }
+        do {
+            let export = try await repo.legacyExport()
+            let n = try LegacyDataMigration.importExport(export, into: store)
+            try? await repo.deleteLegacyData()
+            try? store.setSetting(LegacyDataMigration.doneKey, LocalStore.timestamp())
+            if n > 0 { showToast(String(localized: "Moved \(n) saved places to this phone")) }
+        } catch let e as APIError {
+            if case .http(let status, _) = e, status == 404 || status == 410 || status == 405 {
+                try? store.setSetting(LegacyDataMigration.doneKey, LocalStore.timestamp())
+            }
+            // Offline: try again next launch.
+        } catch {}
     }
 
     var home: SavedPlace? { savedPlaces.first { $0.kind == .home } }
@@ -191,6 +281,7 @@ final class AppModel {
     // MARK: location
 
     private func handleRealFix(_ fix: LocationFix) {
+        guard fixedLocation == nil else { return }
         hasRealFix = true
         guard !simulator.isRunning else { return }
         applyFix(fix)
@@ -329,10 +420,39 @@ final class AppModel {
         openPlace(summary)
     }
 
-    func planRoute(to d: Destination) {
+    func planRoute(to d: Destination, stops: [TripStop] = []) {
+        // Recents stay on the device.
+        try? store.recordRecent(name: d.name, address: d.address, lat: d.location.lat, lng: d.location.lng, placeId: d.placeId)
+        recents = (try? store.recents()) ?? recents
         let planner = RoutePlanner(destination: d, vehicle: vehicle)
+        planner.stops = stops
         self.planner = planner
         go(.routePreview)
+        Task { await fetchRoutes() }
+    }
+
+    /// Travel mode tabs: remembered locally and on the profile (`PATCH /me vehicle`).
+    func setTravelMode(_ v: Vehicle) {
+        vehicle = v
+        UserDefaults.standard.set(v.rawValue, forKey: "travelMode")
+        updateProfile(UserPatch(vehicle: v))
+        if let planner, planner.vehicle != v {
+            planner.vehicle = v
+            Task { await fetchRoutes() }
+        }
+    }
+
+    // MARK: stops
+
+    func removeStop(_ id: UUID) {
+        guard let planner else { return }
+        planner.stops.removeAll { $0.id == id }
+        Task { await fetchRoutes() }
+    }
+
+    func moveStops(from: IndexSet, to: Int) {
+        guard let planner else { return }
+        StopPlanner.move(&planner.stops, from: from, to: to)
         Task { await fetchRoutes() }
     }
 
@@ -343,7 +463,9 @@ final class AppModel {
         let req = RouteRequest(
             origin: RouteEndpoint(lat: position.lat, lng: position.lng),
             destination: RouteEndpoint(lat: planner.destination.location.lat, lng: planner.destination.location.lng, placeId: planner.destination.placeId),
-            vehicle: planner.vehicle, avoid: planner.avoid, departAt: planner.departAt, alternatives: 2)
+            waypoints: planner.stops.map(\.endpoint),
+            vehicle: planner.vehicle, avoid: planner.vehicle.isMotorized ? planner.avoid : AvoidOptions(),
+            departAt: planner.departAt, alternatives: 2)
         do {
             let routes = try await repo.routes(req)
             guard self.planner === planner else { return }
@@ -370,7 +492,7 @@ final class AppModel {
 
     func startNavigation() {
         guard let planner, let route = planner.selected else { return }
-        let session = NavigationSession(destination: planner.destination, route: route, vehicle: planner.vehicle,
+        let session = NavigationSession(destination: planner.destination, route: route, stops: planner.stops, vehicle: planner.vehicle,
                                         avoid: planner.avoid, repo: repo, voice: voice)
         session.onRouteChanged = { [weak self] r in
             guard let self else { return }
@@ -388,12 +510,21 @@ final class AppModel {
     /// Demo drives: no backend, no real GPS fix (e.g. Simulator), or forced from Debug settings.
     var shouldSimulate: Bool {
         // Demo routes are captured fixtures that may not start where the device is, so always simulate them.
-        config.simulateDrive || isDemo || !hasRealFix || planner?.selected?.demoNote != nil
+        config.simulateDrive || isDemo || !hasRealFix || fixedLocation != nil || planner?.selected?.demoNote != nil
     }
 
     private func startSimulator(on route: Route) {
         let pts = Polyline.decode(route.polyline)
-        simulator.start(points: pts, speedKmh: planner?.vehicle == .motorcycle ? 55 : 50, speedup: config.simulationSpeedup) { [weak self] fix in
+        let mode = navigation?.vehicle ?? planner?.vehicle ?? .car
+        let speed: Double = switch mode {
+        case .car: 50
+        case .motorcycle: 55
+        case .bicycle: 16
+        case .walk: 5
+        }
+        // Slow modes get a bigger speed-up so demos don't take an hour.
+        let speedup = config.simulationSpeedup * (mode.isMotorized ? 1 : 4)
+        simulator.start(points: pts, speedKmh: speed, speedup: speedup) { [weak self] fix in
             self?.applyFix(fix)
         }
     }
@@ -407,38 +538,153 @@ final class AppModel {
         UIApplication.shared.isIdleTimerDisabled = false
         speedKmh = 0
         go(.home)
-        Task { if let r = try? await repo.recents() { recents = r } }
+        reloadLocal()
     }
 
+    /// "Add a stop" from search: appends to the trip being previewed, or to the active drive.
     func addStop(_ p: PlaceSummary) {
-        guard let nav = navigation else { return }
-        nav.waypoints = [RouteEndpoint(lat: p.lat, lng: p.lng, placeId: p.id)]
-        screen = .navigating
-        let req = RouteRequest(
-            origin: RouteEndpoint(lat: position.lat, lng: position.lng),
-            destination: RouteEndpoint(lat: nav.destination.location.lat, lng: nav.destination.location.lng, placeId: nav.destination.placeId),
-            waypoints: nav.waypoints, vehicle: nav.vehicle, avoid: nav.avoid, alternatives: 0)
-        Task {
-            if let r = try? await repo.routes(req).first {
-                nav.setRoute(r)
-                showToast(String(localized: "Stop added: \(p.name)"))
+        let stop = TripStop(name: p.name, location: p.location, placeId: p.id.hasPrefix("pin:") ? nil : p.id)
+        if let nav = navigation {
+            var remaining = Array(nav.stops.dropFirst(nav.stopTracker.nextStopIndex))
+            guard StopPlanner.add(stop, to: &remaining) else {
+                showToast(String(localized: "A trip can have up to 5 stops"))
+                go(.navigating)
+                return
             }
+            let req = RouteRequest(
+                origin: RouteEndpoint(lat: position.lat, lng: position.lng),
+                destination: RouteEndpoint(lat: nav.destination.location.lat, lng: nav.destination.location.lng, placeId: nav.destination.placeId),
+                waypoints: remaining.map(\.endpoint), vehicle: nav.vehicle, avoid: nav.avoid, alternatives: 0)
+            go(.navigating)
+            Task {
+                do {
+                    if let r = try await repo.routes(req).first {
+                        nav.setRoute(r, stops: remaining)
+                        showToast(String(localized: "Stop added: \(p.name)"))
+                    }
+                } catch {
+                    showToast(error.localizedDescription)
+                }
+            }
+        } else if let planner {
+            guard StopPlanner.add(stop, to: &planner.stops) else {
+                showToast(String(localized: "A trip can have up to 5 stops"))
+                go(.routePreview)
+                return
+            }
+            go(.routePreview)
+            Task { await fetchRoutes() }
+        } else {
+            openPlace(p)
         }
-        go(.navigating)
     }
 
-    // MARK: saved places
+    // MARK: saved places (on device)
 
-    func setSaved(kind: SavedPlaceKind, place p: PlaceSummary) {
-        let input = SavedPlaceInput(name: kind == .favorite ? p.name : (kind == .home ? String(localized: "Home") : String(localized: "Work")),
-                                    lat: p.lat, lng: p.lng, address: p.address, placeId: p.id)
+    func setSaved(kind: SavedPlaceKind, place p: PlaceSummary, label: String? = nil, icon: FavoriteIcon? = nil) {
+        let placeId = p.id.hasPrefix("pin:") || p.id.hasPrefix("local:") ? nil : p.id
+        do {
+            switch kind {
+            case .home, .work:
+                try store.setHomeWork(kind, name: kind == .home ? String(localized: "Home") : String(localized: "Work"),
+                                      lat: p.lat, lng: p.lng, address: p.address, placeId: placeId)
+            case .favorite:
+                let name = (label?.trimmingCharacters(in: .whitespaces)).flatMap { $0.isEmpty ? nil : $0 } ?? p.name
+                try store.addFavorite(name: name, icon: icon ?? QuickLabel.suggestedIcon(for: name) ?? .star,
+                                      lat: p.lat, lng: p.lng, address: p.address, placeId: placeId)
+            }
+            reloadLocal()
+            showToast(String(localized: "Saved"))
+        } catch {
+            showToast(error.localizedDescription)
+        }
+    }
+
+    func icon(for place: SavedPlace) -> FavoriteIcon { place.favoriteIcon }
+
+    func updateFavorite(_ place: SavedPlace, name: String, icon: FavoriteIcon) {
+        try? store.updateFavorite(id: place.id, name: name.trimmingCharacters(in: .whitespaces), icon: icon)
+        reloadLocal()
+    }
+
+    func deleteFavorite(_ place: SavedPlace) {
+        try? store.deleteSavedPlace(id: place.id)
+        reloadLocal()
+    }
+
+    func moveFavorites(from: IndexSet, to: Int) {
+        var favs = favorites
+        favs.move(fromOffsets: from, toOffset: to)
+        try? store.reorderFavorites(favs.map(\.id))
+        reloadLocal()
+    }
+
+    /// Promotes a favourite to Home or Work.
+    func promote(_ place: SavedPlace, to kind: SavedPlaceKind) {
+        let p = PlaceSummary(id: place.placeId ?? "local:\(place.id)", name: place.name, category: .other, address: place.address,
+                             lat: place.lat, lng: place.lng, distanceM: nil, brand: nil)
+        setSaved(kind: kind, place: p)
+    }
+
+    func navigate(to saved: SavedPlace) {
+        planRoute(to: Destination(name: saved.name, address: saved.address, location: saved.location, placeId: saved.placeId))
+    }
+
+    /// Local favourites matching a search query (shown before server results).
+    func localMatches(_ query: String) -> [SavedPlace] {
+        let q = query.trimmingCharacters(in: .whitespaces).lowercased()
+        guard !q.isEmpty else { return [] }
+        return savedPlaces.filter {
+            $0.name.lowercased().contains(q) || $0.address.lowercased().contains(q)
+                || ($0.kind == .home && String(localized: "Home").lowercased().hasPrefix(q))
+                || ($0.kind == .work && String(localized: "Work").lowercased().hasPrefix(q))
+        }
+    }
+
+    // MARK: feedback
+
+    /// Opens "Add feedback": captures the current screen first, then shows the form.
+    /// During navigation it's only allowed when stopped (< 5 km/h) or after the user confirms they're a passenger.
+    func openFeedback(from screen: FeedbackScreen, placeId: String? = nil, passengerConfirmed: Bool = false) {
+        if screen == .navigation, !FeedbackRules.allowedWhileDriving(speedKmh: speedKmh, isPassenger: passengerConfirmed) {
+            askPassengerForFeedback = true
+            return
+        }
+        let shot = FeedbackAttachments.captureWindowJPEG()
+        let routeId = navigation?.route.id ?? planner?.selected?.id
+        // Privacy: location in diagnostics is rounded to 2 dp (~1 km); diagnostics are opt-in in the form.
+        let rounded = LatLng(lat: (position.lat * 100).rounded() / 100, lng: (position.lng * 100).rounded() / 100)
+        feedbackDraft = FeedbackDraft(screen: screen, screenshot: shot,
+                                      context: FeedbackAttachments.diagnostics(position: rounded, routeId: routeId, placeId: placeId))
+    }
+
+    func submitFeedback(_ request: FeedbackRequest) {
+        _ = feedbackOutbox.enqueue(request)
+        feedbackDraft = nil
         Task {
-            do {
-                _ = kind == .favorite ? try await repo.addFavorite(input) : try await repo.setPlace(kind: kind, input)
-                if let s = try? await repo.savedPlaces() { savedPlaces = s }
-                showToast(String(localized: "Saved"))
-            } catch {
-                showToast(error.localizedDescription)
+            let sent = await feedbackOutbox.flush { [repo] in try await repo.sendFeedback($0) }
+            showToast(sent > 0 ? String(localized: "Thanks! Feedback sent") : String(localized: "Saved. We'll send it when we can."))
+        }
+    }
+
+    func flushFeedback() async {
+        let repo = self.repo
+        await feedbackOutbox.flush { try await repo.sendFeedback($0) }
+    }
+
+    func refreshMyFeedback() async {
+        await flushFeedback()
+        if let list = try? await repo.myFeedback() {
+            serverFeedback = list
+            feedbackOutbox.applyServerStatuses(list)
+        }
+    }
+
+    private func startOutboxTimer() {
+        outboxTimer = Task { [weak self] in
+            while !Task.isCancelled {
+                try? await Task.sleep(for: .seconds(30))
+                await self?.flushFeedback()
             }
         }
     }

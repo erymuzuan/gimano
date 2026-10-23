@@ -75,23 +75,39 @@ final class VoiceGuide {
 struct VoiceAnnouncer: Sendable {
     enum Stage: Int, Sendable { case early, near }
     private var spoken: Set<String> = []
+    var mode: Vehicle = .car
 
-    /// Early prompt distance grows with speed (highways).
-    static func earlyDistance(speedKmh: Double) -> Double { speedKmh > 75 ? 1500 : 600 }
-    static func nearDistance(speedKmh: Double) -> Double { max(80, speedKmh / 3.6 * 7) }
+    init(mode: Vehicle = .car) { self.mode = mode }
 
-    mutating func prompt(maneuverIndex: Int, maneuver: Maneuver, distanceM: Double, speedKmh: Double) -> String? {
-        let early = Self.earlyDistance(speedKmh: speedKmh)
-        let near = Self.nearDistance(speedKmh: speedKmh)
+    /// Early prompt distance grows with speed (highways); short for walking and cycling.
+    static func earlyDistance(speedKmh: Double, mode: Vehicle = .car) -> Double {
+        switch mode {
+        case .walk: 120
+        case .bicycle: 250
+        default: speedKmh > 75 ? 1500 : 600
+        }
+    }
+
+    static func nearDistance(speedKmh: Double, mode: Vehicle = .car) -> Double {
+        switch mode {
+        case .walk: 20
+        case .bicycle: 40
+        default: max(80, speedKmh / 3.6 * 7)
+        }
+    }
+
+    mutating func prompt(maneuverIndex: Int, maneuver: Maneuver, distanceM: Double, speedKmh: Double, stopName: String? = nil) -> String? {
+        let early = Self.earlyDistance(speedKmh: speedKmh, mode: mode)
+        let near = Self.nearDistance(speedKmh: speedKmh, mode: mode)
         if distanceM <= near {
             guard spoken.insert("\(maneuverIndex)-near").inserted else { return nil }
             spoken.insert("\(maneuverIndex)-early")
-            return ManeuverFormatter.voicePrompt(for: maneuver, distanceM: nil)
+            return ManeuverFormatter.voicePrompt(for: maneuver, distanceM: nil, mode: mode, stopName: stopName)
         }
-        if distanceM <= early, distanceM > near + 100 {
+        if distanceM <= early, distanceM > near + min(100, early / 4) {
             guard spoken.insert("\(maneuverIndex)-early").inserted else { return nil }
             // Our own localized phrasing (en/ms) rather than the backend's English verbalPre.
-            return ManeuverFormatter.voicePrompt(for: maneuver, distanceM: distanceM)
+            return ManeuverFormatter.voicePrompt(for: maneuver, distanceM: distanceM, mode: mode, stopName: stopName)
         }
         return nil
     }

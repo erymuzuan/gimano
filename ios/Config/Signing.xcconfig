@@ -2,4 +2,15 @@
 // Put your own Apple Developer Team ID in Config/Local.xcconfig (git-ignored):
 //   cp Config/Local.xcconfig.example Config/Local.xcconfig
 DEVELOPMENT_TEAM =
+// iCloud backup (CloudKit container iCloud.my.gimano.app). Needs an Apple ID in Xcode → Settings → Accounts so
+// automatic signing can register the container. Set GIMANO_ICLOUD = NO in Local.xcconfig (or on the xcodebuild
+// command line) to build without the iCloud entitlement; the app then shows "iCloud isn't enabled in this build".
+GIMANO_ICLOUD = YES
+GIMANO_ENTITLEMENTS_YES = Gimano/Resources/Gimano.entitlements
+GIMANO_ENTITLEMENTS_NO = Gimano/Resources/Gimano-NoCloud.entitlements
 #include? "Local.xcconfig"
+
+// Optional Google Drive backup client (git-ignored): cp Config/Google.xcconfig.example Config/Google.xcconfig
+GIMANO_GOOGLE_CLIENT_ID =
+GIMANO_GOOGLE_REVERSED_CLIENT_ID = gimano-google-not-configured
+#include? "Google.xcconfig"

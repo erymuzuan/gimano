@@ -30,13 +30,26 @@ enum ManeuverFormatter {
         return parts.isEmpty ? nil : parts.joined(separator: " ")
     }
 
-    static func instruction(for m: Maneuver) -> String {
+    /// - Parameters:
+    ///   - mode: travel mode; walking/cycling get their own departure wording.
+    ///   - stopName: set for the arrival maneuver of an intermediate stop.
+    static func instruction(for m: Maneuver, mode: Vehicle = .car, stopName: String? = nil) -> String {
         let road = roadName(m)
         switch m.type {
         case .depart:
-            if let road { return String(localized: "Head out on \(road)") }
-            return String(localized: "Head out")
+            switch mode {
+            case .walk:
+                if let road { return String(localized: "Walk along \(road)") }
+                return String(localized: "Start walking")
+            case .bicycle:
+                if let road { return String(localized: "Cycle along \(road)") }
+                return String(localized: "Start cycling")
+            default:
+                if let road { return String(localized: "Head out on \(road)") }
+                return String(localized: "Head out")
+            }
         case .arrive:
+            if let stopName { return String(localized: "Arrive at \(stopName)") }
             return String(localized: "You have arrived")
         case .straight:
             if let road { return String(localized: "Continue on \(road)") }
@@ -130,9 +143,12 @@ enum ManeuverFormatter {
     }
 
     /// Voice prompt for a maneuver. `distanceM == nil` means "now".
-    static func voicePrompt(for m: Maneuver, distanceM: Double?) -> String {
-        let text = instruction(for: m)
+    static func voicePrompt(for m: Maneuver, distanceM: Double?, mode: Vehicle = .car, stopName: String? = nil) -> String {
+        let text = instruction(for: m, mode: mode, stopName: stopName)
         guard let distanceM else { return text }
+        if m.type == .arrive, let stopName {
+            return String(localized: "In \(spokenDistance(distanceM)), you will arrive at \(stopName)")
+        }
         if m.type == .arrive {
             return String(localized: "In \(spokenDistance(distanceM)), you will arrive at your destination")
         }

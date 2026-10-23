@@ -32,9 +32,20 @@ struct SideMenu: View {
 
                 Divider()
 
+                actionRow("Favourites", icon: "star.fill", id: "menuFavorites") { model.showMenu = false; model.menuSheet = .favorites }
                 row("Planned drives", icon: "calendar", .planned)
                 row("Inbox", icon: "tray.fill", .inbox)
                 row("Settings", icon: "gearshape.fill", .settings)
+                actionRow("Add feedback", icon: "bubble.left.and.text.bubble.right.fill", id: "menuAddFeedback") {
+                    model.showMenu = false
+                    Task {
+                        // Let the menu close so the screenshot shows the map, not the menu.
+                        try? await Task.sleep(for: .milliseconds(450))
+                        model.openFeedback(from: .home)
+                    }
+                }
+                actionRow("My feedback", icon: "tray.full.fill", id: "menuMyFeedback") { model.showMenu = false; model.menuSheet = .myFeedback }
+                actionRow("Backup & restore", icon: "arrow.clockwise.icloud.fill", id: "menuBackup") { model.showMenu = false; model.menuSheet = .backup }
                 row("Help and feedback", icon: "questionmark.circle.fill", .help)
                 row("Developer settings", icon: "hammer.fill", .debug)
 
@@ -52,6 +63,21 @@ struct SideMenu: View {
             .frame(maxHeight: .infinity)
             .background(Color.surface.ignoresSafeArea())
         }
+    }
+
+    private func actionRow(_ title: LocalizedStringKey, icon: String, id: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            HStack(spacing: 16) {
+                Image(systemName: icon).frame(width: 24).foregroundStyle(Color.textMuted)
+                Text(title).font(Tokens.Font.body)
+                Spacer()
+            }
+            .padding(.horizontal, 20)
+            .frame(height: 54)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityIdentifier(id)
     }
 
     private func row(_ title: LocalizedStringKey, icon: String, _ dest: MenuDestination) -> some View {
@@ -147,6 +173,10 @@ struct SettingsView: View {
     var body: some View {
         @Bindable var model = model
         Form {
+            Section {
+                PrivacyCard().listRowInsets(EdgeInsets())
+                NavigationLink("Backup & restore") { BackupView() }.accessibilityIdentifier("settingsBackup")
+            }
             Section("Sound") {
                 Picker("Voice guidance", selection: $model.soundMode) {
                     ForEach(SoundMode.allCases, id: \.self) { Text($0.title).tag($0) }
@@ -201,6 +231,11 @@ struct OnboardingView: View {
                 .multilineTextAlignment(.center)
                 .foregroundStyle(Color.textMuted)
                 .padding(.horizontal, 32)
+            PrivacyCard(onBackup: {
+                model.finishOnboarding(allowLocation: false)
+                model.menuSheet = .backup
+            })
+            .padding(.horizontal, 24)
             Spacer()
             VStack(spacing: 12) {
                 Button("Continue") { model.finishOnboarding(allowLocation: true) }

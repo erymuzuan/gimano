@@ -2,10 +2,29 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<key>BGTaskSchedulerPermittedIdentifiers</key>
+	<array>
+		<string>my.gimano.app.backup</string>
+	</array>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>en</string>
 	<key>CFBundleDisplayName</key>
 	<string>Gimano</string>
+	<key>CFBundleDocumentTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleTypeName</key>
+			<string>Gimano backup</string>
+			<key>CFBundleTypeRole</key>
+			<string>Viewer</string>
+			<key>LSHandlerRank</key>
+			<string>Owner</string>
+			<key>LSItemContentTypes</key>
+			<array>
+				<string>my.gimano.backup</string>
+			</array>
+		</dict>
+	</array>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -23,20 +42,41 @@
 	<string>$(PRODUCT_BUNDLE_PACKAGE_TYPE)</string>
 	<key>CFBundleShortVersionString</key>
 	<string>$(MARKETING_VERSION)</string>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLName</key>
+			<string>google-signin</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>$(GIMANO_GOOGLE_REVERSED_CLIENT_ID)</string>
+			</array>
+		</dict>
+	</array>
 	<key>CFBundleVersion</key>
 	<string>$(CURRENT_PROJECT_VERSION)</string>
+	<key>GIDClientID</key>
+	<string>$(GIMANO_GOOGLE_CLIENT_ID)</string>
 	<key>GimanoAPIBaseURL</key>
 	<string>$(GIMANO_API_BASE_URL)</string>
+	<key>GimanoICloudEnabled</key>
+	<string>$(GIMANO_ICLOUD)</string>
 	<key>GimanoMapStyleURL</key>
 	<string>$(GIMANO_MAP_STYLE_URL)</string>
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>LSSupportsOpeningDocumentsInPlace</key>
+	<false/>
+	<key>NSCameraUsageDescription</key>
+	<string>Gimano uses the camera so you can add photos of places and reviews.</string>
 	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
 	<string>Gimano keeps using your location while you navigate with the screen off, so voice guidance and traffic reports keep working.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>Gimano uses your location to show where you are, find places near you and guide you turn by turn.</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>Gimano can save photos you choose to your library.</string>
 	<key>UIAppFonts</key>
 	<array>
 		<string>Nunito.ttf</string>
@@ -50,6 +90,7 @@
 	<array>
 		<string>location</string>
 		<string>audio</string>
+		<string>processing</string>
 	</array>
 	<key>UILaunchScreen</key>
 	<dict>
@@ -63,6 +104,31 @@
 	<key>UISupportedInterfaceOrientations</key>
 	<array>
 		<string>UIInterfaceOrientationPortrait</string>
+	</array>
+	<key>UTExportedTypeDeclarations</key>
+	<array>
+		<dict>
+			<key>UTTypeConformsTo</key>
+			<array>
+				<string>public.zip-archive</string>
+				<string>public.data</string>
+			</array>
+			<key>UTTypeDescription</key>
+			<string>Gimano backup</string>
+			<key>UTTypeIdentifier</key>
+			<string>my.gimano.backup</string>
+			<key>UTTypeTagSpecification</key>
+			<dict>
+				<key>public.filename-extension</key>
+				<array>
+					<string>gimano</string>
+				</array>
+				<key>public.mime-type</key>
+				<array>
+					<string>application/vnd.gimano.backup+zip</string>
+				</array>
+			</dict>
+		</dict>
 	</array>
 </dict>
 </plist>

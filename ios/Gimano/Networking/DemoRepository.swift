@@ -6,27 +6,14 @@ actor DemoRepository: GimanoRepository {
     static let defaultLocation = LatLng(lat: 3.152613, lng: 101.703718) // on Jalan Sultan Ismail, KL (road-snapped; origin of DemoRoutes.json)
 
     private var user = User(id: "demo-user", displayName: "Pemandu Gimano", mood: "😎", vehicle: .car, points: 1280, level: 3, joinedAt: .now.addingTimeInterval(-86400 * 40))
-    private var saved: [SavedPlace]
-    private var recentList: [Recent]
     private var reports: [Report]
-    private var routeDestinations: [String: (dest: RouteEndpoint, vehicle: Vehicle, avoid: AvoidOptions)] = [:]
+    private var routeDestinations: [String: (dest: RouteEndpoint, waypoints: [RouteEndpoint], vehicle: Vehicle, avoid: AvoidOptions)] = [:]
+    private var feedback: [FeedbackSummary] = []
     private var routeCounter = 0
     private let latency: Duration
 
     init(latency: Duration = .milliseconds(250)) {
         self.latency = latency
-        saved = [
-            SavedPlace(id: "home", kind: .home, name: "Home", lat: 3.1466, lng: 101.6297, address: "Taman Tun Dr Ismail, 60000 Kuala Lumpur"),
-            SavedPlace(id: "work", kind: .work, name: "Work", lat: 3.1110, lng: 101.6655, address: "Bangsar South, 59200 Kuala Lumpur"),
-            SavedPlace(id: "fav-1", kind: .favorite, name: "Mak's house", lat: 3.0738, lng: 101.5183, address: "Seksyen 7, 40000 Shah Alam"),
-            SavedPlace(id: "fav-2", kind: .favorite, name: "Gym", lat: 3.1579, lng: 101.7123, address: "Suria KLCC, Kuala Lumpur"),
-        ]
-        recentList = [
-            Recent(id: "r1", name: "Mid Valley Megamall", address: "Lingkaran Syed Putra, Mid Valley City, 59200 Kuala Lumpur", lat: 3.1178, lng: 101.6773, placeId: "demo:midvalley", lastUsedAt: .now.addingTimeInterval(-3600)),
-            Recent(id: "r2", name: "Batu Caves", address: "Gombak, 68100 Batu Caves, Selangor", lat: 3.2379, lng: 101.6840, placeId: "demo:batucaves", lastUsedAt: .now.addingTimeInterval(-86400)),
-            Recent(id: "r3", name: "KL Sentral", address: "Jalan Stesen Sentral, 50470 Kuala Lumpur", lat: 3.1340, lng: 101.6862, placeId: "demo:klsentral", lastUsedAt: .now.addingTimeInterval(-86400 * 3)),
-            Recent(id: "r4", name: "Sunway Pyramid", address: "Jalan PJS 11/15, Bandar Sunway, 47500 Petaling Jaya", lat: 3.0731, lng: 101.6070, placeId: "demo:sunway", lastUsedAt: .now.addingTimeInterval(-86400 * 6)),
-        ]
         let now = Date()
         func r(_ id: String, _ type: ReportType, _ sub: String?, _ lat: Double, _ lng: Double, _ street: String, _ minsAgo: Double, conf: Int) -> Report {
             Report(id: id, type: type, subtype: sub, lat: lat, lng: lng, heading: nil, street: street,
@@ -69,26 +56,10 @@ actor DemoRepository: GimanoRepository {
         return user
     }
 
-    // MARK: places
+    // MARK: legacy (nothing to migrate in demo mode)
 
-    func savedPlaces() async throws -> [SavedPlace] { saved }
-
-    func setPlace(kind: SavedPlaceKind, _ input: SavedPlaceInput) async throws -> SavedPlace {
-        let p = SavedPlace(id: kind.rawValue, kind: kind, name: input.name, lat: input.lat, lng: input.lng, address: input.address, placeId: input.placeId)
-        saved.removeAll { $0.kind == kind }
-        saved.insert(p, at: kind == .home ? 0 : min(1, saved.count))
-        return p
-    }
-
-    func addFavorite(_ input: SavedPlaceInput) async throws -> SavedPlace {
-        let p = SavedPlace(id: "fav-\(UUID().uuidString.prefix(6))", kind: .favorite, name: input.name, lat: input.lat, lng: input.lng, address: input.address, placeId: input.placeId)
-        saved.append(p)
-        return p
-    }
-
-    func deletePlace(id: String) async throws { saved.removeAll { $0.id == id } }
-
-    func recents() async throws -> [Recent] { recentList }
+    func legacyExport() async throws -> LegacyDataMigration.Export { LegacyDataMigration.Export(savedPlaces: [], recents: []) }
+    func deleteLegacyData() async throws {}
 
     func search(query: String, near: LatLng, category: PlaceCategory?, limit: Int) async throws -> [PlaceSummary] {
         await pause()
@@ -115,13 +86,15 @@ actor DemoRepository: GimanoRepository {
 
     func nearby(near: LatLng, category: PlaceCategory, radiusM: Int) async throws -> [PlaceSummary] {
         await pause()
-        return DemoData.places.filter { $0.category == category }
+        // Surau and mosque are one "prayer" group for the quick chips.
+        let group: Set<PlaceCategory> = category == .surau || category == .mosque ? [.surau, .mosque] : [category]
+        return DemoData.places.filter { group.contains($0.category) }
             .map { var s = $0; s.distanceM = Geo.distance(near, $0.location); return s }
             .filter { ($0.distanceM ?? 0) <= Double(radiusM) * 4 }
             .sorted { ($0.distanceM ?? 0) < ($1.distanceM ?? 0) }
     }
 
-    func place(id: String) async throws -> Place {
+    func place(id: String, near: LatLng?) async throws -> Place {
         guard let s = DemoData.places.first(where: { $0.id == id }) else { throw APIError.http(status: 404, problem: nil) }
         let amenities: [String] = switch s.category {
         case .fuel: ["toilets", "convenience_store", "air_pump", "cards", "touch_n_go"]
@@ -129,7 +102,7 @@ actor DemoRepository: GimanoRepository {
         case .mall: ["parking", "toilets", "surau", "ev_charging"]
         default: ["toilets", "wheelchair"]
         }
-        return Place(id: s.id, name: s.name, category: s.category, address: s.address, lat: s.lat, lng: s.lng, distanceM: nil,
+        return Place(id: s.id, name: s.name, category: s.category, address: s.address, lat: s.lat, lng: s.lng, distanceM: near.map { Geo.distance($0, s.location) },
                      brand: s.brand, phone: "+60 3-2123 4567", website: "https://www.openstreetmap.org",
                      openingHours: s.category == .fuel || s.category == .restArea ? "24/7" : "Mo-Su 10:00-22:00",
                      openNow: true, amenities: amenities, tags: [:], osmType: "node", osmId: Int64(abs(s.id.hashValue) % 1_000_000_000))
@@ -148,10 +121,22 @@ actor DemoRepository: GimanoRepository {
         let d = LatLng(lat: request.destination.lat, lng: request.destination.lng)
         var routes: [Route]
         let canned = CannedRoutes.shared
-        if request.waypoints.isEmpty, let exact = canned.match(origin: o, destination: d) {
+        if let exact = canned.match(origin: o, destination: d) {
             // Real road geometry (OSM/OSRM fixture) so demo drives stay on roads.
             routes = DemoRouteBuilder.decorate(exact, vehicle: request.vehicle, avoid: request.avoid, departAt: request.departAt,
                                                seed: routeCounter, alerts: reports)
+            if !request.waypoints.isEmpty {
+                // Stops are honoured only when they lie on the captured road; otherwise say so instead of inventing a detour.
+                let stops = request.waypoints.map { (LatLng(lat: $0.lat, lng: $0.lng), $0.name) }
+                let onRoad = routes.compactMap { DemoRouteBuilder.splitIntoLegs($0, stops: stops) }
+                if onRoad.isEmpty {
+                    for i in routes.indices {
+                        routes[i].demoNote = String(localized: "Demo route: these stops aren't on a captured demo road, so they are skipped.")
+                    }
+                } else {
+                    routes = onRoad
+                }
+            }
         } else if let nearest = canned.nearest(to: d) {
             // No captured route for this trip: never fabricate geometry — offer the nearest captured route, labelled.
             let place = DemoData.places.min { Geo.distance($0.location, LatLng(lat: nearest.lat, lng: nearest.lng)) < Geo.distance($1.location, LatLng(lat: nearest.lat, lng: nearest.lng)) }
@@ -166,24 +151,21 @@ actor DemoRepository: GimanoRepository {
         }
         routeCounter += 1
         routes = Array(routes.prefix(max(1, request.alternatives + 1)))
-        for r in routes { routeDestinations[r.id] = (request.destination, request.vehicle, request.avoid) }
-        if let pid = request.destination.placeId, let p = DemoData.places.first(where: { $0.id == pid }) {
-            recentList.removeAll { $0.placeId == pid }
-            recentList.insert(Recent(id: "r-\(pid)", name: p.name, address: p.address, lat: p.lat, lng: p.lng, placeId: pid, lastUsedAt: .now), at: 0)
-            recentList = Array(recentList.prefix(20))
-        }
+        for r in routes { routeDestinations[r.id] = (request.destination, request.waypoints, request.vehicle, request.avoid) }
         return routes
     }
 
     func reroute(routeId: String, _ request: RerouteRequest) async throws -> [Route] {
         guard let ctx = routeDestinations[routeId] else { throw APIError.http(status: 404, problem: nil) }
-        let req = RouteRequest(origin: RouteEndpoint(lat: request.lat, lng: request.lng), destination: ctx.dest, vehicle: ctx.vehicle, avoid: ctx.avoid, alternatives: 0)
+        let remaining = Array(ctx.waypoints.dropFirst(min(request.nextStopIndex ?? 0, ctx.waypoints.count)))
+        let req = RouteRequest(origin: RouteEndpoint(lat: request.lat, lng: request.lng), destination: ctx.dest, waypoints: remaining,
+                               vehicle: ctx.vehicle, avoid: ctx.avoid, alternatives: 0)
         return try await routes(req)
     }
 
-    func departureTimes(origin: LatLng, destination: LatLng, date: Date) async throws -> [DepartureSlot] {
+    func departureTimes(origin: LatLng, destination: LatLng, date: Date, vehicle: Vehicle) async throws -> [DepartureSlot] {
         await pause()
-        let base = Geo.distance(origin, destination) * 1.3 / (40 / 3.6)
+        let base = Geo.distance(origin, destination) * 1.3 / ((vehicle == .motorcycle ? 46 : 40) / 3.6)
         let start = Calendar.current.date(bySetting: .minute, value: 0, of: date) ?? date
         return (0..<16).map { i in
             let t = start.addingTimeInterval(Double(i) * 1800)
@@ -244,6 +226,16 @@ actor DemoRepository: GimanoRepository {
 
     func sendLocations(_ batch: LocationBatch) async throws {}
 
+    func sendFeedback(_ f: FeedbackRequest) async throws -> FeedbackCreated {
+        await pause()
+        guard FeedbackRules.validate(message: f.message) else { throw APIError.http(status: 400, problem: ProblemDetails(title: "Invalid message")) }
+        let item = FeedbackSummary(id: "demo-fb-\(UUID().uuidString.prefix(8))", category: f.category, message: f.message, status: .received, createdAt: .now)
+        feedback.insert(item, at: 0)
+        return FeedbackCreated(id: item.id, createdAt: item.createdAt)
+    }
+
+    func myFeedback() async throws -> [FeedbackSummary] { feedback }
+
     func health() async -> Bool { true }
 }
 
@@ -268,20 +260,29 @@ enum DemoRouteBuilder {
         let descriptions: [LocalizedStringResource] = ["Typical traffic", "Heavier than usual", "Light traffic"]
         var routes: [Route] = []
         for (i, base) in canned.enumerated() {
-            if avoid.tolls && base.hasTolls { continue }
+            if vehicle.isMotorized && avoid.tolls && base.hasTolls { continue }
             var r = base
             r.id = "\(base.id)-\(seed)"
-            var factor = [1.12, 1.25, 1.35][i % 3] * (vehicle == .motorcycle ? 0.85 : 1)
+            r.vehicle = vehicle
+            // Walking/cycling reuse the captured roads (never invented paths) with mode speeds and no tolls/traffic.
+            if !vehicle.isMotorized {
+                let speedKmh = vehicle == .walk ? 4.8 : 15.0
+                r.durationS = r.distanceM / (speedKmh / 3.6)
+                r.hasTolls = false
+                r.trafficSegments = []
+            }
+            var factor = vehicle.isMotorized ? [1.12, 1.25, 1.35][i % 3] * (vehicle == .motorcycle ? 0.85 : 1) : 1
             if let departAt {
                 let hour = Double(Calendar.current.component(.hour, from: departAt))
                 factor *= 1 + 0.4 * (exp(-pow(hour - 8, 2) / 3) + exp(-pow(hour - 18, 2) / 3)) - 0.1
             }
             r.trafficDurationS = r.durationS * factor
-            r.trafficDescription = String(localized: descriptions[i % 3])
+            r.trafficDescription = vehicle.isMotorized ? String(localized: descriptions[i % 3]) : nil
+            (r.tolls, r.tollEstimateMyr, r.tollFareComplete) = demoTolls(for: r, vehicle: vehicle)
             var legs = r.legs
             for li in legs.indices {
                 for mi in legs[li].maneuvers.indices {
-                    legs[li].maneuvers[mi].instruction = ManeuverFormatter.instruction(for: legs[li].maneuvers[mi])
+                    legs[li].maneuvers[mi].instruction = ManeuverFormatter.instruction(for: legs[li].maneuvers[mi], mode: vehicle)
                 }
             }
             r.legs = legs
@@ -293,6 +294,71 @@ enum DemoRouteBuilder {
         routes.sort { $0.effectiveDurationS < $1.effectiveDurationS }
         for i in routes.indices { routes[i].label = i == 0 ? "best" : "alternative" }
         return routes
+    }
+
+    /// Demo-only toll plazas: one per expressway the route enters, placed on the route vertex where the expressway
+    /// maneuver begins (on-road). Fares come from a tiny demo table and are labelled as demo data, not real tariffs.
+    static let demoFares: [String: Double] = ["E10": 1.60, "E23": 2.50, "E11": 2.10]
+
+    static func demoTolls(for r: Route, vehicle: Vehicle) -> ([TollPlaza], Double?, Bool) {
+        guard vehicle.isMotorized, r.hasTolls else { return ([], nil, false) }
+        let pts = Polyline.decode(r.polyline)
+        var seen = Set<String>()
+        var plazas: [TollPlaza] = []
+        for m in r.maneuvers {
+            guard let ref = m.roadRef, ref.hasPrefix("E"), ref.dropFirst().allSatisfy(\.isNumber), !seen.contains(ref),
+                  pts.indices.contains(m.beginShapeIndex) else { continue }
+            seen.insert(ref)
+            let p = pts[m.beginShapeIndex]
+            let fare: Double? = vehicle == .motorcycle ? (demoFares[ref] == nil ? nil : 0) : demoFares[ref]
+            plazas.append(TollPlaza(plazaId: "demo-\(ref)", name: "Plaza Tol \(ref) (demo)", highway: [ref, m.streetName].compactMap { $0 }.joined(separator: " "),
+                                    lat: p.lat, lng: p.lng, fareMyr: fare, system: "open", source: "Demo data, not a real tariff"))
+        }
+        if plazas.isEmpty { return ([], nil, false) }
+        let known = plazas.compactMap(\.fareMyr)
+        return (plazas, known.isEmpty ? nil : known.reduce(0, +), known.count == plazas.count)
+    }
+
+    /// Splits a captured route into legs at the given stops when every stop lies within 300 m of the road.
+    /// Returns nil when a stop is off the captured road (demo never invents a detour).
+    static func splitIntoLegs(_ route: Route, stops: [(LatLng, String?)], within: Double = 300) -> Route? {
+        let pts = Polyline.decode(route.polyline)
+        guard pts.count > 2 else { return nil }
+        let cum = Geo.cumulativeDistances(pts)
+        var idx: [Int] = []
+        var from = 0
+        for (s, _) in stops {
+            var best = (d: Double.infinity, i: from)
+            for i in from..<pts.count {
+                let d = Geo.distance(s, pts[i])
+                if d < best.d { best = (d, i) }
+            }
+            guard best.d <= within, best.i > from, best.i < pts.count - 1 else { return nil }
+            idx.append(best.i)
+            from = best.i
+        }
+        let all = route.maneuvers
+        var legs: [RouteLeg] = []
+        var start = 0
+        let scale = route.distanceM > 0 ? 1.0 : 0
+        for (k, end) in (idx + [pts.count - 1]).enumerated() {
+            var ms = all.filter { $0.beginShapeIndex >= start && $0.beginShapeIndex < end && !($0.type == .arrive) }
+            if k > 0 {
+                ms.removeAll { $0.type == .depart }
+                ms.insert(Maneuver(type: .depart, instruction: "", streetName: ms.first?.streetName, distanceM: 0, durationS: 0,
+                                   beginShapeIndex: start, endShapeIndex: ms.first?.beginShapeIndex ?? end), at: 0)
+            }
+            ms.append(Maneuver(type: .arrive, instruction: "", distanceM: 0, durationS: 0, beginShapeIndex: end, endShapeIndex: end))
+            for j in 0..<(ms.count - 1) { ms[j].endShapeIndex = ms[j + 1].beginShapeIndex }
+            let legM = cum[end] - cum[start]
+            let name = k < stops.count ? stops[k].1 : nil
+            legs.append(RouteLeg(durationS: route.durationS * legM / max(1, cum.last ?? 1) * scale, distanceM: legM,
+                                 to: LegEnd(lat: pts[end].lat, lng: pts[end].lng, name: name), maneuvers: ms))
+            start = end
+        }
+        var r = route
+        r.legs = legs
+        return r
     }
 
     static func alertsOnRoute(_ pts: [LatLng], alerts: [Report], within: Double = 120) -> [AlertOnRoute] {

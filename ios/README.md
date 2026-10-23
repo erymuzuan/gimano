@@ -93,6 +93,45 @@ max(40 m, 1.2 × accuracy), with a 10 s cooldown, before calling `POST /routes/{
 Alerts on the route within 600 m raise the "Still there? / Not there" card. Pings are batched to `POST /locations`.
 The puck snaps to the route when within 30 m; otherwise it shows the raw fix.
 
+## Personal data: on device only (docs/privacy-and-backup.md)
+
+Home/Work, labelled favourites (Kampung, Rumah Mertua…), recents, "Just for me" places, planned drives
+and settings live in `Storage/LocalStore.swift` (GRDB, SQLite), using **exactly** the shared schema from
+the doc (`PRAGMA user_version` versioning, no GRDB migration table, so snapshots contain only shared
+tables). They are never sent to the server. On first launch the app imports any legacy server copy
+(`GET /me/data/export`, then `DELETE /me/data`; 404/410 is ignored).
+
+### Backup & restore (Settings, or Menu → Backup & restore)
+
+- **iCloud**: CloudKit private DB, container `iCloud.my.gimano.app`, one `GimanoBackup` record per backup (file as a
+  `CKAsset`) plus a fixed `GimanoBackupIndex` record. Keeps the last 5. Requires an Apple ID in Xcode
+  → Settings → Accounts so automatic signing can register the container. Until then, build with
+  `GIMANO_ICLOUD=NO` (on the command line or in `Config/Local.xcconfig`); the app then shows "iCloud isn't enabled in this build".
+- **Google Drive** `appDataFolder` (scope `drive.appdata`) via GoogleSignIn-iOS + Drive REST. Copy
+  `Config/Google.xcconfig.example` to `Config/Google.xcconfig` (git-ignored) with the iOS OAuth client id;
+  without it the screen says "not configured".
+- **File**: export a `.gimano` file (ShareLink) / restore with the file importer, or open one from Files/WhatsApp
+  (UTType `my.gimano.backup`).
+- Optional daily auto-backup (`BGProcessingTask` `my.gimano.app.backup`, charging + network, only if data changed).
+  Auto-backups are unencrypted, because the passphrase is never stored.
+- Restore modes: **Replace** or **Merge** (upsert by id, newer `updated_at` wins; Home/Work from the backup;
+  recents keep the newer `last_used_at` and the larger `use_count`; local settings are kept).
+
+### `.gimano` v1 byte layout (for cross-platform interop; please mirror on Android)
+
+```
+zip (plain):      manifest.json, data.sqlite, photos/<id>.webp
+zip (encrypted):  manifest.json, payload.enc
+payload.enc     = libsodium crypto_secretstream_xchacha20poly1305 over an inner zip { data.sqlite, photos/* }
+                  [24-byte header][chunk]…  chunk = 65 536 plaintext bytes + 17 (ABYTES); last chunk tag FINAL,
+                  all others MESSAGE (no additional data)
+key             = crypto_pwhash(32 bytes, passphrase UTF-8, salt, opslimit, memlimit, ALG_ARGON2ID13)
+manifest.kdf    = {"alg":"argon2id13","opslimit":…,"memlimit":…,"salt":"<base64 16 bytes>","chunkSize":65536}
+                  (iOS writes crypto_pwhash_OPSLIMIT_MODERATE / MEMLIMIT_MODERATE; readers must use the manifest values)
+data.sqlite     = `VACUUM INTO` snapshot, `outbox` table dropped, user_version = schema version
+timestamps      = ISO-8601 UTC text (`2026-10-23T01:02:03.123Z`); merge compares with julianday()
+```
+
 ## Icons
 
 `DesignSystem/IconData.swift` is generated from `docs/icons/gimano-icons.json`:
@@ -117,7 +156,21 @@ app language: `ms-MY` voice, falling back to `id-ID` and then English if no Mala
 ## Debug launch arguments (screenshots / demos)
 
 `-GimanoDataMode demo|auto|live`, `-GimanoSimulateDrive YES`,
-`-GimanoDemoScene search|place|route|route-far|nav|report|menu|overview` (DEBUG builds only), `-GimanoDemoQuery <text>`.
+`-GimanoDemoScene search|place|route|route-far|nav|report|menu|overview` (DEBUG builds only), `-GimanoDemoQuery <text>`,
+`-GimanoFreshDevice YES` (new anonymous device, wipes local data), `-GimanoSkipOnboarding YES`,
+`-GimanoFakeLocation lat,lng`, `-GimanoNoAutoStart YES` (no Go-now countdown).
+
+## UI tests (real device)
+
+`GimanoUITests` drives the main scenarios against the live backend and attaches screenshots:
+
+```sh
+xcodebuild test -project Gimano.xcodeproj -scheme Gimano -destination id=<device-udid> \
+  -allowProvisioningUpdates GIMANO_ICLOUD=NO -only-testing:GimanoUITests -resultBundlePath out.xcresult
+xcrun xcresulttool export attachments --path out.xcresult --output-path shots/
+```
+
+The phone must be unlocked, and it needs Tailscale on to reach WS556.
 
 ## Licences / attribution
 

@@ -33,6 +33,18 @@ packages:
   MapLibre:
     url: https://github.com/maplibre/maplibre-gl-native-distribution
     from: 6.31.0
+  GRDB:
+    url: https://github.com/groue/GRDB.swift
+    from: 7.11.1
+  Sodium:
+    url: https://github.com/jedisct1/swift-sodium
+    from: 0.11.0
+  ZIPFoundation:
+    url: https://github.com/weichsel/ZIPFoundation
+    from: 0.9.20
+  GoogleSignIn:
+    url: https://github.com/google/GoogleSignIn-iOS
+    from: 10.1.0
 
 targets:
   Gimano:
@@ -43,8 +55,17 @@ targets:
         excludes:
           - "Resources/Info.plist"
           - "Resources/Info-Debug.plist"
+          - "Resources/Gimano.entitlements"
+          - "Resources/Gimano-NoCloud.entitlements"
     dependencies:
       - package: MapLibre
+      - package: GRDB
+        product: GRDB
+      - package: Sodium
+        product: Sodium
+      - package: ZIPFoundation
+      - package: GoogleSignIn
+        product: GoogleSignIn
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: my.gimano.app
@@ -53,6 +74,7 @@ targets:
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
         GENERATE_INFOPLIST_FILE: NO
+        CODE_SIGN_ENTITLEMENTS: $(GIMANO_ENTITLEMENTS_$(GIMANO_ICLOUD))
       configs:
         # Hand-maintained; keep in sync. Debug adds the cleartext ATS exception, Release is ATS-strict.
         Debug:
@@ -74,15 +96,30 @@ targets:
         TEST_HOST: $(BUILT_PRODUCTS_DIR)/Gimano.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/Gimano
         BUNDLE_LOADER: $(TEST_HOST)
 
+  GimanoUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources:
+      - path: GimanoUITests
+    dependencies:
+      - target: Gimano
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: my.gimano.app.uitests
+        GENERATE_INFOPLIST_FILE: YES
+        TEST_TARGET_NAME: Gimano
+
 schemes:
   Gimano:
     build:
       targets:
         Gimano: all
         GimanoTests: [test]
+        GimanoUITests: [test]
     test:
       targets:
         - GimanoTests
+        - GimanoUITests
       gatherCoverageData: false
     run:
       config: Debug

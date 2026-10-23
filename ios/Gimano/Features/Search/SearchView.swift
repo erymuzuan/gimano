@@ -12,7 +12,7 @@ struct SearchView: View {
     @FocusState private var focused: Bool
 
     private static let quickCategories: [(PlaceCategory, LocalizedStringKey)] = [
-        (.fuel, "Fuel"), (.restaurant, "Food"), (.mosque, "Surau"), (.parking, "Parking"),
+        (.fuel, "Fuel"), (.restaurant, "Food"), (.surau, "Surau"), (.parking, "Parking"),
         (.evCharging, "EV"), (.restArea, "R&R"), (.tollBooth, "Toll"), (.hospital, "Hospital"),
     ]
 
@@ -20,7 +20,9 @@ struct SearchView: View {
         VStack(spacing: 0) {
             HStack(spacing: 10) {
                 Button {
-                    model.screen = model.navigation != nil ? .navigating : .home
+                    if model.navigation != nil { model.screen = .navigating }
+                    else if purpose == .addStop, model.planner != nil { model.screen = .routePreview }
+                    else { model.go(.home) }
                 } label: {
                     Image(systemName: "chevron.left")
                         .font(.system(size: 20, weight: .semibold))
@@ -83,12 +85,24 @@ struct SearchView: View {
                 LazyVStack(alignment: .leading, spacing: 0) {
                     if query.isEmpty && category == nil {
                         suggestions
-                    } else if results.isEmpty && !isSearching {
+                    } else if results.isEmpty && !isSearching && model.localMatches(query).isEmpty {
                         Text("No results")
                             .font(Tokens.Font.body)
                             .foregroundStyle(Color.textMuted)
                             .padding(Tokens.Space.gutter)
                     } else {
+                        // On-device favourites first (they never leave the phone).
+                        ForEach(model.localMatches(query)) { f in
+                            Button {
+                                pick(PlaceSummary(id: f.placeId ?? "local:\(f.id)", name: f.name, category: .other, address: f.address,
+                                                  lat: f.lat, lng: f.lng, distanceM: Geo.distance(model.position, f.location), brand: nil))
+                            } label: {
+                                PlaceRow(gIcon: model.icon(for: f).gIcon, title: f.name, subtitle: f.address, distanceM: Geo.distance(model.position, f.location))
+                            }
+                            .buttonStyle(.plain)
+                            .accessibilityIdentifier("localResult")
+                            Divider().padding(.leading, 68)
+                        }
                         ForEach(results) { r in
                             Button { pick(r) } label: {
                                 PlaceRow(category: r.category, title: r.name, subtitle: r.address, distanceM: r.distanceM)
