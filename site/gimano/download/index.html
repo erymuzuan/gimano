@@ -95,7 +95,7 @@ footer{display:flex;flex-wrap:wrap;gap:16px 28px;padding-top:28px;padding-bottom
       <h1>Muat turun Gimano untuk Android.</h1>
       <p class="lede">Percuma, tanpa iklan, sumber terbuka. <span class="en">Free, no ads, open source. Download the Android app directly from us.</span></p>
       <div class="actions">
-        <a class="btn btn-primary" href="gimano-0.1.0.apk" download type="application/vnd.android.package-archive">
+        <a id="apk-link" class="btn btn-primary" href="gimano-0.1.0.apk" download type="application/vnd.android.package-archive">
           <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"></path></svg>
           Muat turun APK · Download
         </a>
@@ -103,8 +103,8 @@ footer{display:flex;flex-wrap:wrap;gap:16px 28px;padding-top:28px;padding-bottom
       </div>
       <div class="meta" aria-label="Butiran fail · File details">
         <span>gimano-0.1.0.apk</span>
-        <span>Versi 0.1.0</span>
-        <span>41.5 MB</span>
+        <span>Versi <span id="apk-version">0.1.0</span></span>
+        <span id="apk-size">41.5 MB</span>
         <span>Android 8.0 ke atas · Android 8.0+</span>
       </div>
     </div>
@@ -171,7 +171,7 @@ footer{display:flex;flex-wrap:wrap;gap:16px 28px;padding-top:28px;padding-bottom
     <h2 id="sahkan">Pastikan fail tidak diubah</h2>
     <div class="grid">
       <div class="hash on-dark">
-        <span class="label">SHA-256 · gimano-0.1.0.apk · 41,522,687 bait / bytes</span>
+        <span class="label">SHA-256 · gimano-0.1.0.apk · <span id="apk-bytes">41,522,687</span> bait / bytes</span>
         <code id="apk-sha256">51f9ae66d2866390a23406696589d1619e01624e4c6bae14151b5d70a702721b</code>
         <span class="label">Ditandatangani oleh · Signed by</span>
         <code class="signer">CN=Gimano, O=Gimano, L=Kuala Lumpur, C=MY</code>
