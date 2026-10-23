@@ -22,10 +22,11 @@ public static class AuthAndMeEndpoints
     internal static async Task<UserDto> MeAsync(GimanoDbContext db, User user, DateTimeOffset now, CancellationToken ct)
     {
         var c = await Gimano.Core.Identity.Ledger.CountersAsync(db, user, now, ct);
-        var next = Gimano.Core.Identity.Reputation.Next(c, now);
+        var hasKey = await db.UserKeys.AnyAsync(k => k.UserId == user.Id && k.RevokedAt == null, ct);
+        var next = Gimano.Core.Identity.Reputation.Next(c, now, hasKey);
         return user.ToDto() with
         {
-            Tier = user.Tier, Accuracy = Gimano.Core.Identity.Reputation.Accuracy(c), PlacesAccepted = user.PlacesAccepted,
+            Tier = Gimano.Core.Identity.Reputation.CapForLegacy(user.Tier, hasKey), Accuracy = Gimano.Core.Identity.Reputation.Accuracy(c), PlacesAccepted = user.PlacesAccepted,
             VerifierVotes = user.VerifierVotes, NextTier = next is null ? null : new NextTierDto(next.Name, next.Missing),
             SuspendedUntil = user.SuspendedUntil > now ? user.SuspendedUntil : null,
         };

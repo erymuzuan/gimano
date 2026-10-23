@@ -49,24 +49,55 @@ public sealed class ReplayCache(IMemoryCache cache)
     }
 }
 
+public enum SignatureDecision { Verify, AllowUnsigned, RejectNoKey }
+
 /// <summary>
-/// Verifies the Ed25519 request signature on endpoints marked with <see cref="RequireSignatureMetadata"/> when
-/// <c>Identity:RequireSignatures</c> is on. Runs after authentication (needs the user id from the JWT).
+/// Per-account enforcement (docs/identity-and-reputation.md §2):
+/// keyed accounts must always sign; key-less legacy accounts may post unsigned while Identity:AllowLegacyUnsigned
+/// (default true) unless the kill switch Identity:RequireSignatures=true rejects every unsigned request.
 /// </summary>
-public sealed class SignatureMiddleware(RequestDelegate next, IConfiguration config, IHostEnvironment env, TimeProvider clock,
+public static class SignaturePolicy
+{
+    public static SignatureDecision Decide(bool hasKey, bool requireAll, bool allowLegacyUnsigned) =>
+        hasKey ? SignatureDecision.Verify
+        : requireAll || !allowLegacyUnsigned ? SignatureDecision.RejectNoKey
+        : SignatureDecision.AllowUnsigned;
+}
+
+/// <summary>
+/// Verifies the Ed25519 request signature on endpoints marked with <see cref="RequireSignatureMetadata"/>, per
+/// <see cref="SignaturePolicy"/>. Runs after authentication (needs the user id from the JWT).
+/// </summary>
+public sealed class SignatureMiddleware(RequestDelegate next, IConfiguration config, TimeProvider clock,
     UserKeyCache keys, ReplayCache replay, IProblemDetailsService problems)
 {
     public const string ProblemBase = "https://gimano.bukitbunga.com/problems/";
-    private readonly bool _required = config.GetValue("Identity:RequireSignatures", env.IsProduction());
+    /// <summary>Kill switch: reject every unsigned request, legacy accounts included.</summary>
+    private readonly bool _requireAll = config.GetValue("Identity:RequireSignatures", false);
+    private readonly bool _allowLegacy = config.GetValue("Identity:AllowLegacyUnsigned", true);
 
     public async Task InvokeAsync(HttpContext ctx)
     {
-        if (!_required || ctx.GetEndpoint()?.Metadata.GetMetadata<RequireSignatureMetadata>() is null || ctx.User.UserId() is not { } uid)
+        if (ctx.GetEndpoint()?.Metadata.GetMetadata<RequireSignatureMetadata>() is null || ctx.User.UserId() is not { } uid)
         {
             await next(ctx);
             return;
         }
-        var (ok, type, detail) = await VerifyAsync(ctx, uid);
+        var key = await keys.CurrentAsync(uid, ctx.RequestAborted);
+        bool ok; string type, detail;
+        switch (SignaturePolicy.Decide(key is not null, _requireAll, _allowLegacy))
+        {
+            case SignatureDecision.AllowUnsigned:
+                ctx.Items[LegacyUnsignedItem] = true;
+                await next(ctx);
+                return;
+            case SignatureDecision.RejectNoKey:
+                (ok, type, detail) = (false, "no-key", "Signed requests are required: update Gimano, then attach a key with POST /api/v1/me/keys.");
+                break;
+            default:
+                (ok, type, detail) = await VerifyAsync(ctx, uid, key!);
+                break;
+        }
         if (ok) { await next(ctx); return; }
 
         ctx.Response.StatusCode = StatusCodes.Status401Unauthorized;
@@ -77,7 +108,9 @@ public sealed class SignatureMiddleware(RequestDelegate next, IConfiguration con
         });
     }
 
-    private async Task<(bool, string, string)> VerifyAsync(HttpContext ctx, Guid uid)
+    public const string LegacyUnsignedItem = "gimano.legacy-unsigned";
+
+    private async Task<(bool, string, string)> VerifyAsync(HttpContext ctx, Guid uid, byte[] key)
     {
         var tsHeader = ctx.Request.Headers["X-Gimano-Ts"].ToString();
         var sigHeader = ctx.Request.Headers["X-Gimano-Sig"].ToString();
@@ -87,10 +120,6 @@ public sealed class SignatureMiddleware(RequestDelegate next, IConfiguration con
             return (false, "signature-expired", "X-Gimano-Ts must be unix seconds within ±300 s of server time.");
         if (!Signatures.TryBase64(sigHeader, out var sig) || sig.Length != 64)
             return (false, "signature-invalid", "X-Gimano-Sig must be a base64 Ed25519 signature.");
-        var key = await keys.CurrentAsync(uid, ctx.RequestAborted);
-        if (key is null)
-            return (false, "no-key", "This account has no signing key yet: attach one with POST /api/v1/me/keys.");
-
         ctx.Request.EnableBuffering();
         byte[] body;
         using (var ms = new MemoryStream())

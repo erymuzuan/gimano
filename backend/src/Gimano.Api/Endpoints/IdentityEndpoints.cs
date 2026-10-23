@@ -82,6 +82,7 @@ public static class IdentityEndpoints
         }
         db.UserKeys.Add(new UserKey { UserId = uid, PublicKey = pk, CreatedAt = clock.GetUtcNow() });
         await db.SaveChangesAsync(ct);
+        await db.InboxItems.Where(i => i.UserId == uid && i.AggregateKey == Gimano.Core.Community.InboxRules.LegacyUpdateKey).ExecuteDeleteAsync(ct);
         cache.Invalidate(uid);
         return TypedResults.NoContent();
     }

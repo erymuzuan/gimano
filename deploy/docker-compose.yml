@@ -116,8 +116,9 @@ services:
       # Dev: the share viewer may be opened from anywhere (file://, LAN); production restricts to www.bukitbunga.com.
       Cors__ShareViewerOrigins: ${SHARE_VIEWER_ORIGINS:-*}
       Features__ApiDocs: "true"
-      # Signed contribution requests: off in dev until both apps ship signing (docs/identity-and-reputation.md)
+      # Per-account enforcement (keyed accounts always sign); REQUIRE_SIGNATURES=true = kill switch for all unsigned
       Identity__RequireSignatures: ${REQUIRE_SIGNATURES:-false}
+      Identity__AllowLegacyUnsigned: ${ALLOW_LEGACY_UNSIGNED:-true}
       Attestation__Mode: ${ATTESTATION_MODE:-log}
     ports: ["${API_PORT:-5080}:8080"]
     volumes: ["media:/data/media"]

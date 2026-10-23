@@ -299,3 +299,41 @@ public class AttestationTests
         Assert.Throws<System.Security.Cryptography.CryptographicException>(() => AppAttest.VerifyAssertion(Assertion(7, cd), cd, spki, 5, "OTHER.app"));   // other app
     }
 }
+
+public class SignaturePolicyTests
+{
+    [Theory]
+    // keyed accounts: always verified (unsigned → rejected by verification), whatever the flags
+    [InlineData(true, false, true, SignatureDecision.Verify)]
+    [InlineData(true, false, false, SignatureDecision.Verify)]
+    [InlineData(true, true, true, SignatureDecision.Verify)]
+    // legacy key-less: accepted unsigned while AllowLegacyUnsigned and no kill switch
+    [InlineData(false, false, true, SignatureDecision.AllowUnsigned)]
+    [InlineData(false, false, false, SignatureDecision.RejectNoKey)]
+    // kill switch: reject every unsigned request, legacy included
+    [InlineData(false, true, true, SignatureDecision.RejectNoKey)]
+    public void Per_account_enforcement(bool hasKey, bool requireAll, bool allowLegacy, SignatureDecision expected) =>
+        Assert.Equal(expected, SignaturePolicy.Decide(hasKey, requireAll, allowLegacy));
+
+    [Fact]
+    public void Legacy_accounts_are_capped_at_baharu_and_weigh_at_most_one()
+    {
+        var now = new DateTimeOffset(2026, 10, 23, 0, 0, 0, TimeSpan.Zero);
+        Assert.Equal(Tier.Baharu, Reputation.CapForLegacy(Tier.Emas, hasKey: false));
+        Assert.Equal(Tier.Emas, Reputation.CapForLegacy(Tier.Emas, hasKey: true));
+        Assert.Equal(1.0, Reputation.VoteWeight(Tier.Emas, now.AddDays(-100), now, VoteAnswer.Yes, hasKey: false));
+        Assert.Equal(2.0, Reputation.VoteWeight(Tier.Emas, now.AddDays(-100), now, VoteAnswer.Yes, hasKey: true));
+        var perakCounters = new ReputationCounters(12, 0, 0, 0, now.AddDays(-200), 0, 0);
+        var next = Reputation.Next(perakCounters, now, hasKey: false)!;
+        Assert.Equal(Tier.Perak, next.Name);
+        Assert.Contains("signingKey", next.Missing);
+        Assert.DoesNotContain("signingKey", Reputation.Next(new ReputationCounters(0, 0, 0, 0, now, 0, 0), now)!.Missing);
+    }
+
+    [Fact]
+    public void Legacy_inbox_notice_text()
+    {
+        Assert.Equal("Kemas kini Gimano untuk melindungi akaun anda", Gimano.Core.Community.InboxRules.LegacyUpdateText("ms-MY").Title);
+        Assert.Equal("Update Gimano to protect your account", Gimano.Core.Community.InboxRules.LegacyUpdateText("en").Title);
+    }
+}

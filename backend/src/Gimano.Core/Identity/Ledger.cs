@@ -25,7 +25,8 @@ public static class Ledger
     public static async Task RecomputeAsync(GimanoDbContext db, User u, DateTimeOffset now, CancellationToken ct)
     {
         var c = await CountersAsync(db, u, now, ct);
-        u.Tier = Reputation.ComputeTier(c, now);
+        var hasKey = await db.UserKeys.AnyAsync(k => k.UserId == u.Id && k.RevokedAt == null, ct);
+        u.Tier = Reputation.CapForLegacy(Reputation.ComputeTier(c, now), hasKey);
         if (Reputation.ShouldSuspend(c.RejectedPlaces7d) && (u.SuspendedUntil is null || u.SuspendedUntil < now))
             u.SuspendedUntil = now + Reputation.Suspension;
     }

@@ -146,7 +146,8 @@ public sealed class CommunityService(GimanoDbContext db, IEventPublisher bus, Gi
         if (attestationOk == false && attestation.Mode == AttestationMode.Enforce)
             throw new ForbiddenException("Device check failed; votes from this device can't be counted.");
 
-        var weight = Reputation.VoteWeight(voter.Tier, voter.JoinedAt, now, answer);
+        var hasKey = await db.UserKeys.AnyAsync(k => k.UserId == userId && k.RevokedAt == null, ct);
+        var weight = Reputation.VoteWeight(Reputation.CapForLegacy(voter.Tier, hasKey), voter.JoinedAt, now, answer, hasKey);
         db.PlaceVotes.Add(new PlaceVote
         {
             PlaceId = id, VoterId = userId, Answer = answer, NameCorrect = req.NameCorrect, LocationCorrect = req.LocationCorrect ?? req.CorrectLocation,

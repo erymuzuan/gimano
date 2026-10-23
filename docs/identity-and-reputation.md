@@ -32,6 +32,17 @@ X-Gimano-Sig: base64(ed25519_sign(seed, "GIMANO1\n" + METHOD + "\n" + PATH_AND_Q
 The server verifies the signature against the user's current public key and keeps a 10-minute replay cache of
 `(userId, ts, sig)`.
 
+**Enforcement is per account:**
+
+| Account | `Identity:RequireSignatures` (kill switch, default false) | `Identity:AllowLegacyUnsigned` (default true) | Unsigned request |
+|---|---|---|---|
+| Has ≥ 1 registered public key | any | any | **rejected** (401). A stolen JWT alone can't post as a keyed pseudonym. |
+| Legacy, key-less (`POST /auth/device`, e.g. the 0.1.0 APK) | false | true | accepted. The account is **capped at baharu** (never promoted), its votes weigh **at most 1**, and its Inbox shows "Kemas kini Gimano untuk melindungi akaun anda" until a key is attached. |
+| Legacy, key-less | false | false | rejected (`no-key`) |
+| Legacy, key-less | **true** | any | rejected (`no-key`) |
+
+A signed request is always verified, whatever the flags.
+
 Signed endpoints: `POST /places`, `PATCH /places/{id}`, `POST /places/{id}/verify`,
 `POST /places/{id}/suggest-edit`, `POST /places/{id}/reviews`, `PATCH|DELETE /reviews/{id}`,
 `POST /photos`, `POST /reports`, `POST /reports/{id}/votes`.
@@ -111,8 +122,8 @@ to "Pemandu Gimano". Pending votes by the user are removed; resolved votes are a
 
 - **Problem types** (401 `application/problem+json`, `type` = `https://gimano.bukitbunga.com/problems/<code>`):
   `signature-missing`, `signature-expired` (outside ±300 s), `signature-invalid`, `signature-replayed`,
-  `no-key` (legacy account without a key → `POST /me/keys`), `auth-failed` (`POST /auth/token`), `rotation-unsigned`.
-- `Identity:RequireSignatures` defaults to **true in Production** and false elsewhere (dev turns it on once both apps ship).
+  `no-key` (a key-less legacy account while legacy unsigned requests are off → update the app and `POST /me/keys`), `auth-failed` (`POST /auth/token`), `rotation-unsigned`.
+- `Identity:RequireSignatures` is the kill switch (default false). Per-account rules are in §2.
 - **PATH_AND_QUERY** is the request target exactly as sent on the request line (`/api/v1/...` plus `?query` if any,
   percent-encoding untouched). Body = the exact bytes sent (multipart included); an empty body hashes to `e3b0c442…b855`.
 - **Key rotation:** `sigByOldKey = Ed25519(currentKey, "GIMANO-KEY\n" + userId + "\n" + newPublicKeyBase64)`, where the base64 is

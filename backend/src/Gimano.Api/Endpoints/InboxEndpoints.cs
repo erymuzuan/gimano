@@ -23,6 +23,7 @@ public static class InboxEndpoints
         var uid = http.User.RequiredUserId();
         var user = await db.Users.AsNoTracking().FirstOrDefaultAsync(u => u.Id == uid, ct);
         if (user is null) return TypedResults.NotFound();
+        await EnsureLegacyNoticeAsync(db, user, clock.GetUtcNow(), ct);
         var since = clock.GetUtcNow() - InboxRules.Retention;
         var c = InboxRules.DecodeCursor(cursor);
         var readUpTo = user.InboxReadUpTo ?? DateTimeOffset.MinValue;
@@ -47,6 +48,19 @@ public static class InboxEndpoints
         var unread = await db.InboxItems.CountAsync(i => i.UserId == uid && i.CreatedAt > since && i.CreatedAt > readUpTo, ct)
                      + await db.Announcements.CountAsync(a => a.CreatedAt > since && a.CreatedAt > readUpTo, ct);
         return TypedResults.Ok(new InboxPage(page, next, unread));
+    }
+
+    /// <summary>Key-less legacy accounts get one "update to protect your account" item (removed once a key is attached).</summary>
+    internal static async Task EnsureLegacyNoticeAsync(GimanoDbContext db, Gimano.Core.Domain.User user, DateTimeOffset now, CancellationToken ct)
+    {
+        if (await db.UserKeys.AnyAsync(k => k.UserId == user.Id && k.RevokedAt == null, ct)) return;
+        if (await db.InboxItems.AnyAsync(i => i.UserId == user.Id && i.AggregateKey == InboxRules.LegacyUpdateKey, ct)) return;
+        var (title, body) = InboxRules.LegacyUpdateText(user.Locale);
+        db.InboxItems.Add(new Gimano.Core.Domain.InboxItem
+        {
+            UserId = user.Id, Kind = InboxKind.Announcement, Title = title, Body = body, AggregateKey = InboxRules.LegacyUpdateKey, CreatedAt = now,
+        });
+        try { await db.SaveChangesAsync(ct); } catch (DbUpdateException) { /* concurrent insert: already there */ }
     }
 
     /// <summary>Marks everything created at or before <c>upTo</c> as read (monotonic; never moves backwards).</summary>

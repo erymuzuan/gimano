@@ -149,8 +149,11 @@ services:
       # (no container healthcheck: the runtime image has no curl; monitor https://…/readyz instead)
       Features__ApiDocs: "false"
       Features__LegacySavedPlaces: ${LEGACY_SAVED_PLACES:-true}
-      # Signed contributions (default on in production; set false until the apps that sign are released)
-      Identity__RequireSignatures: ${REQUIRE_SIGNATURES:-true}
+      # Per-account enforcement: keyed accounts must always sign. Legacy key-less accounts (0.1.0 apps) may post
+      # unsigned (capped at baharu) while ALLOW_LEGACY_UNSIGNED=true. REQUIRE_SIGNATURES=true is the kill switch
+      # that rejects every unsigned request, legacy included.
+      Identity__RequireSignatures: ${REQUIRE_SIGNATURES:-false}
+      Identity__AllowLegacyUnsigned: ${ALLOW_LEGACY_UNSIGNED:-true}
       Attestation__Mode: ${ATTESTATION_MODE:-log}
       Attestation__Android__PackageName: ${ATTESTATION_ANDROID_PACKAGE:-}
       Attestation__Android__ServiceAccountJson: ${ATTESTATION_ANDROID_SA_JSON:-}

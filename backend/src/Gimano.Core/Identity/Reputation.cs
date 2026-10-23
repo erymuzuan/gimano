@@ -44,9 +44,10 @@ public static class Reputation
         return Tier.Baharu;
     }
 
-    public static NextTier? Next(ReputationCounters c, DateTimeOffset now)
+    /// <summary>What's missing for the next tier. Key-less legacy accounts stay baharu and also need "signingKey".</summary>
+    public static NextTier? Next(ReputationCounters c, DateTimeOffset now, bool hasKey = true)
     {
-        var current = ComputeTier(c, now);
+        var current = CapForLegacy(ComputeTier(c, now), hasKey);
         var acc = Accuracy(c);
         var missing = new List<string>();
         switch (current)
@@ -54,6 +55,7 @@ public static class Reputation
             case Tier.Baharu:
                 if (c.PlacesAccepted < 10) missing.Add($"placesAccepted:{10 - c.PlacesAccepted}");
                 if (acc is null || acc < 0.90) missing.Add("accuracy:90");
+                if (!hasKey) missing.Add("signingKey");
                 return new NextTier(Tier.Perak, missing);
             case Tier.Perak:
                 if (c.PlacesAccepted < 50) missing.Add($"placesAccepted:{50 - c.PlacesAccepted}");
@@ -67,12 +69,19 @@ public static class Reputation
         }
     }
 
-    /// <summary>Vote weight: 0 while the account is under 7 days or for "unsure"; else baharu 1, perak 1.5, emas 2.</summary>
-    public static double VoteWeight(Tier tier, DateTimeOffset accountCreated, DateTimeOffset now, VoteAnswer answer)
+    /// <summary>
+    /// Vote weight: 0 while the account is under 7 days or for "unsure"; else baharu 1, perak 1.5, emas 2.
+    /// Key-less legacy accounts weigh at most 1 (their requests can't be signed).
+    /// </summary>
+    public static double VoteWeight(Tier tier, DateTimeOffset accountCreated, DateTimeOffset now, VoteAnswer answer, bool hasKey = true)
     {
         if (answer == VoteAnswer.Unsure || now - accountCreated < NewAccountNoWeight) return 0;
-        return tier switch { Tier.Emas => 2, Tier.Perak => 1.5, _ => 1 };
+        var w = tier switch { Tier.Emas => 2, Tier.Perak => 1.5, _ => 1.0 };
+        return hasKey ? w : Math.Min(w, 1);
     }
+
+    /// <summary>Key-less legacy accounts are never promoted above baharu.</summary>
+    public static Tier CapForLegacy(Tier tier, bool hasKey) => hasKey ? tier : Tier.Baharu;
 
     /// <summary>Weighted "yes" needed to publish a place added by a contributor of this tier (0 = publishes immediately).</summary>
     public static double RequiredConfirmations(Tier contributorTier) => contributorTier switch

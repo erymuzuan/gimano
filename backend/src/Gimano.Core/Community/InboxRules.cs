@@ -50,6 +50,15 @@ public static class InboxRules
         };
     }
 
+    public const string LegacyUpdateKey = "legacy-update";
+
+    /// <summary>Shown to key-less legacy accounts (0.1.0 apps can't sign requests).</summary>
+    public static (string Title, string Body) LegacyUpdateText(string? locale) => IsMalay(locale)
+        ? ("Kemas kini Gimano untuk melindungi akaun anda",
+           "Versi baharu menandatangani sumbangan anda supaya tiada sesiapa boleh menyamar sebagai anda. Selepas kemas kini, tahap Perak dan Emas boleh dicapai.")
+        : ("Update Gimano to protect your account",
+           "The new version signs your contributions so nobody can impersonate you. After updating, the Perak and Emas tiers become available.");
+
     /// <summary>Merges the user's items and announcements, newest first, keyset-paged by (createdAt, id).</summary>
     public static (List<InboxItemDto> Page, string? Next) Merge(IEnumerable<InboxItemDto> items, IEnumerable<InboxItemDto> announcements, int pageSize = PageSize)
     {
