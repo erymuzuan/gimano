@@ -4,6 +4,7 @@ import kotlinx.coroutines.delay
 import my.gimano.app.core.geo.GeoMath
 import my.gimano.app.core.geo.GeoPoint
 import my.gimano.app.core.geo.Polyline
+import my.gimano.app.core.nav.RouteGeometry
 import my.gimano.app.data.model.*
 import java.time.Instant
 import java.time.temporal.ChronoUnit
@@ -189,39 +190,78 @@ class DemoRepository(private val cannedDocs: () -> List<String> = { emptyList() 
         }
     }
 
+    /** Captured routes as geometry + the route (for street names); all demo live data sits on these. */
+    private val roadNetwork: List<Pair<Route, RouteGeometry>> by lazy {
+        canned.all.flatMap { it.routes }.distinctBy { it.polyline }
+            .map { it to RouteGeometry(Polyline.decode(it.polyline)) }
+            .filter { it.second.points.size > 1 }
+    }
+
+    private fun streetAt(route: Route, g: RouteGeometry, along: Double): String? {
+        val seg = g.segmentAt(along)
+        return route.maneuvers.lastOrNull { it.beginShapeIndex <= seg && !it.streetName.isNullOrBlank() }?.streetName
+    }
+
+    /**
+     * Seeds demo alerts, jams and nearby drivers ON real road geometry: every coordinate is a
+     * point on (or a slice of) a captured OSM route polyline — never a synthetic segment.
+     * Positions near the viewport centre are preferred; with no captured road nearby the
+     * map simply shows nothing rather than fake lines.
+     */
     private fun seed(center: GeoPoint) {
         val s = seededAround
-        if (s != null && GeoMath.distanceM(s, center) < 15_000) return
+        if (s != null && GeoMath.distanceM(s, center) < 3_000) return
         seededAround = center
-        val rnd = Random((center.lat * 100).toInt())
+        reports.removeAll { it.id.startsWith("seed-") }
+        jams.clear()
+        drivers.clear()
+        val net = roadNetwork
+        if (net.isEmpty()) return
+        val rnd = Random((center.lat * 100).toInt() * 31 + (center.lng * 100).toInt())
         val now = Instant.now()
+
+        fun pick(minLen: Double = 0.0): Triple<Route, RouteGeometry, Double> {
+            // Prefer what's on screen at the default zoom, then widen.
+            for (radius in listOf(2_500.0, 8_000.0)) repeat(80) {
+                val (r, g) = net[rnd.nextInt(net.size)]
+                if (g.lengthM <= minLen) return@repeat
+                val along = rnd.nextDouble(0.0, g.lengthM - minLen)
+                if (GeoMath.distanceM(g.pointAt(along).first, center) < radius) return Triple(r, g, along)
+            }
+            val (r, g) = net.maxBy { it.second.lengthM }
+            return Triple(r, g, rnd.nextDouble(0.0, (g.lengthM - minLen).coerceAtLeast(1.0)))
+        }
+
         val types = listOf(
             "police" to "visible", "accident" to "minor", "hazard" to "pothole", "traffic" to "heavy",
             "hazard" to "flood", "closure" to null, "blocked_lane" to "left", "weather" to "heavy_rain", "animal" to "on_shoulder",
         )
-        reports.removeAll { it.id.startsWith("seed-") }
         types.forEachIndexed { i, (t, sub) ->
-            val pt = GeoMath.offset(center, rnd.nextDouble(0.0, 360.0), rnd.nextDouble(400.0, 3500.0))
+            val (r, g, along) = pick()
+            val (pt, brg) = g.pointAt(along)
             val age = rnd.nextLong(2, 40)
             reports += Report(
-                id = "seed-$i", type = t, subtype = sub, lat = pt.lat, lng = pt.lng, heading = rnd.nextDouble(0.0, 360.0),
-                street = listOf("Jalan Ampang", "Jalan Tun Razak", "Jalan Duta", "Jalan Bangsar", "Jalan Cheras")[i % 5],
+                id = "seed-$i", type = t, subtype = sub, lat = pt.lat, lng = pt.lng, heading = brg,
+                street = streetAt(r, g, along),
                 reportedBy = ReportedBy(listOf("Aiman", "Mei Ling", "Kavitha", "Hafiz", "Jason")[i % 5], listOf("😎", "🙂", "😴", "🤠", "😇")[i % 5]),
                 createdAt = now.minusSeconds(age * 60).toString(), expiresAt = now.plusSeconds((60 - age) * 60).toString(),
                 confirmations = rnd.nextInt(0, 9), thanks = rnd.nextInt(0, 5),
             )
         }
-        jams.clear()
-        repeat(4) { j ->
-            val a = GeoMath.offset(center, rnd.nextDouble(0.0, 360.0), rnd.nextDouble(500.0, 3000.0))
-            val brg = rnd.nextDouble(0.0, 360.0)
-            val pts = (0..8).map { k -> GeoMath.offset(a, brg + 8 * kotlin.math.sin(k.toDouble()), k * 90.0) }
-            jams += Jam("jam-$j", 1 + j % 4, 12.0 + j * 4, 120.0 + j * 60, 720.0, Polyline.encode(pts), "Jalan ${listOf("Ampang", "Pahang", "Raja Laut", "Travers")[j]}", now.toString())
+        repeat(5) { j ->
+            val len = rnd.nextDouble(400.0, 1_200.0)
+            val (r, g, along) = pick(minLen = len)
+            val level = 1 + j % 4
+            val speed = listOf(28.0, 18.0, 9.0, 3.0)[level - 1]
+            jams += Jam(
+                "jam-$j", level, speed, delayS = len / (speed / 3.6) - len / (50 / 3.6), lengthM = len,
+                polyline = Polyline.encode(g.slice(along, along + len)), street = streetAt(r, g, along), updatedAt = now.toString(),
+            )
         }
-        drivers.clear()
         repeat(14) {
-            val pt = GeoMath.offset(center, rnd.nextDouble(0.0, 360.0), rnd.nextDouble(200.0, 2500.0))
-            drivers += Driver(pt.lat, pt.lng, rnd.nextDouble(0.0, 360.0), listOf("🙂", "😎", "🤠")[it % 3])
+            val (_, g, along) = pick()
+            val (pt, brg) = g.pointAt(along)
+            drivers += Driver(pt.lat, pt.lng, brg, listOf("🙂", "😎", "🤠")[it % 3])
         }
     }
 

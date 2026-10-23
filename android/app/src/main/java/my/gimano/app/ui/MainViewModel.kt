@@ -192,7 +192,7 @@ class MainViewModel(private val c: AppContainer) : ViewModel() {
         _ui.update { it.copy(myLocation = f) }
         if (!centeredOnce) {
             centeredOnce = true
-            _ui.update { it.copy(camera = CameraCommand.MoveTo(f.point, 15.0, animate = false)) }
+            _ui.update { it.copy(camera = CameraCommand.MoveTo(f.point, 14.5, animate = false)) }
         }
     }
 

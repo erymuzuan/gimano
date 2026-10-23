@@ -57,5 +57,22 @@ class RouteGeometry(val points: List<GeoPoint>) {
         return GeoMath.lerp(points[lo], points[hi], t) to GeoMath.bearingDeg(points[lo], points[hi])
     }
 
+    /** The part of the line between two along-distances: exact endpoints plus every vertex in between. */
+    fun slice(fromM: Double, toM: Double): List<GeoPoint> {
+        val a = fromM.coerceIn(0.0, lengthM)
+        val b = toM.coerceIn(a, lengthM)
+        val out = ArrayList<GeoPoint>()
+        out += pointAt(a).first
+        for (i in points.indices) if (cumulative[i] > a && cumulative[i] < b) out += points[i]
+        out += pointAt(b).first
+        return out
+    }
+
+    /** Index of the segment containing [distanceM]. */
+    fun segmentAt(distanceM: Double): Int {
+        val i = cumulative.indexOfFirst { it > distanceM }
+        return if (i <= 0) 0 else i - 1
+    }
+
     fun distanceAtIndex(i: Int): Double = cumulative[i.coerceIn(0, cumulative.size - 1)]
 }
