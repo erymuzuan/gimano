@@ -12,8 +12,12 @@ anything except tests.
 
 | File | Kind | Reader must |
 |---|---|---|
-| `kenduri-one-day.json` | positive | open the link/fragment, the suite-2 file (`fileV2B64u` + `secretCodeV2`) and the suite-1 file (`fileB64u` + `secretCode`) to `eventJson`; decision `new` |
-| `ride-two-day.json` | positive | same, with 1 route (7 points, 2 legs, ascent/descent) |
+| `kenduri-one-day.json` | positive | open the link/fragment, the suite-3 file (`fileV3B64u`, no code), the suite-2 file (`fileV2B64u` + `secretCodeV2`) and the suite-1 file (`fileB64u` + `secretCode`) to `eventJson`; decision `new`. Its event has 2 `info` blocks (`dress`, `bring`) |
+| `ride-two-day.json` | positive | same, with 1 route (7 points, 2 legs, ascent/descent) and no `info` |
+| `unknown-template-and-info-kind.json` | parse | open `linkFragment` and `fileV3B64u` (no code) to `eventJson` (`template` `"gala"`, `info[1].kind` `"weather"`): `expected.template` is `other`, `expected.infoKinds` is `["dress","other"]`, texts as `expected.infoTexts`; keep the signed bytes (`revisionHashB64u`) |
+| `negative-info-text-too-long.json` | negative | decrypt and verify (link, or suite-3 `fileV3B64u`), then reject the event with `invalid_event` at `expectedPath` `info[1].text` (1003 code points) |
+| `negative-too-many-info.json` | negative | same, 13 info blocks: `invalid_event` at `info` |
+| `negative-file-v3-truncated.json` | negative | every entry of `filesB64u` (suite-3 files cut to `lengths` 6, 37, 61, 77 bytes) fails with `malformed_file` before any decryption |
 | `negative-tampered-ciphertext.json` | negative | fail with `decrypt` |
 | `negative-bad-signature.json` | negative | decrypt and inflate, then fail with `signature` |
 | `negative-wrong-key.json` | negative | fail with `decrypt` (link, and suite-1 file + `secretCode`) |
@@ -51,6 +55,7 @@ All binary values are base64url without padding (`…B64u`); some are also given
 | `fileSaltB64u` | suite 2: the file's 16-byte Argon2id salt |
 | `fileNonceV2B64u` | suite 2: the file's own 24-byte nonce |
 | `fileKeyV2B64u` | suite 2: Argon2id13(`secretCodeV2` upper case without `-`, `fileSaltB64u`, opslimit 3, 64 MiB) — independent of `keyB64u` |
+| `fileV3B64u` | **suite 3** (default share): `MNTE` ‖ `01` ‖ `03` ‖ key ‖ nonce ‖ ciphertext, where key = `keyB64u`, nonce = `nonceB64u`, ciphertext = `ciphertextB64u`: exactly the link's bytes. Opens with no code |
 | `fileV2B64u` | **suite 2**: `MNTE` ‖ `01` ‖ `02` ‖ salt ‖ nonce ‖ XChaCha20-Poly1305(`fileKeyV2B64u`, nonce, AD `manotu-event-v1`) of `deflatedB64u` |
 | `safetyCode` | first 30 bits of SHA-256(pub) as 6 chars of `23456789ABCDEFGHJKLMNPQRSTUVWXYZ` (docs/events.md §7.3) |
 | `revisionHashB64u` | SHA-256(eventBytes), the next revision's `parent` |
@@ -58,12 +63,21 @@ All binary values are base64url without padding (`…B64u`); some are also given
 | `expected` | summary of the decoded event and the import decision |
 
 Negative vectors carry `expectedError` (the stable code from `event_core::Error::code()`, or `expired`
-for the import decision) plus only the inputs they need. The three variant negatives also carry the
-signed `eventJson`, so a reader can test its event parser without the crypto layers.
+for the import decision) plus only the inputs they need. The three variant negatives and the two info
+negatives also carry the signed `eventJson`, so a reader can test its event parser without the crypto
+layers. Validation failures are all `invalid_event`; the info negatives add `expectedPath`, the field the
+reference core reports (`ValidationError.path`).
 
 ## File suites (§5.2) and Argon2id
 
-Writers produce **suite 2** only; readers open both suites, dispatching on byte 5 of the file.
+Writers produce **suite 3** (default share) and **suite 2** (sensitive events); readers open suites 1, 2 and
+3, dispatching on byte 5 of the file. Any other suite byte is `unsupported_suite`.
+
+- Suite 3 needs no code: bytes 6..38 are the pack key, 38..62 the nonce, the rest ciphertext ‖ tag. A file shorter
+  than 6 + 32 + 24 + 16 bytes is `malformed_file`. Build it in tests from a link: decode the fragment
+  `1.<key>.<nonce ‖ ciphertext>` and write `MNTE 01 03 key nonce ciphertext`; it must equal `fileV3B64u`. It is
+  always a full event (never a stops-only variant) and has no 16 000-character limit, only 20 MiB. Apps decide
+  whether to prompt for a code from byte 5 (reference: `file_needs_code`), never by trying.
 
 - Suite 2 key: libsodium `crypto_pwhash(32, password, salt, opslimit 3, memlimit 67 108 864,
   crypto_pwhash_ALG_ARGON2ID13)`, i.e. Argon2id v1.3, t = 3, m = 65 536 KiB, 1 lane, 32-byte output
@@ -159,4 +173,7 @@ and Node's `crypto.argon2Sync`; the vendored `site/manotu/s/vendor/` build is no
 - The suite-2 code reader ignores `-` and whitespace, is case-insensitive, and **rejects** `0`, `O`, `1`, `I`
   and any other character outside its alphabet (no look-alike mapping).
 - Text limits count Unicode scalar values (code points), not UTF-16 units or bytes.
-- Unknown JSON fields are ignored; unknown `template` / stop `kind` values read as `other`.
+- Unknown JSON fields are ignored; unknown `template` / stop `kind` / `info[].kind` values read as `other`.
+- `info` (§4.1) is optional, at most 12 blocks of `{kind, text}`, text 1–1000 code points (blank is
+  invalid, newlines allowed); writers put it after `sessions` and before `routes` and omit it when empty.
+  Templates now include `meeting`, `seminar`, `picnic`, `hike`.

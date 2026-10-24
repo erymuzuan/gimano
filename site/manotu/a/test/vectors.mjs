@@ -1,13 +1,14 @@
 // Runs the viewer's pack reader against every shared vector (desktop/crates/event-core/tests/vectors).
 //   node site/manotu/a/test/vectors.mjs [vectorsDir]
-// Positive: link, bare fragment and file + secret code open to the exact signed bytes, the organizer key, safety
-// code, revision hash and the expected summary/decision. Negative: the expected error code (or `expired`).
+// Positive: link, bare fragment, suite-3 file (no code) and suite-1 file + secret code open to the exact signed bytes,
+// the organizer key, safety code, revision hash and the expected summary/decision. Negative: the expected error code
+// (or `expired`). Parse: unknown template / info kind read as "other".
 import assert from "node:assert/strict";
 import { readFileSync, readdirSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createHash } from "node:crypto";
-import { sha256, safetyCode, openLink, openFile, decide, decideImport, readEvent, b64uDecode, b64uEncode, decodePolyline, inflateRaw, PackError, parseLink } from "../pack.mjs";
+import { sha256, safetyCode, openLink, openFile, decide, decideImport, readEvent, b64uDecode, b64uEncode, decodePolyline, inflateRaw, PackError, parseLink, parseFile, fileNeedsCode, INFO_KINDS } from "../pack.mjs";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const repo = resolve(here, "../../../..");
@@ -53,6 +54,8 @@ for (const f of files) {
         assert.deepEqual(e.stops[i].entrance, s.entrance);
         assert.equal(e.stops[i].notes, s.notes); assert.equal(e.stops[i].audience, s.audience);
       });
+      // §4.1 info blocks: same order, kinds and texts.
+      assert.deepEqual(e.info, (raw.info ?? []).map(b => ({ kind: INFO_KINDS.includes(b.kind) ? b.kind : "other", text: b.text })));
       (raw.routes ?? []).forEach((r, i) => {
         assert.equal(e.routes[i].points.length, r.polyline === undefined ? 0 : decodePolyline(r.polyline).length);
         assert.equal(e.routes[i].distanceM, r.distanceM); assert.equal(e.routes[i].durationS, r.durationS);
@@ -61,6 +64,21 @@ for (const f of files) {
     await check("link", async () => verify(await openLink(v.link), "link"));
     await check("fragment", async () => verify(await openLink(v.linkFragment), "fragment"));
     await check("file + secret code", async () => verify(await openFile(b64uDecode(v.fileB64u), v.secretCode), "file"));
+    if (v.fileV3B64u) {
+      await check("suite-3 file, no code", async () => {
+        const f = b64uDecode(v.fileV3B64u);
+        assert.equal(fileNeedsCode(f), false);
+        assert.equal(fileNeedsCode(b64uDecode(v.fileB64u)), true);
+        verify(await openFile(f, ""), "file v3");
+      });
+      await check("suite-3 file = MNTE 01 03 ‖ link key ‖ link nonce ‖ ciphertext", async () => {
+        const f = b64uDecode(v.fileV3B64u), p = parseLink(v.linkFragment), q = parseFile(f);
+        assert.deepEqual([...f.slice(0, 6)], [0x4d, 0x4e, 0x54, 0x45, 1, 3]);
+        assert.equal(q.suite, 3);
+        assert.deepEqual(q.key, p.key); assert.deepEqual(q.nonce, p.nonce); assert.deepEqual(q.ciphertext, p.ciphertext);
+        assert.equal(f.length, 6 + 32 + 24 + p.ciphertext.length);
+      });
+    }
     await check("lower-case secret code with spaces", async () =>
       verify(await openFile(b64uDecode(v.fileB64u), v.secretCode.toLowerCase().replaceAll("-", " ")), "file"));
     await check("deflatedB64u inflates to envelopeJson", async () =>
@@ -75,6 +93,17 @@ for (const f of files) {
       assert.equal(b64uEncode(sha256(new TextEncoder().encode(full.eventJson))), v.fullHashB64u);
       assert.equal(v.revisionHashB64u, full.revisionHashB64u);
     });
+  } else if (v.kind === "parse") {
+    const verify = (o, how) => {
+      assert.equal(o.eventText, v.eventJson, `${how}: signed bytes kept`);
+      assert.equal(o.revisionHashB64u, v.revisionHashB64u, `${how}: revision hash`);
+      assert.equal(o.event.template, v.expected.template, `${how}: template`);
+      assert.deepEqual(o.event.info.map(b => b.kind), v.expected.infoKinds, `${how}: info kinds`);
+      assert.deepEqual(o.event.info.map(b => b.text), v.expected.infoTexts, `${how}: info texts`);
+    };
+    await check("link: unknown template / info kind → other", async () => verify(await openLink(v.linkFragment), "link"));
+    await check("suite-3 file: unknown template / info kind → other", async () =>
+      verify(await openFile(b64uDecode(v.fileV3B64u), ""), "file v3"));
   } else if (v.kind === "import-sequence") {
     const now = new Date(v.now);
     for (const seq of v.sequences) {
@@ -100,6 +129,19 @@ for (const f of files) {
     const want = v.expectedError;
     if (v.eventJson && want !== "expired") await check(`eventJson → ${want}`, () =>
       assert.equal((() => { try { readEvent(JSON.parse(v.eventJson)); return "ok"; } catch (e) { return e.code; } })(), want));
+    if (v.filesB64u) {
+      await check(`every truncated file → ${want}`, async () => {
+        for (const f of v.filesB64u) {
+          assert.equal(await code(openFile(b64uDecode(f), "")), want);
+          assert.equal((() => { try { fileNeedsCode(b64uDecode(f)); return "ok"; } catch (e) { return e.code; } })(), want);
+        }
+      });
+      continue;
+    }
+    if (v.expectedPath) await check(`eventJson → ${want} at ${v.expectedPath}`, () =>
+      assert.throws(() => readEvent(JSON.parse(v.eventJson)), e => e.detail.startsWith(`${v.expectedPath}: `)));
+    if (v.fileV3B64u) await check(`suite-3 file → ${want}`, async () =>
+      assert.equal(await code(openFile(b64uDecode(v.fileV3B64u), "")), want));
     if (want === "expired") {
       await check("verifies, then decision expired", async () => {
         const o = await openLink(v.linkFragment);

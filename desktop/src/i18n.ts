@@ -1,6 +1,6 @@
 // UI copy: Malay by default, English on request (Settings → Bahasa). Plain strings only; the
 // DOM helper always inserts them as text, never as HTML.
-import type { Lang, LegState, StopKind, Template, TravelMode } from "./types";
+import type { InfoKind, Lang, LegState, StopKind, Template, TravelMode } from "./types";
 
 const ms = {
   appName: "Manotu Desktop",
@@ -45,6 +45,8 @@ const ms = {
   stopsH: "Hentian",
   routesH: "Laluan",
   sessionsH: "Jadual",
+  infoH: "Maklumat tetamu",
+  infoReadOnly: "Dibaca sahaja di desktop.",
   addStop: "Tambah hentian",
   addRoute: "Tambah laluan",
   addSession: "Tambah sesi",
@@ -285,6 +287,8 @@ const en: Record<Key, string> = {
   stopsH: "Stops",
   routesH: "Routes",
   sessionsH: "Schedule",
+  infoH: "Guest info",
+  infoReadOnly: "Read-only on desktop.",
   addStop: "Add stop",
   addRoute: "Add route",
   addSession: "Add session",
@@ -493,10 +497,16 @@ export function t(key: Key, vars?: Record<string, string | number>): string {
 export const dictionaries = dicts;
 
 const templateNames: Record<Lang, Record<Template, string>> = {
-  ms: { kenduri: "Kenduri", dinner: "Makan malam", company: "Syarikat", ride: "Kayuhan", convoy: "Konvoi motosikal", trip: "Lawatan berhari", other: "Lain-lain" },
-  en: { kenduri: "Kenduri / wedding", dinner: "Dinner", company: "Company", ride: "Bicycle ride", convoy: "Motorcycle convoy", trip: "Multi-day trip", other: "Other" },
+  ms: { kenduri: "Kenduri", dinner: "Makan malam", company: "Syarikat", ride: "Kayuhan", convoy: "Konvoi motosikal", trip: "Lawatan berhari", meeting: "Mesyuarat", seminar: "Seminar", picnic: "Piknik", hike: "Hiking", other: "Lain-lain" },
+  en: { kenduri: "Kenduri / wedding", dinner: "Dinner", company: "Company", ride: "Bicycle ride", convoy: "Motorcycle convoy", trip: "Multi-day trip", meeting: "Meeting", seminar: "Seminar", picnic: "Picnic", hike: "Hike", other: "Other" },
 };
-export const templateName = (x: Template) => templateNames[current][x];
+export const templateName = (x: Template) => templateNames[current][x] ?? templateNames[current].other;
+
+const infoKindNames: Record<Lang, Record<InfoKind, string>> = {
+  ms: { dress: "Kod pakaian", safety: "Keselamatan", documents: "Dokumen", bring: "Bawa", contact: "Hubungi", other: "Lain-lain" },
+  en: { dress: "Dress code", safety: "Safety", documents: "Documents", bring: "What to bring", contact: "Contact", other: "Other" },
+};
+export const infoKindName = (x: InfoKind) => infoKindNames[current][x] ?? infoKindNames[current].other;
 
 const modeNames: Record<Lang, Record<TravelMode, string>> = {
   ms: { bicycle: "Basikal", motorcycle: "Motosikal", car: "Kereta", walk: "Jalan kaki" },

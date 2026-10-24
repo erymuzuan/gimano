@@ -49,6 +49,30 @@ struct HostedStopDraft: Codable, Hashable, Sendable, Identifiable {
     }
 }
 
+/// One agenda item ("Atur cara", `sessions`). It ends when the next one starts, the last one when the event ends.
+struct HostedSessionDraft: Codable, Hashable, Sendable, Identifiable {
+    var id: String = EventRandom.itemId()
+    var title: String = ""
+    var start: Date
+}
+
+/// One guest info block (§4.1): plain text guests see.
+struct HostedInfoDraft: Codable, Hashable, Sendable, Identifiable {
+    var id: String = UUID().uuidString
+    var kindRaw: String
+    var text: String = ""
+
+    init(kind: EventInfoKind, text: String = "") {
+        kindRaw = kind.rawValue
+        self.text = text
+    }
+
+    var kind: EventInfoKind {
+        get { EventInfoKind(rawValue: kindRaw) ?? .other }
+        set { kindRaw = newValue.rawValue }
+    }
+}
+
 struct HostedEventDraft: Codable, Hashable, Sendable, Identifiable {
     var id: String
     var templateRaw: String
@@ -64,8 +88,35 @@ struct HostedEventDraft: Codable, Hashable, Sendable, Identifiable {
     var stops: [HostedStopDraft] = []
     /// "Laluan" (route builder). Optional in storage so drafts saved before routes existed still load.
     var routeDrafts: [RouteDraft]?
+    /// "Atur cara". Optional in storage (drafts saved before the wizard).
+    var sessionDrafts: [HostedSessionDraft]?
+    /// Guest info blocks (§4.1). Optional in storage.
+    var infoDrafts: [HostedInfoDraft]?
+    /// "Nota untuk saya": organizer only, kept on this phone, never written into a pack.
+    var organizerNote: String?
+    /// "Hantar sebagai fail + kod": share a suite-2 file plus the 8-character code instead of the open file.
+    var sendAsCodeFile: Bool?
     var createdAt: Date
     var updatedAt: Date
+
+    var sessions: [HostedSessionDraft] {
+        get { sessionDrafts ?? [] }
+        set { sessionDrafts = newValue.isEmpty ? nil : newValue }
+    }
+
+    var info: [HostedInfoDraft] {
+        get { infoDrafts ?? [] }
+        set { infoDrafts = newValue.isEmpty ? nil : newValue }
+    }
+
+    var sensitive: Bool {
+        get { sendAsCodeFile ?? false }
+        set { sendAsCodeFile = newValue ? true : nil }
+    }
+
+    /// "Perjalanan": the template is a journey, or the event already has routes (§4.1: not stored, an event with routes
+    /// is a journey).
+    var isJourney: Bool { template.isJourney || !routes.isEmpty }
 
     var routes: [RouteDraft] {
         get { routeDrafts ?? [] }
@@ -83,8 +134,8 @@ struct HostedEventDraft: Codable, Hashable, Sendable, Identifiable {
         if rs != routes { routes = rs }
     }
 
-    /// The template suggests routes (rides, convoys, trips).
-    var routesFirst: Bool { [.ride, .convoy, .trip].contains(template) }
+    /// The template suggests routes (rides, convoys, trips, hikes).
+    var routesFirst: Bool { template.isJourney }
 
     /// A new draft: tomorrow 11:00–16:00 in this phone's time zone, language from the app's.
     static func new(now: Date = .now, timeZone: TimeZone = .current, preferredLanguage: String? = Locale.preferredLanguages.first) -> HostedEventDraft {
@@ -126,6 +177,22 @@ struct HostedEventDraft: Codable, Hashable, Sendable, Identifiable {
         if EventValidation.scalars(title) > EventLimits.titleChars { issues.append(.titleTooLong) }
         if EventValidation.scalars(description) > EventLimits.descriptionChars { issues.append(.descriptionTooLong) }
         if EventValidation.scalars(alias) > EventLimits.aliasChars { issues.append(.aliasTooLong) }
+        // Agenda: rows without a name are left out; each ends when the next starts, the last at the event's end.
+        let agenda = sessions.filter { !$0.title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }.sorted { $0.start < $1.start }
+        if agenda.count > EventLimits.maxSessions { issues.append(.tooManySessions) }
+        for (i, s) in agenda.enumerated() {
+            if EventValidation.scalars(s.title.trimmingCharacters(in: .whitespacesAndNewlines)) > EventLimits.sessionTitleChars {
+                issues.append(.sessionTitle(s.id))
+            }
+            let sEnd = i + 1 < agenda.count ? agenda[i + 1].start : end
+            if sEnd < s.start { issues.append(.sessionTime(s.id)) }
+        }
+        // Info blocks: empty ones are left out.
+        let blocks = info.filter { !$0.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+        if blocks.count > EventLimits.maxInfoBlocks { issues.append(.tooManyInfoBlocks) }
+        for b in blocks where EventValidation.scalars(b.text.trimmingCharacters(in: .whitespacesAndNewlines)) > EventLimits.infoTextChars {
+            issues.append(.infoTooLong(b.id))
+        }
         if end <= start { issues.append(.endBeforeStart) }
         if end.timeIntervalSince(start) > Double(EventLimits.maxEventDays) * 86_400 { issues.append(.tooLong) }
         if expiresAt <= publishedAt { issues.append(.expired) }
@@ -168,7 +235,13 @@ struct HostedEventDraft: Codable, Hashable, Sendable, Identifiable {
                           arrive: nil, dwellMin: nil, notes: opt(s.notes), audience: opt(s.audience))
                 // s.organizerNote is deliberately not read: it has no field in the pack.
             },
+            sessions: agenda.enumerated().map { i, s in
+                EventSession(id: s.id, title: s.title.trimmingCharacters(in: .whitespacesAndNewlines), start: .local(s.start, tz),
+                             end: .local(i + 1 < agenda.count ? agenda[i + 1].start : end, tz), stopId: nil)
+            },
+            info: blocks.map { EventInfoBlock(kind: $0.kind, text: $0.text.trimmingCharacters(in: .whitespacesAndNewlines)) },
             routes: eventRoutes)
+        // self.organizerNote is deliberately not read either.
         do {
             try EventValidation.validate(doc)
         } catch {
@@ -189,6 +262,8 @@ enum EventDraftIssue: Equatable, Sendable {
     /// Part of a drawn route matched no road.
     case routeUnmatched(String)
     case tooManyRoutes, tooManyRoutePoints
+    case tooManySessions, sessionTitle(String), sessionTime(String)
+    case tooManyInfoBlocks, infoTooLong(String)
     case invalid(EventPackError)
 
     var message: String {
@@ -209,6 +284,11 @@ enum EventDraftIssue: Equatable, Sendable {
         case .routeUnmatched: String(localized: "Part of a drawn route matched no road. Redraw it, add a point or keep it as a sketch.")
         case .tooManyRoutes: String(localized: "An event can have 20 routes at most.")
         case .tooManyRoutePoints: String(localized: "The routes are too detailed (50 000 points at most in total). Remove a route or split it.")
+        case .tooManySessions: String(localized: "The agenda can have 50 items at most.")
+        case .sessionTitle: String(localized: "An agenda item's name is too long (120 characters at most).")
+        case .sessionTime: String(localized: "An agenda item starts after the event ends. Check its time.")
+        case .tooManyInfoBlocks: String(localized: "An event can have 12 notes for guests at most.")
+        case .infoTooLong: String(localized: "A note for guests is too long (1000 characters at most).")
         case .invalid: String(localized: "This event can't be published. Check its details.")
         }
     }
@@ -237,6 +317,7 @@ enum EventDraftIssue: Equatable, Sendable {
         static let addPlace = "anchor.addPlace"
         static let routes = "anchor.routes"
         static let problems = "anchor.problems"
+        static let info = "anchor.info"
         static func stop(_ id: String) -> String { "anchor.stop.\(id)" }
         static func route(_ id: String) -> String { "anchor.route.\(id)" }
     }
@@ -253,6 +334,7 @@ enum EventDraftIssue: Equatable, Sendable {
         case .stopLabel(let id), .stopNotes(let id), .stopAudience(let id): Anchor.stop(id)
         case .routeIncomplete(let id), .routeUnmatched(let id): Anchor.route(id)
         case .tooManyRoutes, .tooManyRoutePoints: Anchor.routes
+        case .tooManySessions, .sessionTitle, .sessionTime, .tooManyInfoBlocks, .infoTooLong: Anchor.info
         case .invalid: Anchor.problems
         }
     }
@@ -458,9 +540,12 @@ struct PublishedInvite: Equatable, Sendable {
     /// "Pautan tanpa laluan" (§5.5): the same revision without route lines, signed with the same key. Only when the
     /// full link is too long and this one fits.
     var stopsOnlyLink: String?
-    /// The file always carries the full event.
+    /// The default share ("Hantar fail", §5.2.1): a suite-3 file with the link's own key, nonce and ciphertext, so it
+    /// opens with no code. Always the full event.
     var fileBytes: [UInt8]
-    /// The event's 8-character file code `XXXX-XXXX` (the same for every revision).
+    /// "Acara sensitif": a suite-2 file for the code below (Argon2id), made only when asked for.
+    var codeFileBytes: [UInt8]?
+    /// The event's 8-character file code `XXXX-XXXX` (the same for every revision), for suite-2 files only.
     var secretCode: String
     var changes: [EventChange]
 }
@@ -514,9 +599,10 @@ enum EventPublisher {
     }
 
     /// Validates, signs with the event's own key, seals with a fresh nonce, re-opens to verify, records the revision.
-    /// The file runs Argon2id (64 MiB, a fraction of a second): call this off the main actor.
+    /// The link and the suite-3 file are the same sealed bytes. `codeFile` also makes a suite-2 file (not offered in the
+    /// app since the share went back to the link), which runs Argon2id (64 MiB, a fraction of a second): off the main actor.
     static func publish(eventId: String, store: EventStore, secrets: any EventSecretStore, site: String = EventLinks.site,
-                        now: Date = .now) -> Result<PublishedInvite, EventPublishError> {
+                        codeFile: Bool? = nil, now: Date = .now) -> Result<PublishedInvite, EventPublishError> {
         guard let hosted = try? store.hostedEvent(id: eventId) else { return .failure(.notFound) }
         let latest = try? store.latestHostedRevision(eventId: eventId)
         let prepared: Prepared
@@ -545,17 +631,51 @@ enum EventPublisher {
             let sealed = try EventPack.seal(eventBytes: prepared.bytes, organizer: organizer, key: s.packKey)
             let fragment = EventPack.fragment(key: s.packKey, sealed: sealed)
             let link = try? EventPack.link(site: site, key: s.packKey, sealed: sealed)
-            // Suite 2 (§5.2): the event's stable code, a fresh salt and nonce; Argon2id runs here (off the main actor).
-            let file = try EventPack.sealFile(eventBytes: prepared.bytes, organizer: organizer, code: code)
+            // Suite 3 (§5.2): the link's own key, nonce and ciphertext behind the file header. No code, no Argon2id.
+            let file = try EventPack.openFileBytes(key: s.packKey, sealed: sealed)
+            // Suite 2 only when asked for: the event's stable code, a fresh salt and nonce; Argon2id runs here.
+            let codeFileBytes = (codeFile ?? false)
+                ? try EventPack.sealFile(eventBytes: prepared.bytes, organizer: organizer, code: code) : nil
             let stopsOnly = link == nil ? stopsOnlyLink(fullBytes: prepared.bytes, organizer: organizer, key: s.packKey, site: site) : nil
             if !prepared.reused { try? store.recordHostedRevision(eventId: eventId, doc: prepared.doc, bytes: prepared.bytes) }
             return .success(PublishedInvite(doc: prepared.doc, eventBytes: prepared.bytes, reused: prepared.reused, link: link,
                                             fragmentLength: fragment.count, stopsOnlyLink: stopsOnly, fileBytes: file,
-                                            secretCode: code,
+                                            codeFileBytes: codeFileBytes, secretCode: code,
                                             changes: prepared.previous.map { EventChange.between($0, prepared.doc) } ?? []))
         } catch {
             return .failure(.pack(error))
         }
+    }
+
+    /// The suite-2 file ("Acara sensitif") for bytes already published, with the event's stable code: fresh salt and
+    /// nonce, same organizer key. Runs Argon2id: not on the main actor.
+    static func codeFile(eventId: String, eventBytes: [UInt8], secrets: any EventSecretStore) -> Result<[UInt8], EventPublishError> {
+        guard let s = secrets.load(eventId: eventId), let code = s.fileCode, let organizer = EventOrganizerKey(seed: s.seed) else {
+            return .failure(.keyMissing)
+        }
+        do {
+            return .success(try EventPack.sealFile(eventBytes: eventBytes, organizer: organizer, code: code))
+        } catch {
+            return .failure(.pack(error))
+        }
+    }
+
+    /// The organizer key for an event, created now if it has none yet (the first publish would do the same), so "Semak"
+    /// can show the safety code guests will see. nil when the key of an already published event is gone from this phone.
+    static func ensureOrganizerKey(eventId: String, store: EventStore, secrets: any EventSecretStore) -> [UInt8]? {
+        guard let hosted = try? store.hostedEvent(id: eventId) else { return nil }
+        if let s = secrets.load(eventId: eventId), let org = EventOrganizerKey(seed: s.seed) {
+            if let pinned = hosted.organizerPub, pinned != org.publicKey { return nil }
+            if hosted.organizerPub == nil { try? store.setHostedOrganizer(eventId: eventId, pub: org.publicKey) }
+            return org.publicKey
+        }
+        let published = (try? store.latestHostedRevision(eventId: eventId)) ?? nil
+        guard hosted.organizerPub == nil, published == nil else { return nil }
+        let fresh = EventSecrets.generate()
+        guard secrets.save(fresh, eventId: eventId), secrets.load(eventId: eventId) == fresh,
+              let org = EventOrganizerKey(seed: fresh.seed) else { return nil }
+        try? store.setHostedOrganizer(eventId: eventId, pub: org.publicKey)
+        return org.publicKey
     }
 
     /// The stops-only link of a full revision (§5.5): same rev, same organizer key, same pack key, fresh nonce. nil when

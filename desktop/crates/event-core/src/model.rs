@@ -32,6 +32,9 @@ pub struct Event {
     pub stops: Vec<Stop>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub sessions: Vec<Session>,
+    /// Guest info blocks (§4.1), plain text, shown in order after the agenda.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub info: Vec<InfoBlock>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub routes: Vec<Route>,
     /// Present only on a stops-only variant (§5.5); always written last.
@@ -80,6 +83,10 @@ pub enum Template {
     Ride,
     Convoy,
     Trip,
+    Meeting,
+    Seminar,
+    Picnic,
+    Hike,
     #[serde(other)]
     Other,
 }
@@ -170,6 +177,27 @@ pub struct Session {
     pub end: DateTime<FixedOffset>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub stop_id: Option<String>,
+}
+
+/// `info[].kind` (§4.1). Unknown values from newer writers read as `Other`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum InfoKind {
+    Dress,
+    Safety,
+    Documents,
+    Bring,
+    Contact,
+    #[serde(other)]
+    Other,
+}
+
+/// One guest info block (§4.1): plain guest-visible text, 1–1000 code points, newlines allowed.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct InfoBlock {
+    pub kind: InfoKind,
+    pub text: String,
 }
 
 /// Default access expiry: `end` + 24 h, in UTC.

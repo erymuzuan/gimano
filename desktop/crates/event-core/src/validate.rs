@@ -12,6 +12,7 @@ pub mod limits {
     pub const MAX_EVENT_DAYS: i64 = 14;
     pub const MAX_STOPS: usize = 200;
     pub const MAX_SESSIONS: usize = 50;
+    pub const MAX_INFO_BLOCKS: usize = 12;
     pub const MAX_ROUTES: usize = 20;
     pub const MAX_POLYLINE_POINTS: usize = 50_000;
     pub const MAX_FILE_BYTES: usize = 20 * 1024 * 1024;
@@ -23,6 +24,7 @@ pub mod limits {
     pub const STOP_NOTES_CHARS: usize = 500;
     pub const AUDIENCE_CHARS: usize = 40;
     pub const ROUTE_TITLE_CHARS: usize = 80;
+    pub const INFO_TEXT_CHARS: usize = 1000;
     /// Not fixed by the contract; same as the event title.
     pub const SESSION_TITLE_CHARS: usize = 120;
     /// Not fixed by the contract; same as a stop label.
@@ -199,6 +201,13 @@ pub(crate) fn validate(e: &Event) -> R {
         if let Some(sid) = &s.stop_id {
             known_stop(p("stopId"), sid)?;
         }
+    }
+
+    if e.info.len() > MAX_INFO_BLOCKS {
+        return err("info", "has more than 12 info blocks");
+    }
+    for (i, b) in e.info.iter().enumerate() {
+        text(&format!("info[{i}].text"), &b.text, 1, INFO_TEXT_CHARS)?;
     }
 
     if e.routes.len() > MAX_ROUTES {

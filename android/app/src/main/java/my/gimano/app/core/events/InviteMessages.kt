@@ -22,18 +22,29 @@ object InviteMessages {
         else "${s.format(day)} ${s.format(hm)} – ${e.format(day)} ${e.format(hm)}"
     }
 
-    fun linkMessage(p: EventPlan, link: String, downloadUrl: String): String = if (p.lang == "en") """
-        Invitation: ${p.title}
-        ${whenText(p)}
-        Open the plan, parking & directions: $link
-        No Manotu yet? Download: $downloadUrl
-    """.trimIndent() else """
-        Jemputan: ${p.title}
-        ${whenText(p)}
-        Buka pelan, tempat parkir & arah: $link
-        Belum ada Manotu? Muat turun: $downloadUrl
-    """.trimIndent()
+    /** The default share ("Kongsi jemputan", link first): title, date · time, the link, the download page. */
+    fun linkMessage(p: EventPlan, link: String, downloadUrl: String): String = if (p.lang == "en")
+        "Invitation: ${p.title}\n${whenShort(p)}\nOpen the plan, parking & directions: $link\nNo Manotu yet? $downloadUrl"
+    else
+        "Jemputan: ${p.title}\n${whenShort(p)}\nBuka pelan, parkir & arah: $link\nBelum ada Manotu? $downloadUrl"
 
+    /** "Ahd, 15 Nov · 11:00–16:00" (one day), else the [whenText] range across days. */
+    fun whenShort(p: EventPlan): String {
+        val z = EventSchedule.zone(p)
+        val s = p.start.atZoneSameInstant(z)
+        val e = p.end.atZoneSameInstant(z)
+        if (s.toLocalDate() != e.toLocalDate()) return whenText(p)
+        val hm = DateTimeFormatter.ofPattern("HH:mm")
+        return "${s.format(DateTimeFormatter.ofPattern("EEE, d MMM", locale(p.lang)))} · ${s.format(hm)}–${e.format(hm)}"
+    }
+
+    /** §5.2.1 default share, step 1: the text sent on its own before the file (WhatsApp drops text sent with a document). No code, key or link. */
+    fun openFileMessage(p: EventPlan, downloadUrl: String): String = if (p.lang == "en")
+        "Invitation: ${p.title}\n${whenShort(p)}\nI'm sending the Manotu invitation file next — tap it to open.\nNo Manotu yet? $downloadUrl"
+    else
+        "Jemputan: ${p.title}\n${whenShort(p)}\nSaya hantar fail jemputan Manotu selepas ini — ketik untuk buka.\nBelum ada Manotu? $downloadUrl"
+
+    /** "Acara sensitif": the text sent with the suite-2 file; the code goes separately ([codeMessage]). */
     fun fileMessage(p: EventPlan, downloadUrl: String): String = if (p.lang == "en")
         "Invitation: ${p.title} (open with Manotu). The secret code will be sent separately. No Manotu yet? Download: $downloadUrl"
     else
@@ -45,9 +56,17 @@ object InviteMessages {
     else
         "Kod rahsia untuk \"${p.title}\": $secretCode"
 
-    /** File name for the share sheet / Save: the title in safe characters, never anything secret. */
+    private const val UNSAFE = "/\\:*?\"<>|"
+
+    /**
+     * File name for the share sheet / Save: "<title>.manotu-event", the title without characters that file systems or
+     * chat apps reject (`/ \ : * ? " < > |`, control characters), spaces collapsed, at most 60 characters. Never secret.
+     */
     fun fileName(p: EventPlan): String {
-        val base = p.title.map { if (it.isLetterOrDigit()) it else '-' }.joinToString("").replace(Regex("-+"), "-").trim('-').take(40)
+        val cleaned = p.title.map { if (it.isISOControl() || it in UNSAFE) ' ' else it }.joinToString("")
+            .replace(Regex("\\s+"), " ").trim().trim('.', ' ')
+        val base = if (cleaned.codePointCount(0, cleaned.length) <= 60) cleaned
+            else cleaned.substring(0, cleaned.offsetByCodePoints(0, 60)).trimEnd()
         return "${base.ifEmpty { "acara" }}.${EventTransport.FILE_EXTENSION}"
     }
 }

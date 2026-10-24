@@ -110,6 +110,10 @@ builder.Services.AddSingleton<LiveSubscriptions>();
 builder.Services.AddHostedService<LiveFanoutConsumer>();
 builder.Services.AddSingleton<MoodCache>();
 builder.Services.AddSingleton<ShareStore>();
+// Event short links (docs/events.md §5.6): Postgres rows, purged hourly by the worker. Owner hash key: Drops:OwnerKey.
+builder.Services.AddSingleton(sp => Gimano.Core.Events.DropOwnerKey.FromConfig(config["Drops:OwnerKey"],
+    sp.GetRequiredService<IOptions<JwtOptions>>().Value.SigningKey));
+builder.Services.AddScoped<Gimano.Core.Events.IDropStore, Gimano.Core.Events.EfDropStore>().AddScoped<Gimano.Core.Events.DropService>();
 builder.Services.AddSingleton(new Gimano.Core.Support.ContactCrypto(config["Feedback:ContactKey"]));
 builder.Services.AddSingleton<Gimano.Api.Identity.UserKeyCache>();
 builder.Services.AddSingleton<Gimano.Api.Identity.ReplayCache>();
@@ -174,7 +178,7 @@ app.MapHealthChecks("/healthz", new HealthCheckOptions { Predicate = _ => false,
 app.MapHealthChecks("/readyz", new HealthCheckOptions { Predicate = c => c.Tags.Contains("ready"), ResponseWriter = HealthWriter.WriteAsync });
 
 var api = app.MapGroup("/api/v1");
-api.MapAuthAndMe().MapPlaces().MapRoutes().MapLive().MapFeedback().MapPrivacy().MapCommunity().MapShares().MapInbox().MapIdentity().MapCrashReports().MapAdmin().MapIssues();
+api.MapAuthAndMe().MapPlaces().MapRoutes().MapLive().MapFeedback().MapPrivacy().MapCommunity().MapShares().MapDrops().MapInbox().MapIdentity().MapCrashReports().MapAdmin().MapIssues();
 app.MapMedia();
 app.MapAgentAdmin();
 app.MapMcp("/mcp").RequireAuthorization(AgentTokenAuthenticationHandler.Policy);

@@ -3,7 +3,7 @@
 //! have no counterpart in `event_core::Event` and therefore can never be written into a pack.
 
 use chrono::{DateTime, Utc};
-use event_core::{Lang, Session, StopKind, Template, TravelMode};
+use event_core::{InfoBlock, Lang, Session, StopKind, Template, TravelMode};
 use route_core::LatLng;
 use serde::{Deserialize, Serialize};
 
@@ -28,6 +28,10 @@ pub struct Doc {
     pub stops: Vec<StopDraft>,
     #[serde(default)]
     pub sessions: Vec<Session>,
+    /// Guest info blocks (§4.1). Kept from imported packs and republished as-is; the desktop
+    /// editor shows them read-only.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub info: Vec<InfoBlock>,
     #[serde(default)]
     pub routes: Vec<RouteDraft>,
     /// Published revisions, oldest first (the exact signed bytes).

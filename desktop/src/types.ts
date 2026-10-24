@@ -2,7 +2,12 @@
 // only ever sees these: no keys, no signed bytes, no links with keys.
 
 export type Lang = "ms" | "en";
-export type Template = "kenduri" | "dinner" | "company" | "ride" | "convoy" | "trip" | "other";
+export type Template =
+  | "kenduri" | "dinner" | "company" | "ride" | "convoy" | "trip"
+  | "meeting" | "seminar" | "picnic" | "hike" | "other";
+/** Guest info block kinds (docs/events.md §4.1); unknown kinds arrive as "other". */
+export type InfoKind = "dress" | "safety" | "documents" | "bring" | "contact" | "other";
+export interface InfoBlock { kind: InfoKind; text: string }
 export type TravelMode = "car" | "motorcycle" | "bicycle" | "walk";
 export type StopKind =
   | "parking" | "dropoff" | "entrance" | "venue" | "meal" | "checkpoint" | "fuel" | "water"
@@ -42,6 +47,8 @@ export interface PublishedRev { rev: number; publishedAt: string; hash: string; 
 export interface Doc {
   id: string; kind: "event" | "route"; updatedAt: string; meta: EventMeta;
   stops: StopDraft[]; sessions: Session[]; routes: RouteDraft[]; published: PublishedRev[];
+  /** Guest info blocks, read-only in the desktop editor (kept from imported packs). */
+  info?: InfoBlock[];
   imported?: { safetyCode: string; organizerPub: string; rev: number; expiresAt: string } | null;
 }
 
@@ -99,6 +106,7 @@ export interface GuestEvent {
     arrive?: { from: string; to: string }; dwellMin?: number; notes?: string; audience?: string;
   }[];
   sessions?: { id: string; title: string; start: string; end: string; stopId?: string }[];
+  info?: InfoBlock[];
   routes?: { id: string; title?: string; mode: TravelMode; day?: string; polyline?: string; source: GeometrySource; distanceM: number; durationS?: number; ascentM?: number; descentM?: number; stopIds: string[] }[];
   variant?: { kind: string; fullHash: string };
 }

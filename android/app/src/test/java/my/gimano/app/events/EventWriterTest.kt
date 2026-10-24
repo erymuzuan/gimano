@@ -251,7 +251,9 @@ class EventWriterTest {
             for (secret in listOf(code, code.replace("-", ""), SecretCode.encode(key), B64u.encode(key), link)) assertFalse("file message leaks $secret", f.contains(secret))
             assertTrue(InviteMessages.codeMessage(p, code).contains(code))
         }
-        assertEquals("Kenduri-Aqil-Sofea.manotu-event", InviteMessages.fileName(r.plan))
+        assertEquals("Kenduri Aqil & Sofea.manotu-event", InviteMessages.fileName(r.plan))
+        assertEquals("a b c.manotu-event", InviteMessages.fileName(r.plan.copy(title = "a/b:c")))
+        assertEquals("acara.manotu-event", InviteMessages.fileName(r.plan.copy(title = "///")))
     }
 
     // --- Host store, own link, guest update ---------------------------------------------------------------
@@ -264,7 +266,7 @@ class EventWriterTest {
         host.create(d)
         assertEquals(1, dao.rows.value.size)
         assertFalse("secrets sealed", dao.rows.value.values.single().secrets.size == 0)
-        val p1 = host.publish(d.id)
+        val p1 = host.publish(d.id, codeFile = true)
         assertEquals(1L, p1.plan.rev)
         val opened1 = reader.openLink(p1.link(EventLinks.DEFAULT_SITE)!!)
         assertTrue(host.isOwn(d.id, opened1.organizerPub))
@@ -273,28 +275,28 @@ class EventWriterTest {
 
         // The file is suite 2 under the event's 8-character code.
         assertTrue(Regex("[2-9A-HJ-NP-Z]{4}-[2-9A-HJ-NP-Z]{4}").matches(p1.secretCode))
-        assertEquals(EventTransport.FILE_SUITE_CODE, p1.file()[5])
-        assertArrayEquals(opened1.eventBytes, reader.openFile(p1.file(), p1.secretCode).eventBytes)
+        assertEquals(EventTransport.FILE_SUITE_CODE, p1.codeFile()!![5])
+        assertArrayEquals(opened1.eventBytes, reader.openFile(p1.codeFile()!!, p1.secretCode).eventBytes)
 
         // Re-share without changes: same rev, new nonce, same key, same secret code (new salt), same signed bytes.
         clock = now.plusSeconds(10)
-        val again = host.publish(d.id)
+        val again = host.publish(d.id, codeFile = true)
         assertTrue(again.reused)
         assertEquals(p1.secretCode, again.secretCode)
         assertFalse(p1.sealed.nonce.contentEquals(again.sealed.nonce))
-        assertFalse(EventTransport.parseFile(p1.file()).salt!!.contentEquals(EventTransport.parseFile(again.file()).salt!!))
+        assertFalse(EventTransport.parseFile(p1.codeFile()!!).salt!!.contentEquals(EventTransport.parseFile(again.codeFile()!!).salt!!))
         assertArrayEquals(opened1.eventBytes, reader.openLink(again.link(EventLinks.DEFAULT_SITE)!!).eventBytes)
 
         // Edit → rev 2 with the same id and organizer key.
         clock = now.plusSeconds(3600)
         host.save(d.copy(title = "Kenduri (dikemas kini)"))
         assertTrue(host.load(d.id)!!.changed)
-        val p2 = host.publish(d.id)
+        val p2 = host.publish(d.id, codeFile = true)
         assertEquals(2L, p2.plan.rev)
         // A new revision keeps the event's code; the file gets a fresh salt.
         assertEquals(p1.secretCode, p2.secretCode)
-        assertFalse(EventTransport.parseFile(p1.file()).salt!!.contentEquals(EventTransport.parseFile(p2.file()).salt!!))
-        val opened2 = reader.openFile(p2.file(), p2.secretCode)
+        assertFalse(EventTransport.parseFile(p1.codeFile()!!).salt!!.contentEquals(EventTransport.parseFile(p2.codeFile()!!).salt!!))
+        val opened2 = reader.openFile(p2.codeFile()!!, p2.secretCode)
         assertArrayEquals(opened1.organizerPub, opened2.organizerPub)
         assertEquals(opened1.revisionHashB64u, opened2.event.parent)
         assertFalse(host.load(d.id)!!.changed)
@@ -313,7 +315,7 @@ class EventWriterTest {
         guest.openLink(p1.link(EventLinks.DEFAULT_SITE)!!); scope.advanceUntilIdle()
         assertTrue((guest.ui.value as EventImportUi.Review).decision is ImportDecision.New)
         guest.confirm(); scope.advanceUntilIdle()
-        guest.openFile(p2.file()); guest.submitCode(p2.secretCode); scope.advanceUntilIdle()
+        guest.openFile(p2.codeFile()!!); guest.submitCode(p2.secretCode); scope.advanceUntilIdle()
         val review = guest.ui.value as EventImportUi.Review
         assertEquals(ImportDecision.Newer(1, ParentCheck.MATCHES), review.decision)
         assertEquals("Kenduri \"Aqil\" & Sofea\nRumah 2", review.previous!!.title)
@@ -343,21 +345,21 @@ class EventWriterTest {
         dao.update(row.copy(secrets = vault.seal(legacy)))
         val seedBefore = legacy.copyOfRange(0, 32); val keyBefore = legacy.copyOfRange(32, 64)
 
-        val p1 = host.publish(d.id)
+        val p1 = host.publish(d.id, codeFile = true)
         val upgraded = vault.open(dao.rows.value.getValue(d.id).secrets)
         assertEquals("code stored with the organiser keys", 72, upgraded.size)
         assertArrayEquals("organiser seed kept", seedBefore, upgraded.copyOfRange(0, 32))
         assertArrayEquals("link key kept", keyBefore, upgraded.copyOfRange(32, 64))
         assertEquals(p1.secretCode.replace("-", ""), String(upgraded, 64, 8, Charsets.US_ASCII))
         assertArrayEquals(keyBefore, p1.key)
-        assertArrayEquals(reader.openLink(p1.link(EventLinks.DEFAULT_SITE)!!).eventBytes, reader.openFile(p1.file(), p1.secretCode).eventBytes)
+        assertArrayEquals(reader.openLink(p1.link(EventLinks.DEFAULT_SITE)!!).eventBytes, reader.openFile(p1.codeFile()!!, p1.secretCode).eventBytes)
 
         clock = now.plusSeconds(3600)
         host.save(d.copy(title = "Kenduri (dikemas kini)"))
-        val p2 = host.publish(d.id)
+        val p2 = host.publish(d.id, codeFile = true)
         assertEquals(2L, p2.plan.rev)
         assertEquals("the code is not regenerated", p1.secretCode, p2.secretCode)
-        assertEquals("Kenduri (dikemas kini)", reader.openFile(p2.file(), p1.secretCode).event.title)
+        assertEquals("Kenduri (dikemas kini)", reader.openFile(p2.codeFile()!!, p1.secretCode).event.title)
     }
 
     @Test fun editorValidatesBeforePublishing() = runTest {

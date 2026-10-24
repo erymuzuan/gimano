@@ -161,6 +161,25 @@ struct RouteDraft: Codable, Hashable, Sendable, Identifiable {
         settleOffline()
     }
 
+    /// A stop added from the event wizard's timeline: "Mula" goes first, "Tamat" last, any other stop before a
+    /// final finish (else at the end). The legs around it are calculated again.
+    /// `finishIds`: the event's "Tamat" stops.
+    mutating func addStopPoint(_ stop: HostedStopDraft, finishIds: Set<String>) {
+        let p = stop.location
+        if points.isEmpty || stop.kind == .finish {
+            addPoint(p, stopId: stop.id)
+        } else if stop.kind == .start {
+            points.insert(BuilderPoint(p, stopId: stop.id), at: 0)
+            legs.insert(BuilderLeg(), at: 0)
+            settleOffline()
+        } else if points.count >= 2, let last = points.last?.stopId, finishIds.contains(last) {
+            insertPoint(p, inLeg: legs.count - 1)
+            points[points.count - 2].stopId = stop.id
+        } else {
+            addPoint(p, stopId: stop.id)
+        }
+    }
+
     /// Splits leg `i` with a new point (a tap on the line).
     mutating func insertPoint(_ p: LatLng, inLeg i: Int) {
         guard legs.indices.contains(i) else { return }

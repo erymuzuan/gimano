@@ -2561,6 +2561,58 @@ namespace Gimano.Core.Data.Migrations
                     b.ToTable("water_areas", (string)null);
                 });
 
+            modelBuilder.Entity("Gimano.Core.Events.Drop", b =>
+                {
+                    b.Property<string>("Id")
+                        .HasMaxLength(10)
+                        .HasColumnType("character varying(10)")
+                        .HasColumnName("id");
+
+                    b.Property<byte[]>("Blob")
+                        .IsRequired()
+                        .HasColumnType("bytea")
+                        .HasColumnName("blob");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<DateTimeOffset?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("deleted_at");
+
+                    b.Property<DateTimeOffset>("ExpiresAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("expires_at");
+
+                    b.Property<byte[]>("OwnerHash")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("bytea")
+                        .HasColumnName("owner_hash");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<byte[]>("WriteTokenHash")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("bytea")
+                        .HasColumnName("write_token_hash");
+
+                    b.HasKey("Id")
+                        .HasName("pk_drops");
+
+                    b.HasIndex("ExpiresAt")
+                        .HasDatabaseName("ix_drops_expires_at");
+
+                    b.HasIndex("OwnerHash")
+                        .HasDatabaseName("ix_drops_owner_hash");
+
+                    b.ToTable("drops", (string)null);
+                });
+
             modelBuilder.Entity("Gimano.Core.Domain.AppAttestKey", b =>
                 {
                     b.HasOne("Gimano.Core.Domain.User", null)

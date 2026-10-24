@@ -366,7 +366,7 @@ struct PersonalRouteEventTests {
         }
         // The personal route stays as it was.
         #expect(c.personalRoutes.map(\.id) == ["p1"])
-        #expect(c.path.last == .host(id))
+        #expect(c.path.last == .create(id))
     }
 
     @Test("A loop gets only Mula (the route ends there); motorcycles make a convoy, cars a trip")

@@ -36,17 +36,25 @@ data class HostedEvent(
 )
 
 /**
- * One sealed invitation, held in memory only while the share screen is open. [key] is the link's pack key; the file
- * is sealed separately (suite 2) under the event's [secretCode] (`XXXX-XXXX`, the same for every revision). Never log
- * either. The file always carries the full event; [stopsOnlyLink] is the same revision without route lines (§5.5),
- * only when the full link is too long and that one fits.
+ * One sealed invitation, held in memory only while the share screen is open. [key] is the link's pack key. The default
+ * file ([file], suite 3) is the link's own key, nonce and ciphertext framed as a file (§5.2, no code). For "Acara
+ * sensitif" a suite-2 file is sealed under the event's [secretCode] (`XXXX-XXXX`, the same for every revision) with a
+ * fresh salt ([codeFile]). Never log any of them. Files always carry the full event; [stopsOnlyLink] is the same
+ * revision without route lines (§5.5), only when the full link is too long and that one fits.
  */
 class Publication(
     val plan: EventPlan, val key: ByteArray, val invitation: SealedInvitation, val reused: Boolean, val previous: EventPlan?,
     /** The event's 8-character file code, `XXXX-XXXX`. */
     val secretCode: String,
-    private val fileBytes: ByteArray,
+    /** The suite-2 file, sealed only for sensitive events (Argon2id); null until then. */
+    private val codeFileBytes: ByteArray? = null,
 ) {
+    /** The suite-3 `.manotu-event` file of this revision: the same bytes as the full link (§5.2), no code. */
+    fun file(): ByteArray = EventLinks.openFile(key, sealed)
+    /** The suite-2 file ("Acara sensitif"), when sealed. */
+    fun codeFile(): ByteArray? = codeFileBytes?.copyOf()
+    fun withCodeFile(bytes: ByteArray) = Publication(plan, key, invitation, reused, previous, secretCode, bytes)
+
     val sealed: SealedPack get() = invitation.full
     val mode: ShareMode get() = invitation.mode
     val fragmentLength: Int get() = invitation.fullFragmentLength
@@ -55,8 +63,6 @@ class Publication(
     /** "Pautan tanpa laluan": only in [ShareMode.STOPS_ONLY_OR_FILE]. */
     fun stopsOnlyLink(site: String): String? =
         invitation.stopsOnly?.takeIf { mode == ShareMode.STOPS_ONLY_OR_FILE }?.let { runCatching { EventLinks.link(site, key, it) }.getOrNull() }
-    /** The suite-2 `.manotu-event` file of this revision (fresh salt and nonce, sealed when published). */
-    fun file(): ByteArray = fileBytes.copyOf()
 }
 
 /**
@@ -140,6 +146,13 @@ class HostStore(
         changed()
     }
 
+    /** The organizer safety code guests see behind "Penganjur disahkan" (§7.3), for the host's Semak screen. */
+    suspend fun safetyCode(id: String): String? {
+        val e = dao.get(id) ?: return null
+        val s = runCatching { vault.open(e.secrets) }.getOrNull() ?: return null
+        return try { my.gimano.app.core.events.EventHashes.safetyCode(writer.organizerPub(s.copyOfRange(0, SEED_END))) } finally { s.fill(0) }
+    }
+
     /** Opening one's own invitation link: the organizer key in the pack is this phone's key for that event. */
     suspend fun isOwn(eventId: String, organizerPub: ByteArray): Boolean {
         val e = dao.get(eventId) ?: return false
@@ -151,9 +164,11 @@ class HostStore(
      * Seals the next revision (or the unchanged last one again, with a fresh nonce) and records it. Throws
      * [EventPackException] when the event does not validate.
      */
-    suspend fun publish(id: String): Publication {
+    suspend fun publish(id: String, codeFile: Boolean? = null): Publication {
         var e = dao.get(id) ?: throw EventPackException(EventPackException.INVALID_EVENT, "unknown event")
         val d = draftOf(e) ?: throw EventPackException(EventPackException.INVALID_EVENT, "draft unreadable")
+        // Link-first sharing: no file is sealed unless asked for (the open file is framed on demand, Publication.file()).
+        val withCodeFile = codeFile ?: false
         val prepared = EventRevisions.prepare(d, publishedOf(e), clock())
         var s = vault.open(e.secrets)
         try {
@@ -170,9 +185,12 @@ class HostStore(
             val seed = s.copyOfRange(0, SEED_END)
             val key = s.copyOfRange(SEED_END, KEY_END)
             // Same revision, same organiser key and pack key for the stops-only variant; the stored bytes stay the full ones.
-            // The file (always the full event) is sealed under the event's code with a fresh salt and nonce.
+            // The default file (suite 3) is framed from the full link's sealed pack (no Argon2). Sensitive events also
+            // get a suite-2 file sealed under the event's code with a fresh salt and nonce.
             val (sealed, file) = try {
-                withContext(work) { SealedInvitation.seal(writer, prepared.bytes, seed, key) to files.seal(prepared.bytes, seed, code) }
+                withContext(work) {
+                    SealedInvitation.seal(writer, prepared.bytes, seed, key) to (if (withCodeFile) files.seal(prepared.bytes, seed, code) else null)
+                }
             } finally { seed.fill(0) }
             if (!prepared.reused) {
                 dao.update(e.copy(published = vault.seal(prepared.bytes), publishedRev = prepared.plan.rev,
@@ -180,6 +198,23 @@ class HostStore(
                 changed()
             }
             return Publication(prepared.plan, key, sealed, prepared.reused, prepared.previous, code, file)
+        } finally {
+            s.fill(0)
+        }
+    }
+
+    /**
+     * "Acara sensitif" switched on at the share screen: the suite-2 file of the last published revision (exactly those
+     * bytes) under the event's code, fresh salt and nonce. One Argon2id run, on [work].
+     */
+    suspend fun sealCodeFile(id: String): ByteArray {
+        val e = dao.get(id) ?: throw EventPackException(EventPackException.INVALID_EVENT, "unknown event")
+        val bytes = publishedOf(e) ?: throw EventPackException(EventPackException.INVALID_EVENT, "not published")
+        val s = vault.open(e.secrets)
+        try {
+            val code = SecretCodeV2.format(codeOf(s) ?: throw EventPackException(EventPackException.INVALID_EVENT, "no code"))
+            val seed = s.copyOfRange(0, SEED_END)
+            try { return withContext(work) { files.seal(bytes, seed, code) } } finally { seed.fill(0) }
         } finally {
             s.fill(0)
         }

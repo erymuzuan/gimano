@@ -16,6 +16,7 @@ const T = {
     safetyHelp: "Kod ini sama bagi setiap jemputan daripada penganjur ini untuk acara ini. Bandingkan dengan kod yang penganjur tunjukkan jika anda ragu.",
     openApp: "Buka di Manotu", addCalendar: "Tambah ke kalendar", noApp: "Belum ada Manotu?", download: "Muat turun",
     map: "Peta", mapAria: "Peta tempat dan laluan acara", stops: "Tempat", sessions: "Atur cara", routes: "Laluan",
+    info: "Maklumat tetamu",
     tzNote: tz => `Waktu mengikut zon ${tz}`, arrive: "Tiba", dwell: m => `Lebih kurang ${fmtDur(m * 60)} di sini`,
     audience: "Untuk:", entrance: "Navigasi ke pintu masuk kenderaan (garis putus-putus pada peta).",
     app: "Manotu", google: "Google Maps", other: "Apl lain", navTo: l => `ke ${l}`,
@@ -28,7 +29,10 @@ const T = {
       checkpoint: "Titik semak", fuel: "Minyak", water: "Air", rest: "Rehat", prayer: "Surau / masjid",
       accommodation: "Penginapan", start: "Mula", finish: "Tamat", other: "Lain-lain" },
     templates: { kenduri: "Kenduri", dinner: "Makan malam", company: "Acara syarikat", ride: "Kayuhan / tunggangan",
-      convoy: "Konvoi", trip: "Lawatan", other: "Acara" },
+      convoy: "Konvoi", trip: "Lawatan", meeting: "Mesyuarat", seminar: "Seminar", picnic: "Piknik", hike: "Hiking",
+      other: "Acara" },
+    infoKinds: { dress: "Kod pakaian", safety: "Keselamatan", documents: "Dokumen", bring: "Bawa", contact: "Hubungi",
+      other: "Lain-lain" },
     modes: { car: "Kereta", motorcycle: "Motosikal", bicycle: "Basikal", walk: "Berjalan kaki" },
   },
   en: {
@@ -42,6 +46,7 @@ const T = {
     safetyHelp: "This code is the same on every invitation from this organizer for this event. Compare it with the code the organizer shows if in doubt.",
     openApp: "Open in Manotu", addCalendar: "Add to calendar", noApp: "No Manotu yet?", download: "Download",
     map: "Map", mapAria: "Map of the event's places and routes", stops: "Places", sessions: "Programme", routes: "Routes",
+    info: "Guest info",
     tzNote: tz => `Times in ${tz}`, arrive: "Arrive", dwell: m => `About ${fmtDur(m * 60)} here`,
     audience: "For:", entrance: "Navigation goes to the vehicle entrance (dashed line on the map).",
     app: "Manotu", google: "Google Maps", other: "Other app", navTo: l => `to ${l}`,
@@ -54,7 +59,9 @@ const T = {
       checkpoint: "Checkpoint", fuel: "Fuel", water: "Water", rest: "Rest", prayer: "Prayer",
       accommodation: "Accommodation", start: "Start", finish: "Finish", other: "Other" },
     templates: { kenduri: "Kenduri", dinner: "Dinner", company: "Company event", ride: "Ride", convoy: "Convoy",
-      trip: "Trip", other: "Event" },
+      trip: "Trip", meeting: "Meeting", seminar: "Seminar", picnic: "Picnic", hike: "Hike", other: "Event" },
+    infoKinds: { dress: "Dress code", safety: "Safety", documents: "Documents", bring: "What to bring", contact: "Contact",
+      other: "Other" },
     modes: { car: "Car", motorcycle: "Motorcycle", bicycle: "Bicycle", walk: "Walking" },
   },
 };
@@ -181,7 +188,7 @@ function render() {
   $("plan").hidden = false;
   const e = opened.event;
   document.title = `${e.title} · Manotu`;
-  $("ev-kind").textContent = t("templates")[e.template];
+  $("ev-kind").textContent = t("templates")[e.template] ?? t("templates").other;
   $("ev-title").textContent = e.title;
   $("ev-when").textContent = fmtRange(e.start, e.end);
   let viewerTz = "";
@@ -227,6 +234,12 @@ function render() {
     return el("li", {}, el("strong", { text: s.title }),
       el("div", { class: "muted small", text: fmtRange(s.start, s.end, SHORT_DATE) + (where ? ` · ${t("at")} ${where.label}` : "") }));
   }));
+
+  // Guest info blocks (§4.1), in the organizer's order, after the agenda. Plain text only (textContent).
+  $("info-card").hidden = e.info.length === 0;
+  $("info").replaceChildren(...e.info.map(b => el("li", { class: "info-block" },
+    el("h3", { text: t("infoKinds")[b.kind] ?? t("infoKinds").other }),
+    el("p", { class: "info-text", text: b.text }))));
 
   $("routes-card").hidden = e.routes.length === 0;
   // Stops-only link (docs/events.md §5.5): route list with distance and time, but no line on the map.

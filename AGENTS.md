@@ -140,6 +140,12 @@ must be rejected in review.
 - **One narrow exception:** an email/WhatsApp number the user *volunteers* on a specific feedback or crash
   report, so we can reply. It's never prefilled, never linked to the pseudonym, encrypted at rest, kept out of
   logs and GitHub, and auto-deleted (30 days after the report closes, 90 days max). See `docs/api.md`, "Contact details".
+- **Event short links (owner-approved exception, 24 Oct 2026):** when an organizer shares an event, the server keeps
+  its **end-to-end encrypted** pack (`/api/v1/drops`) **without the key**, which stays after `#` in the link and never
+  reaches a server, so Manotu cannot read it. Stored: the blob, a SHA-256 of the write token, times, and a keyed hash
+  of the uploader's user id (quota and `DELETE /me` only); no title, IP or user agent; ids and bodies are not logged.
+  Deleted at event end + 14 days (at most 400 days), when the organizer ends the link, or on `DELETE /me`.
+  See `docs/events.md` §5.6 and `docs/api.md`, "Event short links".
 - Device info on feedback/crash reports (app version, OS, model, screen size) is sent only with the user's
   consent and shown to them first. Crash reports are scrubbed on the phone and never use third-party SDKs.
 - No new endpoint, table, log line, analytics event or third-party SDK may carry private data or

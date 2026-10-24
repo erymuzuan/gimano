@@ -1,0 +1,18 @@
+{
+  "description": "kenduri-one-day fileV3B64u cut to 6 bytes (header only), 37 (key incomplete), 61 (nonce incomplete) and 77 bytes (ciphertext shorter than the 16-byte tag): each must fail with malformed_file before any decryption.",
+  "expectedError": "malformed_file",
+  "filesB64u": [
+    "TU5URQED",
+    "TU5URQEDWnxoeioCAk0mYJc5YBtaGOC7eJTeHnQ9VXK_He-YlA",
+    "TU5URQEDWnxoeioCAk0mYJc5YBtaGOC7eJTeHnQ9VXK_He-YlFWJFsfKnllC42XV0kVE4vFAigaE7fk8NQ",
+    "TU5URQEDWnxoeioCAk0mYJc5YBtaGOC7eJTeHnQ9VXK_He-YlFWJFsfKnllC42XV0kVE4vFAigaE7fk8NcskvmxY02Grh2nSXjxs-6g"
+  ],
+  "kind": "negative",
+  "lengths": [
+    6,
+    37,
+    61,
+    77
+  ],
+  "name": "negative-file-v3-truncated"
+}

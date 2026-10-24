@@ -10,8 +10,10 @@ update the vectors in the same change.
 
 ## 1. Privacy rule (AGENTS.md, unchanged)
 
-- An event, its stops, routes, guest-visible notes, organizer alias and keys **never reach a Manotu server**, not
-  even encrypted. The plan travels inside the link fragment or a file the host sends through their own channels.
+- An event, its stops, routes, guest-visible notes, organizer alias and keys **never reach a Manotu server in
+  readable form**. The plan travels inside the link fragment, a file the host sends through their own channels, or
+  (since 24 Oct 2026, owner decision) a **short link** whose end-to-end encrypted pack the server keeps without the
+  key until the event is over (§5.6). Keys and the secret after `#` never reach a server.
 - Organizer-only notes are never written into a pack.
 - Routing **does** use the Manotu server, statelessly: the request carries coordinates and travel mode only (no
   stop label, event id, alias or note), and the server stores nothing (`"store": false`, §6).
@@ -59,7 +61,7 @@ session/arrival times carry the event's local offset (e.g. `2026-11-15T11:00:00+
   "rev": 3,                             // 1, 2, 3 … one per publication
   "parent": "b64u(SHA-256(eventBytes of rev-1))",   // null for rev 1
   "publishedAt": "2026-11-01T02:15:00Z",
-  "template": "kenduri",                // kenduri|dinner|company|ride|convoy|trip|other
+  "template": "kenduri",                // kenduri|dinner|company|ride|convoy|trip|meeting|seminar|picnic|hike|other
   "title": "Kenduri Aqil & Sofea",      // 1–120 chars
   "description": "…",                   // optional, ≤ 2000
   "lang": "ms",                         // ms|en (display language chosen by the host)
@@ -81,6 +83,10 @@ session/arrival times carry the event's local offset (e.g. `2026-11-15T11:00:00+
   }],
   "sessions": [{                        // optional agenda
     "id": "b64u(8)", "title": "Jamuan", "start": "…+08:00", "end": "…+08:00", "stopId": "…"
+  }],
+  "info": [{                            // optional guest notes, plain text (§4.1)
+    "kind": "dress",                    // dress|safety|documents|bring|contact|other
+    "text": "Tema pastel. Baju Melayu / kurung."      // 1–1000
   }],
   "routes": [{                          // optional
     "id": "b64u(8)",
@@ -104,12 +110,23 @@ unique; stop references must resolve; unknown `template`/`kind` read as `other`,
 are rejected; `distanceM`/`durationS`/`ascentM`/`descentM` are non-negative integers; rev 1 has `parent: null`
 and later revisions must have a parent. Session title 1–120, alias ≤ 80, `dwellMin` ≤ 20 160.
 
-Limits (reject above them): 14 days between `start` and `end`, 200 stops, 50 sessions, 20 routes, 50 000 polyline
+Limits (reject above them): 14 days between `start` and `end`, 200 stops, 50 sessions, 12 info blocks, 20 routes, 50 000 polyline
 points in total, 20 MiB file, 16 000-character link fragment.
+
+### 4.1 Guest info blocks and templates (added 24 Oct 2026)
+
+- `info` is optional; when present it holds 1–12 blocks, written after `sessions` and before `routes`. Each block
+  is `{kind, text}`: `text` is plain guest-visible text, 1–1000 code points (newlines allowed, no markup);
+  `kind` is `dress` (Kod pakaian), `safety` (Keselamatan), `documents` (Dokumen), `bring` (Bawa), `contact`
+  (Hubungi) or `other`. An unknown `kind` reads as `other`. A kind may repeat. Readers show blocks in order.
+  The agenda stays in `sessions` (it is not an info block).
+- Templates `meeting`, `seminar`, `picnic`, `hike` were added; older readers show them as `other`. Whether an event
+  is "one venue" or "a journey" is not stored: an event with `routes` is a journey.
+- Older readers ignore `info` (unknown fields are ignored), so these events still open everywhere.
 
 ## 5. Transport
 
-### 5.1 Invitation link (default)
+### 5.1 Invitation link
 
 ```
 https://<site>/a/#1.<b64u(key)>.<b64u(nonce ‖ ciphertext)>
@@ -123,10 +140,11 @@ https://<site>/a/#1.<b64u(key)>.<b64u(nonce ‖ ciphertext)>
 - Phones register `/a/` as an app link (Android App Links / iOS Universal Links) so it opens in Manotu when
   installed; otherwise the page shows the plan with "Buka di Manotu / Google Maps / apl lain".
 
-### 5.2 File `.manotu-event` (sensitive events)
+### 5.2 File `.manotu-event`
 
 ```
-suite 2 (written since 24 Oct 2026):  "MNTE" ‖ 0x01 (format) ‖ 0x02 (suite: code) ‖ salt (16) ‖ nonce (24) ‖ ciphertext
+suite 3 (default share, no code):     "MNTE" ‖ 0x01 (format) ‖ 0x03 (suite: open) ‖ key (32) ‖ nonce (24) ‖ ciphertext
+suite 2 (sensitive events):           "MNTE" ‖ 0x01 (format) ‖ 0x02 (suite: code) ‖ salt (16) ‖ nonce (24) ‖ ciphertext
 suite 1 (read only, older files):     "MNTE" ‖ 0x01 (format) ‖ 0x01 (suite: raw key) ‖ nonce (24) ‖ ciphertext
 ```
 
@@ -159,6 +177,27 @@ trusted people. The web viewer does not open files (files are for Manotu users),
 opening these; writers no longer produce them.
 
 The host sends the code through a different channel. MIME `application/vnd.manotu.event`.
+
+**Suite 3 (open file, the default share since 24 Oct 2026).** The file carries its own key, exactly like a link
+carries its key after `#`: `key`, `nonce` and `ciphertext` are **the same bytes as the link** of the same
+publication (`#1.<key>.<nonce ‖ ciphertext>`), so a suite-3 file and its link are interchangeable and the file adds
+only 6 header bytes. It is always the **full** event (never a stops-only variant) and has no 16 000-character
+limit, only the 20 MiB file limit. Readers open it with no code and apply every link rule (signature, §7). Anyone holding the file
+can read the plan, as with the link. Older apps report `unsupported_suite`; they need an update. Hosts pick suite 2
+("Acara sensitif") when the plan must not be readable by whoever ends up holding the file.
+
+### 5.2.1 Sharing (apps, since 24 Oct 2026, evening)
+
+Guests should only ever **tap a link**. Files were tried and dropped from the share UI (download, save, open in
+Manotu, import was too much; WhatsApp also drops the text from documents).
+
+- **Default ("Kongsi jemputan"):** one text message (BM; EN when the event `lang` is `en`):
+  `Jemputan: <title>\n<date · time>\nBuka pelan, parkir & arah: <link>\nBelum ada Manotu? <download URL>`
+  where `<link>` is the **short link** (§5.6) and the download URL is `https://manotu.app/download/`.
+- If the short link cannot be made (offline, server error, 413), the same message carries the full link (§5.1),
+  or the stops-only link (§5.5) after asking. Only when even that is too long does the app offer the suite-3 file.
+- "Salin pautan" copies the same link. Suite-2 ("Acara sensitif") files stay in the readers but are not offered.
+- Guests see one code at most: the organizer safety code (§7.3) is behind a "Penganjur disahkan" row.
 
 ### 5.3 Opening in the app (web viewer hand-off)
 
@@ -202,6 +241,66 @@ A stops-only link carries the **same revision** with route geometry removed, so 
   its own bytes.
 - The file (§5.2) always carries the full event. Hosts send the stops-only link plus the file for those who want the
   map lines.
+
+### 5.6 Short link (encrypted relay, since 24 Oct 2026)
+
+```
+https://manotu.app/j/#<dropId>.<b64u(secret)>          e.g. https://manotu.app/j/#7Kx2Qp9mWd.Hq3…(22 chars)  ≈ 55 chars
+```
+
+- `dropId`: 10 characters from the base58 alphabet `123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz`,
+  chosen by the server (CSPRNG). `secret`: 16 random bytes made **on the organizer's device** (b64u, 22 chars).
+  Both sit after `#`, so neither the static site nor its logs see them.
+- `key = HKDF-SHA256(ikm = secret, salt = empty, info = ASCII "manotu-drop-v1", L = 32)`.
+- The stored blob is `nonce (24) ‖ XChaCha20-Poly1305(key, nonce, AD = "manotu-event-v1", deflated signed envelope)`,
+  i.e. exactly the `nonce ‖ ciphertext` of a link (§3, §5.1) but under the derived key. It is always the **full**
+  event (no 16 000-character limit). Readers apply every link rule (signature, §7) after decrypting.
+- Blob size ≤ **256 KiB**. A fresh nonce for every upload.
+
+**Server (docs/api.md "Event short links")**
+
+```
+POST   /api/v1/drops               (app JWT) body = blob, Content-Type application/octet-stream,
+                                    header X-Drop-Expires: <ISO date-time>
+                                    → 201 {dropId, writeToken, expiresAt}
+PUT    /api/v1/drops/{dropId}      Authorization: Drop <writeToken>, body = new blob (organizer republished)  → 204
+GET    /api/v1/drops/{dropId}      public, CORS for manotu.app / www.bukitbunga.com → 200 blob (no-store) · 404 · 410
+DELETE /api/v1/drops/{dropId}      Authorization: Drop <writeToken>  → 204   ("Tamatkan pautan", or the event is deleted)
+```
+
+- `expiresAt` = the event's last day + 14 days (apps compute it), clamped by the server to 1 day … 400 days from now;
+  a PUT may move it within the same bounds. Expired or deleted drops are purged within the hour; GET then returns 410
+  until the row is purged, 404 after.
+- Stored per drop: id, blob, SHA-256 of the writeToken (256-bit random), created/updated/expires times and a keyed
+  hash of the uploader's user id used **only** for the quota (50 live drops per user) and `DELETE /me` (which removes
+  them). No title, IP, or user agent; request bodies and drop ids are not logged; GET is rate-limited per IP in memory.
+- The server can tell an organizer pseudonym has N live events and roughly how big they are, nothing more.
+
+**Organizer app**
+
+- Upload when the host taps "Kongsi jemputan" (and on every republish with PUT, so the **same link always shows the
+  latest revision**). Keep `dropId`, `secret` and `writeToken` with the organizer's keys (never in backups in clear).
+- Upload failure is not an error to the host: fall back to the full link (§5.2.1) and say so in one line.
+
+**Guest, app installed:** `/j/` is an Android App Link and iOS Universal Link. The app reads `#<dropId>.<secret>`,
+GETs the blob, decrypts and runs the normal import (§7). It keeps `dropId` + `secret` with the imported event and
+re-fetches when the event is opened (and on pull to refresh), so later revisions arrive by themselves.
+
+**Guest, app not installed:** the static page `site/manotu/j/` fetches and decrypts the blob in the browser and
+shows the same plan as `/a/`, with:
+1. **"Buka di Manotu"** → `manotu://event?drop=<dropId>#<secret>` (apps accept it like the `/j/` link).
+2. **"Dapatkan Manotu"** → on that tap, copies the `/j/` link to the clipboard, then goes to Google Play
+   (`https://play.google.com/store/apps/details?id=my.manotu.app`) on Android, the App Store on iOS when listed,
+   else `https://manotu.app/download/`.
+3. A line: "Sudah pasang? Ketik pautan jemputan sekali lagi, atau buka Manotu."
+
+**After install (deferred link, no tracking SDKs, no install referrer):** on the first launches (until an event is
+imported or 7 days pass) the app checks the clipboard **once per launch** for a `manotu.app/j/#…` link and offers
+"Buka jemputan dari pautan yang disalin?" (Android reads it while in the foreground; iOS uses `UIPasteControl` / the
+system paste prompt, never a silent read). Install referrers cannot be used: the secret must never reach a store.
+
+Errors: unknown drop (404) and expired/deleted (410) → "Jemputan ini telah tamat atau dipadam"; network → retry;
+decrypt or signature failure → the §7 message. Older apps open `/j/` links in the browser page.
 
 ## 6. Routing API additions (stateless; see docs/api.md)
 

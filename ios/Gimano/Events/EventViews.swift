@@ -66,6 +66,10 @@ enum EventFormat {
         case .ride: "bicycle.circle.fill"
         case .convoy: "car.2.fill"
         case .trip: "suitcase.fill"
+        case .meeting: "person.2.fill"
+        case .seminar: "person.wave.2.fill"
+        case .picnic: "tree.fill"
+        case .hike: "figure.hiking"
         case .other: "party.popper.fill"
         }
     }
@@ -85,7 +89,8 @@ struct EventsSheet: View {
                     case .confirm: EventImportConfirmView()
                     case .secretCode: EventSecretCodeView()
                     case .detail(let id): EventDetailView(eventId: id)
-                    case .host(let id): EventEditorView(eventId: id)
+                    case .host(let id): EventWizardView(eventId: id, startStep: .review)
+                    case .create(let id): EventWizardView(eventId: id, startStep: .type)
                     case .share(let id): EventShareView(eventId: id)
                     case .myRoutes: MyRoutesView()
                     }
@@ -190,10 +195,9 @@ struct EventsListView: View {
     private func hostedRow(_ h: HostedEvent) -> some View {
         let d = h.draft
         return HStack(spacing: Tokens.Space.m) {
-            Image(systemName: EventFormat.icon(d.template))
-                .font(.system(size: 26)).foregroundStyle(Color.brandOn)
+            EventIconView(icon: d.template.eventIcon, size: 28)
                 .frame(width: 44, height: 44)
-                .background(Color.brand, in: RoundedRectangle(cornerRadius: Tokens.Radius.sm, style: .continuous))
+                .background(Color.brandMist, in: RoundedRectangle(cornerRadius: Tokens.Radius.sm, style: .continuous))
             VStack(alignment: .leading, spacing: 2) {
                 Text(verbatim: d.title.isEmpty ? String(localized: "Untitled event") : d.title).font(Tokens.Font.bodyBold).lineLimit(2)
                 Text(verbatim: EventFormat.range(d.start, d.end, d.timeZone)).font(Tokens.Font.caption).foregroundStyle(Color.textMuted)
@@ -212,8 +216,7 @@ struct EventsListView: View {
 
     private func row(_ e: ImportedEvent) -> some View {
         HStack(spacing: Tokens.Space.m) {
-            Image(systemName: EventFormat.icon(e.doc.template))
-                .font(.system(size: 26)).foregroundStyle(Color.brand)
+            EventIconView(icon: e.doc.template.eventIcon, size: 28)
                 .frame(width: 44, height: 44)
                 .background(Color.brandMist, in: RoundedRectangle(cornerRadius: Tokens.Radius.sm, style: .continuous))
             VStack(alignment: .leading, spacing: 2) {
@@ -292,19 +295,7 @@ struct EventImportConfirmView: View {
     }
 
     private func safety(_ p: PendingEventImport) -> some View {
-        VStack(alignment: .leading, spacing: Tokens.Space.xs) {
-            Text("Safety code").font(Tokens.Font.label).foregroundStyle(Color.textMuted)
-            Text(verbatim: p.pack.safetyCode)
-                .font(.system(.title2, design: .monospaced).weight(.bold))
-                .foregroundStyle(Color.brandInk)
-                .textSelection(.enabled)
-                .accessibilityIdentifier("eventSafetyCode")
-            Text("Check this code with the organizer (for example by phone) before you trust the plan.")
-                .font(Tokens.Font.caption).foregroundStyle(Color.textMuted)
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(Tokens.Space.l)
-        .background(Color.brandMist, in: RoundedRectangle(cornerRadius: Tokens.Radius.md, style: .continuous))
+        EventOrganizerRow(alias: p.pack.event.alias, safetyCode: p.pack.safetyCode)
     }
 
     @ViewBuilder
@@ -484,6 +475,22 @@ struct EventDetailView: View {
                         }
                     } header: { Text("Agenda").font(Tokens.Font.label) }
                 }
+                if !doc.info.isEmpty {
+                    Section {
+                        ForEach(Array(doc.info.enumerated()), id: \.offset) { i, b in
+                            HStack(alignment: .top, spacing: Tokens.Space.m) {
+                                EventIconView(icon: b.kind.eventIcon, size: 24)
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(b.kind.title).font(Tokens.Font.bodyBold).accessibilityAddTraits(.isHeader)
+                                    Text(verbatim: b.text).font(Tokens.Font.body).textSelection(.enabled)
+                                }
+                            }
+                            .padding(.vertical, 4)
+                            .accessibilityElement(children: .combine)
+                            .accessibilityIdentifier("eventInfo.\(i)")
+                        }
+                    } header: { Text("Good to know").font(Tokens.Font.label) }
+                }
                 if !doc.routes.isEmpty { routesSection(doc) }
                 Section {
                     Button(role: .destructive) { confirmDelete = true } label: { Label("Delete event", systemImage: "trash") }
@@ -511,16 +518,14 @@ struct EventDetailView: View {
         let doc = e.doc
         return VStack(alignment: .leading, spacing: Tokens.Space.s) {
             HStack(spacing: Tokens.Space.m) {
-                Image(systemName: EventFormat.icon(doc.template)).font(.system(size: 30)).foregroundStyle(Color.brand)
+                EventIconView(icon: doc.template.eventIcon, size: 32)
+                    .frame(width: 52, height: 52)
+                    .background(Color.surfaceAlt, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
                 Text(verbatim: doc.title).font(Tokens.Font.title)
             }
-            if let alias = doc.alias { Text("Organizer: \(alias)").font(Tokens.Font.body) }
             Text(verbatim: EventFormat.range(doc.start, doc.end, doc)).font(Tokens.Font.caption).foregroundStyle(Color.textMuted)
+            EventOrganizerRow(alias: doc.alias, safetyCode: e.safetyCode)
             if let d = doc.description, !d.isEmpty { Text(verbatim: d).font(Tokens.Font.body) }
-            HStack {
-                Text("Safety code").font(Tokens.Font.small).foregroundStyle(Color.textMuted)
-                Text(verbatim: e.safetyCode).font(.system(.footnote, design: .monospaced).weight(.semibold))
-            }
             if model.events.fullRouteAdded == e.eventId, !doc.isStopsOnly {
                 Label("Full route added", systemImage: "checkmark.circle.fill")
                     .font(Tokens.Font.label).foregroundStyle(Color.brand)
@@ -628,6 +633,57 @@ struct EventDetailView: View {
             }
             Spacer(minLength: 0)
             if hasLine { Image(systemName: "map").foregroundStyle(Color.brand) }
+        }
+    }
+}
+
+// MARK: - "Penganjur disahkan" (board EwGuestCard)
+
+/// The organizer row of an invitation: verified signature and alias; tapping it shows the organizer safety code
+/// (§7.3), the only code a guest sees (§5.2.1).
+struct EventOrganizerRow: View {
+    let alias: String?
+    let safetyCode: String
+    @State private var expanded = false
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: Tokens.Space.s) {
+            Button { withAnimation(.easeInOut(duration: 0.2)) { expanded.toggle() } } label: {
+                HStack(spacing: Tokens.Space.m) {
+                    Image(systemName: "checkmark.circle.fill").font(.system(size: 28)).foregroundStyle(Color(light: 0x13855C, dark: 0x4CC38A))
+                    VStack(alignment: .leading, spacing: 1) {
+                        Text(verbatim: alias ?? String(localized: "Organizer")).font(Tokens.Font.bodyBold).foregroundStyle(Color.textPrimary)
+                        Text("Verified organizer · details").font(Tokens.Font.small).foregroundStyle(Color.textMuted)
+                    }
+                    Spacer(minLength: 0)
+                    Image(systemName: expanded ? "chevron.up" : "chevron.right").font(.footnote.weight(.semibold)).foregroundStyle(Color.textMuted)
+                }
+                .padding(Tokens.Space.m)
+                .background(Color.surface, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityHint(Text(expanded ? "Hides the organizer code" : "Shows the organizer code"))
+            .accessibilityIdentifier("eventOrganizerRow")
+            if expanded {
+                VStack(alignment: .leading, spacing: Tokens.Space.s) {
+                    HStack(spacing: Tokens.Space.s) {
+                        EventIconView(icon: .safety, size: 22)
+                        Text("Organizer code").font(Tokens.Font.bodyBold)
+                        Spacer(minLength: 0)
+                        Text(verbatim: safetyCode).font(.system(.title3, design: .monospaced).weight(.bold)).foregroundStyle(Color.brandInk)
+                            .padding(.horizontal, 10).padding(.vertical, 3)
+                            .background(Color.brandMist, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+                            .textSelection(.enabled)
+                            .accessibilityIdentifier("eventSafetyCode")
+                    }
+                    Text("The same for every invitation from this organizer. In doubt? Ask the organizer for their code.")
+                        .font(Tokens.Font.caption).foregroundStyle(Color.textMuted)
+                }
+                .padding(Tokens.Space.m)
+                .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).strokeBorder(Color.outline, style: StrokeStyle(lineWidth: 1.5, dash: [5, 4])))
+                .accessibilityElement(children: .combine)
+            }
         }
     }
 }

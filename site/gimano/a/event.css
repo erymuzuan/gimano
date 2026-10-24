@@ -35,6 +35,8 @@ button.pill{border:0;cursor:pointer;color:var(--ink);font:inherit;font-weight:80
 .notes{background:var(--mist);border-radius:10px;padding:8px 12px;white-space:pre-line;overflow-wrap:anywhere}
 .plain li{padding:8px 0;border-top:1px solid var(--mist)}
 .plain li:first-child{border-top:0}
+.info-block h3{font-size:17px}
+.info-text{margin:4px 0 0;white-space:pre-line;overflow-wrap:anywhere}
 .pin{width:34px;height:34px;border-radius:50%;background:var(--brand);color:#fff;border:3px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,.35);font:900 15px Nunito,system-ui,sans-serif;cursor:pointer;padding:0}
 .status h1{font-size:26px}
 .state-error h1,.state-expired h1{color:var(--report)}

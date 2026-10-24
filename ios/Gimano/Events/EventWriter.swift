@@ -37,12 +37,12 @@ extension EventTime {
 extension EventDoc {
     init(id: String, rev: UInt32, parent: String?, publishedAt: EventTime, template: EventTemplate, title: String,
          description: String? = nil, lang: EventLang, tz: String, start: EventTime, end: EventTime, expiresAt: EventTime,
-         organizer: EventOrganizer? = nil, stops: [EventStop], sessions: [EventSession] = [], routes: [EventRoute] = [],
-         variant: EventVariant? = nil) {
+         organizer: EventOrganizer? = nil, stops: [EventStop], sessions: [EventSession] = [], info: [EventInfoBlock] = [],
+         routes: [EventRoute] = [], variant: EventVariant? = nil) {
         self.id = id; self.rev = rev; self.parent = parent; self.publishedAt = publishedAt; self.template = template
         self.title = title; self.description = description; self.lang = lang; self.tz = tz; self.start = start
         self.end = end; self.expiresAt = expiresAt; self.organizer = organizer; self.stops = stops
-        self.sessions = sessions; self.routes = routes; self.variant = variant
+        self.sessions = sessions; self.info = info; self.routes = routes; self.variant = variant
     }
 
     /// The writer's bytes for this event (validated first, like `Event::to_bytes`). Writers publish
@@ -174,7 +174,7 @@ enum RouteSimplify {
 // MARK: - Event JSON (byte-compatible with serde_json as used by event-core)
 
 /// Compact JSON in event-core's field order. Optional fields are omitted when absent, except `parent`
-/// (always written, `null` on rev 1); `stops` is always written; `sessions` / `routes` only when non-empty.
+/// (always written, `null` on rev 1); `stops` is always written; `sessions` / `info` / `routes` only when non-empty.
 /// Numbers and strings are formatted the way serde_json does (shortest round-trip floats with `.0` for whole
 /// numbers, minimal string escaping, non-ASCII as UTF-8), so a model read from the vectors re-serialises to the
 /// same bytes. Readers never depend on this: they keep and hash the signed bytes as received.
@@ -207,6 +207,17 @@ enum EventJSON {
                             w.field("start") { w.string(s.start.raw) }
                             w.field("end") { w.string(s.end.raw) }
                             if let sid = s.stopId { w.field("stopId") { w.string(sid) } }
+                        }
+                    }
+                }
+            }
+            // §4.1: after `sessions`, before `routes`; omitted when empty.
+            if !e.info.isEmpty {
+                w.field("info") {
+                    w.array(e.info) { b in
+                        w.object {
+                            w.field("kind") { w.string(b.kind.rawValue) }
+                            w.field("text") { w.string(b.text) }
                         }
                     }
                 }

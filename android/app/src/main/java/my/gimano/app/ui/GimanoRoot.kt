@@ -297,7 +297,7 @@ fun GimanoRoot(vm: MainViewModel, onMic: () -> Unit, onExit: () -> Unit, onReque
                 Screen.Theme -> my.gimano.app.ui.more.ThemeScreen(settings.theme, onPick = { vm.setTheme(it) }, onBack = vm::back)
                 Screen.Events -> my.gimano.app.ui.events.EventsListScreen(container.eventStore, container.hostStore, settings.use24h, onBack = vm::back,
                     onOpen = { id -> vm.open(Screen.EventDetail(id)) }, onOpenHosted = { id -> vm.openHostEvent(id) }, onNew = vm::newHostEvent)
-                Screen.EventEdit -> my.gimano.app.ui.events.EventEditScreen(container.hostEditor, ui.saved, settings.use24h, vm, container.personalRoutes)
+                Screen.EventEdit -> my.gimano.app.ui.events.EventWizardScreen(container.hostEditor, ui.saved, settings.use24h, vm, container.personalRoutes)
                 is Screen.RouteBuilder -> {
                     val draft by container.hostEditor.draft.collectAsStateWithLifecycle()
                     val days = remember(draft?.date, draft?.startTime, draft?.endTime) {

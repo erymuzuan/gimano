@@ -46,6 +46,8 @@ object EventLimits {
     const val MAX_EVENT_DAYS = 14L
     const val MAX_STOPS = 200
     const val MAX_SESSIONS = 50
+    const val MAX_INFO_BLOCKS = 12
+    const val INFO_TEXT_CHARS = 1000
     const val MAX_ROUTES = 20
     const val MAX_POLYLINE_POINTS = 50_000
     const val MAX_FILE_BYTES = 20 * 1024 * 1024
@@ -257,9 +259,18 @@ object RawInflate {
 /** Nonce ‖ ciphertext (with its 16-byte tag), as carried in a link or file. */
 class SealedPack(val nonce: ByteArray, val ciphertext: ByteArray)
 
-/** A parsed `.manotu-event` file: [salt] is the suite-2 Argon2id salt, null for a suite-1 (raw key) file. */
-class ParsedFile(val salt: ByteArray?, val sealed: SealedPack) {
-    val suite: Byte get() = if (salt != null) EventTransport.FILE_SUITE_CODE else EventTransport.FILE_SUITE_RAW_KEY
+/**
+ * A parsed `.manotu-event` file: [salt] is the suite-2 Argon2id salt; [key] is the suite-3 pack key carried in the file
+ * (the link's key); both null for a suite-1 (raw key) file.
+ */
+class ParsedFile(val salt: ByteArray?, val sealed: SealedPack, val key: ByteArray? = null) {
+    val suite: Byte get() = when {
+        key != null -> EventTransport.FILE_SUITE_OPEN
+        salt != null -> EventTransport.FILE_SUITE_CODE
+        else -> EventTransport.FILE_SUITE_RAW_KEY
+    }
+    /** Suites 1 and 2 need the code the host sent separately; suite 3 opens as it is. */
+    val needsCode: Boolean get() = key == null
 }
 
 object EventTransport {
@@ -271,6 +282,9 @@ object EventTransport {
     const val FILE_SUITE_RAW_KEY: Byte = 0x01
     /** Suite 2: the key is Argon2id over the 8-character code and the file's salt. Written. */
     const val FILE_SUITE_CODE: Byte = 0x02
+    /** Suite 3 (the default share): the file carries the link's key; no code (§5.2). */
+    const val FILE_SUITE_OPEN: Byte = 0x03
+    const val FILE_KEY_LEN = 32
     const val FILE_SALT_LEN = 16
     const val HEADER_LEN = 6
     const val FILE_MIME = "application/vnd.manotu.event"
@@ -294,23 +308,35 @@ object EventTransport {
 
     /**
      * §5.2, dispatching on the suite byte:
+     * suite 3 `"MNTE" ‖ 0x01 ‖ 0x03 ‖ key(32) ‖ nonce(24) ‖ ciphertext`,
      * suite 2 `"MNTE" ‖ 0x01 ‖ 0x02 ‖ salt(16) ‖ nonce(24) ‖ ciphertext`, suite 1 `"MNTE" ‖ 0x01 ‖ 0x01 ‖ nonce(24) ‖ ciphertext`.
      */
     fun parseFile(bytes: ByteArray): ParsedFile {
         if (bytes.size > EventLimits.MAX_FILE_BYTES) fail(EventPackException.FILE_TOO_LARGE)
         if (bytes.size < HEADER_LEN || !looksLikeFile(bytes)) fail(EventPackException.MALFORMED_FILE)
         if (bytes[4] != FILE_FORMAT_V1) fail(EventPackException.UNSUPPORTED_FILE_FORMAT)
-        val (salt, start) = when (bytes[5]) {
-            FILE_SUITE_RAW_KEY -> null to HEADER_LEN
+        var salt: ByteArray? = null
+        var key: ByteArray? = null
+        val start = when (bytes[5]) {
+            FILE_SUITE_RAW_KEY -> HEADER_LEN
             FILE_SUITE_CODE -> {
                 if (bytes.size < HEADER_LEN + FILE_SALT_LEN) fail(EventPackException.MALFORMED_FILE)
-                bytes.copyOfRange(HEADER_LEN, HEADER_LEN + FILE_SALT_LEN) to HEADER_LEN + FILE_SALT_LEN
+                salt = bytes.copyOfRange(HEADER_LEN, HEADER_LEN + FILE_SALT_LEN)
+                HEADER_LEN + FILE_SALT_LEN
+            }
+            FILE_SUITE_OPEN -> {
+                if (bytes.size < HEADER_LEN + FILE_KEY_LEN) fail(EventPackException.MALFORMED_FILE)
+                key = bytes.copyOfRange(HEADER_LEN, HEADER_LEN + FILE_KEY_LEN)
+                HEADER_LEN + FILE_KEY_LEN
             }
             else -> fail(EventPackException.UNSUPPORTED_SUITE)
         }
         if (bytes.size < start + NONCE_LEN + TAG_LEN) fail(EventPackException.MALFORMED_FILE)
-        return ParsedFile(salt, SealedPack(bytes.copyOfRange(start, start + NONCE_LEN), bytes.copyOfRange(start + NONCE_LEN, bytes.size)))
+        return ParsedFile(salt, SealedPack(bytes.copyOfRange(start, start + NONCE_LEN), bytes.copyOfRange(start + NONCE_LEN, bytes.size)), key)
     }
+
+    /** Whether opening needs a code (suites 1, 2); fails like [parseFile] on a malformed or unsupported file. */
+    fun fileNeedsCode(bytes: ByteArray): Boolean = parseFile(bytes).needsCode
 
     fun looksLikeFile(bytes: ByteArray): Boolean = bytes.size >= 4 && (0 until 4).all { bytes[it] == FILE_MAGIC[it] }
 }

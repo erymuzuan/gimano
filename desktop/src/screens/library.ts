@@ -8,7 +8,7 @@ import { button, confirmDialog } from "../ui";
 import type { DocSummary, Template } from "../types";
 import { openImportDialog } from "./importer";
 
-const TEMPLATES: Template[] = ["kenduri", "dinner", "company", "ride", "convoy", "trip"];
+const TEMPLATES: Template[] = ["kenduri", "dinner", "company", "meeting", "seminar", "ride", "convoy", "trip", "picnic", "hike"];
 const KL = { lat: 3.139, lng: 101.6869 };
 
 function miniRoute(points: [number, number][]): SVGElement {
@@ -85,7 +85,7 @@ register("library", (root) => {
         h("ul", { class: "templates" },
           ...TEMPLATES.map((tp) => h("li", {},
             h("button", { type: "button", class: `template tpl-${tp}`, onclick: () => void openView(api.newEvent(tp, KL)) },
-              h("span", { class: "tpl-icon", "aria-hidden": "true" }, { kenduri: "🏠", dinner: "🍽", company: "🏢", ride: "🚲", convoy: "🏍", trip: "🧳", other: "📍" }[tp]),
+              h("span", { class: "tpl-icon", "aria-hidden": "true" }, { kenduri: "🏠", dinner: "🍽", company: "🏢", ride: "🚲", convoy: "🏍", trip: "🧳", meeting: "🗂", seminar: "🎤", picnic: "🧺", hike: "🥾", other: "📍" }[tp]),
               h("span", {}, templateName(tp)),
             ),
           )),

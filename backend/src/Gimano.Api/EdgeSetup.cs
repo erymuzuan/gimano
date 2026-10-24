@@ -12,6 +12,10 @@ namespace Gimano.Api;
 public static class EdgeSetup
 {
     public const string SharesCorsPolicy = "shares";
+    /// <summary>GET /drops/{id}: the event short-link page on manotu.app (and its bukitbunga.com mirror).</summary>
+    public const string DropsCorsPolicy = "drops";
+    /// <summary>Per-IP limit on GET /drops/{id} (in memory only), on top of the global limiter.</summary>
+    public const string DropsReadLimit = "drops-read";
     private const string PeerItem = "gimano.peer";
 
     public static IReadOnlyList<IPAddress> TrustedProxies(IConfiguration config) =>
@@ -34,12 +38,20 @@ public static class EdgeSetup
 
         services.AddCors(o =>
         {
-            // Native apps don't need CORS. The only browser client is the "Share my drive" viewer (GET /shares/{id}).
+            // Native apps don't need CORS. The only browser clients are the "Share my drive" viewer (GET /shares/{id})
+            // and the event short-link page (GET /drops/{id}).
             var origins = (config["Cors:ShareViewerOrigins"] ?? "https://www.bukitbunga.com")
                 .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
             o.AddPolicy(SharesCorsPolicy, p =>
             {
                 if (origins.Contains("*")) p.AllowAnyOrigin(); else p.WithOrigins(origins);
+                p.WithMethods("GET").AllowAnyHeader();
+            });
+            var dropOrigins = (config["Cors:DropViewerOrigins"] ?? "https://manotu.app,https://www.bukitbunga.com")
+                .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+            o.AddPolicy(DropsCorsPolicy, p =>
+            {
+                if (dropOrigins.Contains("*")) p.AllowAnyOrigin(); else p.WithOrigins(dropOrigins);
                 p.WithMethods("GET").AllowAnyHeader();
             });
             if (env.IsDevelopment()) o.AddDefaultPolicy(p => p.AllowAnyOrigin().AllowAnyHeader().AllowAnyMethod());
@@ -60,6 +72,16 @@ public static class EdgeSetup
                         QueueLimit = 0,
                         AutoReplenishment = true,
                     }));
+            // Guests opening an event link: a few fetches per open (page + app + refresh). Keyed by client IP, never stored.
+            var dropReads = config.GetValue("RateLimit:DropReadsPerMinute", 30);
+            o.AddPolicy(DropsReadLimit, ctx => RateLimitPartition.GetTokenBucketLimiter(ClientKey(ctx, proxies), _ => new TokenBucketRateLimiterOptions
+            {
+                TokenLimit = Math.Max(1, dropReads),
+                TokensPerPeriod = Math.Max(1, dropReads / 6),
+                ReplenishmentPeriod = TimeSpan.FromSeconds(10),
+                QueueLimit = 0,
+                AutoReplenishment = true,
+            }));
             o.OnRejected = (c, _) =>
             {
                 c.HttpContext.Response.Headers.RetryAfter = "10";

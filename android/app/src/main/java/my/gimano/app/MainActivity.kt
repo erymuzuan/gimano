@@ -59,8 +59,15 @@ class MainActivity : AppCompatActivity() {
      * or a `.manotu-event` file (content://). The link's fragment holds the key: it is never logged or sent anywhere.
      */
     private fun handleEventIntent(i: Intent?) {
-        if (i?.action != Intent.ACTION_VIEW) return
-        val uri = i.data ?: return
+        if (i == null) return
+        // "Share to Manotu" (ACTION_SEND) of a file: the stream, never EXTRA_TEXT (a share text is not an event).
+        val sent = if (i.action == Intent.ACTION_SEND) {
+            @Suppress("DEPRECATION")
+            (if (Build.VERSION.SDK_INT >= 33) i.getParcelableExtra(Intent.EXTRA_STREAM, android.net.Uri::class.java)
+                else i.getParcelableExtra(Intent.EXTRA_STREAM) as? android.net.Uri)
+        } else null
+        if (i.action != Intent.ACTION_VIEW && sent == null) return
+        val uri = sent ?: i.data ?: return
         val importer = (application as GimanoApp).container.eventImporter
         when (uri.scheme?.lowercase()) {
             "manotu", "gimano" -> if (uri.host.equals("event", ignoreCase = true))
@@ -87,6 +94,7 @@ class MainActivity : AppCompatActivity() {
             }
         }
         i.data = null   // handled once; a recreated activity must not import again
+        if (sent != null) { i.removeExtra(Intent.EXTRA_STREAM); i.action = Intent.ACTION_MAIN }
     }
 
     private val vm: MainViewModel by viewModels { MainViewModel.Factory((application as GimanoApp).container) }

@@ -12,6 +12,8 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Celebration
 import androidx.compose.material.icons.filled.Delete
@@ -161,6 +163,7 @@ fun EventImportDialogs(
                         EventNotice.ALREADY_IMPORTED -> stringResource(R.string.event_already)
                         EventNotice.OLDER -> stringResource(R.string.event_older, (s.storedRev ?: 0L).toInt())
                         EventNotice.FULL_ROUTE_ADDED -> stringResource(R.string.event_full_route_added)
+                        EventNotice.NEEDS_UPDATE -> stringResource(R.string.event_needs_update)
                     },
                     fontSize = 16.sp, color = c.text,
                 )
@@ -184,23 +187,19 @@ private fun ReviewSheet(s: EventImportUi.Review, use24h: Boolean, lang: Lang, on
         shape = RoundedCornerShape(topStart = Radius.sheet, topEnd = Radius.sheet)) {
         Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 20.dp).padding(bottom = 24.dp)) {
             Text(stringResource(if (update) R.string.event_update_title else R.string.event_invite_title), style = GimanoType.label, color = c.brandInk)
-            Text(p.title, style = GimanoType.title, color = c.text, modifier = Modifier.padding(top = 4.dp))
-            Text(p.organizerAlias?.takeIf { it.isNotBlank() }?.let { stringResource(R.string.event_by, it) } ?: stringResource(R.string.event_by_unnamed),
-                fontSize = 15.sp, fontWeight = FontWeight.Bold, color = c.textMuted)
-            Spacer(Modifier.height(12.dp))
-            InfoLine(eventWhen(p, use24h, lang))
+            Row(Modifier.padding(top = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                Box(Modifier.size(48.dp).clip(RoundedCornerShape(14.dp)).background(c.brandMist), contentAlignment = Alignment.Center) {
+                    TemplateIcon(p.template.name.lowercase(), 30.dp)
+                }
+                Spacer(Modifier.width(12.dp))
+                Text(p.title, style = GimanoType.title, color = c.text, modifier = Modifier.weight(1f))
+            }
+            Text(eventWhen(p, use24h, lang), fontSize = 16.sp, fontWeight = FontWeight.ExtraBold, color = c.textMuted, modifier = Modifier.padding(top = 6.dp))
+            // One visible code at most (§5.2.1): the organizer safety code sits behind "Penganjur disahkan".
+            OrganizerVerified(p.organizerAlias, s.safetyCode)
+            Spacer(Modifier.height(10.dp))
             InfoLine(pluralStringResource(R.plurals.event_stops_n, p.stops.size, p.stops.size) + " · " + stringResource(R.string.event_rev, p.rev.toInt()))
             InfoLine(stringResource(R.string.event_access_until, instantText(p.expiresAt, EventSchedule.zone(p), use24h, lang)))
-            Spacer(Modifier.height(14.dp))
-            Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(Radius.md)).background(c.brandMist).padding(14.dp)) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Filled.Lock, null, tint = c.brandInk, modifier = Modifier.size(18.dp))
-                    Spacer(Modifier.width(6.dp))
-                    Text(stringResource(R.string.event_safety_code), style = GimanoType.label, color = c.brandInk)
-                }
-                Text(s.safetyCode, fontFamily = FontFamily.Monospace, fontSize = 24.sp, fontWeight = FontWeight.Bold, color = c.text, modifier = Modifier.padding(vertical = 6.dp))
-                Text(stringResource(R.string.event_safety_hint), fontSize = 13.sp, color = c.textMuted)
-            }
             val warning = when (val d = s.decision) {
                 is ImportDecision.Fork -> stringResource(R.string.event_warn_fork, d.rev.toInt())
                 is ImportDecision.Newer -> when (d.parent) {
@@ -224,6 +223,53 @@ private fun ReviewSheet(s: EventImportUi.Review, use24h: Boolean, lang: Lang, on
                 }
             }
         }
+    }
+}
+
+/**
+ * "<alias> · Penganjur disahkan · butiran" (canvas EwGuestCard): tapping shows the organizer safety code (§7.3) and
+ * what it is for. The signature verified before anything is shown, so the row is always "verified".
+ */
+@Composable
+internal fun OrganizerVerified(alias: String?, safetyCode: String) {
+    val c = Gimano.colors
+    var open by remember { mutableStateOf(false) }
+    val name = alias?.takeIf { it.isNotBlank() } ?: stringResource(R.string.event_by_unnamed)
+    Row(Modifier.padding(top = 12.dp).fillMaxWidth().clip(RoundedCornerShape(Radius.md)).background(c.surfaceAlt)
+        .clickable(role = androidx.compose.ui.semantics.Role.Button, onClickLabel = stringResource(R.string.ew_guest_details)) { open = !open }
+        .padding(horizontal = 12.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+        my.gimano.app.ui.common.TwoToneIcon("ev_verified", null, size = 30.dp)
+        Spacer(Modifier.width(10.dp))
+        Column(Modifier.weight(1f)) {
+            Text(name, fontSize = 16.sp, fontWeight = FontWeight.ExtraBold, color = c.text, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(stringResource(R.string.ew_guest_verified), fontSize = 13.sp, fontWeight = FontWeight.Bold, color = c.textMuted)
+        }
+        Icon(if (open) Icons.Filled.KeyboardArrowUp else Icons.AutoMirrored.Filled.KeyboardArrowRight, null, tint = c.textMuted)
+    }
+    if (open) Column(Modifier.padding(top = 8.dp).fillMaxWidth().clip(RoundedCornerShape(Radius.md)).dashed(c.outline, Radius.md).padding(12.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            my.gimano.app.ui.common.TwoToneIcon("ev_safety", null, size = 22.dp)
+            Spacer(Modifier.width(8.dp))
+            Text(stringResource(R.string.ew_guest_code), Modifier.weight(1f), fontSize = 15.sp, fontWeight = FontWeight.ExtraBold, color = c.text)
+            Text(safetyCode, Modifier.clip(RoundedCornerShape(Radius.sm)).background(c.brandMist).padding(horizontal = 10.dp, vertical = 4.dp),
+                fontFamily = FontFamily.Monospace, fontSize = 18.sp, fontWeight = FontWeight.Bold, letterSpacing = 2.sp, color = c.brandInk)
+        }
+        Text(stringResource(R.string.ew_guest_code_hint), fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = c.textMuted, modifier = Modifier.padding(top = 6.dp))
+    }
+}
+
+/** Guest info blocks (§4.1) in order, with their icon and heading; plain text. */
+@Composable
+internal fun InfoBlockCard(b: my.gimano.app.core.events.InfoBlock) {
+    val c = Gimano.colors
+    val kind = b.kind.name.lowercase()
+    Column(Modifier.padding(vertical = 6.dp).fillMaxWidth().clip(RoundedCornerShape(Radius.md)).background(c.surfaceAlt).padding(12.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            my.gimano.app.ui.common.TwoToneIcon(infoIconName(kind), null, size = 22.dp)
+            Spacer(Modifier.width(8.dp))
+            Text(infoLabel(kind), fontSize = 15.sp, fontWeight = FontWeight.Black, color = c.text)
+        }
+        Text(b.text, fontSize = 15.sp, color = c.text, modifier = Modifier.padding(top = 4.dp))
     }
 }
 
@@ -331,6 +377,7 @@ fun EventDetailOverlay(
                         IconButton(onClick = { askDelete = true }) { Icon(Icons.Filled.Delete, stringResource(R.string.event_delete), tint = c.textMuted) }
                     }
                     p.description?.takeIf { it.isNotBlank() }?.let { Text(it, fontSize = 15.sp, color = c.text, modifier = Modifier.padding(top = 8.dp)) }
+                    OrganizerVerified(p.organizerAlias, event.safetyCode)
                     if (event.alternatives.isNotEmpty()) {
                         Row(Modifier.padding(top = 10.dp).fillMaxWidth().clip(RoundedCornerShape(Radius.md)).background(c.reportTint)
                             .clickable { scope.launch { store.choose(p.id, event.alternatives.first()) } }.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -369,6 +416,11 @@ fun EventDetailOverlay(
                             }
                         }
                     }
+                }
+                // Guest info blocks (§4.1), after the agenda, in order.
+                if (p.info.isNotEmpty()) {
+                    item { Section(stringResource(R.string.ew_guest_info)) }
+                    items(p.info.size, key = { "i$it" }) { i -> InfoBlockCard(p.info[i]) }
                 }
                 if (p.routes.isNotEmpty()) {
                     item { Section(stringResource(R.string.event_routes)) }

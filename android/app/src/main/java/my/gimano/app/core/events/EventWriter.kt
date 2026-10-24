@@ -19,7 +19,7 @@ import java.util.zip.Deflater
 
 /**
  * Event JSON v1 writer with the serde layout of event-core: exact field order, optional fields omitted when absent,
- * `parent` always written (`null` on rev 1), `stops` always written, `sessions`/`routes` omitted when empty.
+ * `parent` always written (`null` on rev 1), `stops` always written, `sessions`/`info`/`routes` omitted when empty.
  * Strings are escaped like serde_json (only `"`, `\` and control characters); numbers like ryu (`101.0`, `2.9871`).
  */
 object EventJsonWriter {
@@ -42,6 +42,10 @@ object EventJsonWriter {
         p.organizerAlias?.let { a -> o.raw("organizer", Obj().apply { str("alias", a) }.done()) }
         o.raw("stops", p.stops.joinToString(",", "[", "]") { stop(it) })
         if (p.sessions.isNotEmpty()) o.raw("sessions", p.sessions.joinToString(",", "[", "]") { session(it) })
+        // §4.1: after sessions, before routes; omitted when empty.
+        if (p.info.isNotEmpty()) o.raw("info", p.info.joinToString(",", "[", "]") { b ->
+            Obj().apply { str("kind", b.kind.name.lowercase()); str("text", b.text) }.done()
+        })
         if (p.routes.isNotEmpty()) o.raw("routes", p.routes.joinToString(",", "[", "]") { route(it) })
         // Stops-only variant (§5.5): always the last field, like the reference writer.
         p.variant?.let { v -> o.raw("variant", Obj().apply { str("kind", v.kind); str("fullHash", v.fullHash) }.done()) }
@@ -351,7 +355,18 @@ object EventLinks {
     fun link(site: String, key: ByteArray, sealed: SealedPack): String = "${site.trimEnd('/')}/a/#${fragment(key, sealed)}"
 
     /**
-     * Suite 2 (the only suite written): `"MNTE" ‖ 0x01 ‖ 0x02 ‖ salt(16) ‖ nonce(24) ‖ ciphertext`, for a pack sealed
+     * Suite 3 (the default share, §5.2): `"MNTE" ‖ 0x01 ‖ 0x03 ‖ key(32) ‖ nonce(24) ‖ ciphertext`, the very bytes of the
+     * link `#1.<key>.<nonce ‖ ciphertext>` of the same publication (no Argon2, no code). Always the full event.
+     */
+    fun openFile(key: ByteArray, sealed: SealedPack): ByteArray {
+        require(key.size == EventTransport.FILE_KEY_LEN)
+        val size = EventTransport.HEADER_LEN + key.size + sealed.nonce.size + sealed.ciphertext.size
+        if (size > EventLimits.MAX_FILE_BYTES) fail(EventPackException.FILE_TOO_LARGE)
+        return EventTransport.FILE_MAGIC + byteArrayOf(EventTransport.FILE_FORMAT_V1, EventTransport.FILE_SUITE_OPEN) + key + sealed.nonce + sealed.ciphertext
+    }
+
+    /**
+     * Suite 2 (sensitive events): `"MNTE" ‖ 0x01 ‖ 0x02 ‖ salt(16) ‖ nonce(24) ‖ ciphertext`, for a pack sealed
      * under the Argon2id key of the event's code and this [salt].
      */
     fun file(salt: ByteArray, sealed: SealedPack): ByteArray {

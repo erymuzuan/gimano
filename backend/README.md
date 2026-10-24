@@ -13,7 +13,7 @@ backend/
   src/Gimano.Api        minimal APIs (/api/v1), JWT device auth, SignalR /hubs/live, Valhalla proxy, health, OpenAPI,
                         agent API /admin/v1 + MCP server /mcp (docs/back-office.md)
   src/Gimano.BackOffice Blazor back office for maintainers: feedback, crash groups, agent runs/tokens (Identity + passkeys)
-  src/Gimano.Worker     RabbitMQ consumers: TrafficAggregator, AlertLifecycle, SearchIndexer (+ jam publisher, expiry sweeper)
+  src/Gimano.Worker     RabbitMQ consumers: TrafficAggregator, AlertLifecycle, SearchIndexer (+ jam publisher, expiry sweeper, drop purge)
   src/Gimano.Importer   OSM PBF → Postgres (places, road_segments) + OpenSearch `places` index
   tests/Gimano.Tests    xUnit v3 unit tests
 ```
@@ -94,6 +94,9 @@ dotnet test            # Microsoft.Testing.Platform (configured in global.json)
 | `Jwt:Issuer` / `Jwt:Audience` / `Jwt:LifetimeDays` | `gimano` / `gimano-app` / `365` | |
 | `Urls` | `http://0.0.0.0:5080` | bound on all interfaces so phones on the LAN/Tailscale can connect |
 | `Feedback:ContactKey` | *(none)* | api + backoffice: base64 of 32 bytes; unset = volunteered contacts are dropped (api) / can't be revealed (backoffice) |
+| `Drops:OwnerKey` | *(none; derived from the JWT key)* | api: base64 of ≥ 32 bytes, keys the owner hash of event short links (quota, `DELETE /me`). Set it in production so a JWT key rotation doesn't detach drops from their owners |
+| `Cors:DropViewerOrigins` | `https://manotu.app,https://www.bukitbunga.com` | api: origins allowed to `GET /drops/{id}` |
+| `RateLimit:DropReadsPerMinute` | `30` | api: per-IP `GET /drops/{id}` limit (in memory) |
 | `Admin:Enabled` / `AllowPublic` / `AllowedNetworks` | `true` / `false` / `[]` | api: guards the agent endpoints `/admin/v1` and `/mcp` |
 | `BackOffice:Maintainers` | `[]` (`["*"]` in Development) | backoffice: emails allowed to register / sign in |
 | `BackOffice:ApiBaseUrl` | `http://100.101.150.9:5080` | backoffice: shown in the MCP setup command |

@@ -49,7 +49,7 @@ migration:
 ```
 GET    /me/data/export    → {savedPlaces: SavedPlace[], recents: Recent[]}   (legacy server copy, if any)
 DELETE /me/data           → 204   (permanently deletes the legacy server copy; the app calls it after importing)
-DELETE /me                → 204   (deletes the account; the user's reports are anonymised, not deleted)
+DELETE /me                → 204   (deletes the account; the user's reports are anonymised, not deleted; event short links deleted)
 ```
 
 `/me/places*` and `/me/recents` answer `410 Gone` once the apps have shipped the local store.
@@ -561,6 +561,38 @@ Before the first `PUT`, `GET` returns 200 with `nonce`/`ciphertext` = null. Limi
 `ciphertext` ≤ 1024 bytes (413 above); `POST` above 3 active shares → 429; a wrong `writeToken` → 401. CORS on
 `GET` allows only the viewer origin (`https://www.bukitbunga.com` in production, any origin in dev). The store is
 per API process, so the API must run as a single instance (or move to a shared in-memory store if it scales out).
+
+## Event short links (end-to-end encrypted event packs)
+
+**Additive** (24 Oct 2026): new endpoints only; nothing existing changes. Full design: `docs/events.md` §5.6.
+An organizer's app uploads an event pack it has already encrypted; guests open `https://manotu.app/j/#<dropId>.<secret>`.
+The key is derived from `secret`, which sits after `#` and **never reaches any server**, so Manotu keeps a blob it cannot
+read (owner-approved exception to the privacy rule, see AGENTS.md).
+
+```
+POST   /drops               (Bearer JWT) Content-Type: application/octet-stream, body = blob
+                            X-Drop-Expires: <ISO-8601 date-time>        → 201 {dropId, writeToken, expiresAt}
+PUT    /drops/{dropId}      Authorization: Drop <writeToken>, body = new blob
+                            [X-Drop-Expires: <ISO-8601 date-time>]      → 204
+GET    /drops/{dropId}      public, no auth; CORS for https://manotu.app and https://www.bukitbunga.com
+                                                                         → 200 application/octet-stream (Cache-Control: no-store)
+                                                                         → 404 unknown · 410 expired/deleted (until purged)
+DELETE /drops/{dropId}      Authorization: Drop <writeToken>            → 204
+```
+
+- Blob = `nonce (24) ‖ XChaCha20-Poly1305 ciphertext` (§5.6). **40 bytes ≤ size ≤ 256 KiB** (262 144): smaller → 400,
+  larger → 413. Another `Content-Type` → 415.
+- `dropId`: 10 characters of base58 (`123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz`), CSPRNG.
+  `writeToken`: 256-bit random, base64url (43 chars); the server keeps only its SHA-256. A wrong or missing token → 401.
+- `X-Drop-Expires` is required on POST (missing or unparseable → 400) and optional on PUT. No offset = UTC. The server
+  clamps it to **now + 1 day … now + 400 days** and returns the clamped value in `expiresAt`.
+- **50 live drops per user**; one more → 429. Deleted and expired drops don't count.
+- `GET` is rate-limited per client IP, in memory only (`RateLimit:DropReadsPerMinute`, default 30) → 429.
+- Expired or deleted drops: `GET`/`PUT`/`DELETE` → 410 until the hourly purge (worker) removes the row, then 404. `DELETE`
+  clears the blob at once.
+- Stored per drop: id, blob, SHA-256 of the write token, created/updated/expires/deleted times, and
+  `HMAC-SHA256(Drops:OwnerKey, userId)`, used only for the quota and `DELETE /me` (which deletes all of the user's drops).
+  No title, IP, user agent or user id. Request bodies, drop ids and IPs are not logged on these routes.
 
 ## Planned drives (on device)
 

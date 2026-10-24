@@ -26,8 +26,10 @@ enum EventNavRoute: Hashable {
     case confirm
     case secretCode
     case detail(String)
-    /// The organizer's editor for a hosted event (board "1 · Acara baharu").
+    /// The organizer's editor for a hosted event: the wizard opened on "Semak" (editing an existing event).
     case host(String)
+    /// "Acara baharu": the wizard from its first step ("Jenis").
+    case create(String)
     /// "Kongsi jemputan" for a hosted event (board "2").
     case share(String)
     /// "Laluan saya": personal routes (on this phone only).
@@ -62,8 +64,10 @@ final class EventCenter {
     private(set) var pendingFile: [UInt8]?
     /// Argon2id is running for the pending file (suite 2, §5.2): the code screen shows progress.
     private(set) var isOpeningFile = false
-    /// The hosted event being published (its file runs Argon2id): the editor shows progress.
+    /// The hosted event being published (a suite-2 file runs Argon2id): the editor shows progress.
     private(set) var publishing: String?
+    /// The suite-2 file ("Acara sensitif") being made for this hosted event (Argon2id).
+    private(set) var makingCodeFile: String?
     var errorMessage: String?
     /// The stop a per-stop "Buka di Manotu" link asked for; the event screen highlights it.
     var focusStopId: String?
@@ -109,7 +113,7 @@ final class EventCenter {
         let d = HostedEventDraft.new(now: now())
         try? store.saveDraft(d)
         refresh()
-        path.append(.host(d.id))
+        path.append(.create(d.id))
         return d.id
     }
 
@@ -126,7 +130,7 @@ final class EventCenter {
         try? store.deleteHosted(eventId: id)
         secrets.delete(eventId: id)
         invites[id] = nil
-        path.removeAll { $0 == .host(id) || $0 == .share(id) }
+        path.removeAll { $0 == .host(id) || $0 == .create(id) || $0 == .share(id) }
         refresh()
     }
 
@@ -151,6 +155,35 @@ final class EventCenter {
         }
     }
 
+    /// "Acara sensitif" switched on after publishing: makes the suite-2 file for the published bytes (Argon2id, off the
+    /// main actor). Returns an error message.
+    func makeCodeFile(_ id: String) async -> String? {
+        guard let invite = invites[id] else { return nil }
+        if invite.codeFileBytes != nil { return nil }
+        guard makingCodeFile == nil else { return nil }
+        makingCodeFile = id
+        defer { makingCodeFile = nil }
+        let (secrets, bytes) = (secrets, invite.eventBytes)
+        let result = await Task.detached(priority: .userInitiated) {
+            EventPublisher.codeFile(eventId: id, eventBytes: bytes, secrets: secrets)
+        }.value
+        switch result {
+        case .success(let file):
+            if invites[id]?.eventBytes == bytes { invites[id]?.codeFileBytes = file }
+            return nil
+        case .failure(let e):
+            return e.message
+        }
+    }
+
+    /// The safety code guests will see for a hosted event (§7.3), creating its organizer key if it has none yet.
+    func hostSafetyCode(_ id: String) -> String? {
+        if let pub = hostedEvent(id)?.organizerPub { return EventCodes.safetyCode(pub) }
+        guard let pub = EventPublisher.ensureOrganizerKey(eventId: id, store: store, secrets: secrets) else { return nil }
+        hosted = (try? store.hostedEvents()) ?? hosted
+        return EventCodes.safetyCode(pub)
+    }
+
     /// Whether the draft differs from what was last published (or was never published).
     func hasUnpublishedChanges(_ h: HostedEvent) -> Bool {
         guard let latest = try? store.latestHostedRevision(eventId: h.id) else { return true }
@@ -158,18 +191,26 @@ final class EventCenter {
         return true
     }
 
-    /// The `.manotu-event` file for sharing, in a temporary folder (encrypted; removed after a day).
-    func inviteFileURL(_ id: String) -> URL? {
-        guard let invite = invites[id] else { return nil }
+    /// `<title>.manotu-event` with only letters, digits, spaces, `-` and `&` kept (no path separators, dots or control
+    /// characters), at most 60 characters; "acara" when nothing is left.
+    nonisolated static func shareFileName(_ title: String) -> String {
+        let kept = String(String.UnicodeScalarView(title.unicodeScalars.filter {
+            CharacterSet.alphanumerics.contains($0) || $0 == " " || $0 == "-" || $0 == "&"
+        }))
+        let safe = kept.split(separator: " ", omittingEmptySubsequences: true).joined(separator: " ")
+        let name = safe.isEmpty ? "acara" : String(safe.prefix(60)).trimmingCharacters(in: .whitespaces)
+        return "\(name).\(EventPack.fileExtension)"
+    }
+
+    /// The `.manotu-event` file for sharing, in a temporary folder (removed after a day): the open suite-3 file, or the
+    /// suite-2 file when `codeFile` (it must have been made, see `makeCodeFile`).
+    func inviteFileURL(_ id: String, codeFile: Bool = false) -> URL? {
+        guard let invite = invites[id], let bytes = codeFile ? invite.codeFileBytes : invite.fileBytes else { return nil }
         let dir = Self.shareDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
-        let safe = String(String.UnicodeScalarView(invite.doc.title.unicodeScalars.filter {
-            CharacterSet.alphanumerics.contains($0) || $0 == " " || $0 == "-"
-        })).trimmingCharacters(in: .whitespaces)
-        let name = safe.isEmpty ? "acara" : String(safe.prefix(60))
-        let url = dir.appendingPathComponent("\(name).\(EventPack.fileExtension)")
+        let url = dir.appendingPathComponent(Self.shareFileName(invite.doc.title))
         do {
             try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
-            try Data(invite.fileBytes).write(to: url, options: [.atomic, .completeFileProtection])
+            try Data(bytes).write(to: url, options: [.atomic, .completeFileProtection])
             return url
         } catch {
             return nil
@@ -221,9 +262,11 @@ final class EventCenter {
     @discardableResult
     func handle(url: URL) -> Bool {
         if url.isFileURL {
-            guard url.pathExtension.lowercased() == EventPack.fileExtension else { return false }
+            // Security-scoped when it comes from Files / another app's container ("Open in place" or the file picker).
             let scoped = url.startAccessingSecurityScopedResource()
             defer { if scoped { url.stopAccessingSecurityScopedResource() } }
+            // Some apps rename attachments: a file that starts with the "MNTE" magic is ours whatever its extension.
+            guard url.pathExtension.lowercased() == EventPack.fileExtension || Self.hasFileMagic(url) else { return false }
             let size = (try? url.resourceValues(forKeys: [.fileSizeKey]).fileSize) ?? 0
             let data = size <= EventLimits.maxFileBytes ? try? Data(contentsOf: url) : nil
             // Opened from another app: iOS copied it into our Inbox. Don't keep the encrypted copy around.
@@ -251,6 +294,12 @@ final class EventCenter {
         return true
     }
 
+    nonisolated private static func hasFileMagic(_ url: URL) -> Bool {
+        guard let h = try? FileHandle(forReadingFrom: url) else { return false }
+        defer { try? h.close() }
+        return (try? h.read(upToCount: 4)).map { [UInt8]($0) == EventPack.fileMagic } ?? false
+    }
+
     private func present() {
         if !isPresented { path = [] }
         isPresented = true
@@ -271,11 +320,24 @@ final class EventCenter {
         }
     }
 
+    /// A `.manotu-event` file: suite 3 (the default share) opens at once, like a link; only suites 2 and 1 ask for the
+    /// code the organizer sent separately. The suite is checked first.
     func receiveFile(_ bytes: [UInt8]) {
+        let needsCode: Bool
         do {
-            _ = try EventPack.parseFile(bytes)
+            needsCode = try EventPack.fileNeedsCode(bytes)
         } catch {
             fail(error)
+            return
+        }
+        guard needsCode else {
+            pendingFile = nil
+            path.removeAll { $0 == .secretCode }
+            do {
+                try decide(EventPack.openFileWithoutCode(bytes))
+            } catch {
+                fail(error)
+            }
             return
         }
         pendingFile = bytes

@@ -1270,6 +1270,28 @@ class MainViewModel(private val c: AppContainer) : ViewModel() {
         _ui.update { it.copy(screen = Screen.Events) }
     }
 
+    /** Wizard back arrow / system back: the previous step, else leave (the draft is saved). */
+    fun eventWizardBack() { if (!c.hostEditor.back()) closeEventEditor() }
+
+    /**
+     * "Bina laluan di peta" for day [day] of a journey: that day's route, or a new one through the day's stops in order
+     * (start → stops → finish, each point linked to its stop) in the wizard's travel mode.
+     */
+    fun openEventRouteForDay(day: Int) {
+        val ed = c.hostEditor
+        val d = ed.draft.value ?: return
+        val date = if (d.multiDay) runCatching { d.dayDate(day).toString() }.getOrNull() else null
+        val existing = d.routes.firstOrNull { r -> date == null || r.day == date } ?: d.routes.firstOrNull { date != null && it.day == null && d.routes.size == 1 }
+        if (existing != null) { openEventRoute(existing.id); return }
+        if (d.routes.size >= my.gimano.app.core.events.EventLimits.MAX_ROUTES) return
+        var r = my.gimano.app.core.routes.BuilderRoute(id = my.gimano.app.core.events.EventIds.newItemId(), mode = ed.defaultMode(), day = date)
+        d.stops.filter { (if (d.multiDay) it.day == day else true) }.forEach { s ->
+            r = my.gimano.app.core.routes.RouteEdit.addPoint(r, my.gimano.app.core.routes.Pos(s.lat, s.lng), s.id) ?: r
+        }
+        ed.saveRoute(r)
+        openEventRoute(r.id)
+    }
+
     fun addEventStopBySearch() = openSearch(SearchPurpose.EVENT_STOP)
 
     fun addEventStopOnMap() {
@@ -1291,6 +1313,9 @@ class MainViewModel(private val c: AppContainer) : ViewModel() {
         if (c.hostEditor.publish()) _ui.update { it.copy(screen = Screen.EventShare) }
         else if (c.hostEditor.issues.value.isNotEmpty()) onBlocked()
     }
+
+    /** "Draf": save and leave the wizard. */
+    fun saveEventDraft() = closeEventEditor()
 
     fun toastText(text: String) = _events.tryEmit(UiEvent.ToastText(text))
 
@@ -1758,7 +1783,7 @@ class MainViewModel(private val c: AppContainer) : ViewModel() {
                 Screen.Theme -> goHome()
                 Screen.Events -> goHome()
                 is Screen.EventDetail -> _ui.update { it.copy(screen = Screen.Events) }
-                Screen.EventEdit -> closeEventEditor()
+                Screen.EventEdit -> eventWizardBack()
                 Screen.EventShare -> { c.hostEditor.closeShare(); _ui.update { it.copy(screen = Screen.EventEdit) } }
                 is Screen.RouteBuilder -> routeBuilderBack()
                 Screen.MyRoutes -> goHome()

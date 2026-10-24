@@ -5,7 +5,7 @@ import { api, errorMessage } from "../api";
 import { fail } from "../app";
 import { h } from "../dom";
 import { distance, duration, when } from "../format";
-import { kindName, modeName, reasonText, t, templateName } from "../i18n";
+import { infoKindName, kindName, modeName, reasonText, t, templateName } from "../i18n";
 import { button, confirmDialog, modal, toast } from "../ui";
 import type { GuestEvent, PublishPreview } from "../types";
 import { tabList } from "./importer";
@@ -30,6 +30,8 @@ function guestPhone(ev: GuestEvent): HTMLElement {
       ))),
       ev.sessions?.length ? [h("h4", {}, t("sessionsH")), h("ul", { class: "phone-sessions" }, ...ev.sessions.map((s) =>
         h("li", {}, `${when(s.start).slice(-5)} ${s.title}${s.stopId ? ` · ${stopName(s.stopId)}` : ""}`)))] : null,
+      ev.info?.length ? [h("h4", {}, t("infoH")), h("dl", { class: "phone-info" }, ...ev.info.map((b) =>
+        [h("dt", {}, infoKindName(b.kind)), h("dd", { class: "info-text" }, b.text)]))] : null,
       ev.routes?.length ? [h("h4", {}, t("routesH")), h("ul", {}, ...ev.routes.map((r) =>
         h("li", {}, `${r.title ?? t("route")} · ${modeName(r.mode)} · ${distance(r.distanceM)}${r.durationS ? ` · ${duration(r.durationS)}` : ""}${r.source !== "routed" ? ` · ${t("sketchLabel")}` : ""}`))),
       ev.variant ? h("p", { class: "small muted" }, t("stopsOnlyNote")) : null] : null,

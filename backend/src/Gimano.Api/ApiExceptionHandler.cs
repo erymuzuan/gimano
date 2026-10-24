@@ -48,7 +48,8 @@ public sealed class ApiExceptionHandler(IProblemDetailsService problems, ILogger
             _ => (StatusCodes.Status500InternalServerError, "Unexpected error"),
         };
         if (status >= 500 && exception is not RoutingUnavailableException)
-            logger.LogError(exception, "Unhandled exception for {Method} {Path}", http.Request.Method, http.Request.Path);
+            // Drop ids are half of a guest's event link: never in logs.
+            logger.LogError(exception, "Unhandled exception for {Method} {Path}", http.Request.Method, Endpoints.DropEndpoints.LogSafePath(http.Request.Path));
 
         http.Response.StatusCode = status;
         if (status == StatusCodes.Status503ServiceUnavailable) http.Response.Headers.RetryAfter = "30";
