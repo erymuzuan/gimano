@@ -123,6 +123,12 @@ class RemoteRepository(
         r.displayName ?: ""
     }
 
+    /** The app JWT for a call made outside Retrofit (event short links, `POST /drops`); [refresh] after a 401. */
+    suspend fun bearerToken(refresh: Boolean): String? {
+        if (refresh || settings.current.token == null) authLock.withLock { if (refresh || settings.current.token == null) authenticate() }
+        return settings.current.token
+    }
+
     private suspend fun <T> authed(block: suspend GimanoApi.() -> T): T {
         if (settings.current.token == null) authLock.withLock { if (settings.current.token == null) authenticate() }
         return try {

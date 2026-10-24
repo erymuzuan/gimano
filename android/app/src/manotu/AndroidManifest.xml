@@ -4,7 +4,8 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <application>
         <activity android:name=".MainActivity" android:exported="true">
-            <!-- Web viewer hand-off (§5.3): manotu://event#1.<key>.<data>, manotu://event?stop=<id>#…; gimano:// accepted too. -->
+            <!-- Web viewer hand-off (§5.3): manotu://event#1.<key>.<data>, manotu://event?stop=<id>#…; short links (§5.6)
+                 manotu://event?drop=<dropId>#<secret>; gimano:// accepted too. -->
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
@@ -12,8 +13,8 @@
                 <data android:scheme="manotu" android:host="event" />
                 <data android:scheme="gimano" android:host="event" />
             </intent-filter>
-            <!-- Invitation links (§5.1). No autoVerify: assetlinks.json can't be published at these sites' roots,
-                 so on Android 12+ the user enables them under App info → Open by default → Add link. -->
+            <!-- Legacy invitation links (§5.1) on bukitbunga.com. No autoVerify: assetlinks.json can't be published at
+                 that site's root, so on Android 12+ the user enables them under App info → Open by default → Add link. -->
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
@@ -21,15 +22,30 @@
                 <data android:scheme="https" android:host="www.bukitbunga.com" android:path="/gimano/a/" />
                 <data android:scheme="https" android:host="www.bukitbunga.com" android:path="/gimano/a" />
             </intent-filter>
-            <intent-filter>
+            <!-- Android App Links on manotu.app (§5.1 /a/, §5.6 short links /j/): verified against
+                 https://manotu.app/.well-known/assetlinks.json. Only the apex host here, so www (which redirects) can't
+                 fail the verification; www keeps the unverified filter below. -->
+            <intent-filter android:autoVerify="true">
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
                 <data android:scheme="https" />
                 <data android:host="manotu.app" />
+                <data android:path="/a/" />
+                <data android:path="/a" />
+                <data android:path="/j/" />
+                <data android:path="/j" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="https" />
                 <data android:host="www.manotu.app" />
                 <data android:path="/a/" />
                 <data android:path="/a" />
+                <data android:path="/j/" />
+                <data android:path="/j" />
             </intent-filter>
             <!-- "Open with" a .manotu-event file (§5.2); the app checks the MNTE header before asking for the code. -->
             <intent-filter>

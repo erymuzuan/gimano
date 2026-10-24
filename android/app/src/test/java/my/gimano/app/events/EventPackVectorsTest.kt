@@ -311,7 +311,9 @@ class EventPackVectorsTest {
             "negative-expired", "negative-oversized-fragment", "ride-two-day-stops-only", "negative-variant-with-polyline",
             "negative-missing-polyline", "negative-unknown-variant", "import-stops-only-sequence",
             "argon2-kat", "negative-wrong-secret-code", "negative-invalid-secret-code",
-            "negative-info-text-too-long", "negative-too-many-info", "negative-file-v3-truncated", "unknown-template-and-info-kind")
+            "negative-info-text-too-long", "negative-too-many-info", "negative-file-v3-truncated", "unknown-template-and-info-kind",
+            // Short links (§5.6): EventDropTest.
+            "negative-drop-link", "negative-drop-blob-truncated", "negative-drop-wrong-secret")
         val dir = javaClass.classLoader!!.getResource("event-vectors")!!.let { File(it.toURI()) }
         assertEquals(names.sorted(), dir.listFiles()!!.filter { it.extension == "json" }.map { it.nameWithoutExtension }.sorted())
     }

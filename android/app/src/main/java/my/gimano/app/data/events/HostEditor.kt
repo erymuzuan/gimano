@@ -2,6 +2,7 @@ package my.gimano.app.data.events
 
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.async
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -33,7 +34,29 @@ class HostEditor(
     private val scope: CoroutineScope,
     private val store: HostStore,
     private val clock: () -> Instant = Instant::now,
+    /** The short-link relay (§5.6); null = no short links (the share screen uses the full link). */
+    private val drops: DropApi? = null,
+    /** How long "Kongsi jemputan" waits for the short link before it falls back to the full link. */
+    private val shortLinkTimeoutMs: Long = 5_500,
 ) {
+    /** The short link of the publication on the share screen. */
+    sealed interface ShortLink {
+        data object Idle : ShortLink
+        data object Working : ShortLink
+        data class Ready(val link: String) : ShortLink
+        /** Could not be made (offline, server error, too large, timeout): share the full link and say so in one line. */
+        data class Failed(val kind: DropException.Kind?) : ShortLink
+    }
+
+    private val _shortLink = MutableStateFlow<ShortLink>(ShortLink.Idle)
+    val shortLink: StateFlow<ShortLink> = _shortLink.asStateFlow()
+
+    /** The event has a live short link ("Tamatkan pautan" is offered). */
+    private val _shortLinkActive = MutableStateFlow(false)
+    val shortLinkActive: StateFlow<Boolean> = _shortLinkActive.asStateFlow()
+
+    private var linkJob: kotlinx.coroutines.Deferred<ShortLink>? = null
+
     private val _draft = MutableStateFlow<HostDraft?>(null)
     val draft: StateFlow<HostDraft?> = _draft.asStateFlow()
 
@@ -94,6 +117,7 @@ class HostEditor(
         _draft.value = h.draft
         publishedOnce = h.published != null
         reset()
+        _shortLinkActive.value = h.shortLink
         _step.value = EventWizard.Step.REVIEW
         return true
     }
@@ -101,6 +125,9 @@ class HostEditor(
     private fun reset() {
         _issues.value = emptyList()
         _publication.value = null
+        linkJob = null
+        _shortLink.value = ShortLink.Idle
+        _shortLinkActive.value = false
         _editingStop.value = null
         entranceFor = null
         addKind = null
@@ -329,7 +356,11 @@ class HostEditor(
             saveNow()
             val p = mutex.withLock { store.publish(d.id) }
             publishedOnce = true
+            linkJob = null
+            _shortLink.value = ShortLink.Idle
             _publication.value = p
+            // Republished: the existing short link gets the new revision right away (PUT), so it always shows the latest.
+            if (_shortLinkActive.value) startShortLink()
             return true
         } catch (e: EventPackException) {
             _issues.value = listOf(DraftIssue(DraftIssue.Code.INVALID))
@@ -342,11 +373,114 @@ class HostEditor(
     fun closeShare() {
         _publication.value?.key?.fill(0)
         _publication.value = null
+        linkJob = null
+        _shortLink.value = ShortLink.Idle
     }
 
+    // --- Short link (§5.6) ------------------------------------------------------------------------------------
+
+    /**
+     * Makes the short link of the publication on screen: POST the first time, PUT when the event already has one and
+     * the uploaded revision is older, nothing when it is current. One job per publication; a failed one is retried on
+     * the next call. Never longer than [shortLinkTimeoutMs].
+     */
+    fun startShortLink(): kotlinx.coroutines.Deferred<ShortLink> {
+        linkJob?.let { j -> if (j.isActive || (j.isCompleted && runCatching { j.getCompleted() }.getOrNull() is ShortLink.Ready)) return j }
+        val p = _publication.value
+        val id = _draft.value?.id
+        if (p == null || id == null) return kotlinx.coroutines.CompletableDeferred(ShortLink.Failed(null))
+        _shortLink.value = ShortLink.Working
+        val job = scope.async {
+            val r = try {
+                kotlinx.coroutines.withTimeout(shortLinkTimeoutMs) { syncDrop(id, p) }
+            } catch (e: DropException) {
+                ShortLink.Failed(e.kind)
+            } catch (e: kotlinx.coroutines.TimeoutCancellationException) {
+                ShortLink.Failed(DropException.Kind.NETWORK)
+            } catch (e: EventPackException) {
+                ShortLink.Failed(if (e.code == EventPackException.DROP_TOO_LARGE) DropException.Kind.TOO_LARGE else null)
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                ShortLink.Failed(null)
+            }
+            if (_publication.value === p) _shortLink.value = r
+            r
+        }
+        linkJob = job
+        return job
+    }
+
+    /** The short link to share, or null to fall back to the full link. */
+    suspend fun shortLinkForShare(): String? = (startShortLink().await() as? ShortLink.Ready)?.link
+
+    private suspend fun syncDrop(id: String, p: Publication, retried: Boolean = false): ShortLink {
+        val api = drops ?: throw DropException(DropException.Kind.UNAVAILABLE)
+        val expires = my.gimano.app.core.events.EventDrops.expiresAt(p.plan)
+        val existing = mutex.withLock { store.drop(id) }
+        if (existing == null) {
+            val secret = store.newDropSecret()
+            try {
+                val up = mutex.withLock { store.dropBlob(id, secret) } ?: return ShortLink.Failed(null)
+                val created = api.create(up.blob, expires)
+                val hd = HostDrop(created.dropId, my.gimano.app.core.events.B64u.encode(secret), created.writeToken, up.hash)
+                mutex.withLock { store.saveDrop(id, hd) }
+                _shortLinkActive.value = true
+                return ShortLink.Ready(hd.ref.link())
+            } finally {
+                secret.fill(0)
+            }
+        }
+        val current = mutex.withLock { store.publishedHash(id) }
+        if (current != null && current == existing.uploadedHash) { _shortLinkActive.value = true; return ShortLink.Ready(existing.ref.link()) }
+        val ref = existing.ref
+        val up = mutex.withLock { store.dropBlob(id, ref.secret) } ?: return ShortLink.Failed(null)
+        try {
+            api.update(existing.dropId, existing.writeToken, up.blob, expires)
+        } catch (e: DropException) {
+            // Expired or deleted on the server: forget it and make a new link (once).
+            if (e.kind != DropException.Kind.GONE || retried) throw e
+            mutex.withLock { store.saveDrop(id, null) }
+            return syncDrop(id, p, retried = true)
+        }
+        mutex.withLock { store.saveDrop(id, existing.copy(uploadedHash = up.hash)) }
+        _shortLinkActive.value = true
+        return ShortLink.Ready(ref.link())
+    }
+
+    /**
+     * "Tamatkan pautan": DELETE the drop, then forget it. True when the link is gone (also when the server no longer
+     * had it); false when the server could not be reached (the link stays, try again).
+     */
+    suspend fun endShortLink(): Boolean {
+        val id = _draft.value?.id ?: return false
+        if (!endDrop(id)) return false
+        linkJob = null
+        _shortLink.value = ShortLink.Idle
+        _shortLinkActive.value = false
+        return true
+    }
+
+    private suspend fun endDrop(id: String): Boolean {
+        val existing = mutex.withLock { store.drop(id) } ?: return true
+        val api = drops ?: return false
+        val ok = try {
+            kotlinx.coroutines.withTimeout(shortLinkTimeoutMs) { api.delete(existing.dropId, existing.writeToken) }
+            true
+        } catch (e: DropException) {
+            e.kind == DropException.Kind.GONE
+        } catch (e: kotlinx.coroutines.TimeoutCancellationException) {
+            false
+        }
+        if (ok) mutex.withLock { store.saveDrop(id, null) }
+        return ok
+    }
+
+    /** Deleting the event also ends its short link (best effort: offline, the server drops it at its expiry). */
     suspend fun delete() {
         val d = _draft.value ?: return
         saveJob?.cancel()
+        runCatching { endDrop(d.id) }
         mutex.withLock { store.delete(d.id) }
         _draft.value = null
         reset()

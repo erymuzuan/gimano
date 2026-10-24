@@ -69,6 +69,8 @@ fun GimanoRoot(vm: MainViewModel, onMic: () -> Unit, onExit: () -> Unit, onReque
         value = eventScreen?.let { runCatching { container.eventStore.load(it.id) }.getOrNull() }
     }
     var eventStopSel by remember(eventScreen?.id) { mutableStateOf(eventScreen?.stopId) }
+    // An event from a short link (§5.6) is re-fetched when it is opened, so later revisions arrive by themselves.
+    LaunchedEffect(eventScreen?.id) { eventScreen?.id?.let(container.eventImporter::refresh) }
     val eventPanelFraction = 0.58f
     val screenHeightDp = androidx.compose.ui.platform.LocalConfiguration.current.screenHeightDp
     LaunchedEffect(Unit) {
@@ -323,6 +325,7 @@ fun GimanoRoot(vm: MainViewModel, onMic: () -> Unit, onExit: () -> Unit, onReque
                     onBack = vm::back,
                     onDrive = { s -> vm.routeToEventStop(screen.id, s.id, s.label, s.navigationTarget) },
                     onDeleted = { vm.open(Screen.Events) },
+                    onRefresh = { container.eventImporter.refresh(screen.id) },
                     panelFraction = eventPanelFraction,
                 )
                 Screen.Planned -> my.gimano.app.ui.planned.PlannedDrivesScreen(pvm, settings.use24h, onBack = vm::back,

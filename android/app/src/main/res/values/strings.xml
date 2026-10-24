@@ -830,7 +830,7 @@
     <string name="host_organizer_notes">Notes for you only</string>
     <string name="host_organizer_notes_hint">Never shared with guests.</string>
     <string name="host_share_invite">Share invitation</string>
-    <string name="host_delete_confirm">Delete this event and its keys from your phone? Invitations already sent keep working until access ends, and you can no longer update them.</string>
+    <string name="host_delete_confirm">Delete this event and its keys from your phone? Its short link stops working. Full links already sent keep working until access ends, and you can no longer update them.</string>
     <string name="host_move_up">Move up</string>
     <string name="host_move_down">Move down</string>
     <string name="host_stop_title">PLACE</string>
@@ -1198,4 +1198,16 @@
         <item quantity="one">%1$d route</item>
         <item quantity="other">%1$d routes</item>
     </plurals>
+    <!-- Event short links (docs/events.md §5.6) -->
+    <string name="event_drop_gone">This invitation has ended or was deleted.</string>
+    <string name="event_network">Couldn\'t fetch the invitation. Check your connection and try again.</string>
+    <string name="event_copied_offer">Open the invitation from the copied link?</string>
+    <string name="event_refresh">Refresh</string>
+    <string name="host_short_link_working">Making the short link…</string>
+    <string name="host_short_link_failed">Short link unavailable, so the full link is shared instead.</string>
+    <string name="host_short_link_on">Short link on: guests always see the latest version.</string>
+    <string name="host_end_link">End link</string>
+    <string name="host_end_link_confirm">End the short link? Guests who open it will see that the invitation has ended. Full links already sent keep working until access ends.</string>
+    <string name="host_end_link_done">Link ended.</string>
+    <string name="host_end_link_failed">Couldn\'t reach the server. Try again.</string>
 </resources>

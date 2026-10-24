@@ -4,6 +4,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import my.gimano.app.core.events.B64u
 import my.gimano.app.core.events.EventHashes
@@ -47,7 +48,7 @@ class EventStore(
     }
 
     /** Applies an accepted decision (New / Newer / Fork / UpgradeToFull); anything else stores nothing. Returns true if saved. */
-    suspend fun save(p: OpenedPack, d: ImportDecision): Boolean {
+    suspend fun save(p: OpenedPack, d: ImportDecision, drop: my.gimano.app.core.events.DropRef? = null): Boolean {
         val now = clock().toEpochMilli()
         val id = p.event.id
         val hash = p.revisionHashB64u
@@ -56,7 +57,7 @@ class EventStore(
         val expires = p.event.expiresAt.toEpochMilli()
         when (d) {
             is ImportDecision.New -> tx {
-                dao.insertPin(EventPinEntity(id, p.organizerPub, expires, now))
+                dao.insertPin(EventPinEntity(id, p.organizerPub, expires, now, dropRef = drop?.let { vault.seal(it.encode()) }))
                 dao.insertRevision(row)
                 dao.activate(id, hash)
             }
@@ -66,7 +67,7 @@ class EventStore(
                 dao.insertRevision(row)
                 dao.activate(id, hash)
                 dao.dropPayloadsBelow(id, p.event.rev)   // superseded revisions: hash only
-                dao.updatePin(pin.copy(expiresAt = expires))
+                dao.updatePin(pin.copy(expiresAt = expires, dropRef = drop?.let { vault.seal(it.encode()) } ?: pin.dropRef))
             }
             // Keep both sides; the one just opened becomes the shown one, the other stays selectable.
             is ImportDecision.Fork -> tx {
@@ -74,7 +75,7 @@ class EventStore(
                 check(pin.organizerPub.contentEquals(p.organizerPub))
                 dao.insertRevision(row)
                 dao.activate(id, hash)
-                dao.updatePin(pin.copy(expiresAt = expires))
+                dao.updatePin(pin.copy(expiresAt = expires, dropRef = drop?.let { vault.seal(it.encode()) } ?: pin.dropRef))
             }
             // Same revision hash: the full event's bytes replace the stored variant's payload; active state unchanged.
             is ImportDecision.UpgradeToFull -> {
@@ -125,6 +126,25 @@ class EventStore(
         }
         changed()
     }
+
+    /** The short link a stored event came from (§5.6), re-fetched when the event is opened. */
+    suspend fun dropFor(eventId: String): my.gimano.app.core.events.DropRef? =
+        dao.pin(eventId)?.dropRef?.let { runCatching { my.gimano.app.core.events.DropRef.decode(vault.open(it)) }.getOrNull() }
+
+    /**
+     * Remembers (or with null forgets) the short link of a stored event. Only for an event already pinned with
+     * [organizerPub], so a link to someone else's event never attaches to this one.
+     */
+    suspend fun setDrop(eventId: String, organizerPub: ByteArray?, drop: my.gimano.app.core.events.DropRef?) {
+        tx {
+            val pin = dao.pin(eventId) ?: return@tx
+            if (organizerPub != null && !pin.organizerPub.contentEquals(organizerPub)) return@tx
+            dao.updatePin(pin.copy(dropRef = drop?.let { vault.seal(it.encode()) }))
+        }
+    }
+
+    /** Any imported event on this phone (ends the deferred-link window). */
+    suspend fun hasAny(): Boolean = dao.pinsFlow().first().isNotEmpty()
 
     /** Deletes the event, its pinned key and every revision. */
     suspend fun delete(eventId: String) {

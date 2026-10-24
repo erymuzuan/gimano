@@ -19,6 +19,7 @@ import androidx.compose.material.icons.filled.Celebration
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Directions
 import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -164,16 +165,28 @@ fun EventImportDialogs(
                         EventNotice.OLDER -> stringResource(R.string.event_older, (s.storedRev ?: 0L).toInt())
                         EventNotice.FULL_ROUTE_ADDED -> stringResource(R.string.event_full_route_added)
                         EventNotice.NEEDS_UPDATE -> stringResource(R.string.event_needs_update)
+                        EventNotice.DROP_GONE -> stringResource(R.string.event_drop_gone)
+                        EventNotice.NETWORK -> stringResource(R.string.event_network)
                     },
                     fontSize = 16.sp, color = c.text,
                 )
             },
             confirmButton = {
                 val id = s.eventId
-                if (id != null) TextButton(onClick = { importer.openStored(id) }) { Text(stringResource(R.string.event_open), fontWeight = FontWeight.ExtraBold) }
-                else TextButton(onClick = importer::dismiss) { Text(stringResource(R.string.close), fontWeight = FontWeight.ExtraBold) }
+                when {
+                    id != null -> TextButton(onClick = { importer.openStored(id) }) { Text(stringResource(R.string.event_open), fontWeight = FontWeight.ExtraBold) }
+                    s.kind == EventNotice.NETWORK -> TextButton(onClick = importer::retry) { Text(stringResource(R.string.retry), fontWeight = FontWeight.ExtraBold) }
+                    else -> TextButton(onClick = importer::dismiss) { Text(stringResource(R.string.close), fontWeight = FontWeight.ExtraBold) }
+                }
             },
-            dismissButton = if (s.eventId != null) { { TextButton(onClick = importer::dismiss) { Text(stringResource(R.string.close)) } } } else null,
+            dismissButton = if (s.eventId != null || s.kind == EventNotice.NETWORK) { { TextButton(onClick = importer::dismiss) { Text(stringResource(R.string.close)) } } } else null,
+        )
+        // Deferred link (§5.6): never opened without this tap.
+        is EventImportUi.OfferCopied -> AlertDialog(
+            onDismissRequest = importer::declineCopied,
+            text = { Text(stringResource(R.string.event_copied_offer), fontSize = 16.sp, color = c.text) },
+            confirmButton = { TextButton(onClick = importer::acceptCopied) { Text(stringResource(R.string.event_open), fontWeight = FontWeight.ExtraBold) } },
+            dismissButton = { TextButton(onClick = importer::declineCopied) { Text(stringResource(R.string.not_now)) } },
         )
     }
 }
@@ -346,11 +359,15 @@ fun EventsListScreen(
 fun EventDetailOverlay(
     event: SavedEvent?, store: EventStore, use24h: Boolean, selected: String?, onSelect: (String) -> Unit,
     onBack: () -> Unit, onDrive: (EventStop) -> Unit, onDeleted: () -> Unit, panelFraction: Float,
+    /** "Muat semula": re-fetch the short link the event came from (§5.6); shown only for such events. */
+    onRefresh: () -> Unit = {},
 ) {
     val c = Gimano.colors
     val lang = currentLang()
     val scope = rememberCoroutineScope()
     var askDelete by remember { mutableStateOf(false) }
+    var fromShortLink by remember(event?.plan?.id) { mutableStateOf(false) }
+    LaunchedEffect(event?.plan?.id, event?.hash) { fromShortLink = event?.let { runCatching { store.dropFor(it.plan.id) != null }.getOrDefault(false) } ?: false }
     Box(Modifier.fillMaxSize()) {
         Box(Modifier.windowInsetsPadding(WindowInsets.statusBars).padding(12.dp).size(48.dp).clip(CircleShape).background(c.surface).clickable(onClick = onBack),
             contentAlignment = Alignment.Center) {
@@ -374,6 +391,7 @@ fun EventDetailOverlay(
                             Text(listOfNotNull(p.organizerAlias?.takeIf { it.isNotBlank() }, stringResource(R.string.event_rev, p.rev.toInt())).joinToString(" · "),
                                 fontSize = 13.sp, color = c.textMuted)
                         }
+                        if (fromShortLink) IconButton(onClick = onRefresh) { Icon(Icons.Filled.Refresh, stringResource(R.string.event_refresh), tint = c.textMuted) }
                         IconButton(onClick = { askDelete = true }) { Icon(Icons.Filled.Delete, stringResource(R.string.event_delete), tint = c.textMuted) }
                     }
                     p.description?.takeIf { it.isNotBlank() }?.let { Text(it, fontSize = 15.sp, color = c.text, modifier = Modifier.padding(top = 8.dp)) }

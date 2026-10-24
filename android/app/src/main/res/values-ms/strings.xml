@@ -827,7 +827,7 @@
     <string name="host_organizer_notes">Nota untuk anda sahaja</string>
     <string name="host_organizer_notes_hint">Tidak pernah dikongsi dengan tetamu.</string>
     <string name="host_share_invite">Kongsi jemputan</string>
-    <string name="host_delete_confirm">Padam acara ini dan kuncinya daripada telefon anda? Jemputan yang telah dihantar masih boleh dibuka sehingga akses tamat, dan anda tidak boleh mengemas kininya lagi.</string>
+    <string name="host_delete_confirm">Padam acara ini dan kuncinya daripada telefon anda? Pautan pendeknya tidak lagi berfungsi. Pautan penuh yang telah dihantar masih boleh dibuka sehingga akses tamat, dan anda tidak boleh mengemas kininya lagi.</string>
     <string name="host_move_up">Naik</string>
     <string name="host_move_down">Turun</string>
     <string name="host_stop_title">TEMPAT</string>
@@ -1189,4 +1189,16 @@
     <plurals name="ew_routes_n">
         <item quantity="other">%1$d laluan</item>
     </plurals>
+    <!-- Event short links (docs/events.md §5.6) -->
+    <string name="event_drop_gone">Jemputan ini telah tamat atau dipadam.</string>
+    <string name="event_network">Jemputan tidak dapat dimuat turun. Semak sambungan anda dan cuba lagi.</string>
+    <string name="event_copied_offer">Buka jemputan dari pautan yang disalin?</string>
+    <string name="event_refresh">Muat semula</string>
+    <string name="host_short_link_working">Menyediakan pautan pendek…</string>
+    <string name="host_short_link_failed">Pautan pendek tidak dapat dibuat, jadi pautan penuh dikongsi.</string>
+    <string name="host_short_link_on">Pautan pendek aktif: tetamu sentiasa lihat versi terkini.</string>
+    <string name="host_end_link">Tamatkan pautan</string>
+    <string name="host_end_link_confirm">Tamatkan pautan pendek? Tetamu yang membukanya akan lihat jemputan telah tamat. Pautan penuh yang telah dihantar masih boleh dibuka sehingga akses tamat.</string>
+    <string name="host_end_link_done">Pautan ditamatkan.</string>
+    <string name="host_end_link_failed">Pelayan tidak dapat dihubungi. Cuba lagi.</string>
 </resources>

@@ -251,7 +251,7 @@ fun EventWizardScreen(editor: HostEditor, saved: List<SavedPlace>, use24h: Boole
                 Step.PLACE -> if (journey) RouteStep(d, editor, vm, use24h, canPick = personalRoutes != null, onAdd = { addOpen = true }, onPick = { pickRoute = true })
                     else VenueStep(d, editor, onAdd = { addOpen = true })
                 Step.INFO -> InfoStep(d, editor, onAdvanced = { advancedOpen = true })
-                Step.REVIEW -> ReviewStep(d, editor, use24h, issues)
+                Step.REVIEW -> ReviewStep(d, editor, use24h, issues, onToast = vm::toastText)
             }
         }
         // Bottom bar
@@ -863,9 +863,15 @@ private fun AdvRow(icon: String, title: String, sub: String, onClick: (() -> Uni
 // --- 5 · Semak (EwReview) -----------------------------------------------------------------------------------
 
 @Composable
-private fun ReviewStep(d: HostDraft, editor: HostEditor, use24h: Boolean, issues: List<DraftIssue>) {
+private fun ReviewStep(d: HostDraft, editor: HostEditor, use24h: Boolean, issues: List<DraftIssue>, onToast: (String) -> Unit = {}) {
     val c = Gimano.colors
     val lang = currentLang()
+    val shortLinkActive by editor.shortLinkActive.collectAsStateWithLifecycle()
+    var askEndLink by remember { mutableStateOf(false) }
+    var endingLink by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
+    val linkEnded = stringResource(R.string.host_end_link_done)
+    val linkEndFailed = stringResource(R.string.host_end_link_failed)
     val journey = EventWizard.isJourney(d.template)
     var safety by remember(d.id) { mutableStateOf<String?>(null) }
     LaunchedEffect(d.id) { safety = editor.safetyCode() }
@@ -931,6 +937,29 @@ private fun ReviewStep(d: HostDraft, editor: HostEditor, use24h: Boolean, issues
         TwoToneIcon("ev_key", null, size = 18.dp); Spacer(Modifier.width(6.dp))
         Text(stringResource(R.string.ew_access_ends, instantText(exp, d.zone(), use24h, lang)), fontSize = 14.sp, fontWeight = FontWeight.Bold, color = c.textMuted)
     }
+    // The event's short link (§5.6): "Tamatkan pautan" deletes it on the server; guests then see that it has ended.
+    if (shortLinkActive) Row(Modifier.padding(top = 12.dp).fillMaxWidth().clip(RoundedCornerShape(Radius.lg)).border(1.dp, c.outline, RoundedCornerShape(Radius.lg))
+        .padding(horizontal = 14.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+        Text(stringResource(R.string.host_short_link_on), Modifier.weight(1f), fontSize = 14.sp, fontWeight = FontWeight.Bold, color = c.textMuted)
+        if (endingLink) CircularProgressIndicator(Modifier.size(20.dp), color = c.report, strokeWidth = 2.dp)
+        else TextButton(onClick = { askEndLink = true }) { Text(stringResource(R.string.host_end_link), fontWeight = FontWeight.ExtraBold, color = c.report) }
+    }
+    if (askEndLink) AlertDialog(
+        onDismissRequest = { askEndLink = false },
+        text = { Text(stringResource(R.string.host_end_link_confirm)) },
+        confirmButton = {
+            TextButton(onClick = {
+                askEndLink = false
+                endingLink = true
+                scope.launch {
+                    val ok = editor.endShortLink()
+                    endingLink = false
+                    onToast(if (ok) linkEnded else linkEndFailed)
+                }
+            }) { Text(stringResource(R.string.host_end_link), fontWeight = FontWeight.ExtraBold, color = c.report) }
+        },
+        dismissButton = { TextButton(onClick = { askEndLink = false }) { Text(stringResource(R.string.cancel)) } },
+    )
 }
 
 @Composable
