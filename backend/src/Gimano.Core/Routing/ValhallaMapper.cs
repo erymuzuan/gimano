@@ -29,27 +29,7 @@ public static partial class ValhallaMapper
 
         var vehicle = req.Vehicle ?? Vehicle.Car;
         var costing = Costing(vehicle);
-        JsonObject opts;
-        if (IsMotorised(vehicle))
-        {
-            var avoid = req.Avoid ?? new AvoidOptions();
-            opts = new JsonObject
-            {
-                ["use_tolls"] = avoid.Tolls ? 0.0 : 0.5,
-                ["use_highways"] = avoid.Highways ? 0.0 : (vehicle == Vehicle.Motorcycle ? 0.8 : 1.0),
-                ["use_ferry"] = avoid.Ferries ? 0.0 : 0.5,
-            };
-            // Malaysian OSM tolls are mostly mapped as barrier=toll_booth nodes, not toll=yes ways, so Valhalla's
-            // use_tolls alone barely changes anything: also penalise passing a toll booth.
-            if (avoid.Tolls) opts["toll_booth_penalty"] = TollBoothPenaltyS;
-        }
-        else
-        {
-            // avoid.* doesn't apply: bicycle and pedestrian costings never use expressways or tolls.
-            opts = vehicle == Vehicle.Bicycle
-                ? new JsonObject { ["bicycle_type"] = "hybrid", ["use_roads"] = 0.5 }
-                : new JsonObject();
-        }
+        var opts = CostingOptions(vehicle, req.Avoid);
 
         var body = new JsonObject
         {
@@ -68,6 +48,29 @@ public static partial class ValhallaMapper
             body["date_time"] = new JsonObject { ["type"] = 1, ["value"] = ToValhallaLocal(departAt) };
         if (excludePolygons is { Count: > 0 }) body["exclude_polygons"] = excludePolygons;
         return body;
+    }
+
+    /// <summary>Per-costing options shared by /route and /trace_attributes.</summary>
+    internal static JsonObject CostingOptions(Vehicle vehicle, AvoidOptions? avoidOptions)
+    {
+        if (IsMotorised(vehicle))
+        {
+            var avoid = avoidOptions ?? new AvoidOptions();
+            var opts = new JsonObject
+            {
+                ["use_tolls"] = avoid.Tolls ? 0.0 : 0.5,
+                ["use_highways"] = avoid.Highways ? 0.0 : (vehicle == Vehicle.Motorcycle ? 0.8 : 1.0),
+                ["use_ferry"] = avoid.Ferries ? 0.0 : 0.5,
+            };
+            // Malaysian OSM tolls are mostly mapped as barrier=toll_booth nodes, not toll=yes ways, so Valhalla's
+            // use_tolls alone barely changes anything: also penalise passing a toll booth.
+            if (avoid.Tolls) opts["toll_booth_penalty"] = TollBoothPenaltyS;
+            return opts;
+        }
+        // avoid.* doesn't apply: bicycle and pedestrian costings never use expressways or tolls.
+        return vehicle == Vehicle.Bicycle
+            ? new JsonObject { ["bicycle_type"] = "hybrid", ["use_roads"] = 0.5 }
+            : new JsonObject();
     }
 
     /// <summary>car→auto, motorcycle→motorcycle, bicycle→bicycle, walk→pedestrian.</summary>

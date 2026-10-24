@@ -8,16 +8,21 @@ namespace Gimano.Api.Services;
 public sealed class RoutingUnavailableException(string message, Exception? inner = null) : Exception(message, inner);
 public sealed class NoRouteException(string message) : Exception(message);
 
-/// <summary>HTTP client for the Valhalla routing service (POST /route, GET /status).</summary>
+/// <summary>HTTP client for the Valhalla routing service (POST /route, POST /trace_attributes, GET /status).</summary>
 public sealed class ValhallaClient(HttpClient http, ILogger<ValhallaClient> logger)
 {
-    public async Task<JsonNode> RouteAsync(JsonObject request, CancellationToken ct)
+    public Task<JsonNode> RouteAsync(JsonObject request, CancellationToken ct) => PostAsync("route", request, ct);
+
+    /// <summary>Map matching (POST /routes/match). Same error handling as /route: 4xx with a Valhalla error → <see cref="NoRouteException"/>.</summary>
+    public Task<JsonNode> TraceAttributesAsync(JsonObject request, CancellationToken ct) => PostAsync("trace_attributes", request, ct);
+
+    private async Task<JsonNode> PostAsync(string path, JsonObject request, CancellationToken ct)
     {
         HttpResponseMessage resp;
         try
         {
             using var content = new StringContent(request.ToJsonString(), Encoding.UTF8, "application/json");
-            resp = await http.PostAsync("route", content, ct);
+            resp = await http.PostAsync(path, content, ct);
         }
         catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException && !ct.IsCancellationRequested)
         {
@@ -34,7 +39,7 @@ public sealed class ValhallaClient(HttpClient http, ILogger<ValhallaClient> logg
             if (resp.StatusCode is HttpStatusCode.BadRequest or HttpStatusCode.NotFound && err is not null)
                 throw new NoRouteException(err.Value.Message);
             // Never log the body: Valhalla errors can echo request locations (privacy rule).
-            logger.LogWarning("Valhalla returned {Status} (error_code {Code})", (int)resp.StatusCode, err?.Code);
+            logger.LogWarning("Valhalla /{Path} returned {Status} (error_code {Code})", path, (int)resp.StatusCode, err?.Code);
             throw new RoutingUnavailableException($"Routing engine returned HTTP {(int)resp.StatusCode}.");
         }
     }

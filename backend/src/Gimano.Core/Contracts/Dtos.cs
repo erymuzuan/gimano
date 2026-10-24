@@ -132,9 +132,27 @@ public sealed record LatLng(double Lat, double Lng, string? PlaceId = null, stri
 public sealed record AvoidOptions(bool Tolls = false, bool Highways = false, bool Ferries = false);
 
 /// <param name="IgnoreIssues">"Lalu juga": confirmed issues not to avoid for this trip only.</param>
+/// <param name="Store">false (Events, docs/events.md §6): stateless. Nothing is cached (no reroute), ids start with
+/// <c>x-</c>, and up to 25 waypoints are allowed. Omitted/true keeps the default behaviour.</param>
 public sealed record RouteRequest(
     LatLng Origin, LatLng Destination, IReadOnlyList<LatLng>? Waypoints, Vehicle? Vehicle,
-    AvoidOptions? Avoid, DateTimeOffset? DepartAt, int? Alternatives, IReadOnlyList<Guid>? IgnoreIssues = null);
+    AvoidOptions? Avoid, DateTimeOffset? DepartAt, int? Alternatives, IReadOnlyList<Guid>? IgnoreIssues = null,
+    bool? Store = null)
+{
+    /// <summary>Default true; only an explicit <c>"store": false</c> makes the request stateless.</summary>
+    [System.Text.Json.Serialization.JsonIgnore] public bool Stored => Store ?? true;
+}
+
+/// <summary>POST /routes/match: a drawn line (2–5000 points, in drawing order) to snap to roads. Stateless.</summary>
+public sealed record RouteMatchRequest(IReadOnlyList<MatchPoint?>? Points, Vehicle? Vehicle);
+
+public sealed record MatchPoint(double Lat, double Lng);
+
+/// <param name="Polyline">Encoded, precision 6 (same as routes).</param>
+/// <param name="Unmatched">Inclusive input-point index ranges that matched no road.</param>
+public sealed record RouteMatchResponse(string Polyline, double DistanceM, double DurationS, IReadOnlyList<UnmatchedRange> Unmatched);
+
+public sealed record UnmatchedRange(int FromIndex, int ToIndex);
 
 /// <summary><c>NextStopIndex</c>: index into the original waypoints of the next stop not yet reached (default 0).</summary>
 public sealed record RerouteRequest(double Lat, double Lng, double? Heading, int? NextStopIndex = null);

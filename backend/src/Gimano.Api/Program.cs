@@ -45,7 +45,7 @@ builder.Services.AddHttpClient<ValhallaClient>(c =>
     c.BaseAddress = new Uri((config["Valhalla:Url"] ?? "http://localhost:8002").TrimEnd('/') + "/");
     c.Timeout = TimeSpan.FromSeconds(20);
 });
-builder.Services.AddScoped<GeoLookup>().AddScoped<ReportService>().AddScoped<RouteService>().AddScoped<PlaceService>()
+builder.Services.AddScoped<GeoLookup>().AddScoped<ReportService>().AddScoped<RouteService>().AddScoped<RouteMatchService>().AddScoped<PlaceService>()
     .AddScoped<CommunityService>().AddScoped<ReviewService>().AddScoped<PhotoService>()
     .AddScoped<SearchService>().AddScoped<SearchMissRecorder>().AddScoped<IssueService>();
 builder.Services.AddSingleton<IssueDirectory>();

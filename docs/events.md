@@ -1,0 +1,168 @@
+# Events (Acara): private event packs, invitation links and route planning
+
+Status: **contract for the first build** (branch `worktree-events`, 24 Oct 2026). Design: canvas pages
+"Events · Acara (research & design)" and "Manotu Desktop (Rust) for events & routes"
+(https://claude.ai/artifact/ACREFiVNz9gNyAbundwPWB), `docs/design/festival/` (report + `spec.md`).
+
+Every implementation (desktop Rust core, web viewer, Android, iOS) must produce and accept **byte-identical**
+results for the test vectors in `desktop/crates/event-core/tests/vectors/`. Change this file deliberately and
+update the vectors in the same change.
+
+## 1. Privacy rule (AGENTS.md, unchanged)
+
+- An event, its stops, routes, guest-visible notes, organizer alias and keys **never reach a Manotu server**, not
+  even encrypted. The plan travels inside the link fragment or a file the host sends through their own channels.
+- Organizer-only notes are never written into a pack.
+- Routing **does** use the Manotu server, statelessly: the request carries coordinates and travel mode only (no
+  stop label, event id, alias or note), and the server stores nothing (`"store": false`, §6).
+- No guest roster, contacts, RSVP, check-in or location history anywhere.
+
+## 2. Primitives (libsodium family; all platforms already ship it)
+
+| Use | Algorithm |
+|---|---|
+| Pack encryption | XChaCha20-Poly1305-IETF, 32-byte random key, 24-byte random nonce, AD = ASCII `manotu-event-v1` |
+| Organizer signature | Ed25519 (one key pair **per event**, never reused across events) |
+| Compression | raw DEFLATE (RFC 1951, no zlib/gzip header) of the plaintext before encryption |
+| Revision hash | SHA-256 |
+| Text encodings | base64url without padding (`b64u`); Crockford base32 for the file secret code |
+
+Libraries: Rust `chacha20poly1305` (XChaCha20Poly1305), `ed25519-dalek`, `sha2`, `miniz_oxide`/`flate2`;
+web `libsodium-wrappers` (already vendored in `site/manotu/s/vendor/`) + `DecompressionStream("deflate-raw")`;
+Android lazysodium + `java.util.zip.Inflater(nowrap=true)`; iOS swift-sodium + `Compression` (`COMPRESSION_ZLIB`
+is raw DEFLATE).
+
+## 3. Layers
+
+```
+event JSON bytes (UTF-8)                      ← §4, the signed content
+signed envelope JSON                          ← {"v":1,"event":b64u(eventBytes),"pub":b64u(32),"sig":b64u(64)}
+  sig = Ed25519(sk, "manotu-event-v1\n" ‖ eventBytes)
+raw DEFLATE(envelope bytes)
+XChaCha20-Poly1305(key, nonce, AD="manotu-event-v1")
+  → link  (§5.1)  or  file (§5.2)
+```
+
+The signature covers the exact event bytes, so no JSON canonicalisation is needed. Readers parse `eventBytes`
+only **after** verifying the signature.
+
+## 4. Event JSON (v1)
+
+Field names are exact. Unknown fields are ignored (forward compatible). Times are RFC 3339; `start`/`end` and
+session/arrival times carry the event's local offset (e.g. `2026-11-15T11:00:00+08:00`); `publishedAt` and
+`expiresAt` are UTC (`Z`). Coordinates are WGS84 decimal degrees, at most 6 decimals.
+
+```jsonc
+{
+  "id": "b64u(16 random bytes)",        // same for every revision of the event
+  "rev": 3,                             // 1, 2, 3 … one per publication
+  "parent": "b64u(SHA-256(eventBytes of rev-1))",   // null for rev 1
+  "publishedAt": "2026-11-01T02:15:00Z",
+  "template": "kenduri",                // kenduri|dinner|company|ride|convoy|trip|other
+  "title": "Kenduri Aqil & Sofea",      // 1–120 chars
+  "description": "…",                   // optional, ≤ 2000
+  "lang": "ms",                         // ms|en (display language chosen by the host)
+  "tz": "Asia/Kuala_Lumpur",            // IANA
+  "start": "2026-11-15T11:00:00+08:00",
+  "end": "2026-11-15T16:00:00+08:00",
+  "expiresAt": "2026-11-16T08:00:00Z",  // access ends; default end + 24 h
+  "organizer": { "alias": "Keluarga Aqil" },        // optional, event-only alias
+  "stops": [{
+    "id": "b64u(8 random bytes)",
+    "kind": "parking",                  // parking|dropoff|entrance|venue|meal|checkpoint|fuel|water|rest|prayer|accommodation|start|finish|other
+    "label": "Parkir tetamu",           // 1–80
+    "lat": 2.987100, "lng": 101.793000, // the pin
+    "entrance": { "lat": 2.986600, "lng": 101.794200 },   // optional vehicle entrance, navigate here if present
+    "arrive": { "from": "2026-11-15T11:00:00+08:00", "to": "2026-11-15T16:00:00+08:00" },  // optional
+    "dwellMin": 60,                     // optional
+    "notes": "Masuk ikut pagar belakang sekolah.",   // optional guest-visible, ≤ 500
+    "audience": "Semua"                 // optional free text ≤ 40 ("Keluarga", "Penunggang")
+  }],
+  "sessions": [{                        // optional agenda
+    "id": "b64u(8)", "title": "Jamuan", "start": "…+08:00", "end": "…+08:00", "stopId": "…"
+  }],
+  "routes": [{                          // optional
+    "id": "b64u(8)",
+    "title": "Hari 1",                  // optional ≤ 80
+    "mode": "bicycle",                  // car|motorcycle|bicycle|walk
+    "day": "2026-11-15",                // optional local date
+    "stopIds": ["…", "…"],              // ordered stops this route visits
+    "polyline": "…",                    // Google encoded polyline, precision 6 (same as the routing API)
+    "source": "routed",                 // routed|sketch|gpx  (sketch/gpx = not navigable turn by turn)
+    "distanceM": 58200, "durationS": 13200,          // durationS optional (movement time only)
+    "ascentM": 1120, "descentM": 570,   // optional; absent = unavailable, never 0
+    "legs": [{ "fromStopId": "…", "toStopId": "…", "distanceM": 12400, "durationS": 2880, "source": "routed" }]
+  }]
+}
+```
+
+Limits (reject above them): 14 days between `start` and `end`, 200 stops, 50 sessions, 20 routes, 50 000 polyline
+points in total, 20 MiB file, 16 000-character link fragment.
+
+## 5. Transport
+
+### 5.1 Invitation link (default)
+
+```
+https://<site>/a/#1.<b64u(key)>.<b64u(nonce ‖ ciphertext)>
+```
+
+- `<site>` is configurable (`https://www.bukitbunga.com/gimano` today; the Manotu domain later). The page is
+  static (`site/manotu/a/`): browsers never send the fragment, and the page never transmits it or calls our API.
+- If the fragment would exceed 16 000 characters (usually long routes), the app offers the file instead, or a
+  link without route geometry (stops only) after asking.
+- Phones register `/a/` as an app link (Android App Links / iOS Universal Links) so it opens in Manotu when
+  installed; otherwise the page shows the plan with "Buka di Manotu / Google Maps / apl lain".
+
+### 5.2 File `.manotu-event` (sensitive events)
+
+```
+"MNTE" (4 bytes) ‖ 0x01 (format) ‖ 0x01 (suite: raw key) ‖ nonce (24) ‖ ciphertext
+```
+
+The key is shown to the host as a **secret code**: Crockford base32 of the 32 key bytes (52 chars), grouped by
+4 with `-`. The host sends the code through a different channel. MIME `application/vnd.manotu.event`.
+
+## 6. Routing API additions (stateless; see docs/api.md)
+
+- `POST /routes` gains `"store": false`. Then nothing is cached (no reroute: `/routes/{id}/reroute` → 404),
+  up to **25** waypoints are allowed, and the route ids start with `x-`. Default `true` keeps today's behaviour.
+- New `POST /routes/match`: snap a drawn line to roads (Valhalla `trace_route`/`trace_attributes`,
+  `shape_match: map_snap`). Stateless, never cached or logged.
+
+```
+POST /routes/match
+{ "points": [{"lat":3.1,"lng":101.7}, …],   // 2–5000, in drawing order
+  "vehicle": "bicycle" }                    // car|motorcycle|bicycle|walk
+→ 200 { "polyline": "…", "distanceM": 1234, "durationS": 300,
+        "unmatched": [{"fromIndex": 40, "toIndex": 55}] }   // input-point ranges that matched no road
+→ 422 nothing matched · 503 routing engine down
+```
+
+## 7. Import rules (all readers)
+
+1. Decrypt; on failure show "Jemputan ini tidak dapat dibuka / disahkan" and import nothing.
+2. Inflate (bounded to 20 MiB output), parse the envelope, verify the signature, then parse `event`.
+3. First time an event `id` is seen: pin `pub` after showing the organizer alias and a **safety code**
+   (first 8 bytes of SHA-256(pub) as 4 groups of 4 hex, e.g. `4F2A 91C0 7B3E 02D9`).
+4. Later revisions must have the same `pub` (else reject: "penganjur berbeza"). Lower `rev` than stored → keep the
+   stored one ("versi lebih lama"). Same `rev`, different bytes → fork warning, keep both, user chooses.
+   `parent` mismatch with the stored previous revision → warn, still allowed (missed revisions).
+5. `expiresAt` in the past → do not import, show "Acara telah tamat". Stored events are deleted (keys, payload,
+   thumbnails, caches) at `expiresAt`, also checked on start-up and after a backup restore.
+6. Event data is excluded from the app's backups.
+7. Navigating to a stop calls the routing API with coordinates only (`entrance` if present, else the pin) and no
+   waypoint `name`.
+
+## 8. What is in the first build
+
+| Part | Location | Scope |
+|---|---|---|
+| Rust core | `desktop/crates/event-core`, `route-core` | model, validation, pack/link encode/decode, signing, test vectors, GPX import/export, polyline |
+| Desktop app | `desktop/` (Tauri 2, TS + MapLibre GL JS) | library, event planner, route builder (point-to-point, draw-to-follow-roads, sketch), GPX, export link/file, encrypted local store, settings |
+| Backend | `backend/` | `store:false`, `/routes/match`, tests, docs/api.md |
+| Web viewer | `site/manotu/a/` | open link, verify, show plan, hand off to map apps, calendar file |
+| Android, iOS | apps | open link/file, verify + pin, event screen, navigate to stop, expiry |
+
+Deferred: guest suggestions (proposal files), recipient-specific key wrapping, passphrase-protected files, live
+convoy, public events.

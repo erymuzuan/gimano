@@ -264,11 +264,12 @@ POST /routes
 {
   "origin":      {"lat":3.13,"lng":101.62},
   "destination": {"lat":3.12,"lng":101.61, "placeId":"..."},
-  "waypoints":   [{"lat":3.14,"lng":101.69,"name":"Kedai Mak","placeId":null}],   // 0–5 intermediate stops, in order
+  "waypoints":   [{"lat":3.14,"lng":101.69,"name":"Kedai Mak","placeId":null}],   // 0–5 intermediate stops, in order (0–25 with "store": false)
   "vehicle":     "car" | "motorcycle" | "bicycle" | "walk",
   "avoid":       {"tolls":false,"highways":false,"ferries":false},
   "departAt":    null,        // ISO time for "Leave later"
-  "alternatives": 2
+  "alternatives": 2,
+  "store":       true         // optional, default true; false = stateless (Events, see below)
 }
 → 200 {"routes": Route[]}
 → 422 problem+json  no route between the points (Valhalla error)
@@ -277,6 +278,13 @@ POST /routes
 
 Routes are cached server-side for 3 h so that `/routes/{id}/reroute` can reuse the
 original destination/vehicle/avoid options (404 when the id is unknown or expired).
+
+**Stateless routing (`"store": false`)** — added for Events ([events.md](events.md) §6); additive and backward
+compatible (omitted = `true` = the behaviour above). Nothing is kept server-side, not even in the in-memory reroute
+cache; route ids start with `x-` and `/routes/{id}/reroute` answers 404 for them (plan a new route instead). Up to
+**25** waypoints are allowed (still 5 when stored); more than 20 locations are routed by Valhalla in consecutive
+chunks and returned as one route with one leg per stop, without alternatives. Everything else (traffic, tolls,
+alerts, issues) is unchanged. The request should carry coordinates and travel mode only (no stop names for events).
 
 **Travel modes** map to Valhalla costings: `car`→`auto`, `motorcycle`→`motorcycle`,
 `bicycle`→`bicycle`, `walk`→`pedestrian`. `avoid.*` applies to car/motorcycle only; bicycle and
@@ -326,12 +334,31 @@ AlertOnRoute = Report + {distanceAlongRouteM}
 ```
 
 ```
-POST /routes/{id}/reroute   {lat, lng, heading, nextStopIndex?}   → {routes: Route[]}
+POST /routes/{id}/reroute   {lat, lng, heading, nextStopIndex?}   → {routes: Route[]}   // 404 for "x-" (stateless) ids
 GET  /routes/departure-times?originLat=&originLng=&destLat=&destLng=&date=&vehicle=
   → {slots:[{departAt, durationS}]}         // "Find the best time to leave"
   // date = yyyy-MM-dd (Malaysia time, default today); one slot per hour 06:00–22:00 MYT;
   // vehicle optional (car|motorcycle, default car)
 ```
+
+**Snap a drawn line to roads** — added for Events ([events.md](events.md) §6); a new endpoint, so additive and
+backward compatible. Valhalla map matching (`trace_attributes`, `shape_match: map_snap`, same costing per vehicle as
+`POST /routes`). Stateless: never cached, stored or logged.
+
+```
+POST /routes/match
+{ "points": [{"lat":3.1579,"lng":101.7120}, …],   // 2–5000, in drawing order; each a valid WGS84 point
+  "vehicle": "bicycle" }                          // car|motorcycle|bicycle|walk (default car)
+→ 200 { "polyline": "…",                          // matched road geometry, encoded, precision 6 (as Route.polyline)
+        "distanceM": 1234, "durationS": 300,
+        "unmatched": [{"fromIndex": 40, "toIndex": 55}] }   // inclusive input-point ranges that matched no road
+→ 400 problem+json  validation (fewer than 2 / more than 5000 points, invalid point → errors["points[i]"])
+→ 422 problem+json  nothing could be matched to a road (or the line is beyond Valhalla's trace limits)
+→ 503 problem+json  routing engine unavailable (Retry-After: 30)
+```
+
+Unmatched stretches are skipped (the polyline joins the matched parts); the client shows them as drawn and lets the
+user fix them. Duration is Valhalla's estimate for the vehicle, without live traffic.
 
 ## Issues (road and place complaints)
 
