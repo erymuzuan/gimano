@@ -1530,7 +1530,10 @@ class MainViewModel(private val c: AppContainer) : ViewModel() {
                     _ui.update { it.copy(pick = null, screen = pk?.returnTo ?: Screen.Home, favoriteSheet = pk?.favoriteDraft) }
                 }
                 Screen.PinActions -> { _ui.update { it.copy(pin = null) }; goHome() }
-                Screen.RoutePreview -> if (s.place != null) _ui.update { it.copy(screen = Screen.PlaceCard, plan = null) } else _ui.update { it.copy(screen = Screen.Home, plan = null) }
+                // Back to the place card at the place's zoom (not the route overview), pin centred above the card.
+                Screen.RoutePreview -> if (s.place != null) _ui.update {
+                    it.copy(screen = Screen.PlaceCard, plan = null, camera = CameraCommand.MoveTo(GeoPoint(s.place.summary.lat, s.place.summary.lng), 15.5))
+                } else _ui.update { it.copy(screen = Screen.Home, plan = null) }
                 Screen.Settings -> goHome()
                 Screen.Backup, Screen.MyFeedback, Screen.Account, Screen.About -> _ui.update { it.copy(screen = Screen.Settings) }
                 Screen.Licences -> _ui.update { it.copy(screen = Screen.About) }

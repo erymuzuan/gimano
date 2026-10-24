@@ -75,6 +75,16 @@ class PlaceSheetTest {
         }
     }
 
+    @Test fun routesAndActionsArePinnedOnlyWhenThePeekOverflows() {
+        // Measured on the S24 at font 1.0: 273 dp of content + 48 dp 3-button bar = 321 dp (36 %) → inline.
+        assertTrue(!PlaceSheetLayout.pinFooter(120f, 153f, threeButtonNav, s24))
+        // 200 %: header ≈ 260 dp + footer ≈ 230 dp → way over 356 dp: pinned, the peek stays at the cap.
+        assertTrue(PlaceSheetLayout.pinFooter(260f, 230f, threeButtonNav, s24))
+        assertEquals(0.40f * s24, PlaceSheetLayout.peekHeight(260f + 230f, threeButtonNav, s24), 0.01f)
+        // Exactly at the cap still fits.
+        assertTrue(!PlaceSheetLayout.pinFooter(0.40f * s24 - 230f - gestureNav, 230f, gestureNav, s24))
+    }
+
     @Test fun fullStopsBelowTheStatusBarLeavingAMapStrip() {
         val peek = 354f
         val full = PlaceSheetLayout.fullHeight(peek, 1400f, gestureNav, s24, status)

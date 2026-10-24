@@ -27,6 +27,14 @@ object PlaceSheetLayout {
     fun fitsCap(peekDp: Float, screenHeightDp: Float): Boolean = peekDp <= peekCap(screenHeightDp) + 0.5f
 
     /**
+     * Very large text: when header + Routes/actions don't fit under the cap, Routes and the action row are pinned to
+     * the bottom of the card (always visible above the navigation bar) and the header scrolls above them.
+     * Header and footer are measured on their own, so pinning doesn't change the decision.
+     */
+    fun pinFooter(headerDp: Float, footerDp: Float, navInsetDp: Float, screenHeightDp: Float): Boolean =
+        !fitsCap(headerDp + footerDp + navInsetDp, screenHeightDp)
+
+    /**
      * Full height: all the content plus the nav inset, but stopping [FULL_MAP_STRIP_DP] below the status bar
      * (a short card stays short). Always at least 1 dp above the peek, so the two states stay distinct.
      */

@@ -9,6 +9,9 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.Orientation
+import androidx.compose.foundation.gestures.draggable
+import androidx.compose.foundation.gestures.rememberDraggableState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
@@ -123,11 +126,16 @@ fun PlaceCard(sel: PlaceSel, vm: MainViewModel, cvm: ContributeViewModel, apiBas
 
     // --- Sheet geometry: measured content, two anchors, drag / fling / nested scroll (as the home panel) ---
     fun px(dp: Float) = dp * density.density
-    var peekContentPx by remember { mutableIntStateOf(0) }
+    var headerPx by remember { mutableIntStateOf(0) }    // handle + name/rating/meta (+ "add place here")
+    var footerPx by remember { mutableIntStateOf(0) }    // Routes + the action row
     var allContentPx by remember { mutableIntStateOf(0) }
-    val measured = peekContentPx > 0
-    val peekDp = if (measured) PlaceSheetLayout.peekHeight(peekContentPx / density.density, navInset, screenH) else PlaceSheetLayout.peekCap(screenH)
-    val fullDp = PlaceSheetLayout.fullHeight(peekDp, allContentPx / density.density, navInset, screenH, statusInset)
+    val measured = headerPx > 0 && footerPx > 0
+    val headerDp = headerPx / density.density
+    val footerDp = footerPx / density.density
+    // Largest fonts: Routes and the actions stay pinned (visible) at the bottom of the card.
+    val pinFooter = measured && PlaceSheetLayout.pinFooter(headerDp, footerDp, navInset, screenH)
+    val peekDp = if (measured) PlaceSheetLayout.peekHeight(headerDp + footerDp, navInset, screenH) else PlaceSheetLayout.peekCap(screenH)
+    val fullDp = PlaceSheetLayout.fullHeight(peekDp, allContentPx / density.density + (if (pinFooter) footerDp else 0f), navInset, screenH, statusInset)
     val anchors = PlaceSheetLayout.anchors(peekDp, fullDp)
     val anchorsPx = anchors.map(::px)
     var state by remember(p.id) { mutableStateOf(PlaceSheetState.PEEK) }
@@ -165,7 +173,7 @@ fun PlaceCard(sel: PlaceSel, vm: MainViewModel, cvm: ContributeViewModel, apiBas
 
     val sheetPx = if (heightPx < 0f) anchorsPx[0] else heightPx
     val progress = ((sheetPx - anchorsPx[0]) / (anchorsPx[1] - anchorsPx[0]).coerceAtLeast(1f)).coerceIn(0f, 1f)
-    val nested = remember(anchorsPx[0], anchorsPx[1]) {
+    val nested = remember(p.id, anchorsPx[0], anchorsPx[1]) {
         object : NestedScrollConnection {
             // Finger up: open the card before its content scrolls.
             override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset =
@@ -174,8 +182,10 @@ fun PlaceCard(sel: PlaceSel, vm: MainViewModel, cvm: ContributeViewModel, apiBas
             // Finger down with the content at its top: close it.
             override fun onPostScroll(consumed: Offset, available: Offset, source: NestedScrollSource): Offset =
                 if (available.y > 0 && source == NestedScrollSource.UserInput) Offset(0f, -dragBy(available.y)) else Offset.Zero
+            // Settle whenever the card isn't resting at its state's height, including a drag clamped exactly onto
+            // the other anchor (a swipe down to the peek must still switch the state and re-centre the map).
             override suspend fun onPreFling(available: Velocity): Velocity {
-                if (anchorsPx.none { abs(it - heightPx) < 1f }) { release(available.y); return available }
+                if (heightPx >= 0f && abs(heightPx - anchorsPx[state.ordinal]) >= 1f) { release(available.y); return available }
                 return Velocity.Zero
             }
         }
@@ -198,12 +208,30 @@ fun PlaceCard(sel: PlaceSel, vm: MainViewModel, cvm: ContributeViewModel, apiBas
     val stateLabel = stringResource(if (state == PlaceSheetState.PEEK) R.string.place_sheet_peek else R.string.place_sheet_full)
     val expandLabel = stringResource(R.string.home_sheet_expand)
     val collapseLabel = stringResource(R.string.home_sheet_collapse)
+    // Routes + Save · Call · Share · Website: under the header, or pinned to the card's bottom at the largest fonts.
+    val footerDrag = rememberDraggableState { dragBy(it) }
+    val footer: @Composable (Modifier) -> Unit = { m ->
+        Column(m.fillMaxWidth().onSizeChanged { footerPx = it.height }.padding(horizontal = 16.dp)) {
+            Button(
+                onClick = vm::routeToPlace,
+                modifier = Modifier.fillMaxWidth().padding(top = 12.dp).heightIn(min = 56.dp),
+                shape = RoundedCornerShape(18.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = c.brand, contentColor = c.brandOn),
+            ) {
+                val v = remember(c.brandOn) { TwoTone.vector("route", c.brandOn.copy(alpha = 0.25f), c.brandOn) }
+                Image(rememberVectorPainter(v), null, Modifier.size(26.dp))
+                Spacer(Modifier.width(10.dp))
+                Text(stringResource(R.string.routes), style = GimanoType.button, fontSize = 18.sp, fontWeight = FontWeight.Black, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            }
+            ActionRow(sel, vm)
+        }
+    }
     SheetSurface(Modifier.align(Alignment.BottomCenter).fillMaxWidth().height(with(density) { sheetPx.toDp() })) {
         Box(Modifier.fillMaxWidth().weight(1f)) {
             Column(Modifier.fillMaxWidth().nestedScroll(nested).verticalScroll(scroll)) {
                 Column(Modifier.fillMaxWidth().onSizeChanged { allContentPx = it.height }) {
                     // ---------------- PEEK ----------------
-                    Column(Modifier.fillMaxWidth().onSizeChanged { peekContentPx = it.height }.padding(horizontal = 16.dp)) {
+                    Column(Modifier.fillMaxWidth().onSizeChanged { headerPx = it.height }.padding(horizontal = 16.dp)) {
                         // Handle: tap toggles peek ↔ full. TalkBack: "Place card, collapsed. Swipe up for reviews and photos."
                         Box(
                             Modifier.fillMaxWidth().height(22.dp)
@@ -224,19 +252,8 @@ fun PlaceCard(sel: PlaceSel, vm: MainViewModel, cvm: ContributeViewModel, apiBas
                                 Icon(Icons.Filled.AddLocationAlt, null); Spacer(Modifier.width(8.dp)); Text(stringResource(R.string.add_place_here), fontWeight = FontWeight.ExtraBold)
                             }
                         }
-                        Button(
-                            onClick = vm::routeToPlace,
-                            modifier = Modifier.fillMaxWidth().padding(top = 12.dp).heightIn(min = 56.dp),
-                            shape = RoundedCornerShape(18.dp),
-                            colors = ButtonDefaults.buttonColors(containerColor = c.brand, contentColor = c.brandOn),
-                        ) {
-                            val v = remember(c.brandOn) { TwoTone.vector("route", c.brandOn.copy(alpha = 0.25f), c.brandOn) }
-                            Image(rememberVectorPainter(v), null, Modifier.size(26.dp))
-                            Spacer(Modifier.width(10.dp))
-                            Text(stringResource(R.string.routes), style = GimanoType.button, fontSize = 18.sp, fontWeight = FontWeight.Black)
-                        }
-                        ActionRow(sel, vm)
                     }
+                    if (!pinFooter) footer(Modifier)
 
                     // ---------------- FULL ----------------
                     // Hidden from TalkBack while collapsed (it is below the card's edge).
@@ -260,12 +277,15 @@ fun PlaceCard(sel: PlaceSel, vm: MainViewModel, cvm: ContributeViewModel, apiBas
                                 items(pending) { u -> UploadTile(u, 96) }
                                 if (d != null) item {
                                     Column(
-                                        Modifier.size(96.dp).clip(RoundedCornerShape(14.dp)).background(c.brandMist).clickable { addPhoto() },
+                                        // Grows with very large text (label on up to two lines) instead of truncating it.
+                                        Modifier.sizeIn(minWidth = 96.dp, minHeight = 96.dp, maxWidth = 160.dp).clip(RoundedCornerShape(14.dp))
+                                            .background(c.brandMist).clickable { addPhoto() }.padding(6.dp),
                                         horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center,
                                     ) {
                                         TwoToneIcon("add_photo", null, size = 30.dp)
                                         Text(stringResource(R.string.add_photo), fontSize = 12.sp, fontWeight = FontWeight.ExtraBold, color = c.brandInk,
-                                            maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp))
+                                            maxLines = 2, overflow = TextOverflow.Ellipsis, textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                                            modifier = Modifier.padding(top = 2.dp))
                                     }
                                 }
                             }
@@ -284,9 +304,14 @@ fun PlaceCard(sel: PlaceSel, vm: MainViewModel, cvm: ContributeViewModel, apiBas
                         Spacer(Modifier.height(12.dp))
                     }
                 }
-                Spacer(Modifier.height(navInset.dp))
+                if (!pinFooter) Spacer(Modifier.height(navInset.dp))
             }
             if (sel.loading) LinearProgressIndicator(Modifier.fillMaxWidth().align(Alignment.TopCenter).padding(top = 18.dp, start = 40.dp, end = 40.dp).height(2.dp), color = c.brand, trackColor = c.surfaceAlt)
+        }
+        if (pinFooter) {
+            // Swiping on the pinned footer moves the card too.
+            footer(Modifier.background(c.surface).draggable(footerDrag, Orientation.Vertical, onDragStopped = { v -> release(v) }))
+            Spacer(Modifier.height(navInset.dp))
         }
     }
 
@@ -322,7 +347,9 @@ private fun PeekHeader(sel: PlaceSel, vm: MainViewModel, reviews: my.gimano.app.
         CategoryBadge(p.category, size = 52.dp)
         Spacer(Modifier.width(12.dp))
         Column(Modifier.weight(1f)) {
-            Text(p.name, fontSize = 21.sp, fontWeight = FontWeight.Black, color = c.text, maxLines = 2, overflow = TextOverflow.Ellipsis, lineHeight = 24.sp)
+            // Very large text: one line for the name so the rating line still fits in the peek (full name in TalkBack).
+            val big = LocalDensity.current.fontScale >= 1.5f
+            Text(p.name, fontSize = 21.sp, fontWeight = FontWeight.Black, color = c.text, maxLines = if (big) 1 else 2, overflow = TextOverflow.Ellipsis, lineHeight = 24.sp)
             when {
                 priv != null -> Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 2.dp)) {
                     Badge(stringResource(R.string.just_for_me), c.brandMist, c.brandInk, Icons.Filled.Lock)
