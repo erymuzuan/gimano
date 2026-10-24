@@ -1,7 +1,10 @@
-// Manotu event invitation viewer (docs/events.md §5.1, §7). The whole plan is in location.hash
-// (#1.<key>.<nonce‖ciphertext>): browsers never send the fragment, and this page never transmits it and calls no
-// API. Event strings are untrusted: they are only ever set with textContent, never parsed as HTML.
-import { openLink, decide, navTarget, PackError } from "./pack.mjs";
+// Manotu event invitation viewer (docs/events.md §5.1, §5.6, §7), shared by two pages:
+//   /a/  (link.mjs)  the whole plan is in location.hash (#1.<key>.<nonce‖ciphertext>); no API call at all.
+//   /j/  (../j/drop.mjs)  short link #<dropId>.<secret>: only the dropId is sent (GET /drops/<dropId>); the secret
+//        stays in the page and derives the key.
+// Browsers never send the fragment. Event strings are untrusted: they are only ever set with textContent, never
+// parsed as HTML. The page entry calls startViewer(source) with how to open the plan and build the app links.
+import { decide, navTarget, PackError } from "./pack.mjs";
 
 const cfg = window.MANOTU_EVENT_CONFIG || {};
 const T = {
@@ -25,6 +28,10 @@ const T = {
     fullInFile: "Laluan penuh ada dalam fail acara — buka dengan Manotu",
     published: (r, d) => `Versi ${r} · diterbitkan ${d}`, at: "di", stopN: (n, l) => `Tempat ${n}: ${l}`,
     privacy: "Pelan acara ada dalam pautan ini sahaja dan dibuka dalam pelayar anda. Manotu tidak menyimpan atau melihatnya.",
+    privacyDrop: "Pelan acara disulitkan hujung ke hujung. Kuncinya ada dalam pautan ini sahaja dan pelan dibuka dalam pelayar anda. Manotu menyimpan salinan bersulit sehingga acara tamat dan tidak dapat membacanya.",
+    gone: "Jemputan ini telah tamat atau dipadam", goneSub: "Minta penganjur menghantar pautan baharu jika acara masih berjalan.",
+    offline: "Jemputan tidak dapat dimuatkan", offlineSub: "Semak sambungan internet anda, kemudian cuba lagi.", retry: "Cuba lagi",
+    getApp: "Dapatkan Manotu", installed: "Sudah pasang? Ketik pautan jemputan sekali lagi, atau buka Manotu.",
     kinds: { parking: "Parkir", dropoff: "Turun penumpang", entrance: "Pintu masuk", venue: "Tempat acara", meal: "Makan",
       checkpoint: "Titik semak", fuel: "Minyak", water: "Air", rest: "Rehat", prayer: "Surau / masjid",
       accommodation: "Penginapan", start: "Mula", finish: "Tamat", other: "Lain-lain" },
@@ -55,6 +62,10 @@ const T = {
     fullInFile: "The full route is in the event file — open it with Manotu",
     published: (r, d) => `Version ${r} · published ${d}`, at: "at", stopN: (n, l) => `Place ${n}: ${l}`,
     privacy: "The event plan is only in this link and is opened in your browser. Manotu doesn't store or see it.",
+    privacyDrop: "The event plan is end-to-end encrypted. Its key is only in this link and the plan is opened in your browser. Manotu keeps an encrypted copy until the event is over and can't read it.",
+    gone: "This invitation has ended or was deleted", goneSub: "Ask the organizer for a new link if the event is still on.",
+    offline: "The invitation couldn't be loaded", offlineSub: "Check your internet connection, then try again.", retry: "Try again",
+    getApp: "Get Manotu", installed: "Already installed? Tap the invitation link again, or open Manotu.",
     kinds: { parking: "Parking", dropoff: "Drop-off", entrance: "Entrance", venue: "Venue", meal: "Meal",
       checkpoint: "Checkpoint", fuel: "Fuel", water: "Water", rest: "Rest", prayer: "Prayer",
       accommodation: "Accommodation", start: "Start", finish: "Finish", other: "Other" },
@@ -70,8 +81,9 @@ let lang = "ms";
 let langChosen = false;
 const $ = id => document.getElementById(id);
 const t = k => T[lang][k];
-const fragment = location.hash.slice(1);
-let state = { kind: "loading" }; // loading | error | expired | ok
+/** Set by startViewer: { open(): Promise<opened>, appLink(stopId?): string, getAppLink?: string, privacy?: string }. */
+let source = null;
+let state = { kind: "loading" }; // loading | error | expired | gone | offline | ok
 let opened = null;
 let map = null;
 
@@ -114,11 +126,15 @@ const coord = n => n.toFixed(6).replace(/\.?0+$/, "");
 const ua = navigator.userAgent || "";
 const isAndroid = /Android/i.test(ua);
 const isIOS = /iPhone|iPad|iPod/i.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1);
-/** docs/events.md §5.3: manotu://event[?stop=<stopId>]#<the same fragment>. Opens only on this device. */
-function appLink(stopId) {
-  const q = stopId ? `?stop=${encodeURIComponent(stopId)}` : "";
-  return `${cfg.appScheme || "manotu"}://event${q}#${fragment}`;
+export { isAndroid, isIOS };
+/** The app's custom scheme with optional query parameters, then `#<fragment>`. Opens only on this device:
+ *  /a/ → manotu://event[?stop=<stopId>]#<the same fragment> (§5.3);
+ *  /j/ → manotu://event?drop=<dropId>[&stop=<stopId>]#<secret> (§5.6). */
+export function schemeLink(params, fragment) {
+  const q = Object.entries(params).filter(([, v]) => v).map(([k, v]) => `${k}=${encodeURIComponent(v)}`).join("&");
+  return `${cfg.appScheme || "manotu"}://event${q ? `?${q}` : ""}#${fragment}`;
 }
+const appLink = stopId => source.appLink(stopId);
 function googleLink(p) { return `https://www.google.com/maps/dir/?api=1&destination=${coord(p.lat)},${coord(p.lng)}`; }
 function otherLink(p) {
   const ll = `${coord(p.lat)},${coord(p.lng)}`;
@@ -180,7 +196,16 @@ function render() {
     $("plan").hidden = true;
     status.className = `card status state-${state.kind}`;
     $("status-title").textContent = t(state.kind);
-    $("status-sub").textContent = state.kind === "expired" ? t("expiredSub") : state.kind === "error" ? t(state.sub) : "";
+    const subs = { expired: "expiredSub", error: state.sub, gone: "goneSub", offline: "offlineSub" };
+    $("status-sub").textContent = subs[state.kind] ? t(subs[state.kind]) : "";
+    // Network failure on /j/ (§5.6): offer a retry; the fragment is still in the address bar.
+    let retry = $("retry");
+    if (state.kind === "offline" && !retry) {
+      retry = el("button", { id: "retry", class: "btn primary", type: "button" });
+      retry.addEventListener("click", () => load());
+      status.append(retry);
+    }
+    if (retry) { retry.hidden = state.kind !== "offline"; retry.textContent = t("retry"); }
     document.title = `Manotu · ${t(state.kind)}`;
     return;
   }
@@ -202,7 +227,7 @@ function render() {
   $("ev-alias").textContent = alias || "—";
   $("ev-safety").textContent = opened.safetyCode;
   $("open-app").href = appLink();
-  $("download").href = cfg.downloadUrl || "../download/";
+  if ($("download")) $("download").href = cfg.downloadUrl || "../download/";
   $("published").textContent = t("published")(e.rev, fmtTime(e.publishedAt, { day: "numeric", month: "long", year: "numeric" }));
 
   const stopIndex = new Map(e.stops.map((s, i) => [s.id, i]));
@@ -313,29 +338,59 @@ function showMap() {
   });
 }
 
-// ---- start --------------------------------------------------------------------------------------------------------
-$("lang").addEventListener("click", () => { lang = lang === "ms" ? "en" : "ms"; langChosen = true; applyLang(); });
-$("ics").addEventListener("click", () => { if (opened) downloadIcs(); });
-applyLang();
 
+// ---- start --------------------------------------------------------------------------------------------------------
 function fail(sub) { opened = null; state = { kind: "error", sub }; render(); }
 
-if (!fragment) fail("errMissing");
-else if (typeof DecompressionStream === "undefined") fail("errBrowser");
-else {
+async function load() {
+  opened = null;
+  state = { kind: "loading" };
+  render();
   try {
-    const result = await openLink(fragment);
-    if (decide(result.event) === "expired") { state = { kind: "expired" }; render(); }
-    else {
-      opened = result;
-      state = { kind: "ok" };
-      if (!langChosen) lang = result.event.lang; // the host's display language (§4 `lang`); BM until then
-      applyLang();
-      // No WebGL (old phone, disabled GPU): the invitation still opens, just without the map.
-      try { showMap(); } catch { map?.remove(); map = null; markers = []; $("map").closest("section").hidden = true; }
-    }
+    const result = await source.open();
+    if (decide(result.event) === "expired") { state = { kind: "expired" }; render(); return; }
+    opened = result;
+    state = { kind: "ok" };
+    if (!langChosen) lang = result.event.lang; // the host's display language (§4 `lang`); BM until then
+    applyLang();
+    // No WebGL (old phone, disabled GPU): the invitation still opens, just without the map.
+    try { showMap(); } catch { map?.remove(); map = null; markers = []; $("map").closest("section").hidden = true; }
   } catch (err) {
     const code = err instanceof PackError ? err.code : "unknown";
-    fail(code === "fragment_too_long" ? "errTooLong" : "errBad");
+    if (code === "drop_gone") { state = { kind: "gone" }; render(); }
+    else if (code === "offline") { state = { kind: "offline" }; render(); }
+    else if (code === "fragment_too_long") fail("errTooLong");
+    else if (code === "malformed_drop_link") fail("errMissing");
+    else if (code === "key_derivation") fail("errBrowser");
+    else fail("errBad");
   }
+}
+
+/** "Dapatkan Manotu" (§5.6): copy the short link first, so the app can offer it after install (it checks the
+ *  clipboard once per launch), then go to the store. A refused clipboard still goes to the store. */
+async function getApp(ev) {
+  ev.preventDefault();
+  try { await navigator.clipboard.writeText(source.getAppLink); } catch { /* clipboard refused or unavailable */ }
+  location.href = isAndroid ? (cfg.playUrl || cfg.downloadUrl) : isIOS && cfg.appStoreUrl ? cfg.appStoreUrl : cfg.downloadUrl;
+}
+
+/**
+ * @param {{ fragment: string, open: () => Promise<object>, appLink: (stopId?: string) => string,
+ *           getAppLink?: string }} src
+ *   fragment: location.hash without `#` (empty → "link incomplete"); open: decrypt + verify (throws PackError,
+ *   `drop_gone` / `offline` for /j/); appLink: the custom-scheme hand-off; getAppLink: the link "Dapatkan Manotu" copies.
+ */
+export function startViewer(src) {
+  source = src;
+  $("lang").addEventListener("click", () => { lang = lang === "ms" ? "en" : "ms"; langChosen = true; applyLang(); });
+  $("ics").addEventListener("click", () => { if (opened) downloadIcs(); });
+  const get = $("get-app");
+  if (get) {
+    get.href = cfg.downloadUrl || "../download/";
+    if (src.getAppLink) get.addEventListener("click", getApp);
+  }
+  applyLang();
+  if (!src.fragment) fail("errMissing");
+  else if (typeof DecompressionStream === "undefined") fail("errBrowser");
+  else return load();
 }

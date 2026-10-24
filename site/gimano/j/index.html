@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="ms">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="referrer" content="no-referrer">
+  <meta name="robots" content="noindex">
+  <!-- Short link (docs/events.md §5.6). connect-src: the API (only GET /api/v1/drops/<dropId>; the secret after # is
+       never sent), plus the dev hosts used with ?api= (as /s/), and OpenFreeMap for the map style, tiles, glyphs. -->
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://tiles.openfreemap.org; font-src 'self'; connect-src https://gimano-api.bukitbunga.com https://api.manotu.app https://tiles.openfreemap.org http://100.101.150.9:5080 http://localhost:5080; worker-src blob:; child-src blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
+  <title>Manotu · Jemputan acara</title>
+  <link rel="icon" href="../manotu-icon.svg">
+  <link rel="stylesheet" href="../style.css">
+  <link rel="stylesheet" href="../s/vendor/maplibre-gl.css">
+  <link rel="stylesheet" href="../a/event.css">
+</head>
+<body>
+  <header class="top">
+    <img src="../logo.png" alt="" width="40" height="40">
+    <span class="brand">Manotu</span>
+    <button id="lang" class="pill lang" type="button" aria-label="English">EN</button>
+  </header>
+  <main id="main">
+    <section id="status" class="card status" aria-live="polite">
+      <h1 id="status-title" data-t="loading"></h1>
+      <p id="status-sub" class="muted"></p>
+    </section>
+
+    <article id="plan" hidden>
+      <section class="card">
+        <p id="ev-kind" class="eyebrow"></p>
+        <h1 id="ev-title" tabindex="-1"></h1>
+        <p id="ev-when" class="when"></p>
+        <p id="ev-tz" class="muted small" hidden></p>
+        <p id="ev-desc" class="desc" hidden></p>
+        <div id="ev-org" class="org" hidden>
+          <p><span data-t="organizer"></span> <strong id="ev-alias"></strong></p>
+          <p class="small"><span data-t="safety"></span> <code id="ev-safety" class="safety"></code></p>
+          <p class="muted small" data-t="safetyHelp"></p>
+        </div>
+        <div class="actions">
+          <a id="open-app" class="btn primary" data-t="openApp"></a>
+          <a id="get-app" class="btn" data-t="getApp"></a>
+          <button id="ics" class="btn" type="button" data-t="addCalendar"></button>
+        </div>
+        <p class="muted small" data-t="installed"></p>
+      </section>
+
+      <section class="card map-card" aria-labelledby="map-h">
+        <h2 id="map-h" data-t="map"></h2>
+        <div id="map" role="region" data-t-aria="mapAria"></div>
+        <p class="muted small attribution">© <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">OpenStreetMap</a> contributors · OpenFreeMap</p>
+      </section>
+
+      <section class="card" aria-labelledby="stops-h">
+        <h2 id="stops-h" data-t="stops"></h2>
+        <ol id="stops" class="stops"></ol>
+      </section>
+
+      <section id="sessions-card" class="card" aria-labelledby="sessions-h" hidden>
+        <h2 id="sessions-h" data-t="sessions"></h2>
+        <ol id="sessions" class="plain"></ol>
+      </section>
+
+      <section id="info-card" class="card" aria-labelledby="info-h" hidden>
+        <h2 id="info-h" data-t="info"></h2>
+        <ul id="info" class="plain"></ul>
+      </section>
+
+      <section id="routes-card" class="card" aria-labelledby="routes-h" hidden>
+        <h2 id="routes-h" data-t="routes"></h2>
+        <ul id="routes" class="plain"></ul>
+        <p id="routes-note" class="notes small" data-t="fullInFile" hidden></p>
+      </section>
+
+      <p id="published" class="muted small center"></p>
+    </article>
+
+    <p class="muted small center privacy" data-t="privacyDrop"></p>
+  </main>
+  <script src="config.js"></script>
+  <script src="../s/vendor/maplibre-gl.js"></script>
+  <script type="module" src="drop.mjs"></script>
+</body>
+</html>
