@@ -30,6 +30,21 @@ class FakeWrapper : SeedWrapper {
     override fun isWrapped(stored: String) = stored.startsWith("ks1:")
 }
 
+/**
+ * The Keystore key after an Auto Backup restore: a new key, so seeds wrapped by the old install fail their GCM
+ * tag, while seeds this key wraps itself read back fine.
+ */
+class LostKeyWrapper(private val e: Exception = javax.crypto.AEADBadTagException("Tag mismatch")) : SeedWrapper {
+    private val mine = HashSet<String>()
+    override fun wrap(seed: ByteArray) = FakeWrapper().wrap(seed).also { mine += it }
+    override fun unwrap(stored: String): ByteArray = when {
+        !isWrapped(stored) -> Base64.getDecoder().decode(stored)
+        stored in mine -> FakeWrapper().unwrap(stored)
+        else -> throw e
+    }
+    override fun isWrapped(stored: String) = stored.startsWith("ks1:")
+}
+
 class IdentityBackupTest {
     private val dir: File = Files.createTempDirectory("gimano-id").toFile()
     private val sodium = LazySodiumJava(SodiumJava())
@@ -54,6 +69,34 @@ class IdentityBackupTest {
         BackupArchive.write(out, BackupManifest(schemaVersion = GimanoSchema.VERSION, appVersion = "t", createdAt = "2026-10-23T00:00:00Z", counts = counts),
             listOf(BackupArchive.DATA to snap), pass, crypto, opslimit = 1, memlimit = 8L * 1024 * 1024)
         return out.toByteArray()
+    }
+
+    @Test fun autoBackupRestoreWithALostKeystoreKeyStartsANewIdentity() {
+        // The row as Auto Backup restores it: registered user, seed wrapped by the old install's key.
+        val db = newDb("restored.db")
+        service(db).let { it.ensure(); it.markRegistered("user-old", "Rusa 2368") }
+        val oldSeed = service(db).current()!!.seed
+        // This install's Keystore key differs: unwrap fails its tag (the S24 "auth failed: AEADBadTagException").
+        var dropped: Throwable? = null
+        val store = IdentityStore({ db }, LostKeyWrapper(), onDropped = { dropped = it })
+        assertNull("an unreadable identity reads as none", store.get())
+        assertTrue(dropped is javax.crypto.AEADBadTagException)
+        assertEquals("the dead row is gone", 0L, db.queryLong("SELECT COUNT(*) FROM identity"))
+        // ensure() then makes a fresh, unregistered key: the app registers as a new device and works again.
+        val fresh = IdentityService(store, ed, bip).ensure()
+        assertFalse(fresh.registered)
+        assertFalse(fresh.seed.contentEquals(oldSeed))
+        assertEquals(1L, db.queryLong("SELECT COUNT(*) FROM identity"))
+    }
+
+    @Test fun transientKeystoreErrorsAreNotTreatedAsKeyLoss() {
+        val db = newDb("transient.db")
+        service(db).ensure()
+        val store = IdentityStore({ db }, LostKeyWrapper(java.security.KeyStoreException("busy")))
+        assertThrows(java.security.KeyStoreException::class.java) { store.get() }
+        assertEquals("the identity is kept", 1L, db.queryLong("SELECT COUNT(*) FROM identity"))
+        assertTrue(IdentityStore.keyLost(java.security.UnrecoverableKeyException()))
+        assertFalse(IdentityStore.keyLost(java.security.InvalidKeyException()))
     }
 
     @Test fun seedIsWrappedAtRestAndKeysAreStable() {

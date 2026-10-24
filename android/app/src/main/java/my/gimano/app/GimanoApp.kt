@@ -40,7 +40,8 @@ class AppContainer(val app: Application) {
     /** The contributor pseudonym's key (docs/identity-and-reputation.md). Seed wrapped with an Android Keystore key. */
     private val seedWrapper = my.gimano.app.data.identity.KeystoreSeedWrapper()
     val identity = my.gimano.app.data.identity.IdentityService(
-        my.gimano.app.data.identity.IdentityStore({ my.gimano.app.data.backup.AndroidSqlPort(db.openHelper.writableDatabase) }, seedWrapper),
+        my.gimano.app.data.identity.IdentityStore({ my.gimano.app.data.backup.AndroidSqlPort(db.openHelper.writableDatabase) }, seedWrapper,
+            onDropped = { e -> my.gimano.app.core.GLog.w("Identity", "restored identity unreadable here (${e.javaClass.simpleName}); new device identity") }),
         my.gimano.app.core.identity.Ed25519(LazySodiumAndroid(SodiumAndroid())),
         bip39 = { my.gimano.app.core.identity.Bip39(app.assets.open("bip39-english.txt").bufferedReader().readLines().filter { it.isNotBlank() }) },
     )
