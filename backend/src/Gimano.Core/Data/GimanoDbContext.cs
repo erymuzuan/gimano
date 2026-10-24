@@ -17,6 +17,7 @@ public sealed class GimanoDbContext(DbContextOptions<GimanoDbContext> options) :
     public DbSet<SegmentSpeed> SegmentSpeeds => Set<SegmentSpeed>();
     public DbSet<Jam> Jams => Set<Jam>();
     public DbSet<Feedback> Feedback => Set<Feedback>();
+    public DbSet<PlaceFlag> PlaceFlags => Set<PlaceFlag>();
     public DbSet<TollRate> TollRates => Set<TollRate>();
     public DbSet<CommunityPlace> CommunityPlaces => Set<CommunityPlace>();
     public DbSet<PlaceVote> PlaceVotes => Set<PlaceVote>();
@@ -263,6 +264,16 @@ public sealed class GimanoDbContext(DbContextOptions<GimanoDbContext> options) :
             e.HasIndex(x => x.ReviewId);
             e.HasOne(x => x.User).WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.SetNull);
             e.HasOne<Review>().WithMany().HasForeignKey(x => x.ReviewId).OnDelete(DeleteBehavior.SetNull);
+        });
+
+        b.Entity<PlaceFlag>(e =>
+        {
+            e.ToTable("place_flags");
+            e.HasKey(x => new { x.PlaceId, x.UserId });
+            e.Property(x => x.PlaceId).HasMaxLength(40);
+            e.Property(x => x.Reason).HasConversion<string>().HasMaxLength(20);
+            e.HasOne<CommunityPlace>().WithMany().HasForeignKey(x => x.PlaceId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne<User>().WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Cascade);
         });
 
         b.Entity<PhotoFlag>(e =>

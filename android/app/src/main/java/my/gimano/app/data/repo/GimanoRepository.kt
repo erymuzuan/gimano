@@ -41,7 +41,11 @@ interface GimanoRepository : my.gimano.app.data.share.ShareApi {
 
     suspend fun sendFeedback(body: FeedbackRequest): FeedbackCreated
     suspend fun myFeedback(): List<FeedbackSummary>
-    suspend fun deleteFeedbackContact(id: String)
+    /** [token]: the contactToken from the create response (null for older feedback, withdrawn as its author). */
+    suspend fun deleteFeedbackContact(id: String, token: String?)
+    suspend fun deleteCrashContact(id: String, token: String)
+    /** "Report place" (community places only). */
+    suspend fun flagPlace(placeId: String, reason: String)
     suspend fun sendCrashReport(body: CrashReportRequest): CrashCreated
 
     suspend fun createPlace(body: CreatePlaceRequest): Place
@@ -57,6 +61,8 @@ interface GimanoRepository : my.gimano.app.data.share.ShareApi {
     suspend fun deleteReview(reviewId: String)
     suspend fun helpful(reviewId: String)
     suspend fun flagReview(reviewId: String, reason: String)
+    /** "Report photo" (POST /photos/{id}/flag): same reasons as a review flag. */
+    suspend fun flagPhoto(photoId: String, reason: String)
     suspend fun uploadPhoto(placeId: String, jpeg: ByteArray, caption: String?): Photo
     suspend fun photos(placeId: String): PhotosPage
 }

@@ -65,6 +65,7 @@ import my.gimano.app.R
 import my.gimano.app.core.format.Formatters
 import my.gimano.app.core.places.RatingSummary
 import my.gimano.app.core.places.Verification
+import my.gimano.app.data.model.Photo
 import my.gimano.app.data.model.Place
 import my.gimano.app.data.model.Review
 import my.gimano.app.data.model.SuggestEditRequest
@@ -117,7 +118,14 @@ fun PlaceCard(sel: PlaceSel, vm: MainViewModel, cvm: ContributeViewModel, apiBas
     val statusInset = WindowInsets.statusBars.asPaddingValues().calculateTopPadding().value
     val reviews by cvm.reviews.collectAsStateWithLifecycle()
     val uiState by vm.ui.collectAsState()
-    var viewer by remember { mutableStateOf<Pair<List<String>, Int>?>(null) }
+    var viewer by remember { mutableStateOf<ViewerState?>(null) }
+    var reportPlace by remember { mutableStateOf(false) }
+    // Blocked authors (this phone only): their reviews and photos are hidden everywhere.
+    val blockedList by vm.container.blocks.blocked.collectAsStateWithLifecycle()
+    val blocked = remember(blockedList) { blockedList.mapTo(HashSet()) { it.ref } }
+    val openPhotos: (List<Photo>, Int) -> Unit = { list, i ->
+        viewer = ViewerState(list.map { mediaUrl(it.url, apiBase) }, i, list)
+    }
     var suggest by remember { mutableStateOf(false) }
     LaunchedEffect(d?.id) { if (d != null) cvm.loadReviews(d) }
     val addPhoto = my.gimano.app.ui.common.rememberPhotoSource(10) { uris ->
@@ -245,7 +253,8 @@ fun PlaceCard(sel: PlaceSel, vm: MainViewModel, cvm: ContributeViewModel, apiBas
                                 },
                             contentAlignment = Alignment.TopCenter,
                         ) { GrabHandle(Modifier.padding(top = 8.dp)) }
-                        PeekHeader(sel, vm, reviews, onSuggest = { suggest = true })
+                        PeekHeader(sel, vm, reviews, onSuggest = { suggest = true },
+                            onReportPlace = if (d?.isCommunity == true) ({ reportPlace = true }) else null)
                         if (p.id.startsWith("pin:")) {
                             OutlinedButton(onClick = { cvm.startAdd(my.gimano.app.core.geo.GeoPoint(p.lat, p.lng), ""); vm.startAddPlace(my.gimano.app.core.geo.GeoPoint(p.lat, p.lng), "") },
                                 Modifier.fillMaxWidth().padding(top = 10.dp).heightIn(min = 52.dp), shape = RoundedCornerShape(Radius.md)) {
@@ -262,24 +271,27 @@ fun PlaceCard(sel: PlaceSel, vm: MainViewModel, cvm: ContributeViewModel, apiBas
                             .then(if (state == PlaceSheetState.PEEK && progress < 0.01f) Modifier.clearAndSetSemantics { } else Modifier),
                     ) {
                         Details(sel, vm, cvm)
-                        if (d != null) ReviewsSection(d, reviews.reviews, reviews.summary, reviews.loading, cvm, apiBase) { urls, i -> viewer = urls to i }
+                        if (d != null) ReviewsSection(d, my.gimano.app.data.ugc.Blocking.reviews(reviews.reviews, blocked), reviews.summary, reviews.loading, cvm, apiBase, openPhotos)
 
                         // Photos, with "Add photo" (camera or gallery; EXIF stripped before upload) at the END of the strip.
-                        val photoUrls = if (priv != null) sel.privatePhotos.map { Uri.fromFile(it).toString() } else d?.photos.orEmpty().map { mediaUrl(it.thumbUrl.ifBlank { it.url }, apiBase) }
-                        val fullUrls = if (priv != null) photoUrls else d?.photos.orEmpty().map { mediaUrl(it.url, apiBase) }
+                        val placePhotos = my.gimano.app.data.ugc.Blocking.photos(d?.photos.orEmpty(), blocked)
+                        val photoUrls = if (priv != null) sel.privatePhotos.map { Uri.fromFile(it).toString() } else placePhotos.map { mediaUrl(it.thumbUrl.ifBlank { it.url }, apiBase) }
                         val pending = reviews.placeUploads.filter { it.photo?.status != "published" }
                         if (photoUrls.isNotEmpty() || d != null || pending.isNotEmpty()) {
                             SectionLabel(stringResource(R.string.photos))
                             LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(bottom = 8.dp)) {
                                 items(photoUrls.size) { i ->
-                                    AsyncImage(photoUrls[i], stringResource(R.string.photos), Modifier.size(96.dp).clip(RoundedCornerShape(14.dp)).clickable { viewer = fullUrls to i }, contentScale = ContentScale.Crop)
+                                    AsyncImage(photoUrls[i], stringResource(R.string.photos), Modifier.size(96.dp).clip(RoundedCornerShape(14.dp)).clickable {
+                                        // "Just for me" photos are local files (no report/block); public ones carry their metadata.
+                                        viewer = if (priv != null) ViewerState(photoUrls, i, List(photoUrls.size) { null }) else ViewerState(placePhotos.map { mediaUrl(it.url, apiBase) }, i, placePhotos)
+                                    }, contentScale = ContentScale.Crop)
                                 }
                                 items(pending) { u -> UploadTile(u, 96) }
                                 if (d != null) item {
                                     Column(
                                         // Grows with very large text (label on up to two lines) instead of truncating it.
                                         Modifier.sizeIn(minWidth = 96.dp, minHeight = 96.dp, maxWidth = 160.dp).clip(RoundedCornerShape(14.dp))
-                                            .background(c.brandMist).clickable { addPhoto() }.padding(6.dp),
+                                            .background(c.brandMist).clickable { vm.container.terms.require { addPhoto() } }.padding(6.dp),   // rules before a first public photo
                                         horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center,
                                     ) {
                                         TwoToneIcon("add_photo", null, size = 30.dp)
@@ -315,7 +327,23 @@ fun PlaceCard(sel: PlaceSel, vm: MainViewModel, cvm: ContributeViewModel, apiBas
         }
     }
 
-    viewer?.let { (urls, start) -> PhotoViewer(urls, start) { viewer = null } }
+    if (reportPlace && d != null) AlertDialog(
+        onDismissRequest = { reportPlace = false },
+        title = { Text(stringResource(R.string.report_place), style = GimanoType.title) },
+        text = {
+            Column {
+                FlagReasons.forEach { (k, l) ->
+                    Text(stringResource(l), Modifier.fillMaxWidth().clickable { reportPlace = false; cvm.flagPlace(d, k) }.padding(vertical = 12.dp), fontSize = 16.sp)
+                }
+            }
+        },
+        confirmButton = { TextButton(onClick = { reportPlace = false }) { Text(stringResource(R.string.cancel)) } },
+    )
+    viewer?.let { v ->
+        PhotoViewer(v, onClose = { viewer = null },
+            onReport = { p, reason -> cvm.flagPhoto(p, reason) },
+            onBlock = { a -> viewer = null; cvm.blockAuthor(a) })
+    }
     // "Cadangkan suntingan": the six complaint options when the server has /issues; otherwise the classic edit form.
     var suggestForm by remember { mutableStateOf(false) }
     val issuesOn = uiState.issuesAvailable
@@ -336,7 +364,7 @@ fun PlaceCard(sel: PlaceSel, vm: MainViewModel, cvm: ContributeViewModel, apiBas
 
 /** Icon tile, name, the one rating line, badges, and "category · address · open". */
 @Composable
-private fun PeekHeader(sel: PlaceSel, vm: MainViewModel, reviews: my.gimano.app.ui.contribute.ReviewsState, onSuggest: () -> Unit) {
+private fun PeekHeader(sel: PlaceSel, vm: MainViewModel, reviews: my.gimano.app.ui.contribute.ReviewsState, onSuggest: () -> Unit, onReportPlace: (() -> Unit)? = null) {
     val c = Gimano.colors
     val p = sel.summary
     val d = sel.detail
@@ -365,7 +393,7 @@ private fun PeekHeader(sel: PlaceSel, vm: MainViewModel, reviews: my.gimano.app.
                 }
             }
         }
-        PlaceOverflow(vm, canSuggest = d != null, onSuggest = onSuggest)
+        PlaceOverflow(vm, canSuggest = d != null, onSuggest = onSuggest, onReportPlace = onReportPlace)
         IconButton(onClick = vm::back) { Icon(Icons.Filled.Close, stringResource(R.string.close), tint = c.textMuted) }
     }
     if (d?.isCommunity == true || d?.isUnverified == true || d?.isGold == true) {
@@ -483,7 +511,7 @@ private fun SectionLabel(t: String) {
 
 /** Big average, 5→1 bars, the latest review (the rest on request), and Write a review. No bars without reviews. */
 @Composable
-private fun ReviewsSection(place: Place, reviews: List<Review>, summary: RatingSummary, loading: Boolean, cvm: ContributeViewModel, apiBase: String, onPhoto: (List<String>, Int) -> Unit) {
+private fun ReviewsSection(place: Place, reviews: List<Review>, summary: RatingSummary, loading: Boolean, cvm: ContributeViewModel, apiBase: String, onPhoto: (List<Photo>, Int) -> Unit) {
     val c = Gimano.colors
     SectionLabel(stringResource(R.string.reviews))
     if (summary.count > 0) {
@@ -557,9 +585,10 @@ private fun Badge(text: String, bg: Color, fg: Color, icon: ImageVector? = null)
 }
 
 @Composable
-private fun ReviewRow(r: Review, cvm: ContributeViewModel, apiBase: String, onPhoto: (List<String>, Int) -> Unit) {
+private fun ReviewRow(r: Review, cvm: ContributeViewModel, apiBase: String, onPhoto: (List<Photo>, Int) -> Unit) {
     val c = Gimano.colors
     var flagMenu by remember { mutableStateOf(false) }
+    var confirmBlock by remember { mutableStateOf(false) }
     Column(Modifier.fillMaxWidth().padding(vertical = 10.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Box(Modifier.size(32.dp).clip(CircleShape).background(c.brandMist), contentAlignment = Alignment.Center) {
@@ -573,9 +602,8 @@ private fun ReviewRow(r: Review, cvm: ContributeViewModel, apiBase: String, onPh
         }
         r.text?.let { Text(it, fontSize = 15.sp, color = c.text, modifier = Modifier.padding(top = 4.dp)) }
         if (r.photos.isNotEmpty()) {
-            val urls = r.photos.map { mediaUrl(it.url, apiBase) }
             LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.padding(top = 6.dp)) {
-                items(r.photos.size) { i -> AsyncImage(mediaUrl(r.photos[i].thumbUrl.ifBlank { r.photos[i].url }, apiBase), null, Modifier.size(72.dp).clip(RoundedCornerShape(Radius.sm)).clickable { onPhoto(urls, i) }, contentScale = ContentScale.Crop) }
+                items(r.photos.size) { i -> AsyncImage(mediaUrl(r.photos[i].thumbUrl.ifBlank { r.photos[i].url }, apiBase), null, Modifier.size(72.dp).clip(RoundedCornerShape(Radius.sm)).clickable { onPhoto(r.photos, i) }, contentScale = ContentScale.Crop) }
             }
         }
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -589,9 +617,29 @@ private fun ReviewRow(r: Review, cvm: ContributeViewModel, apiBase: String, onPh
                 }
             }
             if (cvm.mine(r)) TextButton(onClick = { cvm.openReview(r) }) { Text(stringResource(R.string.edit), fontSize = 13.sp) }
+            // "Block this user" (on this phone only): hides this author's reviews and photos everywhere.
+            else if (r.author.authorRef != null) TextButton(onClick = { confirmBlock = true }) {
+                Icon(Icons.Filled.Block, null, Modifier.size(16.dp)); Spacer(Modifier.width(4.dp)); Text(stringResource(R.string.block_user_short), fontSize = 13.sp)
+            }
         }
     }
+    if (confirmBlock) BlockConfirmDialog(r.author.displayName, onDismiss = { confirmBlock = false }) { confirmBlock = false; cvm.blockAuthor(r.author) }
 }
+
+/** "Block <name>?": what it does (hide their reviews and photos), that it stays on this phone, where to undo it. */
+@Composable
+fun BlockConfirmDialog(name: String, onDismiss: () -> Unit, onConfirm: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.block_user_title, name.ifBlank { "?" }), style = GimanoType.title) },
+        text = { Text(stringResource(R.string.block_user_body)) },
+        confirmButton = { Button(onClick = onConfirm) { Text(stringResource(R.string.block_user), fontWeight = FontWeight.ExtraBold) } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) } },
+    )
+}
+
+/** The photo viewer's pages; [photos] carries the metadata for Report/Block (null for "Just for me" local photos). */
+data class ViewerState(val urls: List<String>, val start: Int, val photos: List<Photo?>)
 
 @Composable
 private fun WriteReviewSheet(place: Place, d: my.gimano.app.ui.contribute.ReviewDraft, cvm: ContributeViewModel) {
@@ -659,21 +707,53 @@ private fun SuggestEditDialog(place: Place, onDismiss: () -> Unit, onSend: (Sugg
 }
 
 @Composable
-private fun PhotoViewer(urls: List<String>, start: Int, onClose: () -> Unit) {
+private fun PhotoViewer(v: ViewerState, onClose: () -> Unit, onReport: (Photo, String) -> Unit, onBlock: (my.gimano.app.data.model.Author) -> Unit) {
+    val urls = v.urls
     Dialog(onDismissRequest = onClose, properties = DialogProperties(usePlatformDefaultWidth = false)) {
         Box(Modifier.fillMaxSize().background(Color.Black)) {
-            val pager = rememberPagerState(initialPage = start) { urls.size }
+            val pager = rememberPagerState(initialPage = v.start) { urls.size }
             HorizontalPager(pager, Modifier.fillMaxSize()) { i -> AsyncImage(urls[i], null, Modifier.fillMaxSize(), contentScale = ContentScale.Fit) }
             IconButton(onClick = onClose, Modifier.align(Alignment.TopEnd).windowInsetsPadding(WindowInsets.statusBars).padding(8.dp)) {
                 Icon(Icons.Filled.Close, stringResource(R.string.close), tint = Color.White, modifier = Modifier.size(32.dp))
             }
-            Text("${pager.currentPage + 1} / ${urls.size}", color = Color.White, modifier = Modifier.align(Alignment.BottomCenter).windowInsetsPadding(WindowInsets.navigationBars).padding(16.dp))
+            Column(Modifier.align(Alignment.BottomCenter).windowInsetsPadding(WindowInsets.navigationBars).padding(12.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                // Public photos: "Report photo" (reasons) and, for someone else's photo, "Block this user".
+                val photo = v.photos.getOrNull(pager.currentPage)
+                if (photo != null) Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    var menu by remember { mutableStateOf(false) }
+                    var confirmBlock by remember(photo.id) { mutableStateOf(false) }
+                    Box {
+                        TextButton(onClick = { menu = true }) {
+                            Icon(Icons.Filled.Flag, null, Modifier.size(18.dp), tint = Color.White); Spacer(Modifier.width(6.dp))
+                            Text(stringResource(R.string.report_photo), color = Color.White, fontWeight = FontWeight.ExtraBold)
+                        }
+                        DropdownMenu(menu, { menu = false }) {
+                            FlagReasons.forEach { (k, l) -> DropdownMenuItem(text = { Text(stringResource(l)) }, onClick = { menu = false; onReport(photo, k) }) }
+                        }
+                    }
+                    val author = photo.uploadedBy
+                    if (author?.authorRef != null) {
+                        TextButton(onClick = { confirmBlock = true }) {
+                            Icon(Icons.Filled.Block, null, Modifier.size(18.dp), tint = Color.White); Spacer(Modifier.width(6.dp))
+                            Text(stringResource(R.string.block_user_short), color = Color.White, fontWeight = FontWeight.ExtraBold)
+                        }
+                        if (confirmBlock) BlockConfirmDialog(author.displayName, onDismiss = { confirmBlock = false }) { confirmBlock = false; onBlock(author) }
+                    }
+                }
+                Text("${pager.currentPage + 1} / ${urls.size}", color = Color.White, modifier = Modifier.padding(top = 4.dp))
+            }
         }
     }
 }
 
+/** Report reasons for reviews and photos (POST /reviews|photos/{id}/flag). */
+private val FlagReasons = listOf(
+    "spam" to R.string.flag_spam, "offensive" to R.string.flag_offensive, "off_topic" to R.string.flag_off_topic,
+    "conflict_of_interest" to R.string.flag_conflict, "other" to R.string.fb_other,
+)
+
 @Composable
-private fun PlaceOverflow(vm: MainViewModel, canSuggest: Boolean, onSuggest: () -> Unit) {
+private fun PlaceOverflow(vm: MainViewModel, canSuggest: Boolean, onSuggest: () -> Unit, onReportPlace: (() -> Unit)? = null) {
     var open by remember { mutableStateOf(false) }
     Box {
         IconButton(onClick = { open = true }) { Icon(Icons.Filled.MoreVert, stringResource(R.string.more), tint = Gimano.colors.textMuted) }
@@ -682,6 +762,12 @@ private fun PlaceOverflow(vm: MainViewModel, canSuggest: Boolean, onSuggest: () 
                 text = { Text(stringResource(R.string.suggest_edit), fontWeight = FontWeight.Bold) },
                 leadingIcon = { Icon(Icons.Filled.EditNote, null) },
                 onClick = { open = false; onSuggest() },
+            )
+            // Community places only: "Report place" (abusive or fake listing; 3 reports hide it until reviewed).
+            if (onReportPlace != null) DropdownMenuItem(
+                text = { Text(stringResource(R.string.report_place), fontWeight = FontWeight.Bold) },
+                leadingIcon = { Icon(Icons.Filled.Flag, null) },
+                onClick = { open = false; onReportPlace() },
             )
             DropdownMenuItem(
                 text = { Text(stringResource(R.string.add_feedback), fontWeight = FontWeight.Bold) },

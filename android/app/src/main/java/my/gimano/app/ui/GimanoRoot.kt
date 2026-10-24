@@ -124,6 +124,14 @@ fun GimanoRoot(vm: MainViewModel, onMic: () -> Unit, onExit: () -> Unit, onReque
         }
     }
 
+    // A banned account's contribution was refused (403): one plain message, not a generic error.
+    val bannedMsg = stringResource(R.string.banned_message, my.gimano.app.ui.about.CONTACT_EMAIL)
+    LaunchedEffect(Unit) {
+        my.gimano.app.data.repo.Moderation.banned.collect {
+            snackbar.currentSnackbarData?.dismiss()
+            snackbar.showSnackbar(bannedMsg, duration = SnackbarDuration.Long)
+        }
+    }
     LaunchedEffect(Unit) {
         cvm.events.collect { e ->
             when (e) {
@@ -363,6 +371,9 @@ fun GimanoRoot(vm: MainViewModel, onMic: () -> Unit, onExit: () -> Unit, onReque
             vm.openTolls(null); ui.plan?.let { p -> vm.setAvoid(p.avoid.copy(tolls = true)) }
         })
     }
+    // Community rules before the first public contribution (review, photo, place, report, complaint, vote).
+    val termsPrompt by container.terms.prompt.collectAsStateWithLifecycle()
+    if (termsPrompt) my.gimano.app.ui.contribute.CommunityRulesDialog(onAgree = container.terms::accept, onNotNow = container.terms::decline)
     if (feedbackDraft.open) my.gimano.app.ui.feedback.FeedbackSheet(fvm, feedbackDraft, here = { vm.here().let { it.lat to it.lng } }, onSend = {
         val h = vm.here(); fvm.send(h.lat, h.lng)
     })
@@ -371,7 +382,8 @@ fun GimanoRoot(vm: MainViewModel, onMic: () -> Unit, onExit: () -> Unit, onReque
             onDismissRequest = vm::dismissPrivacyCard,
             text = { my.gimano.app.ui.common.PrivacyCard(onBackup = { vm.dismissPrivacyCard(); vm.open(Screen.Backup) }) },
             confirmButton = { TextButton(onClick = vm::dismissPrivacyCard) { Text(stringResource(R.string.got_it), fontWeight = FontWeight.ExtraBold) } },
-            // Manotu's first run: offer (never automatic) to bring places over from a Gimano/Manotu backup file or Drive.
+            // Manotu's first run: offer (never automatic) to bring places over from a Gimano/Manotu backup file or Drive
+            // (Drive only where BuildConfig.DRIVE_BACKUP; the Play build's Backup screen offers file restore only).
             // The Backup screen asks which backup and confirms before anything is replaced.
             dismissButton = if (my.gimano.app.BuildConfig.FLAVOR == "manotu") {
                 { TextButton(onClick = { vm.dismissPrivacyCard(); vm.open(Screen.Backup) }) { Text(stringResource(R.string.restore_from_gimano), fontWeight = FontWeight.ExtraBold) } }

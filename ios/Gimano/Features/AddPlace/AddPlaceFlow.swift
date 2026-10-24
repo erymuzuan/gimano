@@ -454,6 +454,7 @@ struct AddPlaceFlow: View {
     }
 
     private func savePublic() async {
+        guard await model.ensureRulesAccepted() else { return }
         saving = true
         defer { saving = false }
         let new = NewPlace(name: trimmedName, category: category, lat: center.lat, lng: center.lng, address: opt(address),

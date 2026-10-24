@@ -156,7 +156,27 @@ struct CrashReport: Codable, Sendable, Hashable, Identifiable {
     }
 }
 
-struct CrashCreated: Codable, Sendable { var id: String; var signature: String? }
+struct CrashCreated: Codable, Sendable { var id: String; var signature: String?; var contactToken: String? }
+
+/// Crash reports sent with a volunteered contact: stored without the user id on the server, so the phone keeps the
+/// report id and its contact token (device-only, never backed up) to let the user withdraw the contact.
+struct CrashContactEntry: Codable, Hashable, Sendable, Identifiable {
+    var id: String
+    var token: String
+    var sentAt: Date
+    var withdrawn = false
+}
+
+enum CrashContactStore {
+    static let key = "crash.contacts"
+    static func load() -> [CrashContactEntry] {
+        guard let d = UserDefaults.standard.data(forKey: key) else { return [] }
+        return (try? JSON.makeDecoder().decode([CrashContactEntry].self, from: d)) ?? []
+    }
+    static func save(_ list: [CrashContactEntry]) {
+        UserDefaults.standard.set(try? JSON.makeEncoder().encode(list), forKey: key)
+    }
+}
 
 enum CrashPreference: String, CaseIterable, Sendable {
     case ask, always, never
@@ -264,7 +284,7 @@ final class CrashReporter: NSObject, MXMetricManagerSubscriber {
 
     /// Sends one report (scrubbed, with device info and optional contact). If sending fails it moves to the
     /// approved queue (already scrubbed, with the user's choices) and is retried on later launches.
-    func send(_ r: CrashReport, device: DeviceInfo, contact: ContactDetails?, repo: any GimanoRepository) async -> Bool {
+    func send(_ r: CrashReport, device: DeviceInfo?, contact: ContactDetails?, repo: any GimanoRepository) async -> Bool {
         var out = r.scrubbed()
         out.device = device
         out.contact = contact
@@ -272,6 +292,9 @@ final class CrashReporter: NSObject, MXMetricManagerSubscriber {
         do {
             let created = try await repo.sendCrashReport(out)
             UserDefaults.standard.set("\(created.id) · \(created.signature ?? "-")", forKey: "crash.lastSent")
+            if let token = created.contactToken {
+                CrashContactStore.save(CrashContactStore.load() + [CrashContactEntry(id: created.id, token: token, sentAt: .now)])
+            }
             return true
         } catch {
             try? FileManager.default.createDirectory(at: approvedDirectory, withIntermediateDirectories: true)

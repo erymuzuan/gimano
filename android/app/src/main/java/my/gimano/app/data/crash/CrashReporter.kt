@@ -126,18 +126,19 @@ class CrashReporter(
     }
 
     /** The exact body that would be sent: scrubbed and capped. Shown by "Lihat butiran". */
-    fun request(r: CrashRecord, contact: ContactDetails?): CrashReportRequest = CrashReportRequest(
+    /** [includeDevice]: opt-in (docs/api.md: default OFF, shown in the preview); never for automatic "always send". */
+    fun request(r: CrashRecord, contact: ContactDetails?, includeDevice: Boolean = false): CrashReportRequest = CrashReportRequest(
         occurredAt = r.occurredAt, kind = r.kind,
         exception = Scrubber.scrub(r.exception)!!.take(200),
         message = Scrubber.cap(Scrubber.scrub(r.message), MAX_MESSAGE),
         stack = Scrubber.cap(Scrubber.scrub(r.stack), MAX_STACK)!!,
         threads = Scrubber.cap(Scrubber.scrub(r.threads), MAX_STACK),
-        screen = r.screen, uptimeS = r.uptimeS, device = device.current(), contact = contact,
+        screen = r.screen, uptimeS = r.uptimeS, device = if (includeDevice) device.current() else null, contact = contact,
     )
 
-    fun previewJson(r: CrashRecord, contact: ContactDetails?): String =
+    fun previewJson(r: CrashRecord, contact: ContactDetails?, includeDevice: Boolean = false): String =
         // Same settings as the request body (GimanoJson: defaults included), so the preview is exactly what is sent.
-        kotlinx.serialization.json.Json(GimanoJson) { prettyPrint = true }.encodeToString(CrashReportRequest.serializer(), request(r, contact))
+        kotlinx.serialization.json.Json(GimanoJson) { prettyPrint = true }.encodeToString(CrashReportRequest.serializer(), request(r, contact, includeDevice))
 
     fun discard(r: CrashRecord) {
         File(dir, "${r.id}.json").delete()
@@ -145,8 +146,8 @@ class CrashReporter(
     }
 
     /** Queue (outbox, retried when offline) and drop the local record. */
-    suspend fun send(r: CrashRecord, contact: ContactDetails?) {
-        val row = OutboxEntity("crash-${r.id}", KIND, GimanoJson.encodeToString(CrashReportRequest.serializer(), request(r, contact)), 0, Instant.now().toString())
+    suspend fun send(r: CrashRecord, contact: ContactDetails?, includeDevice: Boolean = false) {
+        val row = OutboxEntity("crash-${r.id}", KIND, GimanoJson.encodeToString(CrashReportRequest.serializer(), request(r, contact, includeDevice)), 0, Instant.now().toString())
         outbox.upsert(row)
         discard(r)
         attempt(row)
@@ -154,8 +155,15 @@ class CrashReporter(
 
     private suspend fun attempt(row: OutboxEntity) {
         try {
-            repo.sendCrashReport(GimanoJson.decodeFromString(CrashReportRequest.serializer(), row.payloadJson))
+            val req = GimanoJson.decodeFromString(CrashReportRequest.serializer(), row.payloadJson)
+            val created = repo.sendCrashReport(req)
             outbox.delete(row.id)
+            // With a contact, the server keeps it unlinked from the account: keep the token on this phone so the user
+            // can withdraw the contact from "My feedback" (no contact details are kept here).
+            if (req.contact != null && created.contactToken != null) {
+                my.gimano.app.data.feedback.FeedbackService.recordSent(outbox, my.gimano.app.data.feedback.SentRecord(
+                    created.id, "crash", req.exception, Instant.now().toString(), hasContact = true, contactToken = created.contactToken, crash = true))
+            }
         } catch (e: HttpException) {
             if (FeedbackRules.isPermanentFailure(e.code())) outbox.delete(row.id) else reschedule(row)
         } catch (e: Exception) {

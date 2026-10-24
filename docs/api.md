@@ -33,6 +33,9 @@ PATCH /me                    {displayName?, mood?, vehicle?:"car"|"motorcycle"|"
 
 `User = {id, displayName, mood, vehicle, points, level, joinedAt}`
 
+`displayName` (2–40 chars) goes through the same word filter as reviews and places, and may not contain links (400).
+A moderator-banned account gets **403** on every public contribution (reports, votes, issues, places, reviews, photos).
+
 ## Saved places, recents, private places: ON DEVICE ONLY
 
 Personal data never lives on the server; see [privacy-and-backup.md](privacy-and-backup.md).
@@ -160,7 +163,7 @@ pending or audited items in `/me/places/contributed`), e.g. `1` of `3` → "1 da
 
 `Place = PlaceSummary + {phone?, website?, openingHours?, openNow?:bool,
 amenities: string[], tags: {k:v}, osmType?, osmId?,      // osm* null for community places
-description?, addedBy?: {displayName}, verifiedCount: int, photos: Photo[] (first 10)}`
+description?, addedBy?: {displayName, authorRef?}, verifiedCount: int, photos: Photo[] (first 10)}`
 
 Search returns OSM places, published community places and the caller's own pending
 places. The app merges in matches from its local favourites and private places **on the device**. When `results` is empty, the app offers **"Can't find it? Add a place"**.
@@ -220,13 +223,25 @@ POST   /photos   multipart/form-data: file (JPEG/PNG/HEIC/WebP, ≤ 15 MB), plac
 GET    /places/{id}/photos?cursor=    → {photos: Photo[], next?}
 DELETE /photos/{id}                   (uploader only)
 POST   /photos/{id}/flag              {reason}
+POST   /places/{id}/flag              {reason} → 202   (community places only; 3 reports from different users hide it)
 GET    /media/{key}.webp              (public, immutable, Cache-Control: max-age=31536000)
 GET    /photos/{id}                   → Photo   (poll after upload: status processing → published | rejected)
 ```
 
-`Review = {id, placeId, rating, text?, photos: Photo[], author: {displayName, level, reviewCount},
+`Review = {id, placeId, rating, text?, photos: Photo[], author: {displayName, level, reviewCount, authorRef?},
 helpfulCount, createdAt, editedAt?, status: "published"|"hidden"}`
-`Photo = {id, url, thumbUrl, width, height, caption?, uploadedBy: {displayName}, createdAt, status}`
+`Photo = {id, url, thumbUrl, width, height, caption?, uploadedBy: {displayName, authorRef?}, createdAt, status}`
+
+**`authorRef` (blocking, Apple 1.2):** an opaque, stable id for the contributor, the same on every review, photo,
+community place (`addedBy`) and issue (`reportedBy`) of theirs: `base64url(HMAC-SHA256(server secret, internal user
+id)[..12])`, 16 characters. It is not the user id or the pseudonym's key and can't be reversed. The apps keep a
+**"hide this contributor" list of `authorRef`s on the device only** and filter content client-side; nothing about a
+block is sent to the server. `authorRef` is absent when the author deleted their account. Server secret:
+`Community:AuthorHandleKey` (falls back to a key derived from the JWT key).
+
+**Reporting and moderation:** reviews, photos and community places can be reported (`/flag`); 3 reports from different
+users hide the item until a maintainer reviews it (within 24 h, docs/back-office.md "Moderation"). Maintainers can hide,
+restore, and ban an abusive contributor (their public content is hidden and new contributions are refused with 403).
 (`url`/`thumbUrl` are null while `status` is `processing`; uploads of HEIC or other undecodable images get `415`.)
 
 **Photo processing (server):** apply EXIF orientation → **strip all metadata (incl. GPS)** →
@@ -489,6 +504,9 @@ POST /reports/{id}/votes     {"stillThere": true}   → Report
 POST /reports/{id}/thanks                           → 204
 ```
 
+Privacy: about an hour after a report expires, it is **unlinked from its reporter** (`reportedBy` becomes "Pemandu
+Manotu") and its votes are deleted, so no per-user history of reported locations is kept. Points already earned stay.
+
 One vote per pseudonym per report: voting again changes the answer (a withdrawn "still there" no longer counts in
 `confirmations`) but earns no more points. Thanking a report again is a no-op (still 204).
 
@@ -562,7 +580,7 @@ POST /feedback
   "message": "Jalan ini sudah ditutup sejak minggu lepas",   // 1–2000 chars, required
   "rating": 4,                       // optional 1–5
   "screen": "navigation",            // home|search|place|route_preview|navigation|report|settings|other
-  "device": {                        // ONLY when the user ticked "Sertakan maklumat peranti" (default ticked, shown in a preview)
+  "device": {                        // ONLY when the user ticked "Sertakan maklumat peranti" (opt-in, default OFF, shown in a preview)
     "appVersion": "0.2.0", "appBuild": 2, "platform": "android"|"ios",
     "osVersion": "16" | "iOS 26.1", "apiLevel": 36,            // apiLevel Android only
     "deviceModel": "SM-S921B", "manufacturer": "samsung",
@@ -576,13 +594,20 @@ POST /feedback
     "consent": true                  // required true when any contact field is present
   },
   "routeId": "...", "placeId": "...",
-  "screenshot": "<base64 PNG/JPEG, optional, ≤ 1.5 MB decoded>" }
-→ 201 {id, createdAt}
+  "screenshot": "<base64 PNG/JPEG, optional and opt-in (default OFF), ≤ 1.5 MB decoded>" }
+→ 201 {id, createdAt, contactToken?}
 → 400 problem+json (validation; contact without consent=true), 413 (screenshot too big), 429 (> 10 per hour per user)
 
 GET  /me/feedback            → FeedbackSummary[]   ({id, category, message, status, createdAt, hasContact})
-DELETE /feedback/{id}/contact → 204   (the user withdraws their contact details at any time)
+DELETE /feedback/{id}/contact → 204   (header X-Contact-Token: the contactToken; or, for older feedback, as its author)
 ```
+
+**A report that carries a contact is not linked to the account** (privacy rule: the contact must not be joinable to
+the pseudonym). It is stored without the user id, so it does **not** appear in `GET /me/feedback`, gets no inbox
+status updates (we reply by the contact instead) and isn't touched by `DELETE /me` (the contact still expires as below).
+The create response returns `contactToken` once; the app keeps it with its local copy of the report and sends it as
+`X-Contact-Token` to withdraw the contact. Rate limits still apply (counted in memory only). Feedback is deleted
+after **24 months**.
 
 `status ∈ received, triaged, planned, done, wont_fix`. Feedback is stored in Postgres (screenshot as bytea,
 max 1.5 MB) and `feedback.created` is published on RabbitMQ. The optional GitHub-issue sink **never** includes
@@ -603,12 +628,16 @@ POST /crash-reports
   "stack": "<≤ 32 KB, scrubbed>",
   "threads": "<optional, ≤ 32 KB>",
   "screen": "navigation", "uptimeS": 312,
-  "device": { …same shape as feedback.device; always included for crashes, shown in the preview… },
+  "device": { …same shape as feedback.device; opt-in like feedback (default OFF), shown in the preview… },
   "contact": { "email"?, "whatsapp"?, "consent": true }      // optional, as for feedback
 }
-→ 201 {id, signature}      // signature = sha256 of exception + top 5 app frames, for grouping
+→ 201 {id, signature, contactToken?}      // signature = sha256 of exception + top 5 app frames, for grouping
 → 429 (> 20 per day per install)
+
+DELETE /crash-reports/{id}/contact   (header X-Contact-Token) → 204 · 404 when the token doesn't match
 ```
+
+As for feedback, a crash report that carries a contact is stored without the user id.
 
 **Scrubbing on the phone before sending:** coordinates (anything that looks like a lat/lng pair), emails, phone
 numbers, tokens/JWTs, URLs with query strings and file paths under the user's data dir are replaced with `[redacted]`.
@@ -618,11 +647,12 @@ Crash records never include favourites, routes, search text or screenshots. Serv
 
 Contact details are the ONE kind of personal data the server accepts, and only when the user volunteers them on a
 specific report:
-- never prefilled and never stored on the user's pseudonym or profile: they belong to that one report;
+- never prefilled and never stored on the user's pseudonym or profile: they belong to that one report, and that report
+  is stored **without the user id** (no join links a contact to a pseudonym; withdraw with the report's `contactToken`);
 - encrypted at rest (AES-GCM with a key from server config, not in the database);
 - visible only to maintainers triaging that report; never in the GitHub sink, logs or analytics;
 - **deleted automatically 30 days after the report is closed (done/wont_fix), and in any case after 90 days**,
-  or immediately via `DELETE /feedback/{id}/contact` / `DELETE /me`.
+  or immediately via `DELETE /feedback/{id}/contact` / `DELETE /crash-reports/{id}/contact` (with `X-Contact-Token`).
 
 ## Inbox
 

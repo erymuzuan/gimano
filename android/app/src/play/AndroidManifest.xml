@@ -1,6 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- Google Play build (buildType "play"): no self-update outside Play. Removes the restricted
-     REQUEST_INSTALL_PACKAGES permission and the sideload updater's receivers from the merged manifest. -->
+     REQUEST_INSTALL_PACKAGES permission and the sideload updater's receivers from the merged manifest.
+     No Google Drive backup either (owner decision 2026-10-24, BuildConfig.DRIVE_BACKUP=false): the Google sign-in
+     components that play-services-auth merges in are removed, since nothing in this build signs in. -->
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
@@ -9,5 +11,7 @@
     <application>
         <receiver android:name="my.gimano.app.data.update.InstallResultReceiver" tools:node="remove" />
         <receiver android:name="my.gimano.app.data.update.PackageReplacedReceiver" tools:node="remove" />
+        <activity android:name="com.google.android.gms.auth.api.signin.internal.SignInHubActivity" tools:node="remove" />
+        <service android:name="com.google.android.gms.auth.api.signin.RevocationBoundService" tools:node="remove" />
     </application>
 </manifest>

@@ -28,7 +28,7 @@ public static class FeedbackEndpoints
 
     private static async Task<Results<Created<FeedbackCreatedResponse>, ValidationProblem, ProblemHttpResult>> Create(
         CreateFeedbackRequest req, HttpContext http, GimanoDbContext db, IEventPublisher bus, ContactCrypto crypto, TimeProvider clock,
-        ILogger<CreateFeedbackRequest> log, CancellationToken ct)
+        ILogger<CreateFeedbackRequest> log, Microsoft.Extensions.Caching.Memory.IMemoryCache cache, CancellationToken ct)
     {
         if (Validate(req) is { } problem) return problem;
         var (device, location, routeId, placeId) = Normalize(req);
@@ -53,7 +53,9 @@ public static class FeedbackEndpoints
         var uid = http.User.RequiredUserId();
         if (!await db.Users.AnyAsync(u => u.Id == uid, ct)) throw new UnauthorizedAccessException("This account was deleted.");
         var now = clock.GetUtcNow();
-        var recent = await db.Feedback.CountAsync(f => f.UserId == uid && f.CreatedAt > now.AddHours(-1), ct);
+        var withContact = WillStoreContact(crypto, req.Contact);
+        var recent = await db.Feedback.CountAsync(f => f.UserId == uid && f.CreatedAt > now.AddHours(-1), ct)
+                     + UnlinkedReports.Count(cache, "feedback", uid, now, TimeSpan.FromHours(1));
         if (recent >= MaxPerHour)
         {
             http.Response.Headers.RetryAfter = "3600";
@@ -63,15 +65,19 @@ public static class FeedbackEndpoints
 
         var fb = new Feedback
         {
-            UserId = uid, Category = req.Category, Message = req.Message.Trim(), Rating = req.Rating, Screen = req.Screen,
+            // A report that carries a contact is not linked to the account (privacy rule: the contact is never linkable to
+            // the pseudonym). The app withdraws it with the returned contactToken instead.
+            UserId = withContact ? null : uid, Category = req.Category, Message = req.Message.Trim(), Rating = req.Rating, Screen = req.Screen,
             Device = device, Lat = location?.Lat, Lng = location?.Lng, RouteId = routeId, PlaceId = placeId,
             Screenshot = screenshot, ScreenshotContentType = contentType, CreatedAt = now,
         };
         db.Feedback.Add(fb);
         StoreContact(db, crypto, ContactSubject.Feedback, fb.Id, req.Contact, now, log);
         await db.SaveChangesAsync(ct);
+        if (withContact) UnlinkedReports.Add(cache, "feedback", uid, now, TimeSpan.FromHours(1));
         await bus.PublishAsync(RoutingKeys.FeedbackCreated, new FeedbackCreatedEvent(fb.Id, fb.Category, fb.CreatedAt), ct);
-        return TypedResults.Created($"/api/v1/me/feedback/{fb.Id}", new FeedbackCreatedResponse(fb.Id, fb.CreatedAt));
+        return TypedResults.Created($"/api/v1/me/feedback/{fb.Id}", new FeedbackCreatedResponse(fb.Id, fb.CreatedAt,
+            withContact ? crypto.WithdrawToken(ContactSubject.Feedback, fb.Id) : null));
     }
 
     private static async Task<Ok<List<FeedbackSummary>>> Mine(HttpContext http, GimanoDbContext db, CancellationToken ct)
@@ -84,13 +90,22 @@ public static class FeedbackEndpoints
         return TypedResults.Ok(rows);
     }
 
-    private static async Task<Results<NoContent, NotFound>> DeleteContact(Guid id, HttpContext http, GimanoDbContext db, CancellationToken ct)
+    public const string ContactTokenHeader = "X-Contact-Token";
+
+    /// <summary>Withdraw a contact: with the contactToken returned at creation (X-Contact-Token), or, for older feedback that is
+    /// still linked to the account, as its author.</summary>
+    private static async Task<Results<NoContent, NotFound>> DeleteContact(Guid id, HttpContext http, GimanoDbContext db, ContactCrypto crypto, CancellationToken ct)
     {
         var uid = http.User.RequiredUserId();
-        if (!await db.Feedback.AnyAsync(f => f.Id == id && f.UserId == uid, ct)) return TypedResults.NotFound();
+        var byToken = crypto.CheckWithdrawToken(ContactSubject.Feedback, id, http.Request.Headers[ContactTokenHeader].ToString());
+        if (!byToken && !await db.Feedback.AnyAsync(f => f.Id == id && f.UserId == uid, ct)) return TypedResults.NotFound();
         await db.ReportContacts.Where(c => c.SubjectType == ContactSubject.Feedback && c.SubjectId == id).ExecuteDeleteAsync(ct);
         return TypedResults.NoContent();
     }
+
+    /// <summary>True when <see cref="StoreContact"/> will store this contact (so the report must not carry the user id).</summary>
+    internal static bool WillStoreContact(ContactCrypto crypto, ContactDetails? contact) =>
+        contact is not null && crypto.Enabled && ContactCrypto.Normalize(contact) is { } c && (c.Email is not null || c.Whatsapp is not null);
 
     /// <summary>Encrypts and stages the volunteered contact (keyed by the report, never the user). Values are never logged.</summary>
     internal static void StoreContact(GimanoDbContext db, ContactCrypto crypto, ContactSubject type, Guid id, ContactDetails? contact, DateTimeOffset now, ILogger log)

@@ -155,11 +155,38 @@ registration (e.g. a weak password) leaves the invite usable. External-login acc
 context, so serve the back office over HTTPS, e.g. `tailscale serve --bg --https=443 http://localhost:5090` on WS556,
 then open `https://<ws556>.<tailnet>.ts.net`. Over plain HTTP, use a password plus an authenticator app (2FA).
 
+## Moderation (user content)
+
+Reviews, photos and community places can be reported in the apps (`POST /reviews|photos|places/{id}/flag`). Three
+reports from different users hide the item automatically; a maintainer then decides. **Service level: act on every
+reported or auto-hidden item within 24 hours** (Apple guideline 1.2, Google Play UGC policy, and our Terms §3).
+
+The queue is on the API with the maintainer key (`X-Admin-Key`, LAN/Tailscale only):
+
+```
+GET  /api/v1/admin/moderation?kind=review|photo|place&state=flagged|hidden   → ModerationItem[] (most-reported first)
+POST /api/v1/admin/moderation/{kind}/{id}/hide          hide it (review hidden, photo rejected, place hidden)
+POST /api/v1/admin/moderation/{kind}/{id}/restore       it's fine: visible again, its reports cleared (also "dismiss")
+POST /api/v1/admin/moderation/{kind}/{id}/ban-author    ban the contributor: all of their reviews, photos, places and
+                                                        active road reports are hidden; new contributions get 403
+POST /api/v1/admin/moderation/{kind}/{id}/unban-author  lift the ban (hidden content stays hidden until restored)
+```
+
+`ModerationItem = {kind, id, placeId, status, flagCount, flags: [{reason, at?}], text?, mediaUrl?, authorName?,
+authorRef?, authorBanned, createdAt}`. Authors appear only by display name and the opaque `authorRef` handle, never by
+user id: act on an author through one of their items. Display names are filtered on set (word list, no links). Users can
+also hide a contributor on their own device by `authorRef`, without telling the server.
+
+Bans follow the pseudonymous model: a banned person can delete the account and start a new pseudonym, which then starts
+at the lowest tier (votes weigh less, new places need more confirmations), and its content can be reported and banned again.
+
 ## Retention (worker, hourly)
 
 | Data | Kept |
 |---|---|
-| Contact details | 30 days after the report closes, 90 days max |
+| Feedback (message, rating, device info, coarse location, screenshot) | 24 months |
+| Road reports | unlinked from the reporter (and their votes deleted) about an hour after they expire |
+| Contact details | 30 days after the report closes, 90 days max; the report is stored without the user id |
 | Crash reports | 90 days (group counts stay) |
 | Inbox items | 90 days |
 | Agent tokens | deleted 30 days after expiry or revocation |

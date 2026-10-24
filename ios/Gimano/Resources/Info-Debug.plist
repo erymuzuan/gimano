@@ -96,10 +96,19 @@
 	<string>$(APP_GOOGLE_CLIENT_ID)</string>
 	<key>GimanoAPIBaseURL</key>
 	<string>$(GIMANO_API_BASE_URL)</string>
+	<key>GimanoDriveEnabled</key>
+	<string>$(GIMANO_DRIVE)</string>
 	<key>GimanoICloudEnabled</key>
 	<string>$(GIMANO_ICLOUD)</string>
 	<key>GimanoMapStyleURL</key>
 	<string>$(GIMANO_MAP_STYLE_URL)</string>
+	<!-- Export compliance: NO = Apple's "exempt" classification, NOT "no cryptography". The app does use encryption:
+	     Apple's OS crypto (HTTPS) plus bundled libsodium for data confidentiality (Argon2id + XChaCha20-Poly1305
+	     passphrase backups, XChaCha20-Poly1305 "Share my drive") and Ed25519 contribution signatures. All are standard,
+	     published algorithms, with no proprietary crypto. Owner-confirmed App Store Connect questionnaire result, 2026-10-24:
+	     "standard encryption algorithms instead of, or in addition to, Apple's OS", not distributed in France, gives
+	     "you don't need to upload any documents; you can specify that you don't use encryption in Info.plist". Revisit
+	     if the app adds non-standard crypto or ships in France (see ios/RELEASE.md). -->
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
 	<key>LSRequiresIPhoneOS</key>

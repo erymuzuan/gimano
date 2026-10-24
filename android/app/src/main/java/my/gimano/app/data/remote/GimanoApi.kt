@@ -45,6 +45,10 @@ interface GimanoApi {
     @DELETE("me/data")
     suspend fun deleteMyData(): Response<ResponseBody>
 
+    /** Deletes the account (docs/api.md: public contributions are anonymised, not deleted). */
+    @DELETE("me")
+    suspend fun deleteMe(): Response<ResponseBody>
+
     @GET("search")
     suspend fun search(
         @Query("q") q: String,
@@ -140,11 +144,19 @@ interface GimanoApi {
     @POST("feedback")
     suspend fun feedback(@Body body: FeedbackRequest): FeedbackCreated
 
+    /** Withdraw a volunteered contact: [token] = the report's contactToken (older feedback: null, as its author). */
     @DELETE("feedback/{id}/contact")
-    suspend fun deleteFeedbackContact(@Path("id") id: String): Response<ResponseBody>
+    suspend fun deleteFeedbackContact(@Path("id") id: String, @retrofit2.http.Header("X-Contact-Token") token: String? = null): Response<ResponseBody>
 
     @POST("crash-reports")
     suspend fun crashReport(@Body body: CrashReportRequest): CrashCreated
+
+    @DELETE("crash-reports/{id}/contact")
+    suspend fun deleteCrashContact(@Path("id") id: String, @retrofit2.http.Header("X-Contact-Token") token: String): Response<ResponseBody>
+
+    /** "Report place" (community places only; 3 reports from different users hide it until reviewed). */
+    @POST("places/{id}/flag")
+    suspend fun flagPlace(@Path("id") id: String, @Body body: FlagRequest): Response<ResponseBody>
 
     @GET("me/feedback")
     suspend fun myFeedback(): List<FeedbackSummary>

@@ -45,7 +45,7 @@ The product owner approved retaining these proprietary Android libraries for now
 | Library / service | Purpose | Boundary |
 |---|---|---|
 | Google Play services Location | Device location for navigation | Does not authorize storing private location history on Manotu servers |
-| Google sign-in / authorization libraries | User-authorized Google Drive backup access | Backups go directly to the user’s own Drive; credentials and backup contents are not proxied through Manotu |
+| Google sign-in / authorization libraries | User-authorized Google Drive backup access (website APK only; the Google Play build has no Drive backup, owner decision 2026-10-24) | Backups go directly to the user’s own Drive; credentials and backup contents are not proxied through Manotu |
 | Google Play Integrity | App / device integrity checks | Integrity verification does not authorize uploading favourites, trip history or other private app data |
 
 These dependencies remain subject to Google's terms; the MIT licence covers Manotu's own code,

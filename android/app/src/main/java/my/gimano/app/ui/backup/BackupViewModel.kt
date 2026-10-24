@@ -24,6 +24,7 @@ import my.gimano.app.data.backup.BackupManifest
 import my.gimano.app.data.backup.BackupTooNewException
 import my.gimano.app.data.backup.BackupWorker
 import my.gimano.app.data.backup.DriveAuth
+import my.gimano.app.data.backup.DriveBackup
 import my.gimano.app.data.backup.DriveFile
 import my.gimano.app.data.backup.RestoreMode
 import my.gimano.app.data.backup.WrongPassphraseException
@@ -36,6 +37,8 @@ import java.time.LocalDate
 sealed interface RestoreSource {
     data class FileUri(val uri: Uri) : RestoreSource
     data class Drive(val file: DriveFile) : RestoreSource
+    /** Demo mode only: a backup in "Demo storage (on this phone)", never Google Drive. */
+    data class Demo(val name: String) : RestoreSource
 }
 
 data class BackupUi(
@@ -45,11 +48,13 @@ data class BackupUi(
     val passphrasePrompt: PassphrasePrompt? = null,
     val pendingRestore: PendingRestore? = null,
     val driveFiles: List<DriveFile>? = null,
+    /** Demo mode only: the "Restore from demo storage" list. */
+    val demoFiles: List<my.gimano.app.data.backup.DemoBackupStore.Entry>? = null,
 )
 
 data class PendingRestore(val source: RestoreSource, val manifest: BackupManifest, val passphrase: String? = null)
 
-enum class PassphrasePurpose { BACKUP_DRIVE, BACKUP_FILE, BACKUP_SHARE, RESTORE }
+enum class PassphrasePurpose { BACKUP_DRIVE, BACKUP_FILE, BACKUP_SHARE, BACKUP_DEMO, RESTORE }
 
 data class PassphrasePrompt(val purpose: PassphrasePurpose, val error: Int? = null)
 
@@ -79,8 +84,13 @@ class BackupViewModel(private val c: AppContainer, private val saved: SavedState
     private val _events = MutableSharedFlow<BackupEvent>(extraBufferCapacity = 4)
     val events: SharedFlow<BackupEvent> = _events
     val settings = c.settings.state
-    val driveConfigured: Boolean get() = c.drive.configured
-    val driveInstallId: String get() = c.drive.installId
+    /** False in the Play build (BuildConfig.DRIVE_BACKUP=false): no Drive destination, sign-in, auto-backup or restore. */
+    val driveAvailable: Boolean get() = c.drive != null
+    val driveConfigured: Boolean get() = c.drive?.configured == true
+    val driveInstallId: String get() = c.drive?.installId.orEmpty()
+    /** "Demo storage (on this phone)" exists only while demo mode is on. */
+    val demoMode: Boolean get() = c.settings.current.demoMode
+    private val demoStore by lazy { my.gimano.app.data.backup.DemoBackupStore(File(c.app.filesDir, my.gimano.app.data.backup.DemoBackupStore.DIR)) }
 
     private var sessionPassphrase: String? = null
     private var afterConsent: (suspend (String) -> Unit)? = null
@@ -118,7 +128,8 @@ class BackupViewModel(private val c: AppContainer, private val saved: SavedState
                 _events.tryEmit(BackupEvent.CreateFile(fileName()))
             }
             PassphrasePurpose.BACKUP_SHARE -> shareBackup()
-            PassphrasePurpose.BACKUP_DRIVE -> withDrive { token -> uploadToDrive(token) }
+            PassphrasePurpose.BACKUP_DRIVE -> withDrive { drive, token -> uploadToDrive(drive, token) }
+            PassphrasePurpose.BACKUP_DEMO -> saveToDemo()
             PassphrasePurpose.RESTORE -> Unit
         }
     }
@@ -156,12 +167,21 @@ class BackupViewModel(private val c: AppContainer, private val saved: SavedState
     private suspend fun record(bytes: Long, dest: String) =
         c.settings.setLastBackup(Instant.now().toString(), bytes, c.backup.fingerprint(), dest)
 
-    private suspend fun uploadToDrive(token: String) {
+    private suspend fun uploadToDrive(drive: DriveBackup, token: String) {
         val bytes = backupBytes()
-        c.drive.upload(token, fileName(), bytes)
-        runCatching { c.drive.prune(token) }   // own tagged files only (DrivePrune)
+        drive.upload(token, fileName(), bytes)
+        runCatching { drive.prune(token) }   // own tagged files only (DrivePrune)
         record(bytes.size.toLong(), "drive")
         _events.tryEmit(BackupEvent.Message(R.string.backup_drive_done))
+    }
+
+    /** Demo mode only: the real backup format, kept in app-private demo storage. Never called Drive. */
+    private fun saveToDemo() = work {
+        if (!demoMode) { sessionPassphrase = null; _events.tryEmit(BackupEvent.Message(R.string.demo_storage_off)); return@work }
+        val bytes = backupBytes()
+        withContext(Dispatchers.IO) { demoStore.save(bytes) }
+        record(bytes.size.toLong(), "demo")
+        _events.tryEmit(BackupEvent.Message(if (driveAvailable) R.string.backup_demo_done else R.string.backup_demo_done_no_drive))
     }
 
     // --- Restore ---
@@ -171,10 +191,21 @@ class BackupViewModel(private val c: AppContainer, private val saved: SavedState
         beginRestore(RestoreSource.FileUri(uri), m)
     }
 
-    fun listDrive() = withDrive { token -> _ui.update { it.copy(driveFiles = c.drive.list(token)) } }
+    fun listDrive() = withDrive { drive, token -> _ui.update { it.copy(driveFiles = drive.list(token)) } }
 
-    fun restoreFromDrive(f: DriveFile) = withDrive { token ->
-        val m = c.drive.download(token, f.id).use { c.backup.readManifest(it) }
+    fun listDemo() = work {
+        if (!demoMode) { _events.tryEmit(BackupEvent.Message(R.string.demo_storage_off)); return@work }
+        _ui.update { it.copy(demoFiles = withContext(Dispatchers.IO) { demoStore.list() }) }
+    }
+
+    fun restoreFromDemo(e: my.gimano.app.data.backup.DemoBackupStore.Entry) = work {
+        val m = withContext(Dispatchers.IO) { demoStore.open(e.name).use { c.backup.readManifest(it) } }
+        _ui.update { it.copy(demoFiles = null) }
+        beginRestore(RestoreSource.Demo(e.name), m)
+    }
+
+    fun restoreFromDrive(f: DriveFile) = withDrive { drive, token ->
+        val m = drive.download(token, f.id).use { c.backup.readManifest(it) }
         _ui.update { it.copy(driveFiles = null) }
         beginRestore(RestoreSource.Drive(f), m)
     }
@@ -192,9 +223,12 @@ class BackupViewModel(private val c: AppContainer, private val saved: SavedState
                 val input = when (val s = pr.source) {
                     is RestoreSource.FileUri -> withContext(Dispatchers.IO) { c.app.contentResolver.openInputStream(s.uri)!! }
                     is RestoreSource.Drive -> {
-                        val t = (c.drive.authorize() as? DriveAuth.Token)?.accessToken ?: error("Drive not authorised")
-                        c.drive.download(t, s.file.id)
+                        val drive = c.drive ?: run { _events.tryEmit(BackupEvent.Message(R.string.drive_not_in_this_version)); return@work }
+                        val t = (drive.authorize() as? DriveAuth.Token)?.accessToken
+                            ?: run { _events.tryEmit(BackupEvent.Message(R.string.drive_cancelled)); return@work }
+                        drive.download(t, s.file.id)
                     }
+                    is RestoreSource.Demo -> withContext(Dispatchers.IO) { demoStore.open(s.name) }
                 }
                 val r = input.use { c.backup.restore(it, pr.passphrase, mode) }
                 val n = r.manifest.counts
@@ -207,27 +241,53 @@ class BackupViewModel(private val c: AppContainer, private val saved: SavedState
         }
     }
 
-    fun cancelRestore() = _ui.update { it.copy(pendingRestore = null, driveFiles = null) }
+    fun cancelRestore() = _ui.update { it.copy(pendingRestore = null, driveFiles = null, demoFiles = null) }
 
     fun setAutoBackup(v: Boolean) = viewModelScope.launch {
+        if (!driveAvailable) return@launch   // Play build: auto-backup goes only to Drive, which this build doesn't have
         c.settings.setAutoBackup(v)
         BackupWorker.schedule(c.app, v)
     }
 
     // --- Drive auth ---
 
-    private fun withDrive(block: suspend (String) -> Unit) = work {
-        if (!c.drive.configured) { _events.tryEmit(BackupEvent.Message(R.string.drive_not_configured)); return@work }
-        when (val a = c.drive.authorize()) {
-            is DriveAuth.Token -> block(a.accessToken)
-            is DriveAuth.NeedsConsent -> { afterConsent = block; _events.tryEmit(BackupEvent.DriveConsent(a.intent)) }
+    /**
+     * Every Drive action: sign-in/consent, then [block]. Any failure (cancelled, offline, sign-in unavailable, Drive
+     * refused) is said plainly with DriveFailure, never shown as success; the success message comes only after Drive
+     * accepted the upload.
+     */
+    private fun withDrive(block: suspend (DriveBackup, String) -> Unit) = work {
+        // Play build: there is no Drive client, so nothing below (sign-in, consent, upload, list) can run.
+        val drive = c.drive ?: run { sessionPassphrase = null; _events.tryEmit(BackupEvent.Message(R.string.drive_not_in_this_version)); return@work }
+        if (!drive.configured) { _events.tryEmit(BackupEvent.Message(R.string.drive_not_configured)); return@work }
+        try {
+            when (val a = drive.authorize()) {
+                is DriveAuth.Token -> block(drive, a.accessToken)
+                is DriveAuth.NeedsConsent -> { afterConsent = { token -> block(drive, token) }; _events.tryEmit(BackupEvent.DriveConsent(a.intent)) }
+            }
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            sessionPassphrase = null
+            driveFailed(e)
         }
     }
 
     fun onDriveConsent(data: Intent?) {
-        val token = c.drive.tokenFromConsent(data)
+        val token = c.drive?.tokenFromConsent(data)
         val next = afterConsent.also { afterConsent = null }
-        if (token != null && next != null) work { next(token) } else _events.tryEmit(BackupEvent.Message(R.string.drive_denied))
+        if (token != null && next != null) work {
+            try { next(token) } catch (e: kotlinx.coroutines.CancellationException) { throw e } catch (e: Exception) { driveFailed(e) }
+        } else {
+            sessionPassphrase = null
+            _events.tryEmit(BackupEvent.Message(R.string.drive_cancelled))
+        }
+    }
+
+    private fun driveFailed(e: Exception) {
+        val code = (e as? com.google.android.gms.common.api.ApiException)?.statusCode
+        val kind = my.gimano.app.data.backup.DriveFailure.of(e, code)
+        _events.tryEmit(BackupEvent.Message(my.gimano.app.data.backup.DriveFailure.message(kind), e.message ?: e.javaClass.simpleName))
     }
 
     private fun work(block: suspend () -> Unit) = viewModelScope.launch {

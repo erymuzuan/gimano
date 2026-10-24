@@ -62,6 +62,36 @@ class AppContainer(val app: Application) {
             },
         ),
     )
+    /** Blocked authors: on this phone only (settings `blocked_authors`, as on iOS), hides their reviews and photos everywhere. */
+    val blocks = my.gimano.app.data.ugc.BlockList(db.settings()).also { b -> scope.launch(Dispatchers.IO) { b.reload() } }
+
+    /** Community rules acceptance (settings `community_rules_version` / `_accepted_at`, as on iOS; in backups). */
+    val rules = my.gimano.app.data.ugc.CommunityRulesStore(db.settings()).also { r -> scope.launch(Dispatchers.IO) { r.reload() } }
+
+    /** Community rules before the first public contribution (accepted on this phone, with date and version). */
+    val terms = my.gimano.app.data.ugc.TermsGate(
+        acceptedVersion = { rules.acceptedVersion },
+        persistAcceptance = { v -> scope.launch(Dispatchers.IO) { rules.accept(v, java.time.Instant.now().toString()) } },
+    )
+
+    /** "Delete my Manotu account": DELETE /me first; only then forget the key/token; local data only if asked. */
+    val accountDeletion = my.gimano.app.data.account.AccountDeletion(
+        isRegistered = { settings.current.token != null || identity.current()?.registered == true },
+        deleteOnServer = { remote.deleteAccount() },
+        forgetIdentity = {
+            kotlinx.coroutines.withContext(Dispatchers.IO) { identity.forget() }
+            settings.saveAuth(null, null, null)
+            liveHub.stop()
+        },
+        clearLocalData = {
+            kotlinx.coroutines.withContext(Dispatchers.IO) {
+                db.clearAllTables()
+                listOf("photos", "demo-photos").forEach { File(app.filesDir, it).deleteRecursively() }
+                blocks.reload(); rules.reload()   // the block list and rules acceptance went with the settings table
+            }
+        },
+    )
+
     val liveHub = LiveHub(scope, { settings.current.apiBaseUrl }, { settings.current.token })
     val locations = FusedLocationSource(app)
     val voice = VoiceGuide(app, volume = { settings.current.voiceVolume / 100f })
@@ -86,13 +116,11 @@ class AppContainer(val app: Application) {
             seedToPlain = { s -> if (seedWrapper.isWrapped(s)) java.util.Base64.getEncoder().encodeToString(seedWrapper.unwrap(s)) else s },
             afterRestore = {
                 personalRoutes.invalidate()
-                kotlinx.coroutines.withContext(Dispatchers.IO) { identity.reload() }
+                kotlinx.coroutines.withContext(Dispatchers.IO) { identity.reload(); blocks.reload(); rules.reload() }   // restored block list + rules too
                 remote.adoptRestoredIdentity()
             },
         )
     }
-    val drive by lazy { DriveBackup(app) }
-
     /** Imported events (docs/events.md): own DB file, excluded from every backup; payloads sealed with a Keystore key. */
     private val eventsDb by lazy { my.gimano.app.data.events.EventsDatabase.build(app) }
     private val eventSodium by lazy { LazySodiumAndroid(SodiumAndroid()) }
@@ -139,6 +167,8 @@ class AppContainer(val app: Application) {
             }
         })
     }
+    /** Null in the Play build (BuildConfig.DRIVE_BACKUP=false): no Drive client exists there at all. */
+    val drive: DriveBackup? by lazy { my.gimano.app.data.backup.BackupDestinations.drive(BuildConfig.DRIVE_BACKUP) { DriveBackup(app) } }
     val integrity by lazy { my.gimano.app.data.vetting.Integrity(app, BuildConfig.CLOUD_PROJECT_NUMBER) }
     val vetting = my.gimano.app.data.vetting.VettingMemory(db.settings())
     /** Complaints v1 (hidden until the server has /issues). */
@@ -189,5 +219,7 @@ class GimanoApp : Application() {
         // Events past their expiresAt are deleted on every start (also by EventExpiryWorker at the time itself).
         container.scope.launch(Dispatchers.IO) { runCatching { container.eventStore.purgeExpired() }; runCatching { container.hostStore.purgeExpired() } }
         container.scope.launch(Dispatchers.IO) { runCatching { container.movePersonalRoutes() } }
+        // Play build: never leave a Drive auto-backup job scheduled (e.g. a restored "auto backup on" setting).
+        if (!BuildConfig.DRIVE_BACKUP) my.gimano.app.data.backup.BackupWorker.schedule(this, false)
     }
 }

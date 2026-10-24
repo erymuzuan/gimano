@@ -1,6 +1,7 @@
 package my.gimano.app.ui.settings
 
 import kotlinx.coroutines.launch
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 
 import androidx.appcompat.app.AppCompatDelegate
 import androidx.compose.foundation.background
@@ -47,11 +48,29 @@ fun SettingsScreen(s: AppSettings, vm: MainViewModel, fallback: Boolean, display
                 }
             }
             my.gimano.app.ui.common.PrivacyCard(onBackup = onBackup, modifier = Modifier.padding(vertical = 8.dp))
+            // Demo mode, near the top for everyone (try Manotu anywhere, no account, nothing sent to the server).
+            SwitchRow(stringResource(R.string.demo_mode), stringResource(R.string.demo_mode_desc), s.demoMode, vm::setDemoMode)
             NavRow(stringResource(R.string.account), onAccount)
             NavRow(stringResource(R.string.backup_restore), onBackup)
             NavRow(stringResource(R.string.my_feedback), onMyFeedback)
             NavRow(stringResource(R.string.theme), onTheme)
             TextSetting(stringResource(R.string.display_name), displayName ?: s.displayName ?: "", onApply = vm::setDisplayName)
+
+            // Privacy: blocked users (kept on this phone only; included in your own backup).
+            Section(stringResource(R.string.privacy))
+            val blocked by vm.container.blocks.blocked.collectAsStateWithLifecycle()
+            val scope = rememberCoroutineScope()
+            Text(stringResource(R.string.blocked_users), fontSize = 16.sp, fontWeight = FontWeight.ExtraBold, color = c.text)
+            Text(stringResource(R.string.blocked_users_desc), fontSize = 13.sp, color = c.textMuted)
+            if (blocked.isEmpty()) Text(stringResource(R.string.blocked_none), Modifier.padding(vertical = 8.dp), fontSize = 14.sp, color = c.textMuted)
+            blocked.forEach { b ->
+                Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Text(b.name.ifBlank { "—" }, Modifier.weight(1f), fontSize = 15.sp, fontWeight = FontWeight.Bold, color = c.text)
+                    TextButton(onClick = { scope.launch { vm.container.blocks.unblock(b.ref) } }) {
+                        Text(stringResource(R.string.unblock), fontWeight = FontWeight.ExtraBold)
+                    }
+                }
+            }
 
             Section(stringResource(R.string.language))
             val appLocales = AppCompatDelegate.getApplicationLocales()
@@ -75,7 +94,6 @@ fun SettingsScreen(s: AppSettings, vm: MainViewModel, fallback: Boolean, display
             Spacer(Modifier.height(8.dp))
             SwitchRow(stringResource(R.string.clock_24h), null, s.use24h, vm::setUse24h)
             SwitchRow(stringResource(R.string.auto_start_nav), stringResource(R.string.auto_start_nav_desc), s.autoStartNav, vm::setAutoStartNav)
-            SwitchRow(stringResource(R.string.demo_mode), stringResource(R.string.demo_mode_desc), s.demoMode, vm::setDemoMode)
             // Developer settings: debug builds only.
             if (BuildConfig.DEBUG) {
                 SwitchRow(stringResource(R.string.simulate_drive), stringResource(R.string.simulate_drive_desc), s.simulateDrive, vm::setSimulate)

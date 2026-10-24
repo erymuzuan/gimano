@@ -40,7 +40,11 @@ class SwitchingRepository(
             remote.block().also { policy.onSuccess() }
         } catch (e: retrofit2.HttpException) {
             // The proxy answers but the API behind it is down (500/502/503/504 HTML page): same as unreachable.
-            if (!my.gimano.app.core.net.Reachability.isGatewayDown(e.code())) { policy.onSuccess(); throw e }
+            if (!my.gimano.app.core.net.Reachability.isGatewayDown(e.code())) {
+                policy.onSuccess()
+                if (e.code() == 403) Moderation.reportBanned()   // banned account: reports and votes are refused
+                throw e
+            }
             if (!policy.onFailure(my.gimano.app.core.net.AppForeground.foreground, System.currentTimeMillis())) throw e
             lastFallbackReason = e.response()?.raw()?.request?.let { "${it.method} ${it.url.encodedPath} → HTTP ${e.code()}" } ?: "HTTP ${e.code()}"
             _fallbackActive.value = true
@@ -75,7 +79,14 @@ class SwitchingRepository(
      * fall back to demo silently: failures propagate so the caller can queue or show an error.
      */
     private suspend fun <T> write(block: suspend GimanoRepository.() -> T): T =
-        if (settings.current.demoMode) demo.block() else remote.block()
+        if (settings.current.demoMode) demo.block()
+        else try {
+            remote.block()
+        } catch (e: retrofit2.HttpException) {
+            // docs/api.md: a moderator-banned account gets 403 on every public contribution. Say so plainly (once).
+            if (e.code() == 403) Moderation.reportBanned()
+            throw e
+        }
 
     override suspend fun ensureAuth() = pick { ensureAuth() }
     override suspend fun updateMe(body: UpdateMeRequest) = pick { updateMe(body) }
@@ -103,7 +114,12 @@ class SwitchingRepository(
     override suspend fun inbox() = pick { inbox() }
     override suspend fun sendFeedback(body: FeedbackRequest) = write { sendFeedback(body) }
     override suspend fun myFeedback() = write { myFeedback() }
-    override suspend fun deleteFeedbackContact(id: String) = write { deleteFeedbackContact(id) }
+    // A contact withdrawal goes where the report went (by its token), whatever the demo switch says now.
+    override suspend fun deleteFeedbackContact(id: String, token: String?) =
+        if (token?.startsWith(DemoRepository.DEMO_CONTACT_TOKEN) == true) demo.deleteFeedbackContact(id, token) else if (token != null) remote.deleteFeedbackContact(id, token) else write { deleteFeedbackContact(id, null) }
+    override suspend fun deleteCrashContact(id: String, token: String) =
+        if (token.startsWith(DemoRepository.DEMO_CONTACT_TOKEN)) demo.deleteCrashContact(id, token) else remote.deleteCrashContact(id, token)
+    override suspend fun flagPlace(placeId: String, reason: String) = write { flagPlace(placeId, reason) }
     override suspend fun sendCrashReport(body: CrashReportRequest) = write { sendCrashReport(body) }
     override suspend fun createPlace(body: CreatePlaceRequest) = write { createPlace(body) }
     override suspend fun suggestEdit(placeId: String, body: SuggestEditRequest) = write { suggestEdit(placeId, body) }
@@ -116,6 +132,7 @@ class SwitchingRepository(
     override suspend fun deleteReview(reviewId: String) = write { deleteReview(reviewId) }
     override suspend fun helpful(reviewId: String) = write { helpful(reviewId) }
     override suspend fun flagReview(reviewId: String, reason: String) = write { flagReview(reviewId, reason) }
+    override suspend fun flagPhoto(photoId: String, reason: String) = write { flagPhoto(photoId, reason) }
     override suspend fun uploadPhoto(placeId: String, jpeg: ByteArray, caption: String?) = write { uploadPhoto(placeId, jpeg, caption) }
     override suspend fun photos(placeId: String) = pick { photos(placeId) }
     override suspend fun createShare(expiresInMinutes: Int) = write { createShare(expiresInMinutes) }

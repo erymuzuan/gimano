@@ -10,7 +10,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Gimano.Api.Services;
 
-public sealed class PlaceService(GimanoDbContext db, PlaceSearchIndex index, TimeProvider clock, ILogger<PlaceService> logger, IssueDirectory issues)
+public sealed class PlaceService(GimanoDbContext db, PlaceSearchIndex index, TimeProvider clock, ILogger<PlaceService> logger, IssueDirectory issues, AuthorHandles handles)
 {
     public async Task<IReadOnlyList<PlaceSummary>> SearchAsync(SearchQuery q, CancellationToken ct)
     {
@@ -136,7 +136,7 @@ public sealed class PlaceService(GimanoDbContext db, PlaceSearchIndex index, Tim
         {
             var c = await db.CommunityPlaces.AsNoTracking().Include(x => x.Owner).FirstOrDefaultAsync(x => x.Id == id, ct);
             if (c is null || !CommunityRules.IsVisibleTo(c.Status, c.OwnerId, viewer)) return null;
-            return ToDto(c, lat, lng, agg, photos, local);
+            return ToDto(c, lat, lng, agg, photos, local, handles.For(c.OwnerId));
         }
 
         var p = await db.Places.AsNoTracking().FirstOrDefaultAsync(x => x.Id == id, ct);
@@ -146,18 +146,18 @@ public sealed class PlaceService(GimanoDbContext db, PlaceSearchIndex index, Tim
             PlaceSource.Osm, null, agg?.Rating, agg?.ReviewCount ?? 0, MediaKeys.Url(agg?.ThumbKey), null, null, 0, photos);
     }
 
-    internal static PlaceDto ToDto(CommunityPlace c, double? lat, double? lng, PlaceAggregates? agg, IReadOnlyList<PhotoDto> photos, DateTime local) =>
+    internal static PlaceDto ToDto(CommunityPlace c, double? lat, double? lng, PlaceAggregates? agg, IReadOnlyList<PhotoDto> photos, DateTime local, string? ownerHandle = null) =>
         new(c.Id, c.Name, c.Category, c.Address, c.Location.Y, c.Location.X, Distance(lat, lng, c.Location.Y, c.Location.X), null,
             c.Phone, c.Website, c.OpeningHours, OpeningHours.IsOpen(c.OpeningHours, local), c.Amenities, new Dictionary<string, string>(), null, null,
             PlaceSource.Community, c.Status, agg?.Rating, agg?.ReviewCount ?? 0, MediaKeys.Url(agg?.ThumbKey),
-            c.Description, new AddedBy(c.Owner?.DisplayName ?? "Pemandu Manotu"), c.VerifiedCount, photos);
+            c.Description, c.Owner is null ? new AddedBy("Pemandu Manotu") : new AddedBy(c.Owner.DisplayName, ownerHandle), c.VerifiedCount, photos);
 
     public async Task<IReadOnlyList<PhotoDto>> RecentPhotosAsync(string placeId, CancellationToken ct, int take = 10)
     {
         var rows = await db.Photos.AsNoTracking().Include(p => p.User)
             .Where(p => p.PlaceId == placeId && p.Status == PhotoStatus.Published)
             .OrderByDescending(p => p.Id).Take(take).ToListAsync(ct);
-        return rows.Select(PhotoService.ToDto).ToList();
+        return rows.Select(p => PhotoService.ToDto(p, handles)).ToList();
     }
 
     public static PlaceSummary ToSummary(Place p, double? lat, double? lng, PlaceAggregates? agg = null) =>

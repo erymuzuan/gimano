@@ -100,6 +100,9 @@ class IdentityStore(
                 e.javaClass.simpleName == "KeyPermanentlyInvalidatedException"
     }
 
+    /** After "Delete my account": the key is gone from this phone (a later contribution makes a brand-new one). */
+    fun clear() = port().exec("DELETE FROM identity")
+
     /** Replaces the single row. */
     fun put(userId: String, displayName: String?, seed: ByteArray, createdAt: String = Instant.now().toString()) {
         val p = port()

@@ -110,6 +110,12 @@ tables). They are never sent to the server. On first launch the app imports any 
 - **Google Drive** `appDataFolder` (scope `drive.appdata`) via GoogleSignIn-iOS + Drive REST. Copy
   `Config/Google.xcconfig.example` to `Config/Google.xcconfig` (git-ignored) with the iOS OAuth client id;
   without it the screen says "not configured".
+  **Store/TestFlight build: no Drive** (owner decision 2026-10-24). Build setting `GIMANO_DRIVE` (default `YES` in
+  `Config/Signing.xcconfig`, Info.plist key `GimanoDriveEnabled`, read by `GoogleDriveBackupDestination.isEnabled`).
+  With `GIMANO_DRIVE=NO` there is no Drive destination, no Google sign-in, no Drive auto-backup or restore, and
+  Info.plist carries an empty `GIDClientID` and a placeholder URL scheme. The backup screen says "Google Drive backup
+  isn't available in this version. Backup to a file works." The GoogleSignIn package stays linked but is unreachable.
+  `scripts/testflight.sh` defaults to `GIMANO_ICLOUD=NO GIMANO_DRIVE=NO`.
 - **File**: export a `.gimano` file (ShareLink) / restore with the file importer, or open one from Files/WhatsApp
   (UTType `my.gimano.backup`).
 - Optional daily auto-backup (`BGProcessingTask` `my.gimano.app.backup`, charging + network, only if data changed).

@@ -5,7 +5,7 @@ import Foundation
 actor DemoRepository: GimanoRepository {
     static let defaultLocation = LatLng(lat: 3.152613, lng: 101.703718) // on Jalan Sultan Ismail, KL (road-snapped; origin of DemoRoutes.json)
 
-    private var user = User(id: "demo-user", displayName: "Pemandu Gimano", mood: "😎", vehicle: .car, points: 1280, level: 3, joinedAt: .now.addingTimeInterval(-86400 * 40))
+    private var user = User(id: "demo-user", displayName: "Pemandu Manotu", mood: "😎", vehicle: .car, points: 1280, level: 3, joinedAt: .now.addingTimeInterval(-86400 * 40))
     private var reports: [Report]
     private var routeDestinations: [String: (dest: RouteEndpoint, waypoints: [RouteEndpoint], vehicle: Vehicle, avoid: AvoidOptions)] = [:]
     private var feedback: [FeedbackSummary] = []
@@ -44,6 +44,13 @@ actor DemoRepository: GimanoRepository {
             guard let v = CannedRoutes.shared.vertex(key: key, routeIndex: route, fraction: fraction) else { return nil }
             return r(id, type, sub, v.point.lat, v.point.lng, v.street ?? "", mins, conf: conf)
         }
+        // A sample road closure on the Mid Valley demo route, so a demo drive shows the "Still closed?" prompt.
+        // Answers stay in this demo store (nothing is sent).
+        if let v = CannedRoutes.shared.vertex(key: "midvalley", routeIndex: 0, fraction: 0.12) {
+            issues = [Issue(id: "demo-closure-1", kind: .roadClosedTemp, subtype: "roadworks", state: .confirmed, lat: v.point.lat, lng: v.point.lng,
+                            roadName: v.street, summary: nil, confirmations: 2, required: 2, createdAt: now.addingTimeInterval(-5 * 3600),
+                            expiresAt: now.addingTimeInterval(3 * 86400), lastEvidenceAt: now.addingTimeInterval(-5 * 3600))]
+        }
     }
 
     private func pause() async { try? await Task.sleep(for: latency) }
@@ -60,6 +67,9 @@ actor DemoRepository: GimanoRepository {
     }
 
     func me() async throws -> User { user }
+
+    /// Demo mode has no server account to delete.
+    func deleteAccount() async throws {}
 
     func updateMe(_ patch: UserPatch) async throws -> User {
         if let n = patch.displayName { user.displayName = n }
@@ -310,6 +320,13 @@ actor DemoRepository: GimanoRepository {
     // MARK: reviews & photos (demo)
 
     func reviews(placeId: String, sort: ReviewSort, cursor: String?) async throws -> ReviewsPage {
+        // Every demo place starts with one sample review by another (sample) contributor, so reporting and blocking
+        // can be tried in Demo mode. It stays in this demo store.
+        if reviewsByPlace[placeId] == nil {
+            reviewsByPlace[placeId] = [Review(id: "demo-sample-\(placeId)", placeId: placeId, rating: 4, text: String(localized: "Sample review (demo data)."),
+                                              photos: nil, author: PersonRef(displayName: "Kancil 2041", level: 2, reviewCount: 7, authorRef: "demo-author-kancil"),
+                                              helpfulCount: 3, createdAt: Date().addingTimeInterval(-2 * 86400), editedAt: nil, status: nil)]
+        }
         var r = (reviewsByPlace[placeId] ?? []).map { rv -> Review in
             var x = rv
             x.photos = rv.photos?.map { p in publishedPhotos(placeId).first { $0.id == p.id } ?? p }
@@ -580,7 +597,10 @@ actor DemoRepository: GimanoRepository {
 
     func myFeedback() async throws -> [FeedbackSummary] { feedback }
 
-    func deleteFeedbackContact(id: String) async throws {
+    func deleteCrashContact(id: String, contactToken: String) async throws {}
+    func flagPlace(id: String, reason: FlagReason) async throws {}
+
+    func deleteFeedbackContact(id: String, contactToken: String?) async throws {
         if let i = feedback.firstIndex(where: { $0.id == id }) { feedback[i].hasContact = false }
     }
 

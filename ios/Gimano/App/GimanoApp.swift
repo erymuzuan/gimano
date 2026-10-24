@@ -45,7 +45,7 @@ struct GimanoApp: App {
             }
             task.expirationHandler = { work.cancel() }
         }
-        if model.backup.autoBackup { BackupManager.schedule() }
+        model.backup.syncAutoBackupSchedule()
     }
 
     @Environment(\.scenePhase) private var scenePhase
@@ -68,7 +68,8 @@ struct GimanoApp: App {
                     if phase == .active { model.events.refresh() }
                 }
                 .onOpenURL { url in
-                    if GIDSignIn.sharedInstance.handle(url) { return }
+                    // Google sign-in redirects exist only in builds with Drive backup (GIMANO_DRIVE = YES).
+                    if GoogleDriveBackupDestination.isEnabled && GIDSignIn.sharedInstance.handle(url) { return }
                     // Event invitations: manotu://event#…, gimano://event#…, …/a/#1.… links and .manotu-event files.
                     if model.events.handle(url: url) { return }
                     // A .manotu (or older .gimano) backup opened from Files / WhatsApp / Mail.
@@ -121,11 +122,16 @@ struct RootView: View {
                 .zIndex(10)
             }
 
-            VStack {
-                if model.isDemo && model.screen == .home && model.homeDetent != .full {
+            if model.isDemo && model.screen == .home && model.homeDetent != .full {
+                VStack {
                     DemoBadge()
                         .padding(.top, 4)
+                    Spacer()
                 }
+                .zIndex(19)
+            }
+
+            VStack {
                 Spacer()
                 if let toast = model.toast {
                     Toast(text: toast)
@@ -222,16 +228,78 @@ struct RootView: View {
     }
 }
 
+/// The visible Demo badge: tap for what demo means and one tap to turn it off.
 struct DemoBadge: View {
     @Environment(AppModel.self) private var model
+    @State private var showInfo = false
+
     var body: some View {
-        Label(model.backendStatus == .demoForced ? "Demo mode" : "Demo mode — backend unreachable", systemImage: "play.circle.fill")
-            .font(Tokens.Font.nunito(12, .bold))
+        Button { showInfo = true } label: {
+            HStack(spacing: 6) {
+                Image(systemName: "play.circle.fill")
+                Text(model.backendStatus == .demoForced ? "Demo" : "Demo data · server unreachable")
+                Image(systemName: "info.circle")
+            }
+            .font(Tokens.Font.nunito(13, .black))
             .foregroundStyle(Color.brandOn)
-            .padding(.horizontal, 10)
-            .padding(.vertical, 5)
-            .background(Color.brand.opacity(0.92), in: Capsule())
-            .accessibilityIdentifier("demoBadge")
+            .padding(.horizontal, 12)
+            .padding(.vertical, 7)
+            .background(Color.brand.opacity(0.94), in: Capsule())
+            .fabShadow()
+        }
+        .buttonStyle(.plain)
+        .accessibilityHint(Text("Shows what demo mode is and how to turn it off"))
+        .accessibilityIdentifier("demoBadge")
+        .sheet(isPresented: $showInfo) {
+            DemoInfoSheet().presentationDetents([.medium, .large])
+        }
+    }
+}
+
+/// What demo mode is, honestly: sample data on this phone, a simulated drive, nothing sent; and one tap to leave it.
+struct DemoInfoSheet: View {
+    @Environment(AppModel.self) private var model
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                Group {
+                    if model.backendStatus == .demoForced {
+                        Text("Demo mode uses built-in sample places, reports and routes around Kuala Lumpur, and drives along the route by itself (a simulated drive), so you can try everything from anywhere, without an account.\n\nNothing you do is sent to Manotu's server: searches, routes, reports, reviews, photos, complaints, feedback and crash reports stay on this phone (feedback is not delivered). Favourites, planned drives and backups work as usual. Map tiles still load from OpenFreeMap.")
+                            .accessibilityIdentifier("demoInfoBody")
+                    } else {
+                        Text("Manotu can't reach its server right now, so it is showing sample data.")
+                    }
+                }
+                .font(Tokens.Font.body)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(Tokens.Space.gutter)
+            }
+            // The choice is always on screen, above the text (which scrolls).
+            .safeAreaInset(edge: .bottom) {
+                if model.backendStatus == .demoForced {
+                    VStack(spacing: 8) {
+                        Button {
+                            dismiss()
+                            model.setDemoMode(false)
+                        } label: {
+                            Label("Turn off demo mode", systemImage: "xmark.circle")
+                        }
+                        .buttonStyle(PrimaryButtonStyle())
+                        .accessibilityIdentifier("demoTurnOff")
+                        Button("Keep demo") { dismiss() }
+                            .buttonStyle(SecondaryButtonStyle())
+                            .accessibilityIdentifier("demoKeep")
+                    }
+                    .padding(Tokens.Space.gutter)
+                    .background(Color.surface)
+                }
+            }
+            .navigationTitle(model.backendStatus == .demoForced ? "Demo mode" : "Demo data")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar { ToolbarItem(placement: .topBarTrailing) { Button("Done") { dismiss() } } }
+        }
     }
 }
 

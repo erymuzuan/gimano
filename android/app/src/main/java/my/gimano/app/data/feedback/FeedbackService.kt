@@ -14,12 +14,25 @@ import retrofit2.HttpException
 import java.time.Instant
 import java.util.UUID
 
-/** One row in "My feedback": sent (with server status) or still queued on the device. */
-data class FeedbackItem(val id: String, val category: String, val message: String, val status: String, val createdAt: String, val queued: Boolean, val hasContact: Boolean = false)
+/**
+ * One row in "My feedback": sent (with server status) or still queued on the device. [unlinked]: it carries a
+ * volunteered contact, so the server stored it WITHOUT the user id: no server status, replies come by that contact.
+ */
+data class FeedbackItem(
+    val id: String, val category: String, val message: String, val status: String, val createdAt: String, val queued: Boolean,
+    val hasContact: Boolean = false, val unlinked: Boolean = false, val crash: Boolean = false,
+)
 
-/** Kept after sending, WITHOUT the contact details or device block (only whether contact was given). */
+/**
+ * Kept after sending, on this phone only (outbox table, never in a backup), WITHOUT the contact details or device
+ * block: only whether a contact was given and the report's [contactToken] (the only way to withdraw it later, since the
+ * report isn't linked to the account). [crash]: a crash report (DELETE /crash-reports/{id}/contact).
+ */
 @Serializable
-private data class SentRecord(val id: String, val category: String, val message: String, val createdAt: String, val hasContact: Boolean = false)
+internal data class SentRecord(
+    val id: String, val category: String, val message: String, val createdAt: String, val hasContact: Boolean = false,
+    val contactToken: String? = null, val crash: Boolean = false,
+)
 
 sealed interface FeedbackSendResult {
     data object Sent : FeedbackSendResult
@@ -37,6 +50,10 @@ class FeedbackService(private val outbox: OutboxDao, private val repo: GimanoRep
         const val KIND = "feedback"
         const val KIND_SENT = "feedback_sent"
         private const val NEVER = "9999-12-31T00:00:00Z"
+
+        /** The local "sent" row (also used by the crash reporter for crash reports that carried a contact). */
+        internal suspend fun recordSent(outbox: OutboxDao, rec: SentRecord) =
+            outbox.upsert(OutboxEntity("sent-${rec.id}", KIND_SENT, GimanoJson.encodeToString(SentRecord.serializer(), rec), 0, NEVER))
     }
 
     suspend fun submit(req: FeedbackRequest): FeedbackSendResult {
@@ -51,8 +68,9 @@ class FeedbackService(private val outbox: OutboxDao, private val repo: GimanoRep
         return try {
             val created = repo.sendFeedback(req)
             outbox.delete(row.id)
-            val rec = SentRecord(created.id, req.category, req.message, created.createdAt.ifBlank { now().toString() }, hasContact = req.contact != null)
-            outbox.upsert(OutboxEntity("sent-${created.id}", KIND_SENT, GimanoJson.encodeToString(SentRecord.serializer(), rec), 0, NEVER))
+            val rec = SentRecord(created.id, req.category, req.message, created.createdAt.ifBlank { now().toString() },
+                hasContact = req.contact != null, contactToken = created.contactToken)
+            recordSent(outbox, rec)
             FeedbackSendResult.Sent
         } catch (e: HttpException) {
             if (FeedbackRules.isPermanentFailure(e.code())) {
@@ -83,17 +101,23 @@ class FeedbackService(private val outbox: OutboxDao, private val repo: GimanoRep
             FeedbackItem(r.id, q.category, q.message, "queued", r.nextAttemptAt, queued = true)
         } + sent.map { r ->
             val s = GimanoJson.decodeFromString(SentRecord.serializer(), r.payloadJson)
-            FeedbackItem(s.id, s.category, s.message, "received", s.createdAt, queued = false, hasContact = s.hasContact)
+            FeedbackItem(s.id, s.category, s.message, "received", s.createdAt, queued = false, hasContact = s.hasContact,
+                unlinked = s.contactToken != null, crash = s.crash)
         }.sortedByDescending { it.createdAt }
     }
 
-    /** Withdraw the volunteered contact details for one report (server deletes them; local record forgets the flag). */
+    /**
+     * Withdraw the volunteered contact for one report: with its contactToken (X-Contact-Token; feedback or crash report),
+     * or, for older feedback sent before tokens, as its author. Then the local record forgets the contact and the token.
+     */
     suspend fun deleteContact(id: String) {
-        repo.deleteFeedbackContact(id)
-        outbox.all(KIND_SENT).firstOrNull { it.id == "sent-$id" }?.let { r ->
-            val s = GimanoJson.decodeFromString(SentRecord.serializer(), r.payloadJson)
-            outbox.upsert(r.copy(payloadJson = GimanoJson.encodeToString(SentRecord.serializer(), s.copy(hasContact = false))))
+        val row = outbox.all(KIND_SENT).firstOrNull { it.id == "sent-$id" }
+        val s = row?.let { GimanoJson.decodeFromString(SentRecord.serializer(), it.payloadJson) }
+        when {
+            s?.crash == true -> repo.deleteCrashContact(id, s.contactToken ?: return)
+            else -> repo.deleteFeedbackContact(id, s?.contactToken)
         }
+        if (row != null && s != null) outbox.upsert(row.copy(payloadJson = GimanoJson.encodeToString(SentRecord.serializer(), s.copy(hasContact = false, contactToken = null))))
     }
 
     suspend fun serverStatuses(): Map<String, FeedbackSummary> =

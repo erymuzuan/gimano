@@ -47,7 +47,7 @@ builder.Services.AddHttpClient<ValhallaClient>(c =>
 });
 builder.Services.AddScoped<GeoLookup>().AddScoped<ReportService>().AddScoped<RouteService>().AddScoped<RouteMatchService>().AddScoped<PlaceService>()
     .AddScoped<CommunityService>().AddScoped<ReviewService>().AddScoped<PhotoService>()
-    .AddScoped<SearchService>().AddScoped<SearchMissRecorder>().AddScoped<IssueService>();
+    .AddScoped<SearchService>().AddScoped<SearchMissRecorder>().AddScoped<IssueService>().AddScoped<Moderation>();
 builder.Services.AddSingleton<IssueDirectory>();
 builder.Services.AddSingleton<AliasStore>().AddHostedService(sp => sp.GetRequiredService<AliasStore>());
 builder.Services.AddSingleton<AreaDirectory>();
@@ -65,6 +65,9 @@ if (string.IsNullOrEmpty(config["Jwt:SigningKey"]))
     builder.Services.PostConfigure<JwtOptions>(o => o.SigningKey = devKey);
 }
 builder.Services.AddSingleton<JwtTokenService>();
+// Opaque per-author handles for on-device blocking (Community:AuthorHandleKey; falls back to a key derived from the JWT key).
+builder.Services.AddSingleton(sp => AuthorHandles.FromConfig(config["Community:AuthorHandleKey"],
+    sp.GetRequiredService<IOptions<JwtOptions>>().Value.SigningKey));
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme).AddJwtBearer()
     // AI agents (back office): "Bearer agt_…" tokens minted by a maintainer, for /admin/v1 and /mcp only.
     .AddScheme<AuthenticationSchemeOptions, AgentTokenAuthenticationHandler>(AgentTokenAuthenticationHandler.SchemeName, null);

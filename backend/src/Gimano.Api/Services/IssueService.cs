@@ -13,7 +13,8 @@ using Microsoft.EntityFrameworkCore;
 namespace Gimano.Api.Services;
 
 /// <summary>Road and place complaints (docs/complaints.md, docs/api.md "Issues").</summary>
-public sealed class IssueService(GimanoDbContext db, IEventPublisher bus, IssueDirectory directory, TimeProvider clock, ILogger<IssueService> logger)
+public sealed class IssueService(GimanoDbContext db, IEventPublisher bus, IssueDirectory directory, TimeProvider clock, ILogger<IssueService> logger,
+    AuthorHandles? handles = null)
 {
     /// <summary>
     /// Dual carriageways are separate one-way ways; on the E12 (AKLEH) they are ~37 m apart, so a westbound driver whose fix
@@ -29,7 +30,7 @@ public sealed class IssueService(GimanoDbContext db, IEventPublisher bus, IssueD
         var kind = req.Kind ?? throw new ValidationException("kind", "kind is required.");
         if (!Gimano.Api.Endpoints.Validation.ValidLatLng(req.Lat, req.Lng)) throw new ValidationException("lat", "lat/lng must be valid.");
         if (!CommunityRules.InServiceArea(req.Lat, req.Lng)) throw new ValidationException("lat", "Location must be in Malaysia, Singapore or Brunei.");
-        var user = await db.Users.FirstOrDefaultAsync(u => u.Id == userId, ct) ?? throw new UnauthorizedAccessException("Unknown user.");
+        var user = Moderation.EnsureMayContribute(await db.Users.FirstOrDefaultAsync(u => u.Id == userId, ct) ?? throw new UnauthorizedAccessException("Unknown user."));
         var now = clock.GetUtcNow();
         if (user.SuspendedUntil > now) throw new ForbiddenException($"Contributions are paused until {user.SuspendedUntil:yyyy-MM-dd HH:mm} UTC.");
         var since = now.AddDays(-1);
@@ -149,7 +150,7 @@ public sealed class IssueService(GimanoDbContext db, IEventPublisher bus, IssueD
                 || prox.WithinM <= 0 || prox.WithinM > ProximityWithinM)
                 throw new ForbiddenException($"You need to be within {ProximityWithinM} m to answer.");
         }
-        var user = await db.Users.FirstOrDefaultAsync(u => u.Id == userId, ct) ?? throw new UnauthorizedAccessException("Unknown user.");
+        var user = Moderation.EnsureMayContribute(await db.Users.FirstOrDefaultAsync(u => u.Id == userId, ct) ?? throw new UnauthorizedAccessException("Unknown user."));
         var now = clock.GetUtcNow();
         if (user.SuspendedUntil > now) throw new ForbiddenException("Contributions are paused.");
         var today = DateOnly.FromDateTime(now.UtcDateTime);
@@ -260,7 +261,7 @@ public sealed class IssueService(GimanoDbContext db, IEventPublisher bus, IssueD
         if (i is null) return null;
         var mine = viewer is { } v ? await db.IssueVotes.Where(x => x.IssueId == id && x.VoterId == v).Select(x => (IssueAnswer?)x.Answer).FirstOrDefaultAsync(ct) : null;
         var reporter = i.CreatedBy is { } c ? await db.Users.Where(u => u.Id == c).Select(u => u.DisplayName).FirstOrDefaultAsync(ct) : null;
-        return ToDto(i, viewer, mine, lang, await PlaceNameAsync(i.PlaceId, ct), reporter);
+        return ToDto(i, viewer, mine, lang, await PlaceNameAsync(i.PlaceId, ct), reporter, reporter is null ? null : handles?.For(i.CreatedBy));
     }
 
     /// <summary>Open issues in a bbox (public; for the map and "Masih ditutup?" prompts). Feedback-only kinds are not listed.</summary>
@@ -282,13 +283,14 @@ public sealed class IssueService(GimanoDbContext db, IEventPublisher bus, IssueD
         return rows.Select(i => ToDto(i, viewer, mine.TryGetValue(i.Id, out var a) ? a : null, lang, i.PlaceId is { } p ? names.GetValueOrDefault(p) : null)).ToList();
     }
 
-    public static IssueDto ToDto(Issue i, Guid? viewer, IssueAnswer? myVote, string lang, string? placeName = null, string? reporterName = null) => new(
+    public static IssueDto ToDto(Issue i, Guid? viewer, IssueAnswer? myVote, string lang, string? placeName = null, string? reporterName = null,
+        string? reporterHandle = null) => new(
         i.Id, i.Kind, i.Subtype, i.State, i.Source, i.Location.Y, i.Location.X, i.Direction,
         i.WayId is { } w ? new IssueSegment(w, i.Seq ?? 0, i.RoadName, i.Highway, i.Direction) : null,
         i.PlaceId, i.Vehicle, IssueText.Summary(i, lang, placeName),
         Math.Round(i.WeightedStill, 2), Math.Round(i.WeightedCleared, 2), IssueRules.Required(i), i.StillVotes, i.ClearedVotes, i.Confidence,
         i.CreatedAt, i.LastEvidenceAt, i.ExpiresAt, i.ConfirmedAt,
-        reporterName is null ? null : new AddedBy(reporterName), viewer is { } v && v == i.CreatedBy, myVote, PublicPayload(i));
+        reporterName is null ? null : new AddedBy(reporterName, reporterHandle), viewer is { } v && v == i.CreatedBy, myVote, PublicPayload(i));
 
     /// <summary>new_road traces and odd_route details are maintainer-only; everything else in the payload is public.</summary>
     private static IReadOnlyDictionary<string, string> PublicPayload(Issue i) =>

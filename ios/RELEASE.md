@@ -27,7 +27,7 @@ Build the legacy app with `APP_VARIANT=gimano` (Local.xcconfig or the xcodebuild
 2. In Xcode → Settings → Accounts, sign in with that Apple ID (or pass an App Store Connect API key, see below).
 3. developer.apple.com → Identifiers: register **`my.manotu.app`** with capabilities iCloud (CloudKit container
    `iCloud.my.manotu.app`), Background Modes and App Attest (DeviceCheck); automatic signing then creates the profiles.
-   Until the container exists, build with `GIMANO_ICLOUD=NO` (Drive and file backups still work).
+   Until the container exists, build with `GIMANO_ICLOUD=NO` (file backups still work; Drive only with `GIMANO_DRIVE=YES`).
 4. Google Cloud: the iOS OAuth client for bundle id `my.manotu.app` is `MANOTU_GOOGLE_CLIENT_ID` (already set locally).
 5. Build: `xcodebuild -scheme Gimano -destination 'id=<device>' -allowProvisioningUpdates` (Debug talks to WS556).
 
@@ -48,15 +48,17 @@ Build the legacy app with `APP_VARIANT=gimano` (Local.xcconfig or the xcodebuild
 5. **Capabilities on the App ID** (developer.apple.com → Identifiers → my.gimano.app). Automatic signing with the API key creates the
    Apple Distribution certificate and the App Store profile itself. It can't create an iCloud container that doesn't exist yet, so:
    - enable **iCloud (CloudKit)** with container `iCloud.my.gimano.app`, then build with `GIMANO_ICLOUD=YES` (the default).
-     Until this is done, build with `GIMANO_ICLOUD=NO scripts/testflight.sh`: iCloud backup is hidden and Google Drive / file backups still work.
+     Until this is done, build with `GIMANO_ICLOUD=NO scripts/testflight.sh`: iCloud backup is hidden and file backups still work.
+   - **Google Drive backup is excluded from the store build** (owner decision 2026-10-24): `scripts/testflight.sh` passes
+     `GIMANO_DRIVE=NO` (and `GIMANO_ICLOUD=NO`) unless overridden, and refuses an archive whose Info.plist holds a Google
+     OAuth client. Every user of that build sees the same backup screen: a file backup, Drive and iCloud shown as unavailable.
    - Background modes (location, audio, processing) need no setup.
 
 ## Upload a build
 
 ```sh
 cd ios
-scripts/testflight.sh                 # archive (Release) → export (app-store-connect) → upload with altool
-GIMANO_ICLOUD=NO scripts/testflight.sh  # if the iCloud container isn't set up yet
+scripts/testflight.sh                 # archive (Release, GIMANO_ICLOUD=NO GIMANO_DRIVE=NO) → export → upload with altool
 ```
 
 What the script runs (for manual use):
@@ -83,10 +85,15 @@ Every upload needs a new build number: bump `CURRENT_PROJECT_VERSION` in `projec
 
 ## Questions App Store Connect will ask
 
-- **Encryption (export compliance)**: `ITSAppUsesNonExemptEncryption = NO` in Info.plist. Gimano uses only standard encryption: HTTPS, plus
-  libsodium (XChaCha20-Poly1305, Argon2id, Ed25519) to protect the user's own backups, Share my drive and contribution signatures.
-  It has no proprietary algorithms. This falls under the exemption for standard, published algorithms used for data protection and authentication, so no
-  documentation upload or annual self-classification report should be needed. **The account holder must confirm this answer** when asked.
+- **Encryption (export compliance)**: `ITSAppUsesNonExemptEncryption = NO` in Info.plist. NO is Apple's "exempt" classification,
+  not a claim that the app has no cryptography. Manotu uses HTTPS (Apple OS) plus bundled libsodium (XChaCha20-Poly1305,
+  Argon2id, Ed25519) to keep the user's own backups and Share my drive confidential and to sign contributions. All of these are
+  standard, published algorithms, with nothing proprietary. The account holder answered App Store Connect's App Encryption
+  Documentation questionnaire on 2026-10-24: standard algorithms instead of, or in addition to, Apple's OS, and **not
+  distributed in France**. Apple's result was "you don't need to upload any documents" and to mark this in Info.plist (screenshot
+  kept with the store handoff). An earlier build declared YES without a compliance code, and the upload was rejected with
+  "Invalid Export Compliance Code". **Re-run the questionnaire before** adding non-standard/proprietary crypto or distributing in
+  France: either change may require documentation and an `ITSEncryptionExportComplianceCode`.
 - **App Privacy ("nutrition label")**: answer to match `Gimano/Resources/PrivacyInfo.xcprivacy`. **No tracking.** Data collected, not linked to identity,
   used for App Functionality only:
   - Precise location: only while navigating (live traffic pings), not kept as a history;

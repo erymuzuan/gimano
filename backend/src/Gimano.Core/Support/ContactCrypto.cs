@@ -49,6 +49,22 @@ public sealed partial class ContactCrypto
         return new ContactDetails(doc.GetProperty("email").GetString(), doc.GetProperty("whatsapp").GetString(), true);
     }
 
+    /// <summary>
+    /// A report that carries a contact is stored without its user id (so no join links the contact to a pseudonym). The
+    /// app withdraws the contact with this capability instead: base64url(HMAC(key derived from the contact key, report)).
+    /// It depends only on the report, is recomputed rather than stored, and is returned once at creation.
+    /// </summary>
+    public string WithdrawToken(ContactSubject type, Guid subjectId)
+    {
+        if (_key is null) throw new InvalidOperationException("Contact encryption key is not configured.");
+        var k = HKDF.DeriveKey(HashAlgorithmName.SHA256, _key, 32, info: Encoding.ASCII.GetBytes("manotu/contact-withdraw/v1"));
+        return Convert.ToBase64String(HMACSHA256.HashData(k, Aad(type, subjectId))).TrimEnd('=').Replace('+', '-').Replace('/', '_');
+    }
+
+    public bool CheckWithdrawToken(ContactSubject type, Guid subjectId, string? token) =>
+        _key is not null && !string.IsNullOrEmpty(token)
+        && CryptographicOperations.FixedTimeEquals(Encoding.ASCII.GetBytes(WithdrawToken(type, subjectId)), Encoding.ASCII.GetBytes(token.Trim()));
+
     private static byte[] Aad(ContactSubject type, Guid id) => Encoding.ASCII.GetBytes($"gimano-contact:{type}:{id:N}");
 
     /// <summary>Contact needs consent=true and at least one of a valid email / E.164 WhatsApp number.</summary>

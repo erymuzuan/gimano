@@ -55,7 +55,8 @@ public sealed record PlaceDto(
 /// <summary>A confirmed place_entrance_wrong: route here instead of the display pin.</summary>
 public sealed record NavigationPoint(double Lat, double Lng, Guid IssueId);
 
-public sealed record AddedBy(string DisplayName);
+/// <param name="AuthorRef">Opaque, stable per-author id for on-device blocking (AuthorHandles); null when the author deleted their account.</param>
+public sealed record AddedBy(string DisplayName, string? AuthorRef = null);
 
 // ---- Community places --------------------------------------------------------
 
@@ -83,7 +84,8 @@ public sealed record VerifyResult(PlaceStatus Status, double ConfirmationsWeight
 
 // ---- Reviews & photos ----------------------------------------------------------
 
-public sealed record ReviewAuthor(string DisplayName, int Level, int ReviewCount);
+/// <param name="AuthorRef">Opaque, stable per-author id for on-device blocking (see <see cref="AddedBy"/>).</param>
+public sealed record ReviewAuthor(string DisplayName, int Level, int ReviewCount, string? AuthorRef = null);
 
 public sealed record ReviewDto(
     Guid Id, string PlaceId, int Rating, string? Text, IReadOnlyList<PhotoDto> Photos, ReviewAuthor Author,
@@ -278,9 +280,11 @@ public sealed record CrashReportRequest(
     DateTimeOffset? OccurredAt, CrashKind Kind, string Exception, string? Message, string? Stack, string? Threads,
     string? Screen, long? UptimeS, DeviceInfo? Device, ContactDetails? Contact);
 
-public sealed record CrashReportCreated(Guid Id, string Signature);
+/// <param name="ContactToken">Only when a contact was stored: the capability to withdraw it (the report is then not linked to the account).</param>
+public sealed record CrashReportCreated(Guid Id, string Signature, string? ContactToken = null);
 
-public sealed record FeedbackCreatedResponse(Guid Id, DateTimeOffset CreatedAt);
+/// <param name="ContactToken">Only when a contact was stored: the capability to withdraw it (the report is then not linked to the account).</param>
+public sealed record FeedbackCreatedResponse(Guid Id, DateTimeOffset CreatedAt, string? ContactToken = null);
 
 public sealed record FeedbackSummary(Guid Id, FeedbackCategory Category, string Message, FeedbackStatus Status, DateTimeOffset CreatedAt, bool HasContact = false);
 
