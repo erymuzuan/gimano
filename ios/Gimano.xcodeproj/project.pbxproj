@@ -84,6 +84,7 @@
 		A5A31ED5F84B52E17A80FF36 /* DiagnosticsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A4335E371053A3AA19932113 /* DiagnosticsTests.swift */; };
 		A5EEC9BEAC5DEBA6083B81A3 /* NavigationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D028E26C9546B7B894417E36 /* NavigationTests.swift */; };
 		A743FC4E64E6778479FBD0EF /* PlaceCardMetrics.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC500E7F4DD6A6DAC80C5261 /* PlaceCardMetrics.swift */; };
+		AC5957FAE17AF21C50492785 /* StoreBackupUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E3DF46400A5C1C4B11374FC /* StoreBackupUITests.swift */; };
 		AC660909C29CEC1666DB4070 /* AppModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = C3B2DDD99414433CDAF4242E /* AppModel.swift */; };
 		B0F6914BF17DA8396D847ECF /* SideMenu.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3F56F9F5C1405379C126E611 /* SideMenu.swift */; };
 		B1687F9A70EFA7664C220B4C /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 61ABE43688D60686AFC62829 /* PrivacyInfo.xcprivacy */; };
@@ -166,6 +167,7 @@
 		28F8D8E468983421C5B7ED97 /* Nunito.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = Nunito.ttf; sourceTree = "<group>"; };
 		290AD2E4977FFEDB651E4762 /* PlannedDriveTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlannedDriveTests.swift; sourceTree = "<group>"; };
 		2D90713368FDFFC83AF819E5 /* ShareDriveTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShareDriveTests.swift; sourceTree = "<group>"; };
+		2E3DF46400A5C1C4B11374FC /* StoreBackupUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StoreBackupUITests.swift; sourceTree = "<group>"; };
 		2E8135A9B3B01C9F1BAC02CD /* Localizable.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = Localizable.xcstrings; sourceTree = "<group>"; };
 		2F9DFAA9B3D3726BC81365AE /* GimanoMapView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GimanoMapView.swift; sourceTree = "<group>"; };
 		32056C996D7735247823CD0B /* DemoBackup.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DemoBackup.swift; sourceTree = "<group>"; };
@@ -353,6 +355,7 @@
 				56F7DF9A6F75182021A6A671 /* SearchQueriesUITests.swift */,
 				27108E49D369D2E7E847F2D5 /* SearchRetestUITests.swift */,
 				9FC71DDB18170AAF1C8D8BAE /* ServerCheckUITests.swift */,
+				2E3DF46400A5C1C4B11374FC /* StoreBackupUITests.swift */,
 				3B4338B4089BA06ED2E5A9CC /* VettingUITests.swift */,
 			);
 			path = GimanoUITests;
@@ -920,6 +923,7 @@
 				ED7BA0000490D551E66F5DFD /* SearchQueriesUITests.swift in Sources */,
 				EDA8B6E97E3C0F522E00C99D /* SearchRetestUITests.swift in Sources */,
 				C88431528C9339DBAB8C532E /* ServerCheckUITests.swift in Sources */,
+				AC5957FAE17AF21C50492785 /* StoreBackupUITests.swift in Sources */,
 				B6E2C6BFF61567EF072392D5 /* VettingUITests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -1013,7 +1017,7 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 10;
+				CURRENT_PROJECT_VERSION = 11;
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
@@ -1036,7 +1040,7 @@
 				GIMANO_MAP_STYLE_URL = "https://tiles.openfreemap.org/styles/liberty";
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
-				MARKETING_VERSION = 0.3.4;
+				MARKETING_VERSION = 0.3.5;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;
@@ -1156,7 +1160,7 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 10;
+				CURRENT_PROJECT_VERSION = 11;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				ENABLE_NS_ASSERTIONS = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
@@ -1173,7 +1177,7 @@
 				GIMANO_MAP_STYLE_URL = "https://tiles.openfreemap.org/styles/liberty";
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
-				MARKETING_VERSION = 0.3.4;
+				MARKETING_VERSION = 0.3.5;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";

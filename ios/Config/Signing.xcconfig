@@ -15,6 +15,11 @@ GIMANO_ICLOUD = YES
 GIMANO_ENTITLEMENTS_YES = Gimano/Resources/Gimano.entitlements
 GIMANO_ENTITLEMENTS_NO = Gimano/Resources/Gimano-NoCloud.entitlements
 
+// Google Drive backup (GoogleSignIn + Drive appDataFolder). The store/TestFlight build sets GIMANO_DRIVE = NO
+// (owner decision 2026-10-24): no Drive destination, no Google sign-in, no Drive auto-backup or restore, and no Google
+// client id or URL scheme in Info.plist. Every user of that build sees the same thing. Dev and sideload builds keep YES.
+GIMANO_DRIVE = YES
+
 // Google Drive backup OAuth clients (git-ignored values): cp Config/Google.xcconfig.example Config/Google.xcconfig
 MANOTU_GOOGLE_CLIENT_ID =
 MANOTU_GOOGLE_REVERSED_CLIENT_ID = manotu-google-not-configured
@@ -31,5 +36,10 @@ APP_GOOGLE_CLIENT_ID_manotu = $(MANOTU_GOOGLE_CLIENT_ID)
 APP_GOOGLE_CLIENT_ID_gimano = $(GIMANO_GOOGLE_CLIENT_ID)
 APP_GOOGLE_REVERSED_CLIENT_ID_manotu = $(MANOTU_GOOGLE_REVERSED_CLIENT_ID)
 APP_GOOGLE_REVERSED_CLIENT_ID_gimano = $(GIMANO_GOOGLE_REVERSED_CLIENT_ID)
-APP_GOOGLE_CLIENT_ID = $(APP_GOOGLE_CLIENT_ID_$(APP_VARIANT))
-APP_GOOGLE_REVERSED_CLIENT_ID = $(APP_GOOGLE_REVERSED_CLIENT_ID_$(APP_VARIANT))
+APP_GOOGLE_CLIENT_ID_DRIVE_YES = $(APP_GOOGLE_CLIENT_ID_$(APP_VARIANT))
+APP_GOOGLE_CLIENT_ID_DRIVE_NO =
+APP_GOOGLE_REVERSED_CLIENT_ID_DRIVE_YES = $(APP_GOOGLE_REVERSED_CLIENT_ID_$(APP_VARIANT))
+APP_GOOGLE_REVERSED_CLIENT_ID_DRIVE_NO = manotu-google-drive-disabled
+// With GIMANO_DRIVE = NO the Info.plist gets an empty GIDClientID and a placeholder URL scheme, never the real client.
+APP_GOOGLE_CLIENT_ID = $(APP_GOOGLE_CLIENT_ID_DRIVE_$(GIMANO_DRIVE))
+APP_GOOGLE_REVERSED_CLIENT_ID = $(APP_GOOGLE_REVERSED_CLIENT_ID_DRIVE_$(GIMANO_DRIVE))

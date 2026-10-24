@@ -4,7 +4,7 @@ import XCTest
 /// position in London), then search, place card, a simulated drive with the "Still closed?" prompt and the sound
 /// selector, a report, a review, a complaint, a favourite, a planned drive, a demo-storage backup → restore round trip,
 /// and Demo mode turned off from the badge. Nothing here is reviewer-only; nothing is sent (Demo mode).
-/// Environment: GIMANO_LANG (en|ms). Build with GIMANO_ICLOUD=NO (the store build).
+/// Environment: GIMANO_LANG (en|ms). Build with GIMANO_ICLOUD=NO GIMANO_DRIVE=NO (the store build).
 final class DemoReviewUITests: XCTestCase {
     var app: XCUIApplication!
     var env: [String: String] { ProcessInfo.processInfo.environment }
@@ -212,7 +212,10 @@ final class DemoReviewUITests: XCTestCase {
         wait(app.buttons["backupDestination.demo"], 10)
         sleep(1)
         shot("14-backup-destinations")
-        let rows = "drive '\(app.buttons["backupDestination.googleDrive"].label)'; file '\(app.buttons["backupDestination.file"].label)'; demo '\(app.buttons["backupDestination.demo"].label)'"
+        let driveRow = app.buttons["backupDestination.googleDrive"]
+        let driveOff = any("backupDestination.googleDriveUnavailable")
+        let drive = driveRow.exists ? driveRow.label : driveOff.exists ? "unavailable: \(driveOff.label)" : "-"
+        let rows = "drive '\(drive)'; file '\(app.buttons["backupDestination.file"].label)'; demo '\(app.buttons["backupDestination.demo"].label)'"
         app.swipeUp()
         sleep(1)
         let icloud = any("backupDestination.icloudUnavailable")

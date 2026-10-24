@@ -8,6 +8,10 @@ source Config/asc.env
 : "${ASC_ISSUER_ID:?}" "${ASC_KEY_ID:?}" "${ASC_KEY_PATH:?}" "${ASC_TEAM_ID:?set ASC_TEAM_ID to Erymuzuan Mustapa's individual team id}"
 export DEVELOPER_DIR=${DEVELOPER_DIR:-/Applications/Xcode.app/Contents/Developer}
 BUILD=${1:-}
+# The store build has neither iCloud (App ID has no container yet) nor Google Drive backup (owner decision 2026-10-24).
+# Override only for a non-store build: GIMANO_ICLOUD=YES / GIMANO_DRIVE=YES scripts/testflight.sh
+GIMANO_ICLOUD=${GIMANO_ICLOUD:-NO}
+GIMANO_DRIVE=${GIMANO_DRIVE:-NO}
 OUT=${OUT:-build/testflight}
 rm -rf "$OUT"; mkdir -p "$OUT"
 AUTH=(-allowProvisioningUpdates -authenticationKeyPath "$ASC_KEY_PATH" -authenticationKeyID "$ASC_KEY_ID" -authenticationKeyIssuerID "$ASC_ISSUER_ID")
@@ -15,7 +19,12 @@ AUTH=(-allowProvisioningUpdates -authenticationKeyPath "$ASC_KEY_PATH" -authenti
 xcodegen generate
 xcodebuild archive -project Gimano.xcodeproj -scheme Gimano -configuration Release \
   -destination 'generic/platform=iOS' -archivePath "$OUT/Gimano.xcarchive" \
-  DEVELOPMENT_TEAM="$ASC_TEAM_ID" ${BUILD:+CURRENT_PROJECT_VERSION=$BUILD} ${GIMANO_ICLOUD:+GIMANO_ICLOUD=$GIMANO_ICLOUD} "${AUTH[@]}"
+  DEVELOPMENT_TEAM="$ASC_TEAM_ID" ${BUILD:+CURRENT_PROJECT_VERSION=$BUILD} GIMANO_ICLOUD="$GIMANO_ICLOUD" GIMANO_DRIVE="$GIMANO_DRIVE" "${AUTH[@]}"
+INFO="$OUT/Gimano.xcarchive/Products/Applications/Gimano.app/Info.plist"
+echo "iCloud=$(plutil -extract GimanoICloudEnabled raw -o - "$INFO") Drive=$(plutil -extract GimanoDriveEnabled raw -o - "$INFO")"
+if [[ "$GIMANO_DRIVE" == NO ]] && grep -q googleusercontent "$INFO"; then
+  echo "Refusing: GIMANO_DRIVE=NO but a Google OAuth client is in Info.plist." >&2; exit 1
+fi
 # AGENTS.md: TestFlight/App Store must use the individual team, never STAFY COMPANY LIMITED.
 APP="$OUT/Gimano.xcarchive/Products/Applications/Gimano.app"
 TEAM_NAME=$(security cms -D -i "$APP/embedded.mobileprovision" | plutil -extract TeamName raw -)
