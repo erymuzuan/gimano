@@ -25,7 +25,8 @@ update the vectors in the same change.
 | Organizer signature | Ed25519 (one key pair **per event**, never reused across events) |
 | Compression | raw DEFLATE (RFC 1951, no zlib/gzip header) of the plaintext before encryption |
 | Revision hash | SHA-256 |
-| Text encodings | base64url without padding (`b64u`); Crockford base32 for the file secret code |
+| File secret code | Argon2id13 (libsodium `crypto_pwhash`, opslimit 3, 64 MiB) over an 8-character code (§5.2) |
+| Text encodings | base64url without padding (`b64u`); the safety-code alphabet for codes; Crockford base32 for suite-1 file codes |
 
 Libraries: Rust `chacha20poly1305` (XChaCha20Poly1305), `ed25519-dalek`, `sha2`, `miniz_oxide`/`flate2`;
 web `libsodium-wrappers` (already vendored in `site/manotu/s/vendor/`) + `DecompressionStream("deflate-raw")`;
@@ -125,11 +126,33 @@ https://<site>/a/#1.<b64u(key)>.<b64u(nonce ‖ ciphertext)>
 ### 5.2 File `.manotu-event` (sensitive events)
 
 ```
-"MNTE" (4 bytes) ‖ 0x01 (format) ‖ 0x01 (suite: raw key) ‖ nonce (24) ‖ ciphertext
+suite 2 (written since 24 Oct 2026):  "MNTE" ‖ 0x01 (format) ‖ 0x02 (suite: code) ‖ salt (16) ‖ nonce (24) ‖ ciphertext
+suite 1 (read only, older files):     "MNTE" ‖ 0x01 (format) ‖ 0x01 (suite: raw key) ‖ nonce (24) ‖ ciphertext
 ```
 
-The key is shown to the host as a **secret code**: Crockford base32 of the 32 key bytes (52 chars), grouped by
-4 with `-`. The host sends the code through a different channel. MIME `application/vnd.manotu.event`.
+**Suite 2 (secret code).** The host sees an **8-character secret code** shown as two groups of 4, e.g. `K7M4-QX9P`:
+8 characters drawn uniformly (CSPRNG) from the safety-code alphabet `23456789ABCDEFGHJKLMNPQRSTUVWXYZ` (no 0/O, 1/I),
+i.e. 40 bits. The file key is
+
+```
+key = Argon2id13(password = the 8 code characters as ASCII, upper case, no separator,
+                 salt = the file's 16-byte salt, opslimit = 3, memlimit = 67 108 864 bytes (64 MiB), outlen = 32)
+```
+
+(libsodium `crypto_pwhash`, `crypto_pwhash_ALG_ARGON2ID13`). The ciphertext is XChaCha20-Poly1305 of the same
+deflated envelope as the link (AD `manotu-event-v1`) under that key. Readers accept the code case-insensitively,
+ignore spaces and `-`, and reject any other character before deriving (`invalid_secret_code`); a wrong code fails as
+`decrypt`. Each written file gets a fresh salt and nonce; the code itself stays the same for every revision of an
+event (stored with the organiser's keys) so guests keep one code. The file key is independent of the link key.
+
+The 40-bit code is a deliberate trade-off (owner decision, 24 Oct 2026): short enough to read out, while the
+Argon2id cost (≈0.3–1 s per guess on a phone) makes guessing a forwarded file take years. Hosts of very sensitive
+events can still share the link only with trusted people.
+
+**Suite 1 (older files):** the 52-character Crockford base32 code *is* the 32-byte key (no derivation). Readers keep
+opening these; writers no longer produce them.
+
+The host sends the code through a different channel. MIME `application/vnd.manotu.event`.
 
 ### 5.3 Opening in the app (web viewer hand-off)
 
