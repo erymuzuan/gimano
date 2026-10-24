@@ -42,6 +42,7 @@ cp Config/Local.xcconfig.example Config/Local.xcconfig   # git-ignored
 | API base URL | `GIMANO_API_BASE_URL` build setting → `GimanoAPIBaseURL` Info.plist key | Debug: `http://100.101.150.9:5080/api/v1/` (WS556 over Tailscale). Release: `http://localhost:5080/api/v1/` (placeholder until a production host exists) |
 | Map style | `GIMANO_MAP_STYLE_URL` → `GimanoMapStyleURL` | `https://tiles.openfreemap.org/styles/liberty` |
 | Overrides | In-app **Menu → Developer settings** (persisted in UserDefaults) | API URL, data mode, style URL, drive simulation |
+| Universal Links | `MANOTU_APPLINKS` (`Config/Signing.xcconfig`) → adds `applinks:manotu.app` (Associated Domains) to the entitlements | `NO`: needs the Associated Domains capability on the App ID first. Without it, `/j/` and `/a/` links open the web page, whose "Buka di Manotu" opens the app via `manotu://` |
 
 Debug uses `Resources/Info-Debug.plist`, which adds an ATS exception for the cleartext dev host
 (`100.101.150.9`) plus `NSAllowsLocalNetworking`. Release uses `Resources/Info.plist` and is ATS-strict.

@@ -381,16 +381,44 @@ protocol EventSecretStore: Sendable {
     func load(eventId: String) -> EventSecrets?
     func save(_ secrets: EventSecrets, eventId: String) -> Bool
     func delete(eventId: String)
+    /// The event's short link (§5.6): drop id, secret and write token, kept like the keys.
+    func loadDrop(eventId: String) -> HostedEventDrop?
+    func saveDrop(_ drop: HostedEventDrop, eventId: String) -> Bool
+    func deleteDrop(eventId: String)
 }
 
 /// Generic-password items, `WhenUnlockedThisDeviceOnly` and not synchronizable: they never reach iCloud Keychain and
 /// are not restored onto another device from a backup.
 struct KeychainEventSecretStore: EventSecretStore {
     var service = "my.manotu.events.organizer"
+    /// The short link's drop id, secret and write token (§5.6), one item per event, protected like the keys.
+    var dropService = "my.manotu.events.drop"
 
-    private func base(_ eventId: String) -> [String: Any] {
-        [kSecClass as String: kSecClassGenericPassword, kSecAttrService as String: service, kSecAttrAccount as String: eventId,
+    private func base(_ eventId: String, service: String? = nil) -> [String: Any] {
+        [kSecClass as String: kSecClassGenericPassword, kSecAttrService as String: service ?? self.service, kSecAttrAccount as String: eventId,
          kSecAttrSynchronizable as String: kCFBooleanFalse as Any]
+    }
+
+    func loadDrop(eventId: String) -> HostedEventDrop? {
+        var q = base(eventId, service: dropService)
+        q[kSecReturnData as String] = true
+        q[kSecMatchLimit as String] = kSecMatchLimitOne
+        var out: CFTypeRef?
+        guard SecItemCopyMatching(q as CFDictionary, &out) == errSecSuccess, let data = out as? Data else { return nil }
+        return try? JSONDecoder().decode(HostedEventDrop.self, from: data)
+    }
+
+    func saveDrop(_ drop: HostedEventDrop, eventId: String) -> Bool {
+        guard let data = try? JSONEncoder().encode(drop) else { return false }
+        SecItemDelete(base(eventId, service: dropService) as CFDictionary)
+        var add = base(eventId, service: dropService)
+        add[kSecValueData as String] = data
+        add[kSecAttrAccessible as String] = kSecAttrAccessibleWhenUnlockedThisDeviceOnly
+        return SecItemAdd(add as CFDictionary, nil) == errSecSuccess
+    }
+
+    func deleteDrop(eventId: String) {
+        SecItemDelete(base(eventId, service: dropService) as CFDictionary)
     }
 
     func load(eventId: String) -> EventSecrets? {
@@ -424,6 +452,10 @@ final class InMemoryEventSecretStore: EventSecretStore, @unchecked Sendable {
     func save(_ secrets: EventSecrets, eventId: String) -> Bool { lock.withLock { items[eventId] = secrets }; return true }
     func delete(eventId: String) { _ = lock.withLock { items.removeValue(forKey: eventId) } }
     var count: Int { lock.withLock { items.count } }
+    private var drops: [String: HostedEventDrop] = [:]
+    func loadDrop(eventId: String) -> HostedEventDrop? { lock.withLock { drops[eventId] } }
+    func saveDrop(_ drop: HostedEventDrop, eventId: String) -> Bool { lock.withLock { drops[eventId] = drop }; return true }
+    func deleteDrop(eventId: String) { _ = lock.withLock { drops.removeValue(forKey: eventId) } }
 }
 
 // MARK: - Stored hosted events

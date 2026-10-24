@@ -154,6 +154,14 @@ actor APIClient {
         _ = try await perform(method: method, path: path, query: [], body: payload, authorization: authorization, headers: headers)
     }
 
+    /// A raw byte body and/or response (`application/octet-stream`, e.g. event short links). `authorization` overrides the
+    /// bearer token (e.g. `Drop <writeToken>`); `anonymous` sends none (public reads).
+    func raw(_ method: String, _ path: String, body: Data?, authorization: String? = nil, anonymous: Bool = false,
+             headers: [String: String] = [:], accept: String = "application/json") async throws -> Data {
+        try await perform(method: method, path: path, query: [], body: body, authorization: authorization, headers: headers,
+                          contentType: "application/octet-stream", accept: accept, anonymous: anonymous)
+    }
+
     func ping(_ path: String) async -> Bool {
         (try? await perform(method: "GET", path: path, query: [], body: nil)) != nil
     }
@@ -203,17 +211,18 @@ actor APIClient {
 
     /// `authorization` overrides the bearer token (e.g. `Share <writeToken>`).
     private func perform(method: String, path: String, query: [URLQueryItem], body: Data?, authorization: String? = nil,
-                         headers: [String: String] = [:]) async throws -> Data {
+                         headers: [String: String] = [:], contentType: String = "application/json",
+                         accept: String = "application/json", anonymous: Bool = false) async throws -> Data {
         var req = URLRequest(url: url(path, query: query))
         req.httpMethod = method
         for (k, v) in headers { req.setValue(v, forHTTPHeaderField: k) }
-        req.setValue("application/json", forHTTPHeaderField: "Accept")
+        req.setValue(accept, forHTTPHeaderField: "Accept")
         if let body {
             req.httpBody = body
-            req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+            req.setValue(contentType, forHTTPHeaderField: "Content-Type")
         }
         if let authorization { req.setValue(authorization, forHTTPHeaderField: "Authorization") }
-        else if let token { req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization") }
+        else if let token, !anonymous { req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization") }
         req.setValue(AppLanguage.acceptLanguage, forHTTPHeaderField: "Accept-Language")
         sign(&req, method: method, path: path, body: body)
 

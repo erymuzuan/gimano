@@ -12,8 +12,21 @@ APP_BUNDLE_ID_gimano = my.gimano.app
 // iCloud backup (CloudKit container iCloud.<bundle id>). Needs the iCloud capability on the App ID; set
 // GIMANO_ICLOUD = NO to build without the iCloud entitlement (the app then shows "iCloud isn't enabled in this build").
 GIMANO_ICLOUD = YES
-GIMANO_ENTITLEMENTS_YES = Gimano/Resources/Gimano.entitlements
-GIMANO_ENTITLEMENTS_NO = Gimano/Resources/Gimano-NoCloud.entitlements
+
+// Universal Links for event invitations (https://manotu.app/j/#… and /a/#…, docs/events.md §5.6): the Associated
+// Domains entitlement `applinks:manotu.app`. It needs the "Associated Domains" capability on the App ID in the developer
+// portal (and the provisioning profile regenerated), so it is off by default: builds signed with today's profiles keep
+// working, and links still open the app through the web page's "Buka di Manotu" (manotu://). Set MANOTU_APPLINKS = YES
+// once the capability is enabled.
+MANOTU_APPLINKS = NO
+
+// CODE_SIGN_ENTITLEMENTS (project.yml) = $(GIMANO_ENTITLEMENTS_$(GIMANO_ICLOUD)), resolved here for MANOTU_APPLINKS too.
+GIMANO_ENTITLEMENTS_YES = $(GIMANO_ENTITLEMENTS_CLOUD_$(MANOTU_APPLINKS))
+GIMANO_ENTITLEMENTS_NO = $(GIMANO_ENTITLEMENTS_NOCLOUD_$(MANOTU_APPLINKS))
+GIMANO_ENTITLEMENTS_CLOUD_NO = Gimano/Resources/Gimano.entitlements
+GIMANO_ENTITLEMENTS_CLOUD_YES = Gimano/Resources/Gimano-AppLinks.entitlements
+GIMANO_ENTITLEMENTS_NOCLOUD_NO = Gimano/Resources/Gimano-NoCloud.entitlements
+GIMANO_ENTITLEMENTS_NOCLOUD_YES = Gimano/Resources/Gimano-NoCloud-AppLinks.entitlements
 
 // Google Drive backup (GoogleSignIn + Drive appDataFolder). The store/TestFlight build sets GIMANO_DRIVE = NO
 // (owner decision 2026-10-24): no Drive destination, no Google sign-in, no Drive auto-backup or restore, and no Google
