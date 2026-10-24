@@ -318,7 +318,8 @@ else {
       state = { kind: "ok" };
       if (!langChosen) lang = result.event.lang; // the host's display language (§4 `lang`); BM until then
       applyLang();
-      showMap();
+      // No WebGL (old phone, disabled GPU): the invitation still opens, just without the map.
+      try { showMap(); } catch { map?.remove(); map = null; markers = []; $("map").closest("section").hidden = true; }
     }
   } catch (err) {
     const code = err instanceof PackError ? err.code : "unknown";

@@ -25,6 +25,9 @@ async function check(name, fn) {
 for (const f of files) {
   const v = JSON.parse(readFileSync(join(dir, f), "utf8"));
   console.log(`${f} (${v.kind})`);
+  // The viewer opens links and suite-1 files only; Argon2id (suite 2) needs the sumo libsodium build (docs/events.md §5.2).
+  const suite2File = v.fileB64u && b64uDecode(v.fileB64u)[5] === 2;
+  if (v.kind === "kat" || (suite2File && !v.linkFragment)) { console.log("  skip suite 2 (file only)"); continue; }
   if (v.kind === "positive") {
     const now = new Date(v.now);
     const verify = (o, how) => {
