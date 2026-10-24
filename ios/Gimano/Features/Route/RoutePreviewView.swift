@@ -253,6 +253,9 @@ struct RoutePreviewView: View {
             } else if planner.alreadyHere {
                 Label("You're already here", systemImage: "mappin.and.ellipse")
                     .font(Tokens.Font.title).frame(maxWidth: .infinity, minHeight: 90)
+                    // One element with the text only (the SF Symbol's own label read "Remove Map Pin").
+                    .accessibilityElement(children: .ignore)
+                    .accessibilityLabel(Text("You're already here"))
                     .accessibilityIdentifier("alreadyHere")
             } else if planner.isLoading && planner.routes.isEmpty {
                 HStack { Spacer(); ProgressView(); Spacer() }.frame(height: 90)

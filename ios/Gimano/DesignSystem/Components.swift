@@ -106,11 +106,23 @@ struct PrimaryButtonStyle: ButtonStyle {
     var color: Color = .brand
     var foreground: Color = .brandOn
     func makeBody(configuration: Configuration) -> some View {
+        PrimaryButtonBody(configuration: configuration, color: color, foreground: foreground)
+    }
+}
+
+/// A disabled primary button looks disabled (pale fill, muted text), e.g. Upload before a photo is picked.
+private struct PrimaryButtonBody: View {
+    @Environment(\.isEnabled) private var isEnabled
+    let configuration: ButtonStyleConfiguration
+    let color: Color
+    let foreground: Color
+
+    var body: some View {
         configuration.label
             .font(Tokens.Font.button)
-            .foregroundStyle(foreground)
+            .foregroundStyle(isEnabled ? foreground : Color.textMuted.opacity(0.7))
             .frame(maxWidth: .infinity, minHeight: 56)
-            .background(color, in: RoundedRectangle(cornerRadius: Tokens.Radius.md, style: .continuous))
+            .background(isEnabled ? color : Color.surfaceAlt, in: RoundedRectangle(cornerRadius: Tokens.Radius.md, style: .continuous))
             .opacity(configuration.isPressed ? 0.85 : 1)
     }
 }

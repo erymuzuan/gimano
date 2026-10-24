@@ -1,6 +1,6 @@
 # Releasing Gimano for iOS (TestFlight)
 
-Bundle id `my.gimano.app` · version `0.2.3` (build 5) (`MARKETING_VERSION` in `project.yml`) · build number = `CURRENT_PROJECT_VERSION` in `project.yml`
+Bundle id `my.gimano.app` · version `0.3.3` (build 9) (`MARKETING_VERSION` in `project.yml`) · build number = `CURRENT_PROJECT_VERSION` in `project.yml`
 (override per upload: `scripts/testflight.sh <n>`).
 
 The Release configuration talks to **https://gimano-api.bukitbunga.com/api/v1/** (live hub: `wss://gimano-api.bukitbunga.com/hubs/live`).

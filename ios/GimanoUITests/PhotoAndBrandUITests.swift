@@ -60,7 +60,7 @@ final class PhotoAndBrandUITests: XCTestCase {
     func test_2_BrandIconAndAbout() {
         wait(app.buttons["menuButton"]).tap()
         let v = wait(app.staticTexts["menuVersion"])
-        XCTAssertTrue(v.label.hasPrefix("Manotu 0.2.3"), v.label)
+        XCTAssertTrue(v.label.hasPrefix("Manotu 0.3.3"), v.label)
         app.buttons.matching(NSPredicate(format: "label IN {'Settings', 'Tetapan'}")).firstMatch.tap()
         let about = app.buttons["settingsAbout"]
         for _ in 0..<8 where !(about.exists && about.isHittable) { app.swipeUp() }
