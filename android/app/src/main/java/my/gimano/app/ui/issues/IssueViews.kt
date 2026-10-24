@@ -141,27 +141,31 @@ fun StillClosedCard(i: Issue, onAnswer: (String?) -> Unit, modifier: Modifier = 
     val c = Gimano.colors
     Surface(modifier.fillMaxWidth(), shape = RoundedCornerShape(Radius.lg), color = c.surface, shadowElevation = 8.dp) {
         Column(Modifier.padding(16.dp)) {
+            // Very large text: no icon tile and a 2-line subtitle, so the card doesn't ride up over the turn banner.
+            val big = androidx.compose.ui.platform.LocalDensity.current.fontScale >= 1.5f
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Box(Modifier.size(48.dp).clip(RoundedCornerShape(14.dp)).background(Amber), contentAlignment = Alignment.Center) {
-                    Icon(Icons.Filled.Block, null, tint = AmberInk, modifier = Modifier.size(28.dp))
+                if (!big) {
+                    Box(Modifier.size(48.dp).clip(RoundedCornerShape(14.dp)).background(Amber), contentAlignment = Alignment.Center) {
+                        Icon(Icons.Filled.Block, null, tint = AmberInk, modifier = Modifier.size(28.dp))
+                    }
+                    Spacer(Modifier.width(12.dp))
                 }
-                Spacer(Modifier.width(12.dp))
                 Column(Modifier.weight(1f)) {
-                    Text(stringResource(R.string.still_closed_q), fontSize = 19.sp, fontWeight = FontWeight.Black, color = c.text)
-                    Text(issueLine(i.kind, i.subtype, i.road, i.state, i.confirmations, i.createdAt), fontSize = 14.sp, color = c.textMuted, maxLines = 2)
+                    Text(stringResource(R.string.still_closed_q), fontSize = 22.sp, fontWeight = FontWeight.Black, color = c.text)
+                    // "kind · street · age" (canvas NavSahkan).
+                    Text(confirmLine(i.kind, i.subtype, i.road, i.createdAt), fontSize = 14.sp, fontWeight = FontWeight.Bold, color = c.textMuted,
+                        maxLines = if (big) 2 else 3, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
                 }
-                IconButton(onClick = { onAnswer(null) }) { Icon(Icons.Filled.Close, stringResource(R.string.close), tint = c.textMuted) }
+                Spacer(Modifier.width(8.dp))
+                // 10 s, then it goes away with no answer (as does tapping the ring).
+                my.gimano.app.ui.common.CountdownRing(i.id, onTimeout = { onAnswer(null) })
             }
-            Spacer(Modifier.height(10.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Button(onClick = { onAnswer("still") }, Modifier.weight(1f).height(52.dp), shape = RoundedCornerShape(Radius.md),
-                    colors = ButtonDefaults.buttonColors(containerColor = c.brand)) { Text(stringResource(R.string.still_closed_yes), fontWeight = FontWeight.ExtraBold) }
-                Button(onClick = { onAnswer("cleared") }, Modifier.weight(1f).height(52.dp), shape = RoundedCornerShape(Radius.md),
-                    colors = ButtonDefaults.buttonColors(containerColor = c.surfaceAlt, contentColor = c.text)) { Text(stringResource(R.string.still_closed_open), fontWeight = FontWeight.ExtraBold) }
-                OutlinedButton(onClick = { onAnswer("unsure") }, Modifier.weight(1f).height(52.dp), shape = RoundedCornerShape(Radius.md)) {
-                    Text(stringResource(R.string.not_sure), fontWeight = FontWeight.ExtraBold, maxLines = 1)
-                }
-            }
+            Spacer(Modifier.height(12.dp))
+            my.gimano.app.ui.common.ConfirmButtons(listOf(
+                my.gimano.app.ui.common.ConfirmOption(stringResource(R.string.still_closed_yes), my.gimano.app.ui.common.ConfirmIcons.yes, my.gimano.app.ui.common.ConfirmStyle.SOLID) { onAnswer("still") },
+                my.gimano.app.ui.common.ConfirmOption(stringResource(R.string.still_closed_open), my.gimano.app.ui.common.ConfirmIcons.cleared, my.gimano.app.ui.common.ConfirmStyle.PALE) { onAnswer("cleared") },
+                my.gimano.app.ui.common.ConfirmOption(stringResource(R.string.not_sure), my.gimano.app.ui.common.ConfirmIcons.unsure, my.gimano.app.ui.common.ConfirmStyle.OUTLINED) { onAnswer("unsure") },
+            ))
         }
     }
 }
@@ -192,6 +196,14 @@ private fun issueLine(kind: String, subtype: String?, road: String?, state: Stri
     val n = IssueText.drivers(confirmations)
     val conf = if (state == "confirmed" && n > 0) stringResource(R.string.confirmed_by_n, n) else stateWord(state)
     return listOfNotNull(road, what, conf, IssueText.age(createdAt, Instant.now(), ms)).joinToString(" · ")
+}
+
+/** Confirm card subtitle: "Tak boleh belok · Jalan SS 2/3 · 5 jam lalu". */
+@Composable
+private fun confirmLine(kind: String, subtype: String?, road: String?, createdAt: String?): String {
+    val ms = currentLang() == Lang.MS
+    val what = kindWord(kind) + (subtypeWord(subtype)?.let { " ($it)" } ?: "")
+    return listOfNotNull(what, road, IssueText.age(createdAt, Instant.now(), ms)).joinToString(" · ").replaceFirstChar { it.uppercase() }
 }
 
 @Composable

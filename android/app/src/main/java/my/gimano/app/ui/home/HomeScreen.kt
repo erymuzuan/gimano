@@ -86,7 +86,7 @@ fun MapTopControls(
             )
         }
         Column(Modifier.align(Alignment.TopEnd), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            SoundFab(settings.soundMode, onClick = vm::cycleSound)
+            SoundFab(settings.soundMode, settings.voiceVolume, onSelect = vm::selectSound, onLongPress = vm::toggleMute, onVolume = vm::setVoiceVolume)
             Box {
                 RoundFab("layers", stringResource(R.string.layers), onClick = { layersOpen = true })
                 DropdownMenu(layersOpen, onDismissRequest = { layersOpen = false }) {

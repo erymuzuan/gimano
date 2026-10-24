@@ -252,7 +252,14 @@ class DemoRepository(
         return r
     }
 
-    private val demoIssues = java.util.concurrent.CopyOnWriteArrayList<Issue>()
+    /**
+     * One seeded road issue on the demo drive SS2 → Masjid Negara (the left turn into Jalan SS 2/24, ~770 m in), so a
+     * simulated drive shows the "Masih ditutup?" card (canvas NavSahkan). Demo data only, never sent anywhere.
+     */
+    private val demoIssues = java.util.concurrent.CopyOnWriteArrayList(listOf(
+        Issue("demo-issue-ss2-24", IssueKind.TURN_NOT_ALLOWED, null, IssueState.REPORTED, 3.11778, 101.624394,
+            roadName = "Jalan SS 2/24", confirmations = 1.0, createdAt = Instant.now().minusSeconds(5 * 3600).toString()),
+    ))
 
     override suspend fun createIssue(body: CreateIssueRequest): Issue {
         latency()

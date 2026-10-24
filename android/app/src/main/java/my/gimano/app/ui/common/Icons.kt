@@ -53,7 +53,7 @@ object TwoTone {
     fun vector(name: String, base: Color, detail: Color): ImageVector {
         val key = "$name|${base.value}|${detail.value}"
         return cache.getOrPut(key) {
-            val p = TwoToneIconPaths.all[name] ?: PlaceTwoToneIconPaths.all[name] ?: TwoToneIconPaths.all.getValue("more")
+            val p = TwoToneIconPaths.all[name] ?: PlaceTwoToneIconPaths.all[name] ?: NavTwoToneIconPaths.all[name] ?: TwoToneIconPaths.all.getValue("more")
             ImageVector.Builder(name = "tt_$name", defaultWidth = 24.dp, defaultHeight = 24.dp, viewportWidth = 24f, viewportHeight = 24f).apply {
                 addPath(addPathNodes(p.base), fill = SolidColor(base))
                 addPath(addPathNodes(p.detail), fill = SolidColor(detail), fillAlpha = p.detailAlpha, pathFillType = PathFillType.EvenOdd)

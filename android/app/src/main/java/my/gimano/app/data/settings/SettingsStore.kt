@@ -31,6 +31,10 @@ data class AppSettings(
     val simulateDetour: Boolean = false,
     val voiceLang: String = "auto", // auto | en | ms
     val soundMode: SoundMode = SoundMode.ON,
+    /** Where a long-press "unmute" returns to (never OFF). */
+    val lastNonMuteSound: SoundMode = SoundMode.ON,
+    /** App voice volume for spoken directions, 0–100 % (on this phone only). */
+    val voiceVolume: Int = SoundPrefs.DEFAULT_VOLUME,
     val vehicle: String = "car",     // car | motorcycle
     val apiBaseUrl: String = BuildConfig.API_BASE_URL,
     val mapStyleUrl: String = BuildConfig.MAP_STYLE_URL,
@@ -79,7 +83,7 @@ class SettingsStore(private val context: Context, private val scope: CoroutineSc
         val simulateDrive = booleanPreferencesKey("simulateDrive")
         val simulateDetour = booleanPreferencesKey("simulateDetour")
         val voiceLang = stringPreferencesKey("voiceLang")
-        val soundMode = stringPreferencesKey("soundMode")
+        val soundMode = SoundPrefs.mode
         val vehicle = stringPreferencesKey("vehicle")
         val apiBaseUrl = stringPreferencesKey("apiBaseUrl")
         val mapStyleUrl = stringPreferencesKey("mapStyleUrl")
@@ -126,7 +130,9 @@ class SettingsStore(private val context: Context, private val scope: CoroutineSc
         simulateDrive = BuildConfig.DEBUG && (p[K.simulateDrive] ?: false),
         simulateDetour = BuildConfig.DEBUG && (p[K.simulateDetour] ?: false),
         voiceLang = p[K.voiceLang] ?: "auto",
-        soundMode = p[K.soundMode]?.let { runCatching { SoundMode.valueOf(it) }.getOrNull() } ?: SoundMode.ON,
+        soundMode = SoundPrefs.mode(p),
+        lastNonMuteSound = SoundPrefs.lastNonMute(p),
+        voiceVolume = SoundPrefs.volume(p),
         vehicle = p[K.vehicle] ?: "car",
         // Release builds always use the built-in server; the override is a debug-only developer setting.
         apiBaseUrl = p[K.apiBaseUrl]?.takeIf { BuildConfig.DEBUG && it.isNotBlank() } ?: BuildConfig.API_BASE_URL,
@@ -175,7 +181,8 @@ class SettingsStore(private val context: Context, private val scope: CoroutineSc
     suspend fun setSimulateDrive(v: Boolean) = edit { it[K.simulateDrive] = v }
     suspend fun setSimulateDetour(v: Boolean) = edit { it[K.simulateDetour] = v }
     suspend fun setVoiceLang(v: String) = edit { it[K.voiceLang] = v }
-    suspend fun setSoundMode(v: SoundMode) = edit { it[K.soundMode] = v.name }
+    suspend fun setSoundMode(v: SoundMode) = edit { SoundPrefs.setMode(it, v) }
+    suspend fun setVoiceVolume(percent: Int) = edit { SoundPrefs.setVolume(it, percent) }
     suspend fun setVehicle(v: String) = edit { it[K.vehicle] = v }
     suspend fun setApiBaseUrl(v: String) = edit {
         it[K.apiBaseUrl] = v.trim().let { u -> if (u.isEmpty() || u.endsWith("/")) u else "$u/" }
@@ -207,7 +214,7 @@ class SettingsStore(private val context: Context, private val scope: CoroutineSc
     /** Applies settings restored from a backup's `settings` table. */
     suspend fun applyBackupMap(m: Map<String, String>) = edit { p ->
         m["voice_lang"]?.let { p[K.voiceLang] = it }
-        m["sound_mode"]?.let { v -> runCatching { SoundMode.valueOf(v.uppercase()) }.getOrNull()?.let { p[K.soundMode] = it.name } }
+        m["sound_mode"]?.let { v -> runCatching { SoundMode.valueOf(v.uppercase()) }.getOrNull()?.let { SoundPrefs.setMode(p, it) } }
         m["vehicle"]?.let { p[K.vehicle] = it }
         m["use_24h"]?.let { p[K.use24h] = it.toBoolean() }
         m["show_traffic"]?.let { p[K.showTraffic] = it.toBoolean() }

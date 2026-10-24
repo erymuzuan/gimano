@@ -1,0 +1,132 @@
+package my.gimano.app.ui.common
+
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.QuestionMark
+import androidx.compose.material.icons.filled.ThumbDown
+import androidx.compose.material.icons.filled.ThumbUp
+import androidx.compose.material3.Icon
+import androidx.compose.material3.Text
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.Layout
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import kotlinx.coroutines.delay
+import my.gimano.app.R
+import my.gimano.app.ui.theme.Gimano
+
+/** Solid cobalt (primary), pale cobalt, or outlined. */
+enum class ConfirmStyle { SOLID, PALE, OUTLINED }
+
+data class ConfirmOption(val label: String, val icon: ImageVector, val style: ConfirmStyle, val onClick: () -> Unit)
+
+object ConfirmIcons {
+    val yes: ImageVector get() = Icons.Filled.Close          // "Masih ditutup": the closure is still there
+    val cleared: ImageVector get() = Icons.Filled.Check      // "Sudah dibuka"
+    val unsure: ImageVector get() = Icons.Filled.QuestionMark
+    val up: ImageVector get() = Icons.Filled.ThumbUp
+    val down: ImageVector get() = Icons.Filled.ThumbDown
+}
+
+/**
+ * Driving confirm buttons (canvas NavSahkan): equal widths, at least 84 dp tall, the icon above the FULL label
+ * (up to 2 lines, never clipped: at very large text the buttons grow, all to the same height).
+ */
+@Composable
+fun ConfirmButtons(options: List<ConfirmOption>, modifier: Modifier = Modifier) {
+    // Equal-height row: every button takes the tallest one's height (min 84 dp).
+    Layout(
+        content = { options.forEach { o -> ConfirmButton(o) } },
+        modifier = modifier.fillMaxWidth(),
+    ) { measurables, constraints ->
+        val gap = 8.dp.roundToPx()
+        val n = measurables.size.coerceAtLeast(1)
+        val w = ((constraints.maxWidth - gap * (n - 1)) / n).coerceAtLeast(0)
+        val minH = 84.dp.roundToPx()
+        val h = maxOf(minH, measurables.maxOfOrNull { it.minIntrinsicHeight(w) } ?: minH)
+        val placeables = measurables.map { it.measure(androidx.compose.ui.unit.Constraints.fixed(w, h)) }
+        layout(constraints.maxWidth, h) {
+            placeables.forEachIndexed { i, p -> p.placeRelative(i * (w + gap), 0) }
+        }
+    }
+}
+
+@Composable
+private fun ConfirmButton(o: ConfirmOption) {
+    val c = Gimano.colors
+    val shape = RoundedCornerShape(18.dp)
+    val (bg, fg) = when (o.style) {
+        ConfirmStyle.SOLID -> c.brand to c.brandOn
+        ConfirmStyle.PALE -> c.brandMist to c.brandInk
+        ConfirmStyle.OUTLINED -> c.surface to c.text
+    }
+    Column(
+        Modifier.clip(shape).background(bg)
+            .then(if (o.style == ConfirmStyle.OUTLINED) Modifier.border(BorderStroke(2.dp, c.outline), shape) else Modifier)
+            .clickable(role = Role.Button, onClick = o.onClick)
+            .padding(horizontal = 6.dp, vertical = 10.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center,
+    ) {
+        val iconBg = when (o.style) { ConfirmStyle.SOLID -> Color.White.copy(alpha = 0.22f); ConfirmStyle.PALE -> c.brandTint; ConfirmStyle.OUTLINED -> c.surfaceAlt }
+        Box(Modifier.size(28.dp).clip(CircleShape).background(iconBg), contentAlignment = Alignment.Center) {
+            Icon(o.icon, null, tint = if (o.style == ConfirmStyle.PALE) c.brand else fg, modifier = Modifier.size(18.dp))
+        }
+        Spacer(Modifier.height(6.dp))
+        // Full label, up to 2 lines; never ellipsized (the row grows instead).
+        Text(o.label, color = fg, fontSize = 15.sp, fontWeight = FontWeight.Black, textAlign = TextAlign.Center, lineHeight = 18.sp)
+    }
+}
+
+/**
+ * The 10 s countdown ring (canvas NavSahkan): shows the seconds left; at 0 it calls [onTimeout] (no answer).
+ * Tapping it dismisses early (also no answer).
+ */
+@Composable
+fun CountdownRing(key: Any, seconds: Int = 10, onTimeout: () -> Unit, modifier: Modifier = Modifier) {
+    val c = Gimano.colors
+    var left by remember(key) { mutableIntStateOf(seconds) }
+    val done by rememberUpdatedState(onTimeout)
+    LaunchedEffect(key) {
+        while (left > 0) { delay(1_000); left-- }
+        done()
+    }
+    val label = stringResource(R.string.confirm_dismiss_in, left)
+    Box(
+        modifier.size(48.dp).clip(CircleShape).clickable(role = Role.Button) { done() }.semantics { contentDescription = label },
+        contentAlignment = Alignment.Center,
+    ) {
+        Canvas(Modifier.size(40.dp)) {
+            val stroke = 4.dp.toPx()
+            val inset = stroke / 2
+            val arc = Size(size.width - stroke, size.height - stroke)
+            drawArc(c.surfaceAlt, 0f, 360f, false, Offset(inset, inset), arc, style = Stroke(stroke))
+            drawArc(c.brand, -90f, 360f * left / seconds, false, Offset(inset, inset), arc, style = Stroke(stroke, cap = StrokeCap.Round))
+        }
+        Text("$left", color = c.brandInk, fontSize = 15.sp, fontWeight = FontWeight.Black)
+    }
+}

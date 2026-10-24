@@ -35,8 +35,9 @@ class PlannedViewModel(private val c: AppContainer) : ViewModel() {
         recompute()
     }
 
-    /** (arrival, leave-by) for the next occurrence. */
-    suspend fun leaveByFor(d: PlannedDrive): Pair<Instant, Instant>? = c.planned.leaveBy(d)
+    /** (arrival, leave-by) for the next occurrence; null for "where I am" drives (no background time, see LeavePlanner). */
+    suspend fun leaveByFor(d: PlannedDrive): Pair<Instant, Instant>? =
+        c.planned.leaveBy(d)?.let { (arrive, leave) -> leave?.let { arrive to it } }
 
     fun edit(d: PlannedDrive) { _editor.value = PlanEditor(d, isNew = false); recompute() }
     fun close() { _editor.value = null }

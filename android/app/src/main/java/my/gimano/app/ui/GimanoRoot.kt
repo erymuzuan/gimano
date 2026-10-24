@@ -79,6 +79,11 @@ fun GimanoRoot(vm: MainViewModel, onMic: () -> Unit, onExit: () -> Unit, onReque
         vm.events.collect { e ->
             when (e) {
                 is UiEvent.Toast -> scope.launch { snackbar.currentSnackbarData?.dismiss(); snackbar.showSnackbar(context.getString(e.res)) }
+                is UiEvent.BriefToast -> scope.launch {
+                    snackbar.currentSnackbarData?.dismiss()
+                    val shown = launch { snackbar.showSnackbar(context.getString(e.res), duration = SnackbarDuration.Indefinite) }
+                    kotlinx.coroutines.delay(2_000); shown.cancel()   // cancelling dismisses it
+                }
                 is UiEvent.Share -> {
                     val text = if (e.text.startsWith("__share_drive__|")) {
                         val (_, name, eta, link) = e.text.split("|")
@@ -247,7 +252,9 @@ fun GimanoRoot(vm: MainViewModel, onMic: () -> Unit, onExit: () -> Unit, onReque
                     onAdd = { vm.openSearch(SearchPurpose.PLAN_DRIVE) }, onGo = vm::goPlanned)
             }
             // Below the right-hand FAB column (3 × 64 dp + gaps) so it never covers controls.
-            SnackbarHost(snackbar, Modifier.align(Alignment.TopCenter).windowInsetsPadding(WindowInsets.statusBars).padding(top = 250.dp, start = 16.dp, end = 16.dp))
+            // While driving, below the End + Sound column (180–320 dp) so a sound toast never hides the new FAB state.
+            SnackbarHost(snackbar, Modifier.align(Alignment.TopCenter).windowInsetsPadding(WindowInsets.statusBars)
+                .padding(top = if (screen == Screen.Navigating) 336.dp else 250.dp, start = 16.dp, end = 16.dp))
         }
     }
 

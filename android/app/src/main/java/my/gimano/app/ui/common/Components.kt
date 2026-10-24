@@ -38,7 +38,7 @@ import my.gimano.app.ui.theme.Radius
 import my.gimano.app.ui.theme.ReportColors
 import my.gimano.app.ui.theme.Sizes
 
-private val FabShadow = Color(0x290B1B3A) // rgba(11,27,58,.16)
+internal val FabShadow = Color(0x290B1B3A) // rgba(11,27,58,.16)
 
 /** Floating surface with the Cobalt FAB shadow (0 3 10 rgba(11,27,58,.16)). */
 @Composable
@@ -77,25 +77,6 @@ fun RoundFab(icon: ImageVector, contentDescription: String, modifier: Modifier =
     }
 }
 
-/** Sound FAB: the "sound" glyph, with a slash for off and a small dot for alerts-only. */
-@Composable
-fun SoundFab(mode: SoundMode, modifier: Modifier = Modifier, size: Dp = Sizes.roundFab, onClick: () -> Unit) {
-    val c = Gimano.colors
-    val label = stringResource(when (mode) { SoundMode.ON -> R.string.sound_on; SoundMode.ALERTS_ONLY -> R.string.sound_alerts; SoundMode.OFF -> R.string.sound_off })
-    FloatingSurface(modifier.size(size).semantics { contentDescription = label }, CircleShape, onClick = onClick) {
-        Box(Modifier.size(size * 0.47f)) {
-            GIcon("sound", null, size = size * 0.47f)
-            if (mode == SoundMode.OFF) {
-                Canvas(Modifier.matchParentSize()) {
-                    drawLine(c.report, Offset(this.size.width * 0.04f, this.size.height * 0.04f), Offset(this.size.width * 0.96f, this.size.height * 0.96f), strokeWidth = 2.5.dp.toPx(), cap = StrokeCap.Round)
-                }
-            }
-            if (mode == SoundMode.ALERTS_ONLY) {
-                Box(Modifier.align(Alignment.TopEnd).size(9.dp).clip(CircleShape).background(c.report))
-            }
-        }
-    }
-}
 
 /** 64 dp menu button (rounded square, radius 22). */
 @Composable

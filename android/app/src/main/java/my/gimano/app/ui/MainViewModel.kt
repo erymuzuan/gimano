@@ -207,6 +207,8 @@ data class PinSel(val place: PlaceSummary, val etaS: Double? = null, val routeM:
 
 sealed interface UiEvent {
     data class Toast(@StringRes val res: Int) : UiEvent
+    /** A 2 s toast (sound mode changes while driving). */
+    data class BriefToast(@StringRes val res: Int) : UiEvent
     data class ToastText(val text: String) : UiEvent
     data class Share(val text: String) : UiEvent
     data class Dial(val phone: String) : UiEvent
@@ -1551,14 +1553,23 @@ class MainViewModel(private val c: AppContainer) : ViewModel() {
 
     fun openSettings() = _ui.update { it.copy(screen = Screen.Settings) }
 
-    fun cycleSound() {
-        val next = when (settings.current.soundMode) {
-            SoundMode.ON -> SoundMode.ALERTS_ONLY
-            SoundMode.ALERTS_ONLY -> SoundMode.OFF
-            SoundMode.OFF -> SoundMode.ON
-        }
-        viewModelScope.launch { settings.setSoundMode(next) }
-        _events.tryEmit(UiEvent.Toast(when (next) { SoundMode.ON -> R.string.sound_on; SoundMode.ALERTS_ONLY -> R.string.sound_alerts; SoundMode.OFF -> R.string.sound_off }))
+    /** Sound panel: a row picked (canvas NavBunyi). Remembered across drives; a 2 s toast says what it does. */
+    fun selectSound(mode: SoundMode) {
+        if (mode == settings.current.soundMode) return
+        viewModelScope.launch { settings.setSoundMode(mode) }
+        if (mode == SoundMode.OFF) c.voice.stop()   // mute takes effect mid-sentence
+        _events.tryEmit(UiEvent.BriefToast(soundToast(mode)))
+    }
+
+    /** Long-press on the sound FAB: quick mute, or back to the last non-mute mode. */
+    fun toggleMute() = selectSound(my.gimano.app.data.settings.SoundModes.longPress(settings.current.soundMode, settings.current.lastNonMuteSound))
+
+    fun setVoiceVolume(percent: Int) { viewModelScope.launch { settings.setVoiceVolume(percent) } }
+
+    private fun soundToast(m: SoundMode) = when (m) {
+        SoundMode.ON -> R.string.sound_toast_on
+        SoundMode.ALERTS_ONLY -> R.string.sound_toast_alerts
+        SoundMode.OFF -> R.string.sound_toast_off
     }
 
     fun setLayers(traffic: Boolean, alerts: Boolean, drivers: Boolean) {

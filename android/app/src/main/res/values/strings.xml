@@ -718,4 +718,21 @@
     <string name="auto_start_nav_desc">After 10 s on the route preview, for Home, Work, favourites, recent places and planned drives. Never after a search.</string>
     <string name="simulate_detour">Simulate a detour</string>
     <string name="simulate_detour_desc">The simulated drive goes straight on at the first turn (debug).</string>
+    <string name="sound_panel_title">Sound</string>
+    <string name="sound_full">Full sound</string>
+    <string name="sound_full_sub">Voice directions + alerts</string>
+    <string name="sound_alerts_sub">Police, accidents, closed roads</string>
+    <string name="sound_mute">Mute</string>
+    <string name="sound_mute_sub">No sound</string>
+    <string name="voice_volume">Volume</string>
+    <string name="sound_toast_on">Full sound · voice directions and alerts</string>
+    <string name="sound_toast_alerts">Alerts only · voice directions off</string>
+    <string name="sound_toast_off">Muted · no sound</string>
+    <string name="sound_fab_desc">Sound: %1$s</string>
+    <string name="sound_choose">choose sound</string>
+    <string name="sound_quick_mute">mute</string>
+    <string name="sound_unmute">turn sound back on</string>
+    <string name="confirm_dismiss_in">Closes in %1$d seconds without an answer. Tap to close now.</string>
+    <string name="planned_notify_open">Reach %2$s by %1$s. Open Manotu for the best time to leave.</string>
+    <string name="planned_open_for_best">Open for the best time</string>
 </resources>

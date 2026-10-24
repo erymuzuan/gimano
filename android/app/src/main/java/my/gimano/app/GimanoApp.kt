@@ -62,7 +62,7 @@ class AppContainer(val app: Application) {
     )
     val liveHub = LiveHub(scope, { settings.current.apiBaseUrl }, { settings.current.token })
     val locations = FusedLocationSource(app)
-    val voice = VoiceGuide(app)
+    val voice = VoiceGuide(app, volume = { settings.current.voiceVolume / 100f })
     val navigation = NavigationController(
         scope, repo, FusedFixSource(locations), voice, AndroidNavServiceControl(app),
         soundMode = { settings.current.soundMode }, langProvider = ::voiceLang,
@@ -70,7 +70,7 @@ class AppContainer(val app: Application) {
     val feedback = FeedbackService(db.outbox(), repo)
     val planned = my.gimano.app.data.planned.PlannedDrives(
         app, db.plannedDrives(), db.settings(), repo,
-        here = { navigation.state.value.fix?.point?.let { it.lat to it.lng } ?: lastFix?.let { it.lat to it.lng } },
+        // No position source: background leave-by checks never carry the user's location ("where I am" drives skip them).
         lang = ::lang, use24h = { settings.current.use24h },
     )
     /** Last known position (set by the UI), for planned drives that start "where I am". */

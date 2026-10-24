@@ -87,20 +87,11 @@ fun AlertCard(
                 if (report.confirmations > 0) Text(stringResource(R.string.confirmations, report.confirmations), fontSize = 12.sp, color = c.textMuted)
             }
             Spacer(Modifier.height(10.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                Button(
-                    onClick = { onVote(true) }, modifier = Modifier.weight(1f).height(52.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = c.brand, contentColor = c.brandOn), shape = RoundedCornerShape(Radius.md),
-                ) {
-                    Icon(Icons.Filled.ThumbUp, null, Modifier.size(20.dp)); Spacer(Modifier.width(8.dp)); Text(stringResource(R.string.still_there))
-                }
-                Button(
-                    onClick = { onVote(false) }, modifier = Modifier.weight(1f).height(52.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = c.surfaceAlt, contentColor = c.text), shape = RoundedCornerShape(Radius.md),
-                ) {
-                    Icon(Icons.Filled.ThumbDown, null, Modifier.size(20.dp)); Spacer(Modifier.width(8.dp)); Text(stringResource(R.string.not_there))
-                }
-            }
+            // Same driving confirm buttons as "Masih ditutup?" (84 dp, icon above the full label).
+            my.gimano.app.ui.common.ConfirmButtons(listOf(
+                my.gimano.app.ui.common.ConfirmOption(stringResource(R.string.still_there), my.gimano.app.ui.common.ConfirmIcons.up, my.gimano.app.ui.common.ConfirmStyle.SOLID) { onVote(true) },
+                my.gimano.app.ui.common.ConfirmOption(stringResource(R.string.not_there), my.gimano.app.ui.common.ConfirmIcons.down, my.gimano.app.ui.common.ConfirmStyle.PALE) { onVote(false) },
+            ))
         }
     }
 }

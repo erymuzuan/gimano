@@ -162,6 +162,8 @@ fun PlanEditorSheet(e: PlanEditor, pvm: PlannedViewModel, use24h: Boolean) {
                     when {
                         e.computing -> stringResource(R.string.computing)
                         e.leaveBy != null -> stringResource(R.string.leave_by, Formatters.clock(e.leaveBy.atZone(z), use24h, lang), e.arrive?.atZone(z)?.toLocalDate()?.toString() ?: "")
+                        // "Where I am" start: no traffic-based time until the user routes the drive (never in the background).
+                        e.arrive != null -> stringResource(R.string.planned_open_for_best)
                         else -> stringResource(R.string.no_next_occurrence)
                     },
                     fontWeight = FontWeight.ExtraBold, color = c.text,

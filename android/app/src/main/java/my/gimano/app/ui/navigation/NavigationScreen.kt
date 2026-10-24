@@ -107,7 +107,7 @@ fun NavigationOverlay(nav: NavState, ui: UiState, settings: AppSettings, vm: Mai
                 Modifier.size(Sizes.roundFab).semantics { contentDescription = endLabel },
                 CircleShape, color = c.report, onClick = { vm.askStop(true) },
             ) { GIcon("close", null, size = Sizes.roundFabIcon, stroke = c.reportOn, fill = c.reportOn) }
-            SoundFab(settings.soundMode, onClick = vm::cycleSound)
+            SoundFab(settings.soundMode, settings.voiceVolume, onSelect = vm::selectSound, onLongPress = vm::toggleMute, onVolume = vm::setVoiceVolume)
             if (!ui.following) RoundFab(Icons.Filled.Navigation, stringResource(R.string.recenter), onClick = vm::recenter)
         }
 

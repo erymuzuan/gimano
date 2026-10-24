@@ -7,7 +7,11 @@ import my.gimano.app.core.format.Lang
 import java.util.Locale
 
 /** TextToSpeech wrapper for English and Bahasa Melayu prompts. */
-class VoiceGuide(context: Context) : TextToSpeech.OnInitListener, Speaker {
+class VoiceGuide(
+    context: Context,
+    /** App voice volume 0..1 (sound panel slider), applied per utterance on top of the phone's media volume. */
+    private val volume: () -> Float = { 1f },
+) : TextToSpeech.OnInitListener, Speaker {
     private val tts = TextToSpeech(context.applicationContext, this)
     private var ready = false
     private var currentLang: Lang? = null
@@ -41,7 +45,8 @@ class VoiceGuide(context: Context) : TextToSpeech.OnInitListener, Speaker {
             return
         }
         applyLang(lang)
-        tts.speak(text, if (flush) TextToSpeech.QUEUE_FLUSH else TextToSpeech.QUEUE_ADD, null, "gimano-${text.hashCode()}")
+        val params = android.os.Bundle().apply { putFloat(TextToSpeech.Engine.KEY_PARAM_VOLUME, volume().coerceIn(0f, 1f)) }
+        tts.speak(text, if (flush) TextToSpeech.QUEUE_FLUSH else TextToSpeech.QUEUE_ADD, params, "gimano-${text.hashCode()}")
     }
 
     override fun stop() {
