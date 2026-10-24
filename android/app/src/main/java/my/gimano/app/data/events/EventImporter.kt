@@ -21,7 +21,11 @@ import my.gimano.app.core.events.OpenedPack
 import java.time.Instant
 
 /** Why nothing was imported. */
-enum class EventNotice { OWN_EVENT, CANNOT_OPEN, TOO_LONG, NOT_A_FILE, EXPIRED, DIFFERENT_ORGANIZER, ALREADY_IMPORTED, OLDER }
+enum class EventNotice {
+    OWN_EVENT, CANNOT_OPEN, TOO_LONG, NOT_A_FILE, EXPIRED, DIFFERENT_ORGANIZER, ALREADY_IMPORTED, OLDER,
+    /** "Laluan penuh ditambah": the event file upgraded a stops-only invitation, silently (§7.4). */
+    FULL_ROUTE_ADDED,
+}
 
 sealed interface EventImportUi {
     data object Idle : EventImportUi
@@ -115,6 +119,10 @@ class EventImporter(
             ImportDecision.DifferentOrganizer -> EventImportUi.Notice(EventNotice.DIFFERENT_ORGANIZER)
             ImportDecision.AlreadyImported -> EventImportUi.Notice(EventNotice.ALREADY_IMPORTED, p.event.id)
             is ImportDecision.Older -> EventImportUi.Notice(EventNotice.OLDER, p.event.id, d.storedRev)
+            // Not a fork and nothing to review: the full route replaces the stops-only copy without a prompt.
+            is ImportDecision.UpgradeToFull ->
+                if (runCatching { store.save(p, d) }.getOrDefault(false)) EventImportUi.Notice(EventNotice.FULL_ROUTE_ADDED, p.event.id)
+                else EventImportUi.Notice(EventNotice.ALREADY_IMPORTED, p.event.id)
             is ImportDecision.New, is ImportDecision.Fork, is ImportDecision.Newer -> {
                 pending = p
                 val previous = if (d is ImportDecision.New) null else runCatching { store.load(p.event.id)?.plan }.getOrNull()

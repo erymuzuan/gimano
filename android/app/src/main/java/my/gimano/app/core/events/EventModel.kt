@@ -52,7 +52,8 @@ data class EventRoute(
     val mode: EventTravelMode,
     val day: String?,
     val stopIds: List<String>,
-    val polyline: String,
+    /** Precision-6 polyline; null only in a stops-only variant (§5.5), whose [points] are then empty. */
+    val polyline: String?,
     val points: List<GeoPoint>,
     val source: GeometrySource,
     val distanceM: Long,
@@ -61,6 +62,16 @@ data class EventRoute(
     val descentM: Long?,
     val legs: List<RouteLeg>,
 )
+
+/** `"variant": {"kind": "stops-only", "fullHash": …}` (§5.5): the event without route geometry. */
+data class EventVariant(val kind: String, val fullHash: String) {
+    val fullHashBytes: ByteArray? get() = B64u.decodeExact(fullHash, 32)
+
+    companion object {
+        const val STOPS_ONLY = "stops-only"
+        fun stopsOnly(fullHash: ByteArray) = EventVariant(STOPS_ONLY, B64u.encode(fullHash))
+    }
+}
 
 data class EventPlan(
     val id: String,
@@ -80,7 +91,10 @@ data class EventPlan(
     val stops: List<EventStop>,
     val sessions: List<EventSession>,
     val routes: List<EventRoute>,
+    /** Non-null only on a stops-only variant (§5.5): no route lines; the event file has them. */
+    val variant: EventVariant? = null,
 ) {
+    val stopsOnly: Boolean get() = variant?.kind == EventVariant.STOPS_ONLY
     fun stop(id: String): EventStop? = stops.firstOrNull { it.id == id }
     val polylinePoints: Int get() = routes.sumOf { it.points.size }
     fun isExpired(now: Instant): Boolean = !now.isBefore(expiresAt)
@@ -107,7 +121,7 @@ internal data class RawLeg(val fromStopId: String, val toStopId: String, val dis
 @Serializable
 internal data class RawRoute(
     val id: String, val title: String? = null, val mode: String, val day: String? = null, val stopIds: List<String>? = null,
-    val polyline: String, val source: String, val distanceM: Long, val durationS: Long? = null,
+    val polyline: String? = null, val source: String, val distanceM: Long, val durationS: Long? = null,
     val ascentM: Long? = null, val descentM: Long? = null, val legs: List<RawLeg>? = null,
 )
 
@@ -117,7 +131,11 @@ internal data class RawEvent(
     val title: String, val description: String? = null, val lang: String, val tz: String,
     val start: String, val end: String, val expiresAt: String, val organizer: RawOrganizer? = null,
     val stops: List<RawStop>? = null, val sessions: List<RawSession>? = null, val routes: List<RawRoute>? = null,
+    val variant: RawVariant? = null,
 )
+
+/** `kind` stays a string so an unknown kind is `unsupported_variant`, not malformed JSON. */
+@Serializable internal data class RawVariant(val kind: String, val fullHash: String)
 
 @Serializable internal data class RawEnvelope(val v: Long, val event: String, val pub: String, val sig: String)
 
@@ -202,7 +220,18 @@ internal object EventValidator {
             mode(r.mode) to source(r.source)
         }
 
+        // validate.rs `check`: the variant rules (§5.5) with their own codes, before every §4 rule.
+        val stopsOnly = when (val v = e.variant) {
+            null -> false
+            else -> if (v.kind == EventVariant.STOPS_ONLY) true else fail(EventPackException.UNSUPPORTED_VARIANT, "variant.kind")
+        }
+        rawRoutes.forEachIndexed { i, r ->
+            if (stopsOnly && r.polyline != null) fail(EventPackException.VARIANT_HAS_POLYLINE, "routes[$i]")
+            if (!stopsOnly && r.polyline == null) fail(EventPackException.MISSING_POLYLINE, "routes[$i]")
+        }
+
         // validate.rs, in the same order.
+        if (stopsOnly && B64u.decodeExact(e.variant!!.fullHash, 32) == null) invalid("variant.fullHash", "is not a SHA-256 hash")
         id("id", e.id, EventLimits.EVENT_ID_BYTES)
         if (e.rev == 0L) invalid("rev", "must be 1 or more")
         when {
@@ -260,14 +289,14 @@ internal object EventValidator {
             optText("$p.title", r.title, EventLimits.ROUTE_TITLE_CHARS)
             r.day?.let { d -> if (d.length != 10 || runCatching { LocalDate.parse(d) }.isFailure) invalid("$p.day", "is not a YYYY-MM-DD date") }
             r.stopIds.orEmpty().forEachIndexed { j, sid -> knownStop("$p.stopIds[$j]", sid) }
-            val decoded = try {
+            val decoded = if (r.polyline == null) emptyList() else try {
                 EventPolyline.decode(r.polyline, EventLimits.MAX_POLYLINE_POINTS - points)
             } catch (x: EventPolyline.TooManyPoints) {
                 invalid("$p.polyline", "routes have more than 50 000 polyline points in total")
             } catch (x: IllegalArgumentException) {
                 invalid("$p.polyline", "is not a valid precision-6 polyline")
             }
-            if (decoded.size < 2) invalid("$p.polyline", "needs at least 2 points")
+            if (!stopsOnly && decoded.size < 2) invalid("$p.polyline", "needs at least 2 points")
             points += decoded.size
             r.legs.orEmpty().forEachIndexed { j, l ->
                 knownStop("$p.legs[$j].fromStopId", l.fromStopId)
@@ -279,7 +308,7 @@ internal object EventValidator {
         }
 
         return EventPlan(e.id, e.rev, e.parent, publishedAt, template(e.template), e.title, e.description, e.lang, e.tz, start, end, expiresAt,
-            e.organizer?.alias, stops, sessions, routes)
+            e.organizer?.alias, stops, sessions, routes, e.variant?.let { EventVariant(it.kind, it.fullHash) })
     }
 }
 

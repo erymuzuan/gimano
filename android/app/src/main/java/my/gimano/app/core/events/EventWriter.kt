@@ -43,6 +43,8 @@ object EventJsonWriter {
         o.raw("stops", p.stops.joinToString(",", "[", "]") { stop(it) })
         if (p.sessions.isNotEmpty()) o.raw("sessions", p.sessions.joinToString(",", "[", "]") { session(it) })
         if (p.routes.isNotEmpty()) o.raw("routes", p.routes.joinToString(",", "[", "]") { route(it) })
+        // Stops-only variant (§5.5): always the last field, like the reference writer.
+        p.variant?.let { v -> o.raw("variant", Obj().apply { str("kind", v.kind); str("fullHash", v.fullHash) }.done()) }
         return o.done().toByteArray(Charsets.UTF_8)
     }
 
@@ -73,7 +75,7 @@ object EventJsonWriter {
         str("mode", r.mode.wire)
         r.day?.let { str("day", it) }
         raw("stopIds", r.stopIds.joinToString(",", "[", "]") { quote(it) })
-        str("polyline", r.polyline)
+        r.polyline?.let { str("polyline", it) }
         str("source", r.source.wire)
         raw("distanceM", r.distanceM.toString())
         r.durationS?.let { raw("durationS", it.toString()) }
@@ -234,6 +236,66 @@ class EventPackWriter(private val sodium: LazySodium) {
         val check = reader.open(key, sealed)
         check(check.eventBytes.contentEquals(eventBytes)) { "sealed pack does not round-trip" }
         return sealed
+    }
+}
+
+/** §5.5: the stops-only variant of a published revision. */
+object EventVariants {
+    /**
+     * The stops-only variant of signed full event bytes: the same event (same id, rev, parent, publishedAt) with every
+     * route's `polyline` removed and `variant: {kind: "stops-only", fullHash: SHA-256(full bytes)}` as the last field.
+     * Deterministic for given full bytes; sign it with the same organiser key. Its revision hash is `fullHash`.
+     */
+    fun stopsOnly(fullEventBytes: ByteArray): ByteArray {
+        val full = EventParser.parse(fullEventBytes)
+        if (full.variant != null) fail(EventPackException.INVALID_EVENT, "not a full event")
+        val v = full.copy(
+            routes = full.routes.map { it.copy(polyline = null, points = emptyList()) },
+            variant = EventVariant.stopsOnly(EventHashes.sha256(fullEventBytes)),
+        )
+        val bytes = EventJsonWriter.write(v)
+        EventParser.parse(bytes)
+        return bytes
+    }
+}
+
+/** How the share screen offers an invitation (§5.1, §5.5). */
+enum class ShareMode {
+    /** The full link fits: link (recommended) and file. */
+    LINK,
+    /** The full link is too long but the stops-only link fits: file, or "Pautan tanpa laluan" after a confirm. */
+    STOPS_ONLY_OR_FILE,
+    /** Even the stops-only link is too long (or there are no routes to drop): file only. */
+    FILE_ONLY;
+
+    companion object {
+        /** [stopsOnlyFragment] null = no variant was made (the event has no routes). */
+        fun choose(fullFragment: Int, stopsOnlyFragment: Int?): ShareMode = when {
+            fullFragment <= EventLimits.MAX_FRAGMENT_CHARS -> LINK
+            stopsOnlyFragment != null && stopsOnlyFragment <= EventLimits.MAX_FRAGMENT_CHARS -> STOPS_ONLY_OR_FILE
+            else -> FILE_ONLY
+        }
+    }
+}
+
+/**
+ * One sealed invitation: always the full event (link when it fits, and the file), plus the stops-only variant sealed
+ * with the same organiser key and pack key when the full link is too long (§5.5).
+ */
+class SealedInvitation(val full: SealedPack, val fullFragmentLength: Int, val stopsOnly: SealedPack?, val stopsOnlyFragmentLength: Int?) {
+    val mode: ShareMode get() = ShareMode.choose(fullFragmentLength, stopsOnlyFragmentLength)
+
+    companion object {
+        /** Seals [fullEventBytes] and, only when its link is too long and the event has routes, the stops-only variant. */
+        fun seal(writer: EventPackWriter, fullEventBytes: ByteArray, seed: ByteArray, key: ByteArray): SealedInvitation {
+            val full = writer.seal(fullEventBytes, seed, key)
+            val fullLen = EventLinks.fragmentUnchecked(key, full).length
+            if (fullLen <= EventLimits.MAX_FRAGMENT_CHARS || EventParser.parse(fullEventBytes).routes.isEmpty()) {
+                return SealedInvitation(full, fullLen, null, null)
+            }
+            val variant = writer.seal(EventVariants.stopsOnly(fullEventBytes), seed, key)
+            return SealedInvitation(full, fullLen, variant, EventLinks.fragmentUnchecked(key, variant).length)
+        }
     }
 }
 

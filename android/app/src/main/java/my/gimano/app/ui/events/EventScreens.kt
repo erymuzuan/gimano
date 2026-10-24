@@ -142,6 +142,7 @@ fun EventImportDialogs(
                         EventNotice.DIFFERENT_ORGANIZER -> stringResource(R.string.event_different_organizer)
                         EventNotice.ALREADY_IMPORTED -> stringResource(R.string.event_already)
                         EventNotice.OLDER -> stringResource(R.string.event_older, (s.storedRev ?: 0L).toInt())
+                        EventNotice.FULL_ROUTE_ADDED -> stringResource(R.string.event_full_route_added)
                     },
                     fontSize = 16.sp, color = c.text,
                 )
@@ -353,6 +354,8 @@ fun EventDetailOverlay(
                 }
                 if (p.routes.isNotEmpty()) {
                     item { Section(stringResource(R.string.event_routes)) }
+                    // Stops-only invitation (§5.5): the routes as a list, no lines; the event file adds them.
+                    if (p.stopsOnly) item { Text(stringResource(R.string.event_stops_only_note), fontSize = 14.sp, fontWeight = FontWeight.Bold, color = c.textMuted) }
                     items(p.routes, key = { "r" + it.id }) { r ->
                         Column(Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
                             Text(listOfNotNull(r.title, r.day).joinToString(" · ").ifBlank { r.mode.wire }, fontSize = 16.sp, fontWeight = FontWeight.ExtraBold, color = c.text)

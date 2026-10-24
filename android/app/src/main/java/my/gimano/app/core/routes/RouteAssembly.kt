@@ -116,7 +116,9 @@ object RouteAssembly {
         if (r.legs.any { !it.resolved }) return Assembled.Blocked(RouteBlock.NOT_READY)
         if (r.legs.any { it.hasUnmatched }) return Assembled.Blocked(RouteBlock.UNMATCHED)
         val s = summary(r)
-        val pts = joinedGeometry(r.legs).map { it.geo }.let { if (it.size == 1) it + it else it }
+        // §5.4: Douglas–Peucker at 5 m before signing (every writer path goes through here). Distance and time keep
+        // the routing values, not the simplified length.
+        val pts = RouteSimplify.simplify(joinedGeometry(r.legs).map { it.geo }).let { if (it.size == 1) it + it else it }
         val stopIds = ArrayList<String>()
         val legs = ArrayList<RouteLeg>()
         var spanFrom: String? = null
@@ -151,7 +153,7 @@ object RouteAssembly {
     }
 
     /** Polyline points of the route as it would be published (for the 50 000-point limit). */
-    fun pointCount(r: BuilderRoute): Int = joinedGeometry(r.legs).size
+    fun pointCount(r: BuilderRoute): Int = RouteSimplify.simplify(joinedGeometry(r.legs).map { it.geo }).size
 }
 
 /** GPX 1.1 track writer (route-core `export_gpx`: no timestamps, no metadata, coordinates to 6 decimals). */

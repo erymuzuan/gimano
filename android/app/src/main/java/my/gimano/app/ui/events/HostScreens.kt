@@ -559,6 +559,46 @@ private fun shareFile(context: Context, p: Publication, message: String) {
     runCatching { context.startActivity(Intent.createChooser(i, null).addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)) }
 }
 
+/** "Pautan tanpa laluan" (§5.5): offered only when the full link is too long, and only after the host confirms. */
+@Composable
+private fun StopsOnlyLink(p: Publication, plan: EventPlan, onCopied: (Int) -> Unit) {
+    val c = Gimano.colors
+    val context = LocalContext.current
+    var ask by remember(p) { mutableStateOf(false) }
+    var shown by remember(p) { mutableStateOf(false) }
+    val link = remember(p) { p.stopsOnlyLink(EventLinks.DEFAULT_SITE) } ?: return
+    Column(Modifier.padding(top = 10.dp).fillMaxWidth().clip(RoundedCornerShape(Radius.md)).background(c.surfaceAlt).padding(12.dp)) {
+        Text(stringResource(R.string.host_stops_only_title), fontSize = 16.sp, fontWeight = FontWeight.Black, color = c.text)
+        Text(stringResource(R.string.host_stops_only_body), fontSize = 14.sp, color = c.textMuted, modifier = Modifier.padding(top = 4.dp))
+        if (!shown) {
+            OutlinedButton(onClick = { ask = true }, Modifier.padding(top = 10.dp).fillMaxWidth().height(50.dp), shape = RoundedCornerShape(Radius.md)) {
+                Text(stringResource(R.string.host_stops_only_show), fontWeight = FontWeight.ExtraBold)
+            }
+        } else {
+            Text(link, fontFamily = FontFamily.Monospace, fontSize = 12.sp, color = c.text, maxLines = 2, overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.padding(top = 8.dp).fillMaxWidth().clip(RoundedCornerShape(Radius.sm)).background(c.surface).padding(8.dp))
+            Row(Modifier.padding(top = 10.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                OutlinedButton(onClick = { copySensitive(context, "Manotu", link); onCopied(R.string.host_copied_link) }, Modifier.weight(1f).height(50.dp),
+                    shape = RoundedCornerShape(Radius.md)) {
+                    Icon(Icons.Filled.ContentCopy, null, modifier = Modifier.size(18.dp)); Spacer(Modifier.width(6.dp))
+                    Text(stringResource(R.string.host_copy_link), fontWeight = FontWeight.ExtraBold)
+                }
+                Button(onClick = { shareText(context, InviteMessages.linkMessage(plan, link, BuildConfig.DOWNLOAD_URL)) }, Modifier.weight(1f).height(50.dp),
+                    shape = RoundedCornerShape(Radius.md), colors = ButtonDefaults.buttonColors(containerColor = c.brand, contentColor = c.brandOn)) {
+                    Icon(Icons.Filled.Share, null, modifier = Modifier.size(18.dp)); Spacer(Modifier.width(6.dp))
+                    Text(stringResource(R.string.host_share), fontWeight = FontWeight.ExtraBold)
+                }
+            }
+        }
+    }
+    if (ask) AlertDialog(
+        onDismissRequest = { ask = false },
+        text = { Text(stringResource(R.string.host_stops_only_confirm), fontSize = 16.sp, color = c.text) },
+        confirmButton = { TextButton(onClick = { ask = false; shown = true }) { Text(stringResource(R.string.host_stops_only_title), fontWeight = FontWeight.ExtraBold) } },
+        dismissButton = { TextButton(onClick = { ask = false }) { Text(stringResource(R.string.cancel)) } },
+    )
+}
+
 @Composable
 fun EventShareScreen(editor: HostEditor, use24h: Boolean, onBack: () -> Unit) {
     val c = Gimano.colors
@@ -592,8 +632,15 @@ fun EventShareScreen(editor: HostEditor, use24h: Boolean, onBack: () -> Unit) {
                         fontSize = 12.sp, fontWeight = FontWeight.ExtraBold, color = c.brandOn)
                 }
                 Text(stringResource(R.string.host_link_body), fontSize = 14.sp, color = c.textMuted, modifier = Modifier.padding(top = 4.dp))
-                if (link == null) Warning(stringResource(R.string.host_link_too_long, p.fragmentLength, EventLimits.MAX_FRAGMENT_CHARS))
-                else {
+                if (link == null) {
+                    Warning(stringResource(R.string.host_link_too_long, p.fragmentLength, EventLimits.MAX_FRAGMENT_CHARS))
+                    when (p.mode) {
+                        my.gimano.app.core.events.ShareMode.STOPS_ONLY_OR_FILE -> StopsOnlyLink(p, plan, onCopied = { copied = it })
+                        my.gimano.app.core.events.ShareMode.FILE_ONLY -> Text(stringResource(R.string.host_link_file_only), fontSize = 14.sp, color = c.textMuted,
+                            modifier = Modifier.padding(top = 8.dp))
+                        my.gimano.app.core.events.ShareMode.LINK -> Unit
+                    }
+                } else {
                     Text(link, fontFamily = FontFamily.Monospace, fontSize = 12.sp, color = c.text, maxLines = 2, overflow = TextOverflow.Ellipsis,
                         modifier = Modifier.padding(top = 8.dp).fillMaxWidth().clip(RoundedCornerShape(Radius.sm)).background(c.surfaceAlt).padding(8.dp))
                     Row(Modifier.padding(top = 10.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {

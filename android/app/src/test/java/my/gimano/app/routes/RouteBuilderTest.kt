@@ -398,7 +398,9 @@ class LegRouterTest {
         val kept = RouteEdit.keepLegAsSketch(r, 0)!!
         val ok = RouteAssembly.toEventRoute(kept, emptySet()) as Assembled.Ok
         assertEquals(GeometrySource.SKETCH, ok.route.source)
-        assertEquals(10, ok.route.points.size)   // the drawn line, as drawn
+        // The drawn line, simplified at 5 m like every published route (§5.4); this one is almost straight.
+        assertEquals(my.gimano.app.core.routes.RouteSimplify.simplify(kept.legs[0].geometry.map { it.geo }), ok.route.points)
+        assertTrue(ok.route.points.size < 10)
         // "Tambah titik": a point in the unmatched stretch, both halves routed point to point.
         val split = RouteEdit.insertPoint(r, 0, r.legs[0].drawn!![4])!!
         assertEquals(listOf(LegState.PENDING, LegState.PENDING), split.legs.map { it.state })

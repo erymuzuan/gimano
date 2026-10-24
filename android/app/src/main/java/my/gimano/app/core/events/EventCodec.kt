@@ -28,6 +28,12 @@ class EventPackException(val code: String, message: String = code) : Exception(m
         const val MALFORMED_ENVELOPE = "malformed_envelope"
         const val UNSUPPORTED_ENVELOPE_VERSION = "unsupported_envelope_version"
         const val SIGNATURE = "signature"
+        /** §5.5: `variant.kind` other than `stops-only`. */
+        const val UNSUPPORTED_VARIANT = "unsupported_variant"
+        /** §5.5: a stops-only variant with a route `polyline`. */
+        const val VARIANT_HAS_POLYLINE = "variant_has_polyline"
+        /** §5.5: a full event with a route lacking `polyline`. */
+        const val MISSING_POLYLINE = "missing_polyline"
     }
 }
 
@@ -82,8 +88,20 @@ object B64u {
 object EventHashes {
     fun sha256(b: ByteArray): ByteArray = MessageDigest.getInstance("SHA-256").digest(b)
 
-    /** SHA-256 of the exact signed event bytes: the next revision's `parent`. */
-    fun revisionHash(eventBytes: ByteArray): ByteArray = sha256(eventBytes)
+    /**
+     * The revision hash (§7, what the next revision's `parent` refers to): SHA-256 of the exact signed event bytes,
+     * except for a stops-only variant (§5.5), whose revision hash is its `variant.fullHash`. For bytes that already
+     * passed [EventParser.parse].
+     */
+    fun revisionHash(eventBytes: ByteArray): ByteArray = variantOf(eventBytes)?.fullHashBytes ?: sha256(eventBytes)
+
+    /** The stops-only variant marker of event bytes, if they are one (cheap probe, no validation). */
+    fun variantOf(eventBytes: ByteArray): EventVariant? = runCatching {
+        EventJson.decodeFromString(VariantProbe.serializer(), eventBytes.toString(Charsets.UTF_8)).variant
+    }.getOrNull()?.takeIf { it.kind == EventVariant.STOPS_ONLY }?.let { EventVariant(it.kind, it.fullHash) }
+
+    @kotlinx.serialization.Serializable
+    internal data class VariantProbe(val variant: RawVariant? = null)
 
     /** Digits and upper-case letters without the look-alikes 0/O and 1/I. */
     private const val SAFETY_ALPHABET = "23456789ABCDEFGHJKLMNPQRSTUVWXYZ"

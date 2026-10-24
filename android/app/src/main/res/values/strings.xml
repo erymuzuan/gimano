@@ -862,7 +862,7 @@
     <string name="host_link_title">Invitation link</string>
     <string name="host_recommended">Recommended</string>
     <string name="host_link_body">Opens on any phone, with or without Manotu. Good for e-cards and WhatsApp.</string>
-    <string name="host_link_too_long">The link would be too long (%1$d of %2$d characters). Share the event file below instead.</string>
+    <string name="host_link_too_long">The link would be too long (%1$d of %2$d characters). Share the event file below instead, or a link without the route lines.</string>
     <string name="host_copy_link">Copy link</string>
     <string name="host_share">Share…</string>
     <string name="host_copied_link">Link copied.</string>
@@ -988,4 +988,11 @@
     <string name="rb_this_phone">phone + your backup</string>
     <string name="rb_sketch_parts">%1$d part sketch</string>
     <string name="rb_route_mode">Mode: %1$s</string>
+    <string name="event_full_route_added">Full route added.</string>
+    <string name="event_stops_only_note">The full route is in the event file.</string>
+    <string name="host_stops_only_title">Link without route</string>
+    <string name="host_stops_only_body">Stops, times and route distances only, so it fits in a link. Send the event file too, for guests who want the route lines on the map.</string>
+    <string name="host_stops_only_confirm">Share a link without the route lines? Guests see the stops and route distances; the lines come with the event file.</string>
+    <string name="host_stops_only_show">Use link without route</string>
+    <string name="host_link_file_only">Even without the route lines the link would be too long. Share the event file below.</string>
 </resources>

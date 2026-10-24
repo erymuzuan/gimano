@@ -42,16 +42,17 @@ class EventStore(
 
     suspend fun storedFor(eventId: String): StoredEvent? {
         val pin = dao.pin(eventId) ?: return null
-        val revs = dao.revisions(eventId).mapNotNull { r -> B64u.decodeExact(r.hash, 32)?.let { StoredRevision(r.rev, it) } }
+        val revs = dao.revisions(eventId).mapNotNull { r -> B64u.decodeExact(r.hash, 32)?.let { StoredRevision(r.rev, it, stopsOnly = r.stopsOnly) } }
         return StoredEvent(pin.organizerPub, revs)
     }
 
-    /** Applies an accepted decision (New / Newer / Fork); anything else stores nothing. Returns true if saved. */
+    /** Applies an accepted decision (New / Newer / Fork / UpgradeToFull); anything else stores nothing. Returns true if saved. */
     suspend fun save(p: OpenedPack, d: ImportDecision): Boolean {
         val now = clock().toEpochMilli()
         val id = p.event.id
         val hash = p.revisionHashB64u
-        val row = EventRevisionEntity(hash, id, p.event.rev, active = false, importedAt = now, payload = vault.seal(p.eventBytes))
+        val row = EventRevisionEntity(hash, id, p.event.rev, active = false, importedAt = now, payload = vault.seal(p.eventBytes),
+            stopsOnly = p.event.stopsOnly)
         val expires = p.event.expiresAt.toEpochMilli()
         when (d) {
             is ImportDecision.New -> tx {
@@ -74,6 +75,17 @@ class EventStore(
                 dao.insertRevision(row)
                 dao.activate(id, hash)
                 dao.updatePin(pin.copy(expiresAt = expires))
+            }
+            // Same revision hash: the full event's bytes replace the stored variant's payload; active state unchanged.
+            is ImportDecision.UpgradeToFull -> {
+                check(!p.event.stopsOnly)
+                var n = 0
+                tx {
+                    val pin = dao.pin(id) ?: error("no pin")
+                    check(pin.organizerPub.contentEquals(p.organizerPub))
+                    n = dao.replacePayload(id, hash, row.payload!!)
+                }
+                if (n == 0) return false
             }
             else -> return false
         }

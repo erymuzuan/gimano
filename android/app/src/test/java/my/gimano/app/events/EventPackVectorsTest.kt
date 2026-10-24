@@ -57,7 +57,7 @@ class EventPackVectorsTest {
         assertEquals(ImportDecision.New(v.s("safetyCode")), d)
     }
 
-    private fun positive(name: String) {
+    internal fun positive(name: String) {
         val v = vector(name)
         // Reader: every transport opens to the same signed bytes.
         checkOpened(v, reader.openLink(v.s("linkFragment")))
@@ -147,7 +147,8 @@ class EventPackVectorsTest {
 
     @Test fun everyVectorFileIsCovered() {
         val names = listOf("kenduri-one-day", "ride-two-day", "negative-tampered-ciphertext", "negative-bad-signature", "negative-wrong-key",
-            "negative-expired", "negative-oversized-fragment")
+            "negative-expired", "negative-oversized-fragment", "ride-two-day-stops-only", "negative-variant-with-polyline",
+            "negative-missing-polyline", "negative-unknown-variant", "import-stops-only-sequence")
         val dir = javaClass.classLoader!!.getResource("event-vectors")!!.let { File(it.toURI()) }
         assertEquals(names.sorted(), dir.listFiles()!!.filter { it.extension == "json" }.map { it.nameWithoutExtension }.sorted())
     }

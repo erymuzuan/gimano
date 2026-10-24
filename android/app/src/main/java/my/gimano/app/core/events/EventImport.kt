@@ -2,10 +2,13 @@ package my.gimano.app.core.events
 
 import java.time.Instant
 
-/** One stored revision of an event (two share a `rev` after the user kept both sides of a fork). */
-data class StoredRevision(val rev: Long, val hash: ByteArray) {
-    override fun equals(other: Any?) = other is StoredRevision && rev == other.rev && hash.contentEquals(other.hash)
-    override fun hashCode() = 31 * rev.hashCode() + hash.contentHashCode()
+/**
+ * One stored revision of an event (two share a `rev` after the user kept both sides of a fork). [hash] is the
+ * **revision hash**: SHA-256 of the stored bytes, or `fullHash` when they are a stops-only variant (§5.5).
+ */
+data class StoredRevision(val rev: Long, val hash: ByteArray, val stopsOnly: Boolean = false) {
+    override fun equals(other: Any?) = other is StoredRevision && rev == other.rev && hash.contentEquals(other.hash) && stopsOnly == other.stopsOnly
+    override fun hashCode() = 31 * (31 * rev.hashCode() + hash.contentHashCode()) + stopsOnly.hashCode()
 }
 
 /** The local record for one event id: the pinned organizer key and every revision kept. */
@@ -19,10 +22,13 @@ class ImportCandidate(
     val parent: ByteArray?,
     val expiresAt: Instant,
     val organizerPub: ByteArray,
+    /** Revision hash (`fullHash` for a stops-only variant). */
     val revisionHash: ByteArray,
+    val stopsOnly: Boolean = false,
 ) {
     companion object {
-        fun of(p: OpenedPack) = ImportCandidate(p.event.rev, p.event.parent?.let { B64u.decodeExact(it, 32) }, p.event.expiresAt, p.organizerPub, p.revisionHash)
+        fun of(p: OpenedPack) = ImportCandidate(p.event.rev, p.event.parent?.let { B64u.decodeExact(it, 32) }, p.event.expiresAt, p.organizerPub,
+            p.revisionHash, p.event.stopsOnly)
     }
 }
 
@@ -43,8 +49,16 @@ sealed interface ImportDecision {
     data class New(val safetyCode: String) : ImportDecision
     /** "penganjur berbeza": reject. */
     data object DifferentOrganizer : ImportDecision
-    /** Identical bytes already stored: nothing to do. */
+    /**
+     * "sudah diimport": the same revision is already stored (identical bytes, the full event when a stops-only variant
+     * arrives, or the same variant again). Nothing changes.
+     */
     data object AlreadyImported : ImportDecision
+    /**
+     * "Laluan penuh ditambah": the full event of a stored stops-only variant arrived. Replace the stored variant of
+     * [rev] with it silently (no prompt, not a fork).
+     */
+    data class UpgradeToFull(val rev: Long) : ImportDecision
     /** "versi lebih lama": keep the stored revision. */
     data class Older(val storedRev: Long) : ImportDecision
     /** Same rev, different bytes: warn, keep both, the user chooses. */
@@ -58,6 +72,7 @@ sealed interface ImportDecision {
         is New -> "new"
         DifferentOrganizer -> "different_organizer"
         AlreadyImported -> "already_imported"
+        is UpgradeToFull -> "upgrade_to_full"
         is Older -> "older"
         is Fork -> "fork"
         is Newer -> "newer"
@@ -73,7 +88,11 @@ object EventImport {
         if (isExpired(c.expiresAt, now)) return ImportDecision.Expired
         if (stored == null) return ImportDecision.New(EventHashes.safetyCode(c.organizerPub))
         if (!stored.organizerPub.contentEquals(c.organizerPub)) return ImportDecision.DifferentOrganizer
-        if (stored.revisions.any { it.hash.contentEquals(c.revisionHash) }) return ImportDecision.AlreadyImported
+        // Revision hashes (§7.4): a variant and its full event are the same revision, never a fork.
+        val same = stored.revisions.filter { it.rev == c.rev && it.hash.contentEquals(c.revisionHash) }
+        if (same.isNotEmpty()) {
+            return if (!c.stopsOnly && same.all { it.stopsOnly }) ImportDecision.UpgradeToFull(c.rev) else ImportDecision.AlreadyImported
+        }
         val storedRev = stored.revisions.maxOfOrNull { it.rev } ?: 0L
         if (c.rev < storedRev) return ImportDecision.Older(storedRev)
         if (c.rev == storedRev) return ImportDecision.Fork(storedRev)

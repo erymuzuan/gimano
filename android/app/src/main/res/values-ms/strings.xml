@@ -860,7 +860,7 @@
     <string name="host_link_title">Pautan jemputan</string>
     <string name="host_recommended">Disyorkan</string>
     <string name="host_link_body">Dibuka di mana-mana telefon, dengan atau tanpa Manotu. Sesuai untuk e-kad dan WhatsApp.</string>
-    <string name="host_link_too_long">Pautan terlalu panjang (%1$d daripada %2$d aksara). Kongsi fail acara di bawah.</string>
+    <string name="host_link_too_long">Pautan terlalu panjang (%1$d daripada %2$d aksara). Kongsi fail acara di bawah, atau pautan tanpa garis laluan.</string>
     <string name="host_copy_link">Salin pautan</string>
     <string name="host_share">Kongsi…</string>
     <string name="host_copied_link">Pautan disalin.</string>
@@ -986,4 +986,11 @@
     <string name="rb_this_phone">telefon + sandaran anda</string>
     <string name="rb_sketch_parts">%1$d bahagian lakaran</string>
     <string name="rb_route_mode">Mod: %1$s</string>
+    <string name="event_full_route_added">Laluan penuh ditambah.</string>
+    <string name="event_stops_only_note">Laluan penuh ada dalam fail acara.</string>
+    <string name="host_stops_only_title">Pautan tanpa laluan</string>
+    <string name="host_stops_only_body">Hanya tempat, masa dan jarak laluan, jadi muat dalam pautan. Hantar juga fail acara untuk tetamu yang mahu garis laluan di peta.</string>
+    <string name="host_stops_only_confirm">Kongsi pautan tanpa garis laluan? Tetamu nampak tempat dan jarak laluan; garisnya ada dalam fail acara.</string>
+    <string name="host_stops_only_show">Guna pautan tanpa laluan</string>
+    <string name="host_link_file_only">Walaupun tanpa garis laluan, pautan masih terlalu panjang. Kongsi fail acara di bawah.</string>
 </resources>

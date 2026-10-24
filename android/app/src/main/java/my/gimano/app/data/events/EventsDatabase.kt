@@ -33,16 +33,20 @@ data class EventPinEntity(
 /**
  * One imported revision. [payload] is the signed event bytes sealed with the Android Keystore ([EventVault]);
  * null for superseded revisions, whose hash is kept only to recognise them ("sudah diimport", parent checks).
+ * [hash] is the revision hash (§7.4): a stops-only variant (§5.5) is stored under its `fullHash`, so the full event
+ * of the same revision later replaces its payload in place.
  */
 @Entity(tableName = "event_revision", indices = [Index("event_id")])
 data class EventRevisionEntity(
-    /** b64u(SHA-256(event bytes)). */
+    /** b64u(revision hash): SHA-256(event bytes), or `variant.fullHash` for a stops-only variant. */
     @PrimaryKey val hash: String,
     @ColumnInfo(name = "event_id") val eventId: String,
     val rev: Long,
     val active: Boolean,
     @ColumnInfo(name = "imported_at") val importedAt: Long,
     val payload: ByteArray?,
+    /** The stored bytes are a stops-only variant (§5.5); kept after [payload] is dropped, for the §7.4 decisions. v4. */
+    @ColumnInfo(name = "stops_only", defaultValue = "0") val stopsOnly: Boolean = false,
 )
 
 @Dao
@@ -70,6 +74,10 @@ interface EventDao {
 
     @Query("UPDATE event_revision SET active = (hash = :hash) WHERE event_id = :id")
     suspend fun activate(id: String, hash: String)
+
+    /** "Laluan penuh ditambah": the full event replaces the stored stops-only variant of the same revision. */
+    @Query("UPDATE event_revision SET payload = :payload, stops_only = 0 WHERE event_id = :id AND hash = :hash AND payload IS NOT NULL")
+    suspend fun replacePayload(id: String, hash: String, payload: ByteArray): Int
 
     @Query("UPDATE event_revision SET payload = NULL WHERE event_id = :id AND rev < :rev")
     suspend fun dropPayloadsBelow(id: String, rev: Long)
@@ -166,8 +174,9 @@ object EventsMigrations {
 }
 
 @Database(
-    entities = [EventPinEntity::class, EventRevisionEntity::class, HostEventEntity::class, PersonalRouteEntity::class], version = 3, exportSchema = true,
-    autoMigrations = [AutoMigration(from = 1, to = 2)],
+    entities = [EventPinEntity::class, EventRevisionEntity::class, HostEventEntity::class, PersonalRouteEntity::class], version = 4, exportSchema = true,
+    // 3 → 4: event_revision.stops_only (default 0: every revision imported before variants existed is a full event).
+    autoMigrations = [AutoMigration(from = 1, to = 2), AutoMigration(from = 3, to = 4)],
 )
 abstract class EventsDatabase : RoomDatabase() {
     abstract fun events(): EventDao

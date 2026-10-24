@@ -37,6 +37,10 @@ class FakeEventDao : EventDao {
     override suspend fun updatePin(p: EventPinEntity) { pins.value = pins.value + (p.eventId to p) }
     override suspend fun insertRevision(r: EventRevisionEntity) { check(r.hash !in revs.value); revs.value = revs.value + (r.hash to r) }
     override suspend fun activate(id: String, hash: String) { revs.value = revs.value.mapValues { (_, r) -> if (r.eventId == id) r.copy(active = r.hash == hash) else r } }
+    override suspend fun replacePayload(id: String, hash: String, payload: ByteArray): Int {
+        val r = revs.value[hash]?.takeIf { it.eventId == id && it.payload != null } ?: return 0
+        revs.value = revs.value + (hash to r.copy(payload = payload, stopsOnly = false)); return 1
+    }
     override suspend fun dropPayloadsBelow(id: String, rev: Long) { revs.value = revs.value.mapValues { (_, r) -> if (r.eventId == id && r.rev < rev) r.copy(payload = null) else r } }
     override suspend fun deleteRevisions(id: String) { revs.value = revs.value.filterValues { it.eventId != id } }
     override suspend fun deletePin(id: String) { pins.value = pins.value - id }

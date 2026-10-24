@@ -14,7 +14,9 @@ import my.gimano.app.core.events.EventPlan
 import my.gimano.app.core.events.EventRevisions
 import my.gimano.app.core.events.HostDraft
 import my.gimano.app.core.events.HostDraftRules
+import my.gimano.app.core.events.SealedInvitation
 import my.gimano.app.core.events.SealedPack
+import my.gimano.app.core.events.ShareMode
 import my.gimano.app.core.events.SecretCode
 import my.gimano.app.core.events.decodeHostDraft
 import java.time.Instant
@@ -30,12 +32,18 @@ data class HostedEvent(
 
 /**
  * One sealed invitation, held in memory only while the share screen is open. [key] is the pack key: it is in the link
- * and is the file's secret code; never log it.
+ * and is the file's secret code; never log it. The file always carries the full event; [stopsOnlyLink] is the same
+ * revision without route lines (§5.5), only when the full link is too long and that one fits.
  */
-class Publication(val plan: EventPlan, val key: ByteArray, val sealed: SealedPack, val reused: Boolean, val previous: EventPlan?) {
-    val fragmentLength: Int get() = EventLinks.fragmentUnchecked(key, sealed).length
-    /** Null when the fragment would exceed 16 000 characters: offer the file instead. */
+class Publication(val plan: EventPlan, val key: ByteArray, val invitation: SealedInvitation, val reused: Boolean, val previous: EventPlan?) {
+    val sealed: SealedPack get() = invitation.full
+    val mode: ShareMode get() = invitation.mode
+    val fragmentLength: Int get() = invitation.fullFragmentLength
+    /** Null when the fragment would exceed 16 000 characters: offer the file (or the stops-only link) instead. */
     fun link(site: String): String? = runCatching { EventLinks.link(site, key, sealed) }.getOrNull()
+    /** "Pautan tanpa laluan": only in [ShareMode.STOPS_ONLY_OR_FILE]. */
+    fun stopsOnlyLink(site: String): String? =
+        invitation.stopsOnly?.takeIf { mode == ShareMode.STOPS_ONLY_OR_FILE }?.let { runCatching { EventLinks.link(site, key, it) }.getOrNull() }
     fun file(): ByteArray = EventLinks.file(sealed)
     val secretCode: String get() = SecretCode.encode(key)
 }
@@ -121,7 +129,8 @@ class HostStore(
         try {
             val seed = s.copyOfRange(0, 32)
             val key = s.copyOfRange(32, 64)
-            val sealed = try { writer.seal(prepared.bytes, seed, key) } finally { seed.fill(0) }
+            // Same revision, same organiser key and pack key for the stops-only variant; the stored bytes stay the full ones.
+            val sealed = try { SealedInvitation.seal(writer, prepared.bytes, seed, key) } finally { seed.fill(0) }
             if (!prepared.reused) {
                 dao.update(e.copy(published = vault.seal(prepared.bytes), publishedRev = prepared.plan.rev,
                     expiresAt = prepared.plan.expiresAt.toEpochMilli(), updatedAt = clock().toEpochMilli()))
