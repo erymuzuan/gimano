@@ -113,8 +113,8 @@ struct DriveView: View {
                     }
                     if let alert = nav.approachingAlert {
                         AlertCard(report: alert.report, distanceM: nav.distanceToAlert(alert),
-                                  onStillThere: { nav.vote(stillThere: true) },
-                                  onNotThere: { nav.vote(stillThere: false) },
+                                  onStillThere: { Task { if await model.ensureRulesAccepted() { nav.vote(stillThere: true) } } },
+                                  onNotThere: { Task { if await model.ensureRulesAccepted() { nav.vote(stillThere: false) } } },
                                   onClose: { nav.dismissAlert() })
                             .padding(.horizontal, Tokens.Space.gutter)
                             .transition(.move(edge: .bottom).combined(with: .opacity))

@@ -44,8 +44,9 @@ struct FeedbackForm: View {
     @State private var category: FeedbackCategory?
     @State private var message = ""
     @State private var rating: Int?
-    @State private var includeScreenshot = true
-    @State private var includeDevice = true
+    // Opt-in: nothing extra goes with feedback unless the user ticks it (a screenshot can show where they are).
+    @State private var includeScreenshot = false
+    @State private var includeDevice = false
     @State private var includeLocation = false
     @State private var email = ""
     @State private var whatsapp = ""
@@ -121,6 +122,13 @@ struct FeedbackForm: View {
 
                     ContactSection(email: $email, whatsapp: $whatsapp, consent: $contactConsent, error: contactError)
 
+                    if model.isDemo {
+                        Label("Demo mode: this feedback stays on this phone and is not sent to Manotu.", systemImage: "play.circle")
+                            .font(Tokens.Font.caption)
+                            .foregroundStyle(Color.textMuted)
+                            .accessibilityIdentifier("feedbackDemoNote")
+                    }
+
                     Button {
                         guard let category else { return }
                         let (contact, err) = ContactRules.build(email: email, whatsapp: whatsapp, consent: contactConsent)
@@ -187,9 +195,41 @@ struct MyFeedbackView: View {
                             }
                             Button("Delete", role: .destructive) { model.feedbackOutbox.delete(item.id) }
                             if let sid = item.serverId {
-                                contactAction(serverId: sid, hasContact: model.serverFeedback.first { $0.id == sid }?.hasContact == true)
+                                if item.sentWithContact {
+                                    if item.contactWithdrawn != true {
+                                        contactAction(serverId: sid, hasContact: true, token: item.contactToken, localId: item.id)
+                                    }
+                                } else {
+                                    contactAction(serverId: sid, hasContact: model.serverFeedback.first { $0.id == sid }?.hasContact == true)
+                                }
                             }
                         }
+                    if item.sentWithContact {
+                        Label(item.contactWithdrawn == true
+                              ? String(localized: "Contact details deleted")
+                              : String(localized: "Sent with your contact details, so it isn't linked to your account and gets no status updates here. We reply by the email or WhatsApp you gave. Swipe to delete your contact details."),
+                              systemImage: "envelope")
+                            .font(Tokens.Font.small).foregroundStyle(Color.textMuted)
+                            .accessibilityIdentifier("feedbackContactNote")
+                    }
+                }
+                if !model.crashContacts.isEmpty {
+                    Section("Crash reports with your contact details") {
+                        ForEach(model.crashContacts) { c in
+                            HStack {
+                                Text(c.sentAt.formatted(date: .abbreviated, time: .shortened)).font(Tokens.Font.body)
+                                Spacer()
+                                if c.withdrawn {
+                                    Text("Contact details deleted").font(Tokens.Font.small).foregroundStyle(Color.textMuted)
+                                } else {
+                                    Button("Delete contact") { Task { await model.deleteCrashContact(c) } }
+                                        .buttonStyle(.borderless)
+                                        .foregroundStyle(Color(uiColor: Tokens.Palette.speeding))
+                                        .accessibilityIdentifier("deleteCrashContact")
+                                }
+                            }
+                        }
+                    }
                 }
                 ForEach(remoteOnly) { f in
                     row(category: f.category, message: f.message, date: f.createdAt,
@@ -206,9 +246,9 @@ struct MyFeedbackView: View {
     }
 
     /// "Delete my contact details" for a report I left them on.
-    @ViewBuilder private func contactAction(serverId: String, hasContact: Bool) -> some View {
+    @ViewBuilder private func contactAction(serverId: String, hasContact: Bool, token: String? = nil, localId: UUID? = nil) -> some View {
         if hasContact {
-            Button { Task { await model.deleteFeedbackContact(serverId) } } label: {
+            Button { Task { await model.deleteFeedbackContact(serverId, contactToken: token, localId: localId) } } label: {
                 Label("Delete contact", systemImage: "person.crop.circle.badge.xmark")
             }
             .tint(.speeding)
@@ -342,11 +382,13 @@ struct CrashReportSheet: View {
     @State private var consent = false
     @State private var error: String?
     @State private var preference = CrashReporter.shared.preference
+    /// Opt-in, like feedback (docs/api.md: device info default OFF).
+    @State private var includeDevice = false
 
-    /// Exactly what is sent (scrubbed, with the device block; contact is added only if entered).
+    /// Exactly what is sent (scrubbed, with the device block only if ticked; contact is added only if entered).
     private func previewJSON(_ r: CrashReport) -> String {
         var p = r.scrubbed()
-        p.device = model.currentDevice()
+        p.device = includeDevice ? model.currentDevice() : nil
         return DeviceInfoToggle.json(p)
     }
 
@@ -374,6 +416,7 @@ struct CrashReportSheet: View {
                             .background(Color.surfaceAlt, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
                             .accessibilityIdentifier("crashDetails")
                     }
+                    DeviceInfoToggle(isOn: $includeDevice, device: model.currentDevice())
                     ContactSection(email: $email, whatsapp: $whatsapp, consent: $consent, error: error)
                     Picker("Next time", selection: $preference) {
                         ForEach(CrashPreference.allCases, id: \.self) { Text($0.title).tag($0) }
@@ -385,7 +428,7 @@ struct CrashReportSheet: View {
                         error = err
                         guard err == nil else { return }
                         CrashReporter.shared.preference = preference
-                        Task { await model.sendCrashReports(contact: contact) }
+                        Task { await model.sendCrashReports(contact: contact, includeDevice: includeDevice) }
                         dismiss()
                     } label: { Label("Send report", systemImage: "paperplane.fill") }
                         .buttonStyle(PrimaryButtonStyle())

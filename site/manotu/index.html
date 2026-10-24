@@ -365,10 +365,10 @@ a:focus-visible{outline:3px solid #0047AB;outline-offset:3px}
       <div style="flex: 1 1 240px; min-width: 0; display: flex; flex-direction: column; gap: 6px;">
         <span style="width: 40px; height: 40px; border-radius: 12px; background: #0047AB; color: #FFFFFF; font-weight: 900; font-size: 20px; display: flex; align-items: center; justify-content: center;">3</span>
         <span style="font-size: 22px; font-weight: 900;">Trafik tanpa nama</span>
-        <span style="font-size: 15px; color: #3A4A66;">Ketika memandu, titik kelajuan tanpa nama menjadi warna jalan, kemudian dipadam dalam 30 saat. Perjalanan anda tidak disimpan.</span>
-        <span style="font-size: 13px; font-weight: 800; color: #5A6984;">Anonymous speeds become road colour, then vanish.</span>
+        <span style="font-size: 15px; color: #3A4A66;">Ketika memandu, titik kelajuan tanpa nama menjadi warna jalan. Titik mentah dibuang dari baris gilir dalam 30 saat, sampel dalam memori kekal paling lama 5 minit, dan tiada yang ditulis ke cakera. Perjalanan anda tidak disimpan.</span>
+        <span style="font-size: 13px; font-weight: 800; color: #5A6984;">Anonymous speeds become road colour. Raw points leave the queue within 30 s, in-memory samples last at most 5 minutes, and nothing is written to disk.</span>
       </div>
-      <svg viewBox="0 0 820 200" style="flex: 999 1 520px; min-width: 0; width: 100%; height: auto;" role="img" aria-label="Animation: a car drives along a road, anonymous speed dots rise and disappear, the road segment turns orange for traffic, and a 30 second timer shows the raw points being deleted.">
+      <svg viewBox="0 0 820 200" style="flex: 999 1 520px; min-width: 0; width: 100%; height: auto;" role="img" aria-label="Animation: a car drives along a road, anonymous speed dots rise and disappear, the road segment turns orange for traffic, and a 30 second timer shows the raw points leaving the queue (in-memory samples last at most 5 minutes; nothing is written to disk).">
         <rect x="0" y="130" width="820" height="40" rx="6" fill="#D5D9DE"></rect>
         <rect x="0" y="136" width="820" height="28" rx="4" fill="#FFFFFF"></rect>
         <rect x="300" y="142" width="300" height="16" rx="8" fill="#FFB020" class="gm-grow"></rect>
@@ -383,7 +383,7 @@ a:focus-visible{outline:3px solid #0047AB;outline-offset:3px}
           <circle cx="730" cy="60" r="20" fill="none" stroke="#E3ECFA" stroke-width="6"></circle>
           <circle cx="730" cy="60" r="20" fill="none" stroke="#0047AB" stroke-width="6" stroke-linecap="round" class="gm-timer" transform="rotate(-90 730 60)"></circle>
           <text x="730" y="65" text-anchor="middle" font-size="13" font-weight="900" fill="#0B1B3A">30s</text>
-          <text x="730" y="102" text-anchor="middle" font-size="12" font-weight="800" fill="#3A4A66">titik mentah dipadam</text>
+          <text x="730" y="102" text-anchor="middle" font-size="12" font-weight="800" fill="#3A4A66">titik mentah keluar baris gilir</text>
         </g>
       </svg>
     </div>

@@ -30,7 +30,8 @@ enum BackupRetention {
 }
 
 enum BackupDestinationKind: String, CaseIterable, Identifiable, Sendable {
-    case icloud, googleDrive, file
+    /// `demo`: "Demo storage (on this phone)", offered in Demo mode only.
+    case icloud, googleDrive, file, demo
     var id: String { rawValue }
 }
 

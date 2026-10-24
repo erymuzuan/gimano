@@ -14,14 +14,14 @@ public sealed class PayloadTooLargeException(string message) : Exception(message
 /// Upload: validate + header-probe synchronously (415 for undecodable/HEIC), store the original under uploads/,
 /// publish photo.uploaded; the worker does orientation → strip metadata → WebP and flips status to published/rejected.
 /// </summary>
-public sealed class PhotoService(GimanoDbContext db, IMediaStore media, IEventPublisher bus, TimeProvider clock)
+public sealed class PhotoService(GimanoDbContext db, IMediaStore media, IEventPublisher bus, TimeProvider clock, AuthorHandles handles)
 {
     public const int PageSize = 30;
     public const int UploadsPerDay = 50;
 
     public async Task<PhotoDto> UploadAsync(Guid userId, string placeId, IFormFile file, string? caption, CancellationToken ct)
     {
-        var user = await db.Users.FirstOrDefaultAsync(u => u.Id == userId, ct) ?? throw new UnauthorizedAccessException("This account was deleted.");
+        var user = Moderation.EnsureMayContribute(await db.Users.FirstOrDefaultAsync(u => u.Id == userId, ct) ?? throw new UnauthorizedAccessException("This account was deleted."));
         if (file.Length > ImageProcessor.MaxBytes) throw new PayloadTooLargeException("Photos are limited to 15 MB.");
         if (file.Length == 0) throw new ValidationException("file", "file is empty.");
         if (caption is { Length: > CommunityRules.MaxCaptionLength }) throw new ValidationException("caption", $"caption max {CommunityRules.MaxCaptionLength} chars.");
@@ -53,7 +53,7 @@ public sealed class PhotoService(GimanoDbContext db, IMediaStore media, IEventPu
         db.Photos.Add(photo);
         await db.SaveChangesAsync(ct);
         await bus.PublishAsync(RoutingKeys.PhotoUploaded, new PhotoUploadedEvent(photo.Id), ct);
-        return ToDto(photo);
+        return ToDto(photo, handles);
     }
 
     public async Task<PhotosPage> ListAsync(string placeId, string? cursor, CancellationToken ct)
@@ -63,13 +63,13 @@ public sealed class PhotoService(GimanoDbContext db, IMediaStore media, IEventPu
         var rows = await q.OrderByDescending(p => p.Id).Take(PageSize + 1).ToListAsync(ct);
         var more = rows.Count > PageSize;
         if (more) rows.RemoveAt(rows.Count - 1);
-        return new PhotosPage(rows.Select(ToDto).ToList(), more ? CommunityRules.EncodeCursor(rows[^1].Id) : null);
+        return new PhotosPage(rows.Select(p => ToDto(p, handles)).ToList(), more ? CommunityRules.EncodeCursor(rows[^1].Id) : null);
     }
 
     public async Task<PhotoDto> GetAsync(Guid id, CancellationToken ct)
     {
         var p = await db.Photos.AsNoTracking().Include(x => x.User).FirstOrDefaultAsync(x => x.Id == id, ct) ?? throw new NotFoundException("Photo not found.");
-        return ToDto(p);
+        return ToDto(p, handles);
     }
 
     public async Task DeleteAsync(Guid userId, Guid id, CancellationToken ct)
@@ -104,7 +104,7 @@ public sealed class PhotoService(GimanoDbContext db, IMediaStore media, IEventPu
         if (!ok) throw new NotFoundException("Place not found.");
     }
 
-    public static PhotoDto ToDto(Photo p) => new(
+    public static PhotoDto ToDto(Photo p, AuthorHandles h) => new(
         p.Id, MediaKeys.Url(p.Key), MediaKeys.Url(p.ThumbKey), p.Width, p.Height, p.Caption,
-        new AddedBy(p.User?.DisplayName ?? "Pemandu Manotu"), p.CreatedAt, p.Status);
+        p.User is null ? new AddedBy("Pemandu Manotu") : new AddedBy(p.User.DisplayName, h.For(p.UserId)), p.CreatedAt, p.Status);
 }

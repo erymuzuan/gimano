@@ -210,6 +210,117 @@ public sealed class PostgresIntegrationIssueTests : IAsyncLifetime
         Assert.Equal(9, await check.IssueVotes.CountAsync(v => v.IssueId == a.Id));
     }
 
+    // ---- Store readiness: unlinking, retention, moderation (this class owns the throwaway PostGIS database) ----
+
+    [Fact]
+    public async Task Expired_road_reports_lose_their_reporter_and_votes_after_the_grace_period()
+    {
+        if (_ds is null) { Assert.Skip("GIMANO_PG_TEST not set"); return; }
+        var users = await SeedAsync(2);
+        await using var db = NewDb();
+        Report R(DateTimeOffset expires) => new() { Type = ReportType.Hazard, Location = new GeoPoint(Lat, Lng).ToPoint(), ReporterId = users[0].Id,
+            CreatedAt = expires.AddHours(-1), ExpiresAt = expires, Status = expires < T0 ? ReportStatus.Expired : ReportStatus.Active };
+        var old = R(T0.AddHours(-2));
+        var recent = R(T0.AddMinutes(-20));   // expired, but within the 1 h grace (thanks/reputation events may be in flight)
+        var active = R(T0.AddHours(1));
+        db.Reports.AddRange(old, recent, active);
+        db.ReportVotes.AddRange(new ReportVote { ReportId = old.Id, UserId = users[1].Id, StillThere = true },
+            new ReportVote { ReportId = active.Id, UserId = users[1].Id, StillThere = true });
+        await db.SaveChangesAsync();
+
+        var (reports, votes) = await Gimano.Core.Alerts.ReportUnlinking.RunAsync(db, T0, default);
+
+        Assert.Equal((1, 1), (reports, votes));
+        await using var check = NewDb();
+        Assert.Null((await check.Reports.FirstAsync(r => r.Id == old.Id)).ReporterId);
+        Assert.NotNull((await check.Reports.FirstAsync(r => r.Id == recent.Id)).ReporterId);
+        Assert.NotNull((await check.Reports.FirstAsync(r => r.Id == active.Id)).ReporterId);
+        Assert.False(await check.ReportVotes.AnyAsync(v => v.ReportId == old.Id));
+        Assert.True(await check.ReportVotes.AnyAsync(v => v.ReportId == active.Id));
+    }
+
+    [Fact]
+    public async Task Feedback_is_deleted_after_24_months_and_contact_reports_are_unlinked()
+    {
+        if (_ds is null) { Assert.Skip("GIMANO_PG_TEST not set"); return; }
+        var users = await SeedAsync(1);
+        var crypto = new Gimano.Core.Support.ContactCrypto(Convert.ToBase64String(new byte[32]));
+        await using var db = NewDb();
+        var ancient = new Feedback { UserId = users[0].Id, Message = "old", CreatedAt = T0.AddDays(-731), Screenshot = [1, 2, 3] };
+        var kept = new Feedback { UserId = users[0].Id, Message = "recent", CreatedAt = T0.AddDays(-30) };
+        var withContact = new Feedback { UserId = users[0].Id, Message = "reply please", CreatedAt = T0.AddDays(-1) };   // stored before the rule
+        db.Feedback.AddRange(ancient, kept, withContact);
+        db.ReportContacts.Add(crypto.Encrypt(ContactSubject.Feedback, ancient.Id, new ContactDetails("a@example.com", null, true), T0.AddDays(-731)));
+        db.ReportContacts.Add(crypto.Encrypt(ContactSubject.Feedback, withContact.Id, new ContactDetails("b@example.com", null, true), T0.AddDays(-1)));
+        await db.SaveChangesAsync();
+
+        Assert.Equal(1, await Gimano.Core.Support.ReportRetention.FeedbackAsync(db, T0, default));
+        Assert.Equal(1, await Gimano.Core.Support.ReportRetention.UnlinkContactReportsAsync(db, default));
+
+        await using var check = NewDb();
+        Assert.False(await check.Feedback.AnyAsync(f => f.Id == ancient.Id));
+        Assert.False(await check.ReportContacts.AnyAsync(c => c.SubjectId == ancient.Id));
+        Assert.Equal(users[0].Id, (await check.Feedback.FirstAsync(f => f.Id == kept.Id)).UserId);
+        Assert.Null((await check.Feedback.FirstAsync(f => f.Id == withContact.Id)).UserId);   // the contact can't be joined to the pseudonym
+        Assert.True(await check.ReportContacts.AnyAsync(c => c.SubjectId == withContact.Id));
+    }
+
+    [Fact]
+    public async Task Moderation_flags_hide_places_restore_and_ban_an_author()
+    {
+        if (_ds is null) { Assert.Skip("GIMANO_PG_TEST not set"); return; }
+        var users = await SeedAsync(5);
+        var author = users[0];
+        var placeId = "c" + new string('b', 32);
+        Review review;
+        Photo photo;
+        await using (var seed = NewDb())
+        {
+            seed.CommunityPlaces.Add(new CommunityPlace { Id = placeId, Name = "Kedai Spam", OwnerId = author.Id, Status = PlaceStatus.Published,
+                ResolvedAt = T0, Location = new GeoPoint(Lat, Lng).ToPoint(), CreatedAt = T0, UpdatedAt = T0 });
+            seed.Reviews.Add(review = new Review { PlaceId = "n77", UserId = author.Id, Rating = 1, Text = "x" });
+            seed.Photos.Add(photo = new Photo { PlaceId = "n77", UserId = author.Id, Key = "k", ThumbKey = "t", Status = PhotoStatus.Published });
+            await seed.SaveChangesAsync();
+        }
+        var handles = new Gimano.Core.Community.AuthorHandles(new byte[32].Select((_, i) => (byte)i).ToArray());
+        Gimano.Api.Services.CommunityService Community(GimanoDbContext db) => new(db, new Bus(),
+            new Gimano.Api.Identity.AttestationService(new Microsoft.Extensions.Configuration.ConfigurationBuilder().Build(), null!, db, new Clock(T0),
+                NullLogger<Gimano.Api.Identity.AttestationService>.Instance), new Clock(T0));
+
+        // Three different users report the place → hidden; a repeat report by the same user doesn't count.
+        foreach (var u in users.Skip(1).Take(3).Append(users[1]))
+        {
+            await using var db = NewDb();
+            await Community(db).FlagAsync(u.Id, placeId, FlagReason.Spam, default);
+        }
+        await using (var db = NewDb())
+        {
+            var p = await db.CommunityPlaces.FirstAsync(x => x.Id == placeId);
+            Assert.Equal((PlaceStatus.Hidden, 3), (p.Status, p.FlagCount));
+            var queue = await new Moderation(db, new Bus(), handles, new Clock(T0)).QueueAsync(ModerationKind.Place, hidden: true, default);
+            Assert.Equal(handles.For(author.Id), Assert.Single(queue).AuthorRef);
+            await new Moderation(db, new Bus(), handles, new Clock(T0)).RestoreAsync(ModerationKind.Place, placeId, default);
+        }
+        await using (var db = NewDb())
+        {
+            var p = await db.CommunityPlaces.FirstAsync(x => x.Id == placeId);
+            Assert.Equal((PlaceStatus.Published, 0), (p.Status, p.FlagCount));
+            Assert.False(await db.PlaceFlags.AnyAsync(f => f.PlaceId == placeId));
+
+            // Ban the author through their review: everything they published is hidden, and new contributions are refused.
+            Assert.True(await new Moderation(db, new Bus(), handles, new Clock(T0)).BanAuthorAsync(ModerationKind.Review, review.Id.ToString(), default));
+        }
+        await using (var db = NewDb())
+        {
+            Assert.Equal(ReviewStatus.Hidden, (await db.Reviews.FirstAsync(r => r.Id == review.Id)).Status);
+            Assert.Equal(PhotoStatus.Rejected, (await db.Photos.FirstAsync(p => p.Id == photo.Id)).Status);
+            Assert.Equal(PlaceStatus.Hidden, (await db.CommunityPlaces.FirstAsync(p => p.Id == placeId)).Status);
+            Assert.NotNull((await db.Users.FirstAsync(u => u.Id == author.Id)).BannedAt);
+            await Assert.ThrowsAsync<ForbiddenException>(() => Community(db).CreateAsync(author.Id,
+                new CreatePlaceRequest("Kedai Baru", PlaceCategory.Convenience, Lat + 0.01, Lng, null, null, null, null, null, null), default));
+        }
+    }
+
     // (Place verification lives here too: it needs the same throwaway PostGIS database.)
     [Fact]
     public async Task Legacy_verify_body_is_accepted_only_from_keyless_accounts()

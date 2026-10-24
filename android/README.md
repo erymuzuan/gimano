@@ -23,6 +23,13 @@ allowing HTTP to `100.101.150.9`, `10.0.2.2`, `localhost` and whatever host `gim
 Release builds use `src/main/res/xml/network_security_config.xml` (HTTPS only). If you change the server
 URL at runtime in Settings to a host that isn't in that list, use HTTPS or rebuild with `-Pgimano.apiBaseUrl`.
 
+**Website APK vs Google Play AAB.** `assembleManotuRelease` builds the website APK (manotu.app), which updates
+itself from `manotu.app/download/version.json`. `bundleManotuPlay` builds the Google Play AAB: the same app,
+key and version, minus the self-updater (`BuildConfig.SELF_UPDATE=false`, `DISTRIBUTION="play"`;
+`src/play/AndroidManifest.xml` removes `REQUEST_INSTALL_PACKAGES` and the updater receivers). Play policy forbids
+updating outside Play. `verifyManotuPlayPlayPolicy` runs before every Play bundle and fails the build if the merged
+manifest still has the updater; `testManotuPlayUnitTest` runs `src/testPlay`.
+
 ## Demo mode
 
 If the backend can't be reached, the app falls back to demo data by itself and shows a "Demo data"

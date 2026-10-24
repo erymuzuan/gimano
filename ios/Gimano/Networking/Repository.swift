@@ -15,6 +15,8 @@ protocol GimanoRepository: PlaceCardDataSource, DepartureTimesSource {
     func legacyExport() async throws -> LegacyDataMigration.Export
     /// Permanently deletes that legacy server copy (`DELETE /me/data`).
     func deleteLegacyData() async throws
+    /// `DELETE /me`: deletes the pseudonymous account (public contributions are anonymised).
+    func deleteAccount() async throws
 
     func search(query: String, near: LatLng, category: PlaceCategory?, limit: Int) async throws -> [PlaceSummary]
     /// Full search answer (spelling fix, suggestions). `exact` searches the text as typed.
@@ -35,7 +37,11 @@ protocol GimanoRepository: PlaceCardDataSource, DepartureTimesSource {
 
     func sendFeedback(_ feedback: FeedbackRequest) async throws -> FeedbackCreated
     func myFeedback() async throws -> [FeedbackSummary]
-    func deleteFeedbackContact(id: String) async throws
+    func deleteFeedbackContact(id: String, contactToken: String?) async throws
+    /// `DELETE /crash-reports/{id}/contact` with X-Contact-Token.
+    func deleteCrashContact(id: String, contactToken: String) async throws
+    /// `POST /places/{id}/flag` (community places only).
+    func flagPlace(id: String, reason: FlagReason) async throws
     func sendCrashReport(_ report: CrashReport) async throws -> CrashCreated
 
     // Community places
@@ -209,6 +215,10 @@ final class LiveRepository: GimanoRepository {
         try await authed { try await self.client.sendNoContent("DELETE", "me/data", body: Optional<Empty>.none) }
     }
 
+    func deleteAccount() async throws {
+        try await authed { try await self.client.sendNoContent("DELETE", "me", body: Optional<Empty>.none) }
+    }
+
     func search(query: String, near: LatLng, category: PlaceCategory?, limit: Int) async throws -> [PlaceSummary] {
         var q = [
             URLQueryItem(name: "q", value: query),
@@ -323,8 +333,20 @@ final class LiveRepository: GimanoRepository {
         try await authed { try await self.client.get("me/feedback") }
     }
 
-    func deleteFeedbackContact(id: String) async throws {
-        try await authed { try await self.client.sendNoContent("DELETE", "feedback/\(id)/contact", body: Optional<Empty>.none) }
+    func deleteFeedbackContact(id: String, contactToken: String?) async throws {
+        let headers = contactToken.map { ["X-Contact-Token": $0] } ?? [:]
+        try await authed { try await self.client.sendNoContent("DELETE", "feedback/\(id)/contact", body: Optional<Empty>.none, headers: headers) }
+    }
+
+    func deleteCrashContact(id: String, contactToken: String) async throws {
+        try await authed {
+            try await self.client.sendNoContent("DELETE", "crash-reports/\(id)/contact", body: Optional<Empty>.none, headers: ["X-Contact-Token": contactToken])
+        }
+    }
+
+    func flagPlace(id: String, reason: FlagReason) async throws {
+        let escaped = id.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? id
+        try await authed { try await self.client.sendNoContent("POST", "places/\(escaped)/flag", body: FlagRequest(reason: reason)) }
     }
 
     func sendCrashReport(_ report: CrashReport) async throws -> CrashCreated {
@@ -514,6 +536,8 @@ final class FallbackRepository: GimanoRepository {
     /// Migration calls go only to the real backend (never demo).
     func legacyExport() async throws -> LegacyDataMigration.Export { try await live.legacyExport() }
     func deleteLegacyData() async throws { try await live.deleteLegacyData() }
+    /// Never answered by the demo data: a deletion either reaches the server or fails visibly.
+    func deleteAccount() async throws { try await live.deleteAccount() }
     func search(query: String, near: LatLng, category: PlaceCategory?, limit: Int) async throws -> [PlaceSummary] {
         try await run({ try await $0.search(query: query, near: near, category: category, limit: limit) },
                       demoOp: { try await $0.search(query: query, near: near, category: category, limit: limit) })
@@ -548,7 +572,11 @@ final class FallbackRepository: GimanoRepository {
     /// Feedback never goes to the demo store while in auto mode: failures leave it in the outbox for retry.
     func sendFeedback(_ feedback: FeedbackRequest) async throws -> FeedbackCreated { try await live.sendFeedback(feedback) }
     func myFeedback() async throws -> [FeedbackSummary] { try await live.myFeedback() }
-    func deleteFeedbackContact(id: String) async throws { try await live.deleteFeedbackContact(id: id) }
+    func deleteFeedbackContact(id: String, contactToken: String?) async throws { try await live.deleteFeedbackContact(id: id, contactToken: contactToken) }
+    func deleteCrashContact(id: String, contactToken: String) async throws { try await live.deleteCrashContact(id: id, contactToken: contactToken) }
+    func flagPlace(id: String, reason: FlagReason) async throws {
+        try await run(gapFallback: false, { try await $0.flagPlace(id: id, reason: reason) }, demoOp: { try await $0.flagPlace(id: id, reason: reason) })
+    }
     /// Crash reports never fall back to demo: they wait locally until the server takes them.
     func sendCrashReport(_ report: CrashReport) async throws -> CrashCreated { try await live.sendCrashReport(report) }
 

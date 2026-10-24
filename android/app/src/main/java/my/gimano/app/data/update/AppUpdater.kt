@@ -73,6 +73,8 @@ class AppUpdater(private val context: Context) {
     private val _ui = MutableStateFlow(UpdateUi(lastCheckMs = prefs.getLong("lastCheck", 0)))
     val ui: StateFlow<UpdateUi> = _ui.asStateFlow()
     private val installed = BuildConfig.VERSION_CODE
+    /** False in the Google Play build: no manifest request, no download, no install, never an "update available". */
+    private val selfUpdate = BuildConfig.SELF_UPDATE
 
     init {
         instance = this
@@ -88,12 +90,12 @@ class AppUpdater(private val context: Context) {
         File(context.cacheDir, "updates").deleteRecursively()   // the installed APK copy is no longer needed
     }
 
-    private fun decide(m: UpdateManifest?) = UpdatePolicy.decide(installed, m, prefs.getLong("snoozedUntil", 0), System.currentTimeMillis())
+    private fun decide(m: UpdateManifest?) = UpdatePolicy.decide(installed, m, prefs.getLong("snoozedUntil", 0), System.currentTimeMillis(), selfUpdate)
 
     /** On launch (at most every 6 h) and from Settings → "Check now" ([force]). */
     suspend fun check(force: Boolean = false) {
         val now = System.currentTimeMillis()
-        if (!UpdatePolicy.shouldCheck(prefs.getLong("lastCheck", 0), now, force) || _ui.value.checking) return
+        if (!UpdatePolicy.shouldCheck(prefs.getLong("lastCheck", 0), now, force, selfUpdate) || _ui.value.checking) return
         _ui.update { it.copy(checking = true) }
         // 404/410: nothing published at this address yet (e.g. manotu.app before its first release) → quietly up to date.
         var notPublished = false
@@ -138,6 +140,7 @@ class AppUpdater(private val context: Context) {
 
     /** "Update now": permission → download (progress) → verify (hash, package, version, signer) → PackageInstaller. */
     suspend fun updateNow() {
+        if (!selfUpdate) return
         val m = manifest() ?: return
         if (!canInstall()) { _ui.update { it.copy(needsInstallPermission = true) }; return }
         _ui.update { it.copy(needsInstallPermission = false, error = null, progress = 0f, downloadedBytes = 0, totalBytes = m.sizeBytes ?: 0) }

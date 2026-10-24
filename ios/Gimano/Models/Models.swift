@@ -415,6 +415,32 @@ struct PersonRef: Codable, Sendable, Hashable {
     var displayName: String
     var level: Int?
     var reviewCount: Int?
+    /// Opaque, stable handle of the contributor (no user id): what "Block this user" stores on the phone.
+    /// Decoded from `authorRef`, or `authorHandle` / `handle` / `ref` until docs/api.md names it (same as Android).
+    var authorRef: String?
+
+    init(displayName: String, level: Int? = nil, reviewCount: Int? = nil, authorRef: String? = nil) {
+        self.displayName = displayName; self.level = level; self.reviewCount = reviewCount; self.authorRef = authorRef
+    }
+
+    private enum CodingKeys: String, CodingKey { case displayName, level, reviewCount, authorRef, authorHandle, handle, ref }
+
+    init(from decoder: any Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        displayName = try c.decode(String.self, forKey: .displayName)
+        level = try c.decodeIfPresent(Int.self, forKey: .level)
+        reviewCount = try c.decodeIfPresent(Int.self, forKey: .reviewCount)
+        authorRef = try c.decodeIfPresent(String.self, forKey: .authorRef) ?? c.decodeIfPresent(String.self, forKey: .authorHandle)
+            ?? c.decodeIfPresent(String.self, forKey: .handle) ?? c.decodeIfPresent(String.self, forKey: .ref)
+    }
+
+    func encode(to encoder: any Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encode(displayName, forKey: .displayName)
+        try c.encodeIfPresent(level, forKey: .level)
+        try c.encodeIfPresent(reviewCount, forKey: .reviewCount)
+        try c.encodeIfPresent(authorRef, forKey: .authorRef)
+    }
 }
 
 // MARK: - Community places, reviews, photos
@@ -468,6 +494,10 @@ struct Photo: Codable, Sendable, Hashable, Identifiable {
     var uploadedBy: PersonRef?
     var createdAt: Date?
     var status: PhotoStatus?
+    /// Opaque contributor handle (`authorRef`), at the top level or inside `uploadedBy`.
+    var authorRef: String?
+
+    var blockRef: String? { authorRef ?? uploadedBy?.authorRef }
 }
 
 struct PhotosPage: Codable, Sendable {
@@ -490,6 +520,10 @@ struct Review: Codable, Sendable, Hashable, Identifiable {
     var createdAt: Date
     var editedAt: Date?
     var status: String?
+    /// Opaque contributor handle (`authorRef`), at the top level or inside `author`.
+    var authorRef: String?
+
+    var blockRef: String? { authorRef ?? author.authorRef }
 }
 
 struct ReviewsPage: Codable, Sendable {
@@ -1009,6 +1043,9 @@ struct FeedbackRequest: Codable, Sendable, Hashable {
 struct FeedbackCreated: Codable, Sendable, Hashable {
     var id: String
     var createdAt: Date?
+    /// Returned once when the feedback carries a volunteered contact (stored without the user id): keep it on the
+    /// phone and send it as X-Contact-Token to withdraw the contact.
+    var contactToken: String?
 }
 
 struct FeedbackSummary: Codable, Sendable, Hashable, Identifiable {

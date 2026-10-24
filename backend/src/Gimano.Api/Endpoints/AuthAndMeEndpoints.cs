@@ -16,6 +16,9 @@ public static class AuthAndMeEndpoints
     private static readonly HashSet<string> Moods =
         ["happy", "chill", "sleepy", "hungry", "in_a_hurry", "cool", "zen", "excited", "grumpy", "ninja", "party", "baby"];
 
+    internal static bool DisplayNameAllowed(string name) =>
+        Gimano.Core.Community.TextFilter.Default.Check(name, rejectLinks: true) == Gimano.Core.Community.TextVerdict.Ok;
+
     public static string RandomDisplayName() => $"{Animals[Random.Shared.Next(Animals.Length)]} {Random.Shared.Next(1000, 9999)}";
 
     /// <summary>User + reputation view for /me: tier, accuracy, counts and what's missing for the next tier.</summary>
@@ -93,6 +96,8 @@ public static class AuthAndMeEndpoints
         {
             name = name.Trim();
             if (name.Length is < 2 or > 40) return Validation.Problem("displayName", "displayName must be 2–40 characters.");
+            // Display names are shown next to public contributions: same word filter as reviews and places, and no links.
+            if (!DisplayNameAllowed(name)) return Validation.Problem("displayName", "Please choose a friendly name without links.");
             user.DisplayName = name;
         }
         if (req.Mood is { } mood)

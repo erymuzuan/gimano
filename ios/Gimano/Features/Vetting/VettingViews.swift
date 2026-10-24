@@ -125,6 +125,8 @@ struct VettingPromptSheet: View {
                     result = try await model.vote(on: place, answer: a,
                                                   nameCorrect: a == .yes ? nameCorrect : nil, locationCorrect: a == .yes ? locationCorrect : nil)
                     if a != .yes { dismiss(); model.showToast(String(localized: "Thanks for checking!")) }
+                } catch is CancellationError {
+                    // Community rules declined: nothing sent.
                 } catch {
                     self.error = error.localizedDescription
                 }
@@ -171,7 +173,7 @@ struct AccountView: View {
                     .accessibilityIdentifier("nextTier")
                 }
             } footer: {
-                Text("Gimano never knows who you are. Your public work is credited to this random pseudonym, which only your phone and your own backup can sign for.")
+                Text("Manotu never knows who you are. Your public work is credited to this random pseudonym, which only your phone and your own backup can sign for.")
             }
 
             Section {
@@ -189,6 +191,8 @@ struct AccountView: View {
             } footer: {
                 Text("24 words that recreate your pseudonym's key. Write them down and keep them private: anyone with them can sign as you. Not needed if you back up.")
             }
+
+            DeleteAccountSection()
         }
         .navigationTitle("Account")
         .sheet(isPresented: $showRestore) { RestoreFromCodeSheet() }

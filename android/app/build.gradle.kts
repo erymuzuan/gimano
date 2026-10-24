@@ -98,6 +98,9 @@ android {
         // Per variant (flavor × build type): see androidComponents below.
         buildConfigField("String", "GOOGLE_OAUTH_CLIENT_ID", "\"\"")
         buildConfigField("long", "CLOUD_PROJECT_NUMBER", "0L")
+        // Website APKs update themselves from manotu.app; the Google Play build (buildType "play") must not.
+        buildConfigField("boolean", "SELF_UPDATE", "true")
+        buildConfigField("String", "DISTRIBUTION", "\"web\"")
     }
 
     // One tree, two apps: "gimano" = my.gimano.app (0.2.x, its farewell updates), "manotu" = my.manotu.app (0.3.0+).
@@ -150,6 +153,15 @@ android {
             // Phones (64/32-bit ARM) + x86_64 emulators; drops JNA's legacy mips/armeabi/x86 libs.
             ndk { abiFilters += listOf("arm64-v8a", "armeabi-v7a", "x86_64") }
         }
+        // Google Play AAB (bundleManotuPlay): the release build minus the self-updater. Play policy forbids
+        // updating outside Play, so src/play/AndroidManifest.xml removes REQUEST_INSTALL_PACKAGES and the
+        // updater receivers, and SELF_UPDATE=false turns AppUpdater into a no-op. Website APKs are unchanged.
+        create("play") {
+            initWith(getByName("release"))
+            matchingFallbacks += listOf("release")
+            buildConfigField("boolean", "SELF_UPDATE", "false")
+            buildConfigField("String", "DISTRIBUTION", "\"play\"")
+        }
     }
 
     sourceSets {
@@ -176,9 +188,24 @@ android {
 }
 
 androidComponents {
+    // The Play build exists only for my.manotu.app; my.gimano.app (0.2.x) was never on Play.
+    beforeVariants(selector().withFlavor("brand" to "gimano").withBuildType("play")) { it.enable = false }
+    // Unit tests run for debug only by default; also run them for the Play build (src/testPlay: no self-updater).
+    beforeVariants(selector().withBuildType("play")) {
+        it.hostTests[com.android.build.api.variant.HostTestBuilder.UNIT_TEST_TYPE]?.enable = true
+    }
+    // Play policy guard: the Play variant's merged manifest must not carry the self-updater. Runs before every
+    // bundleManotuPlay and with `check`, so a policy-violating AAB cannot be built by accident.
+    onVariants(selector().withBuildType("play")) { v ->
+        val name = v.name.replaceFirstChar { it.uppercase() }
+        val guard = tasks.register<CheckPlayManifest>("verify${name}PlayPolicy") {
+            mergedManifest.set(v.artifacts.get(com.android.build.api.artifact.SingleArtifact.MERGED_MANIFEST))
+        }
+        tasks.matching { it.name == "bundle$name" || it.name == "assemble$name" || it.name == "check" }.configureEach { dependsOn(guard) }
+    }
     onVariants { v ->
         val flavor = v.flavorName ?: "gimano"
-        val release = v.buildType == "release"
+        val release = v.buildType == "release" || v.buildType == "play"
         v.buildConfigFields?.put("GOOGLE_OAUTH_CLIENT_ID", com.android.build.api.variant.BuildConfigField("String", "\"${oauthClient(flavor, release)}\"", "Drive backup OAuth client"))
         v.buildConfigFields?.put("CLOUD_PROJECT_NUMBER", com.android.build.api.variant.BuildConfigField("long", "${cloudProject(flavor, release)}L", "Play Integrity project"))
     }
@@ -262,4 +289,20 @@ listOf("gimano", "manotu").forEach { flavor ->
     }
     tasks.matching { it.name == "assemble${cap}Release" }.configureEach { finalizedBy(copy) }
     tasks.matching { it.name.startsWith("create${cap}ReleaseApkListingFileRedirect") }.configureEach { mustRunAfter(copy) }
+}
+
+/** Fails the build if the Google Play variant's merged manifest still has the sideload self-updater. */
+abstract class CheckPlayManifest : DefaultTask() {
+    @get:InputFile abstract val mergedManifest: RegularFileProperty
+
+    @TaskAction fun verify() {
+        val xml = mergedManifest.get().asFile.readText()
+        val forbidden = listOf(
+            "android.permission.REQUEST_INSTALL_PACKAGES",   // restricted on Play; only the website APK updates itself
+            "data.update.InstallResultReceiver",
+            "data.update.PackageReplacedReceiver",
+        ).filter { it in xml }
+        check(forbidden.isEmpty()) { "Play variant manifest must not contain: $forbidden" }
+        logger.lifecycle("Play manifest OK: no REQUEST_INSTALL_PACKAGES, no self-updater receivers")
+    }
 }

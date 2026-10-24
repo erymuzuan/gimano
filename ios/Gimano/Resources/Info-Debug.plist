@@ -77,8 +77,12 @@
 	<string>$(GIMANO_ICLOUD)</string>
 	<key>GimanoMapStyleURL</key>
 	<string>$(GIMANO_MAP_STYLE_URL)</string>
+	<!-- Export compliance: YES. Besides Apple's OS crypto (HTTPS) the app bundles libsodium and uses it for data
+	     confidentiality, not only authentication: Argon2id + XChaCha20-Poly1305 passphrase backups and XChaCha20-Poly1305
+	     "Share my drive". In App Store Connect: "standard encryption algorithms instead of, or in addition to, Apple's
+	     OS"; available in Malaysia only (not France). No compliance code yet. -->
 	<key>ITSAppUsesNonExemptEncryption</key>
-	<false/>
+	<true/>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
 	<key>LSSupportsOpeningDocumentsInPlace</key>

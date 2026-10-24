@@ -70,14 +70,17 @@ object UpdatePolicy {
     const val CHECK_EVERY_MS = 6 * 3_600_000L
     const val SNOOZE_MS = 24 * 3_600_000L
 
-    fun decide(installedCode: Int, m: UpdateManifest?, snoozedUntilMs: Long, nowMs: Long): UpdateDecision = when {
-        m == null -> UpdateDecision.UpToDate
+    /** [selfUpdate] = BuildConfig.SELF_UPDATE: false in the Google Play build, which never offers an update itself. */
+    fun decide(installedCode: Int, m: UpdateManifest?, snoozedUntilMs: Long, nowMs: Long, selfUpdate: Boolean = true): UpdateDecision = when {
+        !selfUpdate || m == null -> UpdateDecision.UpToDate
         installedCode < m.minSupported && m.versionCode > installedCode -> UpdateDecision.Required(m)
         m.versionCode > installedCode -> UpdateDecision.Available(m, snoozed = nowMs < snoozedUntilMs)
         else -> UpdateDecision.UpToDate
     }
 
-    fun shouldCheck(lastCheckMs: Long, nowMs: Long, force: Boolean) = force || nowMs - lastCheckMs >= CHECK_EVERY_MS
+    /** Never true without [selfUpdate]: the Play build makes no request to the update manifest, even when forced. */
+    fun shouldCheck(lastCheckMs: Long, nowMs: Long, force: Boolean, selfUpdate: Boolean = true) =
+        selfUpdate && (force || nowMs - lastCheckMs >= CHECK_EVERY_MS)
 }
 
 /** What the downloaded APK says about itself (from PackageManager.getPackageArchiveInfo). */

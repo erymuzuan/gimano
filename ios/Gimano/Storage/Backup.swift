@@ -322,10 +322,30 @@ struct BackupService: Sendable {
                           created_at = excluded.created_at, updated_at = excluded.updated_at
                         WHERE julianday(excluded.updated_at) > julianday(private_places.updated_at)
                         """)
+                    // Shared settings keys merge by their own rules (docs/privacy-and-backup.md "Shared settings keys");
+                    // read both sides before the plain copy, which keeps this phone's value for every other key.
+                    func setting(_ schema: String, _ key: String) throws -> String? {
+                        try String.fetchOne(db, sql: "SELECT value FROM \(schema).settings WHERE key = ?", arguments: [key])
+                    }
+                    let blocked = BlockList.merged(local: try setting("main", BlockList.settingsKey), backup: try setting("b", BlockList.settingsKey))
+                    let rules = CommunityRules.merged(
+                        local: (try setting("main", CommunityRules.versionKey), try setting("main", CommunityRules.acceptedAtKey)),
+                        backup: (try setting("b", CommunityRules.versionKey), try setting("b", CommunityRules.acceptedAtKey)))
                     for t in ["private_place_photos", "planned_drives", "settings"] {
                         let c = try cols(t)
                         try db.execute(sql: "INSERT OR IGNORE INTO main.\(t) (\(c)) SELECT \(c) FROM b.\(t)")
                     }
+                    func put(_ key: String, _ value: String?) throws {
+                        if let value {
+                            try db.execute(sql: "INSERT INTO main.settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+                                           arguments: [key, value])
+                        } else {
+                            try db.execute(sql: "DELETE FROM main.settings WHERE key = ?", arguments: [key])
+                        }
+                    }
+                    try put(BlockList.settingsKey, blocked)
+                    try put(CommunityRules.versionKey, rules.version)
+                    try put(CommunityRules.acceptedAtKey, rules.version == nil ? nil : rules.acceptedAt)
                     // Keep the newest 50 recents.
                     try db.execute(sql: """
                         DELETE FROM main.recents WHERE id NOT IN (SELECT id FROM main.recents ORDER BY last_used_at DESC LIMIT \(LocalStore.maxRecents))

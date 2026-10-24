@@ -32,7 +32,7 @@ builder.Services.AddHostedService<Gimano.Worker.Vetting.VettingMaintenance>();
 builder.Services.AddHostedService<Gimano.Worker.Support.ReportRetentionJob>();
 
 builder.Services.Configure<GitHubFeedbackOptions>(builder.Configuration.GetSection(GitHubFeedbackOptions.Section));
-if (builder.Configuration.GetSection(GitHubFeedbackOptions.Section).Get<GitHubFeedbackOptions>() is { Enabled: true })
+if (builder.Configuration.GetSection(GitHubFeedbackOptions.Section).Get<GitHubFeedbackOptions>() is { } gh && gh.EnabledIn(builder.Environment.EnvironmentName))
 {
     builder.Services.AddHttpClient("github", c => c.Timeout = TimeSpan.FromSeconds(20));
     builder.Services.AddHostedService<GitHubFeedbackSink>();

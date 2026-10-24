@@ -38,4 +38,28 @@ public static class ReportRetention
         var groups = await db.CrashGroups.Where(g => g.LastSeen <= crashCut && !db.CrashReports.Any(r => r.Signature == g.Signature)).ExecuteDeleteAsync(ct);
         return (contacts, crashes, groups);
     }
+
+    /// <summary>
+    /// Reports that carry a volunteered contact must not be linked to an account. New ones are stored without the user id;
+    /// this also unlinks any older ones (stored before that rule). Returns the number of reports unlinked.
+    /// </summary>
+    public static async Task<int> UnlinkContactReportsAsync(GimanoDbContext db, CancellationToken ct)
+    {
+        var fb = db.ReportContacts.Where(c => c.SubjectType == ContactSubject.Feedback).Select(c => c.SubjectId);
+        var cr = db.ReportContacts.Where(c => c.SubjectType == ContactSubject.Crash).Select(c => c.SubjectId);
+        return await db.Feedback.Where(f => f.UserId != null && fb.Contains(f.Id)).ExecuteUpdateAsync(s => s.SetProperty(f => f.UserId, (Guid?)null), ct)
+               + await db.CrashReports.Where(r => r.UserId != null && cr.Contains(r.Id)).ExecuteUpdateAsync(s => s.SetProperty(r => r.UserId, (Guid?)null), ct);
+    }
+
+    /// <summary>The privacy policy: feedback (message, rating, device info, coarse location, screenshot) is kept up to 24 months.</summary>
+    public static readonly TimeSpan Feedback = TimeSpan.FromDays(730);
+
+    /// <summary>Deletes feedback older than 24 months, with any contact left on it (reply drafts cascade).</summary>
+    public static async Task<int> FeedbackAsync(GimanoDbContext db, DateTimeOffset now, CancellationToken ct)
+    {
+        var cut = now - Feedback;
+        var old = db.Feedback.Where(f => f.CreatedAt <= cut).Select(f => f.Id);
+        await db.ReportContacts.Where(c => c.SubjectType == ContactSubject.Feedback && old.Contains(c.SubjectId)).ExecuteDeleteAsync(ct);
+        return await db.Feedback.Where(f => f.CreatedAt <= cut).ExecuteDeleteAsync(ct);
+    }
 }
