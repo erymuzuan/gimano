@@ -113,6 +113,16 @@ final class EventStore: Sendable {
                   PRIMARY KEY (event_id, rev));
                 """)
         }
+        // "Laluan saya": personal routes not tied to an event (RouteBuilder/PersonalRoutes.swift). Private data:
+        // on this phone only, never sent anywhere (routing gets coordinates and mode per leg, nothing is stored).
+        m.registerMigration("v3-personal-routes") { db in
+            try db.execute(sql: """
+                CREATE TABLE personal_routes (
+                  route_id TEXT PRIMARY KEY,
+                  draft BLOB NOT NULL,
+                  updated_at TEXT NOT NULL);
+                """)
+        }
         return m
     }
 

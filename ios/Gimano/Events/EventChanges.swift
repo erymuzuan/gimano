@@ -4,7 +4,7 @@ import Foundation
 /// time, title, and stops moved / renamed / added / removed / with new details.
 struct EventChange: Identifiable, Equatable, Sendable {
     enum Kind: String, Sendable {
-        case time, title, stopMoved, stopRenamed, stopAdded, stopRemoved, stopDetails
+        case time, title, stopMoved, stopRenamed, stopAdded, stopRemoved, stopDetails, routes
     }
 
     var kind: Kind
@@ -46,7 +46,15 @@ struct EventChange: Identifiable, Equatable, Sendable {
         for o in old.stops where new.stop(o.id) == nil {
             out.append(EventChange(kind: .stopRemoved, stopId: o.id, before: lines(o)))
         }
+        if old.routes != new.routes {
+            out.append(EventChange(kind: .routes, before: old.routes.isEmpty ? nil : old.routes.map(routeLine),
+                                   after: new.routes.isEmpty ? nil : new.routes.map(routeLine)))
+        }
         return out
+    }
+
+    private static func routeLine(_ r: EventRoute) -> String {
+        ([r.title, EventFormat.distance(r.distanceM)] as [String?]).compactMap { $0 }.joined(separator: " · ")
     }
 
     private static func lines(_ s: EventStop) -> [String] {

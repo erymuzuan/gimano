@@ -664,3 +664,23 @@ actor FallbackState {
         return offline
     }
 }
+
+// MARK: - Route builder ("Bina laluan"): stateless leg routing and map matching
+
+extension LiveRepository: RouteBuilderTransport {
+    /// `POST /routes` with `"store": false`: coordinates and travel mode only.
+    func builderRoute(_ request: BuilderRouteRequest) async throws -> BuilderRoutesResponse {
+        try await authed { try await self.client.send("POST", "routes", body: request) }
+    }
+
+    /// `POST /routes/match`: the drawn line's coordinates and travel mode only.
+    func builderMatch(_ request: BuilderMatchRequest) async throws -> BuilderMatchResponse {
+        try await authed { try await self.client.send("POST", "routes/match", body: request) }
+    }
+}
+
+/// Auto mode: the builder always asks the real server (never demo geometry); unreachable reads as offline.
+extension FallbackRepository: RouteBuilderTransport {
+    func builderRoute(_ request: BuilderRouteRequest) async throws -> BuilderRoutesResponse { try await live.builderRoute(request) }
+    func builderMatch(_ request: BuilderMatchRequest) async throws -> BuilderMatchResponse { try await live.builderMatch(request) }
+}

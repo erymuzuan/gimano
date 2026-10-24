@@ -30,6 +30,8 @@ enum EventNavRoute: Hashable {
     case host(String)
     /// "Kongsi jemputan" for a hosted event (board "2").
     case share(String)
+    /// "Laluan saya": personal routes (on this phone only).
+    case myRoutes
 }
 
 /// Events (Acara): opening invitation links and `.manotu-event` files, the import decision, the on-device library.
@@ -43,6 +45,8 @@ final class EventCenter {
     private(set) var hosted: [HostedEvent] = []
     /// The last publication per hosted event, in memory only (links and codes are never stored).
     private(set) var invites: [String: PublishedInvite] = [:]
+    /// "Laluan saya" (on this phone only).
+    private(set) var personalRoutes: [RouteDraft] = []
     /// Set by "Navigate" to an event stop; checked when a newer revision moves that stop.
     var activeTrip: EventActiveTrip?
 
@@ -76,7 +80,12 @@ final class EventCenter {
             invites[id] = nil
         }
         hosted = (try? store.hostedEvents()) ?? []
+        reloadPersonalRoutes()
         Self.cleanShareFiles(olderThan: now().addingTimeInterval(-24 * 3600))
+    }
+
+    func reloadPersonalRoutes() {
+        personalRoutes = (try? store.personalRoutes()) ?? []
     }
 
     // MARK: organizer
@@ -376,15 +385,16 @@ extension AppModel {
     }
 
     /// Draws the event's routes (and the next stop's pin) on the home map behind the Acara sheet.
-    func showEventOnMap(_ e: ImportedEvent) {
+    func showEventOnMap(_ e: ImportedEvent, routeId: String? = nil) {
         guard screen == .home else { return }
-        let routes = e.doc.routes.enumerated().map {
-            RouteLine(id: "event-\($0.element.id)", points: $0.element.points, selected: $0.offset == 0, traffic: [])
+        let routes = e.doc.routes.enumerated().map { (offset, r) in
+            RouteLine(id: "event-\(r.id)", points: r.points, selected: routeId.map { $0 == r.id } ?? (offset == 0), traffic: [])
         }
         map.routes = routes
         map.destination = EventCenter.nextStop(e.doc, now: .now)?.pin
         map.bubbleAnchors = [:]
-        let pts = e.doc.stops.map(\.pin) + routes.flatMap(\.points)
+        let focused = routeId == nil ? [] : routes.filter(\.selected).flatMap(\.points)
+        let pts = focused.isEmpty ? e.doc.stops.map(\.pin) + routes.flatMap(\.points) : focused
         if let b = BBox.around(pts) {
             map.overviewInsets = (top: 80, bottom: 460)
             map.setCamera(.overview(b))

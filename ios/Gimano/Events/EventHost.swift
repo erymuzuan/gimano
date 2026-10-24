@@ -62,8 +62,29 @@ struct HostedEventDraft: Codable, Hashable, Sendable, Identifiable {
     var expiresAtOverride: Date?
     var alias: String = ""
     var stops: [HostedStopDraft] = []
+    /// "Laluan" (route builder). Optional in storage so drafts saved before routes existed still load.
+    var routeDrafts: [RouteDraft]?
     var createdAt: Date
     var updatedAt: Date
+
+    var routes: [RouteDraft] {
+        get { routeDrafts ?? [] }
+        set { routeDrafts = newValue.isEmpty ? nil : newValue }
+    }
+
+    /// A stop moved or was removed: routes follow (linked points move, removed stops become shaping points).
+    mutating func syncRoutesWithStops() {
+        let ids = Set(stops.map(\.id))
+        var rs = routes
+        for i in rs.indices {
+            rs[i].unlinkStops(notIn: ids)
+            for s in stops { rs[i].syncStop(s) }
+        }
+        if rs != routes { routes = rs }
+    }
+
+    /// The template suggests routes (rides, convoys, trips).
+    var routesFirst: Bool { [.ride, .convoy, .trip].contains(template) }
 
     /// A new draft: tomorrow 11:00–16:00 in this phone's time zone, language from the app's.
     static func new(now: Date = .now, timeZone: TimeZone = .current, preferredLanguage: String? = Locale.preferredLanguages.first) -> HostedEventDraft {
@@ -116,6 +137,20 @@ struct HostedEventDraft: Codable, Hashable, Sendable, Identifiable {
             if EventValidation.scalars(s.notes) > EventLimits.stopNotesChars { issues.append(.stopNotes(s.id)) }
             if EventValidation.scalars(s.audience) > EventLimits.audienceChars { issues.append(.stopAudience(s.id)) }
         }
+        // Routes (desktop assemble.rs): fewer than two points are left out; waiting or unmatched legs block.
+        let stopIds = Set(stops.map(\.id))
+        var eventRoutes: [EventRoute] = []
+        for r in routes {
+            switch r.eventRoute(knownStops: stopIds) {
+            case .success(let er): eventRoutes.append(er)
+            case .failure(.tooFewPoints): continue
+            case .failure(.unresolved): issues.append(.routeIncomplete(r.id))
+            case .failure(.unmatched): issues.append(.routeUnmatched(r.id))
+            }
+        }
+        if eventRoutes.count > EventLimits.maxRoutes { issues.append(.tooManyRoutes) }
+        let points = eventRoutes.reduce(0) { $0 + $1.points.count }
+        if points > EventLimits.maxPolylinePoints { issues.append(.tooManyRoutePoints) }
         guard issues.isEmpty else { return (nil, issues) }
         let tz = timeZone
         let doc = EventDoc(
@@ -128,7 +163,8 @@ struct HostedEventDraft: Codable, Hashable, Sendable, Identifiable {
                           entrance: s.entrance.map { EventPoint(lat: Self.round6($0.lat), lng: Self.round6($0.lng)) },
                           arrive: nil, dwellMin: nil, notes: opt(s.notes), audience: opt(s.audience))
                 // s.organizerNote is deliberately not read: it has no field in the pack.
-            })
+            },
+            routes: eventRoutes)
         do {
             try EventValidation.validate(doc)
         } catch {
@@ -144,6 +180,11 @@ struct HostedEventDraft: Codable, Hashable, Sendable, Identifiable {
 enum EventDraftIssue: Equatable, Sendable {
     case titleMissing, titleTooLong, descriptionTooLong, aliasTooLong, endBeforeStart, tooLong, expired, noStops, tooManyStops
     case stopLabel(String), stopNotes(String), stopAudience(String)
+    /// A route has legs still waiting for the routing server ("perlu dikira").
+    case routeIncomplete(String)
+    /// Part of a drawn route matched no road.
+    case routeUnmatched(String)
+    case tooManyRoutes, tooManyRoutePoints
     case invalid(EventPackError)
 
     var message: String {
@@ -160,6 +201,10 @@ enum EventDraftIssue: Equatable, Sendable {
         case .stopLabel: String(localized: "Every place needs a name (80 characters at most).")
         case .stopNotes: String(localized: "A place's notes are too long (500 characters at most).")
         case .stopAudience: String(localized: "“For whom” is too long (40 characters at most).")
+        case .routeIncomplete: String(localized: "A route still has legs to calculate. Open it when you're online, or keep them as sketches.")
+        case .routeUnmatched: String(localized: "Part of a drawn route matched no road. Redraw it, add a point or keep it as a sketch.")
+        case .tooManyRoutes: String(localized: "An event can have 20 routes at most.")
+        case .tooManyRoutePoints: String(localized: "The routes are too detailed (50 000 points at most in total). Remove a route or split it.")
         case .invalid: String(localized: "This event can't be published. Check its details.")
         }
     }
@@ -167,6 +212,13 @@ enum EventDraftIssue: Equatable, Sendable {
     var stopId: String? {
         switch self {
         case .stopLabel(let id), .stopNotes(let id), .stopAudience(let id): id
+        default: nil
+        }
+    }
+
+    var routeId: String? {
+        switch self {
+        case .routeIncomplete(let id), .routeUnmatched(let id): id
         default: nil
         }
     }

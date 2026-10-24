@@ -9812,6 +9812,689 @@
           }
         }
       }
+    },
+    "Add at least two points first.": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tambah sekurang-kurangnya dua titik dahulu."
+          }
+        }
+      }
+    },
+    "The route already ends at its start.": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Laluan ini sudah berakhir di titik mula."
+          }
+        }
+      }
+    },
+    "Drawing to follow roads isn't available yet. Kept as a sketch.": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lukis ikut jalan belum tersedia. Disimpan sebagai lakaran."
+          }
+        }
+      }
+    },
+    "Stop %lld": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hentian %lld"
+          }
+        }
+      }
+    },
+    "Route %lld": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Laluan %lld"
+          }
+        }
+      }
+    },
+    "No points yet": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Belum ada titik"
+          }
+        }
+      }
+    },
+    "Remove all points?": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Padam semua titik?"
+          }
+        }
+      }
+    },
+    "Discard your changes to this route?": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Buang perubahan pada laluan ini?"
+          }
+        }
+      }
+    },
+    "Discard": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Buang"
+          }
+        }
+      }
+    },
+    "New route": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Laluan baharu"
+          }
+        }
+      }
+    },
+    "Point to point": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Titik ke titik"
+          }
+        }
+      }
+    },
+    "Draw": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lukis"
+          }
+        }
+      }
+    },
+    "Draw with one finger": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lukis dengan jari"
+          }
+        }
+      }
+    },
+    "Tap to start": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ketik untuk mula"
+          }
+        }
+      }
+    },
+    "Tap to add the next point": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ketik untuk tambah titik seterusnya"
+          }
+        }
+      }
+    },
+    "Undo": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Buat asal"
+          }
+        }
+      }
+    },
+    "Redo": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Buat semula"
+          }
+        }
+      }
+    },
+    "Reverse": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Terbalikkan arah"
+          }
+        }
+      }
+    },
+    "Out and back": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pergi-balik"
+          }
+        }
+      }
+    },
+    "Back to start": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kembali ke mula"
+          }
+        }
+      }
+    },
+    "Point list": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Senarai titik"
+          }
+        }
+      }
+    },
+    "Add point at map centre": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tambah titik di tengah peta"
+          }
+        }
+      }
+    },
+    "Start at %@": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mula di %@"
+          }
+        }
+      }
+    },
+    "Follow roads": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ikut jalan"
+          }
+        }
+      }
+    },
+    "Point list, %lld points": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Senarai titik, %lld titik"
+          }
+        }
+      }
+    },
+    "No road found here": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tiada jalan dijumpai di sini"
+          }
+        }
+      }
+    },
+    "Redraw": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lukis semula"
+          }
+        }
+      }
+    },
+    "Add point": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tambah titik"
+          }
+        }
+      }
+    },
+    "Sketch": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lakaran"
+          }
+        }
+      }
+    },
+    "Calculating…": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mengira…"
+          }
+        }
+      }
+    },
+    "%lld to calculate": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld perlu dikira"
+          }
+        }
+      }
+    },
+    "Sketch: not a road": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lakaran: bukan jalan"
+          }
+        }
+      }
+    },
+    "Point %lld": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Titik %lld"
+          }
+        }
+      }
+    },
+    "Make it an event place": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Jadikan tempat acara"
+          }
+        }
+      }
+    },
+    "Snap to: %@": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sambung ke: %@"
+          }
+        }
+      }
+    },
+    "Unlink from the event place": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nyahpaut daripada tempat acara"
+          }
+        }
+      }
+    },
+    "Move up in the list": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Naikkan dalam senarai"
+          }
+        }
+      }
+    },
+    "Move down in the list": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Turunkan dalam senarai"
+          }
+        }
+      }
+    },
+    "Delete point": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Padam titik"
+          }
+        }
+      }
+    },
+    "Unavailable": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tidak tersedia"
+          }
+        }
+      }
+    },
+    "Time": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Masa"
+          }
+        }
+      }
+    },
+    "Ascent and descent unavailable": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Naik dan turun tidak tersedia"
+          }
+        }
+      }
+    },
+    "Only the coordinates and travel mode are sent to the routing server. Nothing is stored there.": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hanya koordinat dan mod perjalanan dihantar ke pelayan laluan. Tiada apa disimpan di sana."
+          }
+        }
+      }
+    },
+    "Add": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tambah"
+          }
+        }
+      }
+    },
+    "Route name": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nama laluan"
+          }
+        }
+      }
+    },
+    "Day": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hari"
+          }
+        }
+      }
+    },
+    "In the event: %@": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dalam acara: %@"
+          }
+        }
+      }
+    },
+    "Shared with the invitation when you publish a new version.": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dikongsi bersama jemputan bila anda terbitkan versi baharu."
+          }
+        }
+      }
+    },
+    "My routes": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Laluan saya"
+          }
+        }
+      }
+    },
+    "This phone only. You can share it as GPX.": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Telefon ini sahaja. Boleh kongsi sebagai GPX."
+          }
+        }
+      }
+    },
+    "Part of it is a sketch, not a road. Guests see it labelled “sketch”, without turn-by-turn directions.": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sebahagiannya lakaran, bukan jalan. Tetamu akan nampak label “lakaran”, tiada arahan belok."
+          }
+        }
+      }
+    },
+    "Some legs aren't calculated yet. You can save now and finish later.": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ada kaki laluan yang belum dikira. Anda boleh simpan sekarang dan siapkan kemudian."
+          }
+        }
+      }
+    },
+    "Share GPX": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kongsi GPX"
+          }
+        }
+      }
+    },
+    "A GPX file isn't encrypted. Anyone who gets it can read the route.": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fail GPX tidak disulitkan. Sesiapa yang mendapatnya boleh membaca laluan ini."
+          }
+        }
+      }
+    },
+    "Save route": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Simpan laluan"
+          }
+        }
+      }
+    },
+    "Build a route": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bina laluan"
+          }
+        }
+      }
+    },
+    "Use in an event": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Guna dalam acara"
+          }
+        }
+      }
+    },
+    "Your routes stay on this phone. Routing sends only coordinates and travel mode, and nothing is stored on the server.": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Laluan anda kekal di telefon ini. Pengiraan laluan hanya menghantar koordinat dan mod perjalanan, dan tiada apa disimpan di pelayan."
+          }
+        }
+      }
+    },
+    "To calculate": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Perlu dikira"
+          }
+        }
+      }
+    },
+    "Delete route": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Padam laluan"
+          }
+        }
+      }
+    },
+    "From My routes": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Daripada Laluan saya"
+          }
+        }
+      }
+    },
+    "Long routes can make the link too long; Manotu then offers the event file.": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Laluan panjang boleh menjadikan pautan terlalu besar; Manotu akan cadangkan fail acara."
+          }
+        }
+      }
+    },
+    "A route still has legs to calculate. Open it when you're online, or keep them as sketches.": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Masih ada kaki laluan yang perlu dikira. Buka laluan itu semasa dalam talian, atau simpan sebagai lakaran."
+          }
+        }
+      }
+    },
+    "Part of a drawn route matched no road. Redraw it, add a point or keep it as a sketch.": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sebahagian lukisan laluan tidak sepadan dengan jalan. Lukis semula, tambah titik atau simpan sebagai lakaran."
+          }
+        }
+      }
+    },
+    "An event can have 20 routes at most.": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Satu acara boleh ada 20 laluan sahaja."
+          }
+        }
+      }
+    },
+    "The routes are too detailed (50 000 points at most in total). Remove a route or split it.": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Laluan terlalu terperinci (maksimum 50 000 titik keseluruhan). Buang satu laluan atau pecahkannya."
+          }
+        }
+      }
+    },
+    "Routes changed": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Laluan berubah"
+          }
+        }
+      }
+    },
+    "“Navigate” takes you to a stop. Following the route turn by turn isn't available yet.": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "“Pandu” membawa anda ke hentian. Navigasi mengikut laluan belum tersedia."
+          }
+        }
+      }
+    },
+    "—": {
+      "shouldTranslate": false
     }
   },
   "version": "1.0"

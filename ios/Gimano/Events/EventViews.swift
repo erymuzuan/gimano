@@ -87,6 +87,7 @@ struct EventsSheet: View {
                     case .detail(let id): EventDetailView(eventId: id)
                     case .host(let id): EventEditorView(eventId: id)
                     case .share(let id): EventShareView(eventId: id)
+                    case .myRoutes: MyRoutesView()
                     }
                 }
         }
@@ -563,16 +564,31 @@ struct EventDetailView: View {
     private func routesSection(_ doc: EventDoc) -> some View {
         Section {
             ForEach(doc.routes) { r in
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(verbatim: r.title ?? doc.title).font(Tokens.Font.bodyBold)
-                    let extra = [r.day, r.ascentM.map { "↑ \($0) m" }, r.descentM.map { "↓ \($0) m" }].compactMap { $0 }
-                    Text(verbatim: ([EventFormat.distance(r.distanceM)] + extra).joined(separator: " · "))
-                        .font(Tokens.Font.caption).foregroundStyle(Color.textMuted)
-                    if r.source != .routed {
-                        Text("Sketch: not for turn-by-turn navigation").font(Tokens.Font.small).foregroundStyle(Color.amberInk)
+                Button {
+                    if let e = model.events.event(eventId) { model.events.detent = .medium; model.showEventOnMap(e, routeId: r.id) }
+                } label: {
+                    HStack(spacing: Tokens.Space.m) {
+                        GimanoIcon(icon: r.mode.vehicle.gIcon, size: 24).frame(width: 28)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(verbatim: r.title ?? doc.title).font(Tokens.Font.bodyBold)
+                            let extra = [r.durationS.map { ETAFormatter.duration(Double($0)) }, r.day,
+                                         r.ascentM.map { "↑ \($0) m" }, r.descentM.map { "↓ \($0) m" }].compactMap { $0 }
+                            Text(verbatim: ([EventFormat.distance(r.distanceM)] + extra).joined(separator: " · "))
+                                .font(Tokens.Font.caption).foregroundStyle(Color.textMuted)
+                            if r.source != .routed {
+                                Text("Sketch: not for turn-by-turn navigation").font(Tokens.Font.small).foregroundStyle(Color.amberInk)
+                            }
+                        }
+                        Spacer(minLength: 0)
+                        Image(systemName: "map").foregroundStyle(Color.brand)
                     }
                 }
+                .buttonStyle(.plain)
+                .accessibilityHint(Text("Show on map"))
+                .accessibilityIdentifier("eventRouteShow.\(r.id)")
             }
-        } header: { Text("Routes").font(Tokens.Font.label) }
+        } header: { Text("Routes").font(Tokens.Font.label) } footer: {
+            Text("“Navigate” takes you to a stop. Following the route turn by turn isn't available yet.")
+        }
     }
 }

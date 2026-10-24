@@ -68,6 +68,7 @@ struct EventEditorView: View {
     @State private var problems: [EventDraftIssue] = []
     @State private var publishError: String?
     @State private var confirmDelete = false
+    @State private var buildingRoute: RouteDraft?
 
     var body: some View {
         Group {
@@ -98,8 +99,21 @@ struct EventEditorView: View {
         .sheet(item: $editingStop) { s in
             EventStopEditor(stop: s) { updated in
                 if let i = draft?.stops.firstIndex(where: { $0.id == updated.id }) { draft?.stops[i] = updated }
+                draft?.syncRoutesWithStops()
             } onDelete: {
                 draft?.stops.removeAll { $0.id == s.id }
+                draft?.syncRoutesWithStops()
+            }
+        }
+        .fullScreenCover(item: $buildingRoute) { r in
+            let d = draft ?? .new()
+            RouteBuilderView(route: r, stops: d.stops, context: .event(title: d.title.isEmpty ? String(localized: "New event") : d.title),
+                             days: d.days, transport: model.routeBuilderTransport, start: d.stops.first?.location ?? model.position) { saved, stops in
+                guard var nd = draft else { return }
+                nd.stops = stops
+                if let i = nd.routes.firstIndex(where: { $0.id == saved.id }) { nd.routes[i] = saved } else { nd.routes.append(saved) }
+                nd.syncRoutesWithStops()
+                draft = nd
             }
         }
         .alert("Can't share yet", isPresented: Binding(get: { publishError != nil }, set: { if !$0 { publishError = nil } })) {
@@ -155,6 +169,8 @@ struct EventEditorView: View {
             } header: { Text("When").font(Tokens.Font.label) }
             .environment(\.timeZone, d.wrappedValue.timeZone)
 
+            if d.wrappedValue.routesFirst { EventRoutesSection(draft: d, problems: problems, building: $buildingRoute) }
+
             Section {
                 ForEach(d.wrappedValue.stops) { s in
                     Button { editingStop = s } label: { stopRow(s) }
@@ -163,10 +179,13 @@ struct EventEditorView: View {
                         .contextMenu {
                             Button("Move up", systemImage: "arrow.up") { move(s.id, by: -1) }
                             Button("Move down", systemImage: "arrow.down") { move(s.id, by: 1) }
-                            Button("Remove", systemImage: "trash", role: .destructive) { draft?.stops.removeAll { $0.id == s.id } }
+                            Button("Remove", systemImage: "trash", role: .destructive) {
+                                draft?.stops.removeAll { $0.id == s.id }
+                                draft?.syncRoutesWithStops()
+                            }
                         }
                 }
-                .onDelete { draft?.stops.remove(atOffsets: $0) }
+                .onDelete { draft?.stops.remove(atOffsets: $0); draft?.syncRoutesWithStops() }
                 Button { addingPlace = true } label: {
                     Label("Add a place (map, search or saved places)", systemImage: "plus")
                         .font(Tokens.Font.label)
@@ -177,6 +196,8 @@ struct EventEditorView: View {
             } footer: {
                 if d.wrappedValue.stops.count > 1 { Text("Touch and hold a place to change its order.") }
             }
+
+            if !d.wrappedValue.routesFirst { EventRoutesSection(draft: d, problems: problems, building: $buildingRoute) }
 
             Section {
                 VStack(alignment: .leading, spacing: 4) {
@@ -687,6 +708,7 @@ struct EventUpdateView: View {
         case .stopAdded: return Text("New place: \(name)")
         case .stopRemoved: return Text("Removed: \(name)")
         case .stopDetails: return Text("“\(name)” has new details")
+        case .routes: return Text("Routes changed")
         }
     }
 
