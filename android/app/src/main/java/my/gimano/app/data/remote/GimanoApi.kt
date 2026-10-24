@@ -45,6 +45,10 @@ interface GimanoApi {
     @DELETE("me/data")
     suspend fun deleteMyData(): Response<ResponseBody>
 
+    /** Deletes the account (docs/api.md: public contributions are anonymised, not deleted). */
+    @DELETE("me")
+    suspend fun deleteMe(): Response<ResponseBody>
+
     @GET("search")
     suspend fun search(
         @Query("q") q: String,

@@ -49,6 +49,9 @@ class IdentityService(
         store.put(userId, displayName, seed); cached = null
     }
 
+    /** "Delete my Manotu account": forget this phone's key (the server account is already deleted). */
+    fun forget() = synchronized(this) { store.clear(); cached = null }
+
     /** Call after a backup restore replaced the row. */
     fun reload() = synchronized(this) { store.wrapPlainSeeds(); cached = null }
 

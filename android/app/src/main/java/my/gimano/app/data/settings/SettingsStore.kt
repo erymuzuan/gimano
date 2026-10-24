@@ -52,12 +52,15 @@ data class AppSettings(
     val legacyMigrated: Boolean = false,
     val privacyCardDismissed: Boolean = false,
     /** "Sertakan maklumat peranti" (default ON per docs/api.md; previewed). Replaces 0.1.0's opt-in diagnostics. */
-    val feedbackDevice: Boolean = true,
+    val feedbackDevice: Boolean = false,
     val theme: String = "light",
     val inboxRead: Set<String> = emptySet(),
     /** "Kenapa tak ikut laluan?": "Jangan tanya lagi" and the last day it was asked (on this phone only). */
     val deviationNeverAsk: Boolean = false,
     val deviationLastAsked: String? = null,
+    /** Community rules (UgcTerms) accepted on this phone: version and when. Null = never. */
+    val ugcTermsVersion: String? = null,
+    val ugcTermsAt: String? = null,
 )
 
 /** User-facing settings that travel with a backup (DB `settings` table, shared with iOS). */
@@ -104,6 +107,8 @@ class SettingsStore(private val context: Context, private val scope: CoroutineSc
         val inboxRead = androidx.datastore.preferences.core.stringSetPreferencesKey("inboxRead")
         val deviationNeverAsk = booleanPreferencesKey("deviationNeverAsk")
         val deviationLastAsked = stringPreferencesKey("deviationLastAsked")
+        val ugcTermsVersion = stringPreferencesKey("ugcTermsVersion")
+        val ugcTermsAt = stringPreferencesKey("ugcTermsAt")
     }
 
     private val _state: MutableStateFlow<AppSettings>
@@ -149,11 +154,14 @@ class SettingsStore(private val context: Context, private val scope: CoroutineSc
         lastBackupDest = p[K.lastBackupDest],
         legacyMigrated = p[K.legacyMigrated] ?: false,
         privacyCardDismissed = p[K.privacyCardDismissed] ?: false,
-        feedbackDevice = p[K.feedbackDevice] ?: true,
+        // Opt-in: device info on feedback starts unticked (store review, user decision 2026-10-24).
+        feedbackDevice = p[K.feedbackDevice] ?: false,
         theme = p[K.theme] ?: "light",
         inboxRead = p[K.inboxRead] ?: emptySet(),
         deviationNeverAsk = p[K.deviationNeverAsk] ?: false,
         deviationLastAsked = p[K.deviationLastAsked],
+        ugcTermsVersion = p[K.ugcTermsVersion],
+        ugcTermsAt = p[K.ugcTermsAt],
     )
 
     /**
@@ -203,6 +211,7 @@ class SettingsStore(private val context: Context, private val scope: CoroutineSc
     suspend fun setPrivacyCardDismissed() = edit { it[K.privacyCardDismissed] = true }
     suspend fun setFeedbackDevice(v: Boolean) = edit { it[K.feedbackDevice] = v }
     suspend fun setTheme(v: String) = edit { it[K.theme] = v }
+    suspend fun acceptUgcTerms(version: String, at: String) = edit { it[K.ugcTermsVersion] = version; it[K.ugcTermsAt] = at }
     suspend fun setDeviationAsked(day: String, neverAgain: Boolean) = edit {
         it[K.deviationLastAsked] = day; if (neverAgain) it[K.deviationNeverAsk] = true
     }

@@ -104,6 +104,15 @@ class RemoteRepository(
      * Recovery code: prove the key and learn its userId (`POST /auth/token` with publicKey). Only when the
      * server accepts it does the phone switch to that identity. Returns the display name.
      */
+    /**
+     * DELETE /me. Returns normally when the server account is gone: deleted now, or already absent (404/410).
+     * Anything else throws, and the caller must not touch the phone's identity.
+     */
+    suspend fun deleteAccount() {
+        val r = authed { deleteMe() }
+        if (!r.isSuccessful && r.code() != 404 && r.code() != 410) throw HttpException(r)
+    }
+
     suspend fun restoreFromSeed(seed: ByteArray): String = withContext(Dispatchers.IO) {
         val pk = identity.publicKeyOf(seed)
         val ts = nowTs()
@@ -188,6 +197,7 @@ class RemoteRepository(
     override suspend fun deleteReview(reviewId: String) { authed { deleteReview(reviewId) }.orThrow() }
     override suspend fun helpful(reviewId: String) { authed { helpful(reviewId) }.orThrow() }
     override suspend fun flagReview(reviewId: String, reason: String) { authed { flagReview(reviewId, FlagRequest(reason)) }.orThrow() }
+    override suspend fun flagPhoto(photoId: String, reason: String) { authed { flagPhoto(photoId, FlagRequest(reason)) }.orThrow() }
 
     override suspend fun uploadPhoto(placeId: String, jpeg: ByteArray, caption: String?): Photo = authed {
         val part = MultipartBody.Part.createFormData("file", "photo.jpg", jpeg.toRequestBody("image/jpeg".toMediaType()))

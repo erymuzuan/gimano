@@ -125,7 +125,15 @@ class ContributeViewModel(private val c: AppContainer) : ViewModel() {
     }
 
     /** "Share with everyone": POST /places, then upload the photos; other drivers verify it. */
+    /** Community rules before the first public contribution (UgcTerms); false = shown, [retry] runs after "I agree". */
+    private fun termsOk(retry: () -> Unit): Boolean {
+        if (c.terms.accepted()) return true
+        c.terms.require(retry)
+        return false
+    }
+
     fun savePublic(force: Boolean = false) {
+        if (!termsOk { savePublic(force) }) return
         val s = _add.value
         if (!s.canContinue) return
         _add.update { it.copy(saving = true, error = null, duplicate = if (force) null else it.duplicate) }
@@ -167,7 +175,12 @@ class ContributeViewModel(private val c: AppContainer) : ViewModel() {
      * Vote on a pending community place (docs/identity-and-reputation.md §4). The phone checks it is within
      * 1 km (5 km rural) and sends only {cell, withinM}; the request is signed by the interceptor.
      */
-    fun verify(target: VetTarget, answer: String, nameCorrect: Boolean?, locationCorrect: Boolean?, onDone: (VerifyResult) -> Unit = {}) = viewModelScope.launch {
+    fun verify(target: VetTarget, answer: String, nameCorrect: Boolean?, locationCorrect: Boolean?, onDone: (VerifyResult) -> Unit = {}): kotlinx.coroutines.Job? {
+        if (!termsOk { verify(target, answer, nameCorrect, locationCorrect, onDone) }) return null
+        return verifyNow(target, answer, nameCorrect, locationCorrect, onDone)
+    }
+
+    private fun verifyNow(target: VetTarget, answer: String, nameCorrect: Boolean?, locationCorrect: Boolean?, onDone: (VerifyResult) -> Unit) = viewModelScope.launch {
         val me = c.lastFix ?: run { _events.tryEmit(ContribEvent.Message(R.string.vet_need_location)); return@launch }
         val within = my.gimano.app.core.vetting.Proximity.withinM(me, my.gimano.app.core.geo.GeoPoint(target.lat, target.lng), target.rural)
             ?: run { _events.tryEmit(ContribEvent.Text(c.app.getString(R.string.vet_too_far, my.gimano.app.core.format.Formatters.distance(my.gimano.app.core.vetting.Proximity.limitM(target.rural).toDouble())))); return@launch }
@@ -189,7 +202,12 @@ class ContributeViewModel(private val c: AppContainer) : ViewModel() {
             }
     }
 
-    fun suggestEdit(placeId: String, body: SuggestEditRequest) = viewModelScope.launch {
+    fun suggestEdit(placeId: String, body: SuggestEditRequest) {
+        if (!termsOk { suggestEdit(placeId, body) }) return
+        suggestEditNow(placeId, body)
+    }
+
+    private fun suggestEditNow(placeId: String, body: SuggestEditRequest) = viewModelScope.launch {
         runCatching { c.repo.suggestEdit(placeId, body) }
             .onSuccess { _events.tryEmit(ContribEvent.Message(R.string.thanks_suggestion)) }
             .onFailure { _events.tryEmit(ContribEvent.Message(R.string.action_failed)) }
@@ -212,8 +230,9 @@ class ContributeViewModel(private val c: AppContainer) : ViewModel() {
     private var myReviewIds = HashSet<String>()
     fun mine(r: Review) = r.mine || r.id in myReviewIds
 
-    fun openReview(existing: Review? = null) = _reviews.update {
-        it.copy(draft = existing?.let { r -> ReviewDraft(r.rating, r.text.orEmpty(), editingId = r.id) } ?: ReviewDraft())
+    fun openReview(existing: Review? = null) {
+        if (!termsOk { openReview(existing) }) return
+        _reviews.update { it.copy(draft = existing?.let { r -> ReviewDraft(r.rating, r.text.orEmpty(), editingId = r.id) } ?: ReviewDraft()) }
     }
     fun closeReview() = _reviews.update { it.copy(draft = null) }
     fun updateDraft(f: (ReviewDraft) -> ReviewDraft) = _reviews.update { it.copy(draft = it.draft?.let(f)) }
@@ -261,7 +280,12 @@ class ContributeViewModel(private val c: AppContainer) : ViewModel() {
         }
     }
 
-    fun helpful(r: Review) = viewModelScope.launch {
+    fun helpful(r: Review) {
+        if (!termsOk { helpful(r) }) return
+        helpfulNow(r)
+    }
+
+    private fun helpfulNow(r: Review) = viewModelScope.launch {
         runCatching { c.repo.helpful(r.id) }.onSuccess {
             _reviews.update { s -> s.copy(reviews = s.reviews.map { if (it.id == r.id) it.copy(helpfulCount = it.helpfulCount + 1) else it }) }
         }
@@ -269,6 +293,18 @@ class ContributeViewModel(private val c: AppContainer) : ViewModel() {
 
     fun flag(r: Review, reason: String) = viewModelScope.launch {
         runCatching { c.repo.flagReview(r.id, reason) }.onSuccess { _events.tryEmit(ContribEvent.Message(R.string.thanks_flag)) }
+    }
+
+    /** "Report photo" (POST /photos/{id}/flag), same reasons as a review. */
+    fun flagPhoto(p: my.gimano.app.data.model.Photo, reason: String) = viewModelScope.launch {
+        runCatching { c.repo.flagPhoto(p.id, reason) }.onSuccess { _events.tryEmit(ContribEvent.Message(R.string.thanks_flag)) }
+    }
+
+    /** "Block this user": on this phone only (never sent); their reviews and photos disappear everywhere. */
+    fun blockAuthor(a: my.gimano.app.data.model.Author) = viewModelScope.launch {
+        if (a.authorRef == null) return@launch
+        c.blocks.block(a)
+        _events.tryEmit(ContribEvent.Message(R.string.blocked_done))
     }
 
     /** "Add photo" on the place card: upload with progress, then show the processing state. */

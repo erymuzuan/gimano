@@ -57,6 +57,8 @@ interface GimanoRepository : my.gimano.app.data.share.ShareApi {
     suspend fun deleteReview(reviewId: String)
     suspend fun helpful(reviewId: String)
     suspend fun flagReview(reviewId: String, reason: String)
+    /** "Report photo" (POST /photos/{id}/flag): same reasons as a review flag. */
+    suspend fun flagPhoto(photoId: String, reason: String)
     suspend fun uploadPhoto(placeId: String, jpeg: ByteArray, caption: String?): Photo
     suspend fun photos(placeId: String): PhotosPage
 }

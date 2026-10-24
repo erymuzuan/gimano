@@ -5,6 +5,7 @@ import androidx.biometric.BiometricManager.Authenticators.BIOMETRIC_WEAK
 import androidx.biometric.BiometricManager.Authenticators.DEVICE_CREDENTIAL
 import androidx.biometric.BiometricPrompt
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -44,6 +45,7 @@ fun AccountScreen(c: AppContainer, vm: MainViewModel, user: User?, displayName: 
     var words by remember { mutableStateOf<List<String>?>(null) }
     var noLockNote by remember { mutableStateOf(false) }
     var restoring by remember { mutableStateOf(false) }
+    var deleting by remember { mutableStateOf(false) }
     val confirmTitle = stringResource(R.string.recovery_confirm)
     val confirmSub = stringResource(R.string.recovery_confirm_sub)
 
@@ -83,8 +85,17 @@ fun AccountScreen(c: AppContainer, vm: MainViewModel, user: User?, displayName: 
             OutlinedButton(onClick = { restoring = true }, Modifier.fillMaxWidth().height(56.dp), shape = RoundedCornerShape(18.dp)) {
                 Text(stringResource(R.string.restore_recovery), fontWeight = FontWeight.Black, fontSize = 16.sp, color = col.brandInk)
             }
+            // "Padam akaun Manotu saya / Delete my Manotu account" (DELETE /api/v1/me), also on the web.
+            Spacer(Modifier.height(12.dp))
+            OutlinedButton(onClick = { deleting = true }, Modifier.fillMaxWidth().heightIn(min = 56.dp), shape = RoundedCornerShape(18.dp),
+                border = androidx.compose.foundation.BorderStroke(2.dp, col.report)) {
+                Text(stringResource(R.string.delete_account), fontWeight = FontWeight.Black, fontSize = 16.sp, color = col.report)
+            }
+            Text(stringResource(R.string.delete_account_web, my.gimano.app.data.account.AccountDeletion.WEB_URL), fontSize = 13.sp, color = col.textMuted)
         }
     }
+
+    if (deleting) DeleteAccountDialog(c, onClose = { deleting = false }, onDeleted = { deleting = false; vm.back() })
 
     words?.let { w ->
         AlertDialog(
@@ -108,6 +119,54 @@ fun AccountScreen(c: AppContainer, vm: MainViewModel, user: User?, displayName: 
     }
 
     if (restoring) RestoreDialog(c, onClose = { restoring = false }, onRestored = { name -> restoring = false; vm.onIdentityRestored(name) })
+}
+
+/**
+ * What "Delete my Manotu account" deletes (the server account; public contributions are anonymised, not deleted),
+ * what stays on the phone (favourites etc. unless the user ticks "also clear"), then DELETE /me. Nothing on the
+ * phone changes unless the server confirmed.
+ */
+@Composable
+private fun DeleteAccountDialog(c: AppContainer, onClose: () -> Unit, onDeleted: () -> Unit) {
+    val scope = rememberCoroutineScope()
+    val ctx = LocalContext.current
+    var alsoClear by remember { mutableStateOf(false) }
+    var busy by remember { mutableStateOf(false) }
+    var error by remember { mutableStateOf<String?>(null) }
+    AlertDialog(
+        onDismissRequest = { if (!busy) onClose() },
+        title = { Text(stringResource(R.string.delete_account_title), fontWeight = FontWeight.Black) },
+        text = {
+            Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text(stringResource(R.string.delete_account_body))
+                Row(Modifier.fillMaxWidth().clickable(enabled = !busy) { alsoClear = !alsoClear }, verticalAlignment = Alignment.CenterVertically) {
+                    Checkbox(alsoClear, { alsoClear = it }, enabled = !busy)
+                    Text(stringResource(R.string.delete_account_also_local), fontWeight = FontWeight.Bold)
+                }
+                Text(stringResource(R.string.delete_account_web, my.gimano.app.data.account.AccountDeletion.WEB_URL), fontSize = 13.sp, color = Gimano.colors.textMuted)
+                if (busy) LinearProgressIndicator(Modifier.fillMaxWidth())
+                error?.let { Text(it, color = Gimano.colors.report, fontWeight = FontWeight.Bold) }
+            }
+        },
+        confirmButton = {
+            Button(enabled = !busy, onClick = {
+                busy = true; error = null
+                scope.launch {
+                    when (c.accountDeletion.run(alsoClear)) {
+                        my.gimano.app.data.account.AccountDeletion.Outcome.DELETED -> {
+                            android.widget.Toast.makeText(ctx, ctx.getString(R.string.delete_account_done), android.widget.Toast.LENGTH_LONG).show()
+                            onDeleted()
+                        }
+                        my.gimano.app.data.account.AccountDeletion.Outcome.OFFLINE -> { error = ctx.getString(R.string.delete_account_offline); busy = false }
+                        my.gimano.app.data.account.AccountDeletion.Outcome.FAILED -> { error = ctx.getString(R.string.delete_account_failed); busy = false }
+                    }
+                }
+            }, colors = ButtonDefaults.buttonColors(containerColor = Gimano.colors.report)) {
+                Text(stringResource(R.string.delete_account_confirm), fontWeight = FontWeight.Black)
+            }
+        },
+        dismissButton = { TextButton(enabled = !busy, onClick = onClose) { Text(stringResource(R.string.cancel)) } },
+    )
 }
 
 @Composable

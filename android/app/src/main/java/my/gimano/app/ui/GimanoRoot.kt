@@ -291,6 +291,9 @@ fun GimanoRoot(vm: MainViewModel, onMic: () -> Unit, onExit: () -> Unit, onReque
             vm.openTolls(null); ui.plan?.let { p -> vm.setAvoid(p.avoid.copy(tolls = true)) }
         })
     }
+    // Community rules before the first public contribution (review, photo, place, report, complaint, vote).
+    val termsPrompt by container.terms.prompt.collectAsStateWithLifecycle()
+    if (termsPrompt) my.gimano.app.ui.contribute.CommunityRulesDialog(onAgree = container.terms::accept, onNotNow = container.terms::decline)
     if (feedbackDraft.open) my.gimano.app.ui.feedback.FeedbackSheet(fvm, feedbackDraft, here = { vm.here().let { it.lat to it.lng } }, onSend = {
         val h = vm.here(); fvm.send(h.lat, h.lng)
     })

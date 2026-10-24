@@ -116,6 +116,7 @@ class SwitchingRepository(
     override suspend fun deleteReview(reviewId: String) = write { deleteReview(reviewId) }
     override suspend fun helpful(reviewId: String) = write { helpful(reviewId) }
     override suspend fun flagReview(reviewId: String, reason: String) = write { flagReview(reviewId, reason) }
+    override suspend fun flagPhoto(photoId: String, reason: String) = write { flagPhoto(photoId, reason) }
     override suspend fun uploadPhoto(placeId: String, jpeg: ByteArray, caption: String?) = write { uploadPhoto(placeId, jpeg, caption) }
     override suspend fun photos(placeId: String) = pick { photos(placeId) }
     override suspend fun createShare(expiresInMinutes: Int) = write { createShare(expiresInMinutes) }

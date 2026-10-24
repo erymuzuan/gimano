@@ -499,7 +499,18 @@ class MainViewModel(private val c: AppContainer) : ViewModel() {
 
     fun selectAlert(id: String?) = _ui.update { it.copy(selectedAlertId = id) }
 
+    /**
+     * Community rules before the first public contribution (UgcTerms): true = carry on now; false = the rules are shown
+     * and [retry] runs after "I agree" (or never, on "Not now").
+     */
+    private fun termsOk(retry: () -> Unit): Boolean {
+        if (c.terms.accepted()) return true
+        c.terms.require(retry)
+        return false
+    }
+
     fun vote(report: Report, stillThere: Boolean) {
+        if (!termsOk { vote(report, stillThere) }) return
         viewModelScope.launch {
             runCatching { repo.vote(report.id, stillThere) }
                 .onSuccess { upd -> _ui.update { s -> s.copy(alerts = s.alerts.map { if (it.id == upd.id) upd else it }) } }
@@ -513,7 +524,10 @@ class MainViewModel(private val c: AppContainer) : ViewModel() {
 
     // --- Reports ----------------------------------------------------------------------------
 
-    fun openReport(open: Boolean) = _ui.update { it.copy(reportOpen = open) }
+    fun openReport(open: Boolean) {
+        if (open && !termsOk { openReport(true) }) return
+        _ui.update { it.copy(reportOpen = open) }
+    }
 
     fun submitReport(type: String, subtype: String?, comment: String?) {
         val fix = nav.value.fix ?: _ui.value.myLocation
@@ -679,8 +693,11 @@ class MainViewModel(private val c: AppContainer) : ViewModel() {
             d.road?.let { put("roadName", kotlinx.serialization.json.JsonPrimitive(it)) }
             if (turn) { put("toLat", kotlinx.serialization.json.JsonPrimitive(round5(d.point.lat))); put("toLng", kotlinx.serialization.json.JsonPrimitive(round5(d.point.lng))) }
         }
-        sendIssue(CreateIssueRequest(kind, lat = round5(at.lat), lng = round5(at.lng), heading = d.heading, vehicle = settings.current.vehicle,
-            source = "deviation", payload = payload.takeIf { it.isNotEmpty() }), R.string.issue_sent)
+        val send = {
+            sendIssue(CreateIssueRequest(kind, lat = round5(at.lat), lng = round5(at.lng), heading = d.heading, vehicle = settings.current.vehicle,
+                source = "deviation", payload = payload.takeIf { it.isNotEmpty() }), R.string.issue_sent)
+        }
+        if (termsOk { send() }) send()
     }
 
     /** "Masih ditutup?" answers: still | cleared | unsure. */
@@ -688,6 +705,11 @@ class MainViewModel(private val c: AppContainer) : ViewModel() {
         val i = _ui.value.stillClosed ?: return
         _ui.update { it.copy(stillClosed = null) }
         if (answer == null) return
+        if (!termsOk { voteStillClosed(i, answer) }) return
+        voteStillClosed(i, answer)
+    }
+
+    private fun voteStillClosed(i: my.gimano.app.data.model.Issue, answer: String) {
         val prox = voteProximity(GeoPoint(i.lat, i.lng)) ?: return
         viewModelScope.launch {
             if (c.issues.call(collection = false) { voteIssue(i.id, my.gimano.app.data.model.IssueVoteRequest(answer, prox)) } != null) _events.tryEmit(UiEvent.Toast(R.string.thanks_vote))
@@ -720,6 +742,7 @@ class MainViewModel(private val c: AppContainer) : ViewModel() {
     fun reportPlaceIssue(kind: String, payload: Map<String, String>? = null, at: GeoPoint? = null) = reportPlaceIssueJson(kind, jsonOf(payload), at)
 
     private fun reportPlaceIssueJson(kind: String, payload: kotlinx.serialization.json.JsonObject?, at: GeoPoint? = null) {
+        if (!termsOk { reportPlaceIssueJson(kind, payload, at) }) return
         val p = _ui.value.place?.summary ?: return
         val pt = at ?: GeoPoint(p.lat, p.lng)
         sendIssue(CreateIssueRequest(kind, lat = round5(pt.lat), lng = round5(pt.lng), placeId = p.id, source = "place_edit", payload = payload), R.string.issue_sent) {
@@ -728,6 +751,7 @@ class MainViewModel(private val c: AppContainer) : ViewModel() {
     }
 
     fun votePlaceIssue(i: my.gimano.app.data.model.Issue, answer: String) {
+        if (!termsOk { votePlaceIssue(i, answer) }) return
         val prox = voteProximity(GeoPoint(i.lat, i.lng)) ?: run { _events.tryEmit(UiEvent.Toast(R.string.vote_need_near)); return }
         viewModelScope.launch {
             if (c.issues.call(collection = false) { voteIssue(i.id, my.gimano.app.data.model.IssueVoteRequest(answer, prox)) } != null) {

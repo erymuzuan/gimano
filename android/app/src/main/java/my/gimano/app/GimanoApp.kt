@@ -7,6 +7,7 @@ import com.goterl.lazysodium.SodiumAndroid
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
 import my.gimano.app.core.format.Lang
 import my.gimano.app.data.backup.BackupCrypto
 import my.gimano.app.data.backup.BackupManager
@@ -60,6 +61,33 @@ class AppContainer(val app: Application) {
             },
         ),
     )
+    /** Blocked authors: on this phone only (settings table rows), hides their reviews and photos everywhere. */
+    val blocks = my.gimano.app.data.ugc.BlockList(db.settings()).also { b -> scope.launch(Dispatchers.IO) { b.reload() } }
+
+    /** Community rules before the first public contribution (accepted on this phone, with date and version). */
+    val terms = my.gimano.app.data.ugc.TermsGate(
+        acceptedVersion = { settings.current.ugcTermsVersion },
+        persistAcceptance = { v -> scope.launch { settings.acceptUgcTerms(v, java.time.Instant.now().toString()) } },
+    )
+
+    /** "Delete my Manotu account": DELETE /me first; only then forget the key/token; local data only if asked. */
+    val accountDeletion = my.gimano.app.data.account.AccountDeletion(
+        isRegistered = { settings.current.token != null || identity.current()?.registered == true },
+        deleteOnServer = { remote.deleteAccount() },
+        forgetIdentity = {
+            kotlinx.coroutines.withContext(Dispatchers.IO) { identity.forget() }
+            settings.saveAuth(null, null, null)
+            liveHub.stop()
+        },
+        clearLocalData = {
+            kotlinx.coroutines.withContext(Dispatchers.IO) {
+                db.clearAllTables()
+                listOf("photos", "demo-photos").forEach { File(app.filesDir, it).deleteRecursively() }
+            }
+            blocks.reload()
+        },
+    )
+
     val liveHub = LiveHub(scope, { settings.current.apiBaseUrl }, { settings.current.token })
     val locations = FusedLocationSource(app)
     val voice = VoiceGuide(app, volume = { settings.current.voiceVolume / 100f })
@@ -83,7 +111,7 @@ class AppContainer(val app: Application) {
             app, db, crypto, exportSettings = { settings.current.toBackupMap() }, importSettings = { settings.applyBackupMap(it) },
             seedToPlain = { s -> if (seedWrapper.isWrapped(s)) java.util.Base64.getEncoder().encodeToString(seedWrapper.unwrap(s)) else s },
             afterRestore = {
-                kotlinx.coroutines.withContext(Dispatchers.IO) { identity.reload() }
+                kotlinx.coroutines.withContext(Dispatchers.IO) { identity.reload(); blocks.reload() }   // restored block list too
                 remote.adoptRestoredIdentity()
             },
         )

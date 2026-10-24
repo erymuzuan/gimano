@@ -33,6 +33,8 @@ import my.gimano.app.ui.theme.Gimano
 
 private const val SITE = "https://manotu.app/"
 const val GITHUB = "https://github.com/erymuzuan/manotu"
+/** Privacy, account deletion and content reports. */
+const val CONTACT_EMAIL = "privacy@bukitbunga.com"
 
 /** Settings → "Tentang Manotu": version, server, updates, links and map attribution. */
 @Composable
@@ -74,6 +76,8 @@ fun AboutScreen(c: AppContainer, live: Boolean, onBack: () -> Unit, onLicences: 
             Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(col.surface)) {
                 LinkRow(stringResource(R.string.about_privacy)) { open(SITE + "privacy/") }
                 LinkRow(stringResource(R.string.about_terms)) { open(SITE + "terms/") }
+                // Contact for privacy, deletion and content reports (store listings use the same address).
+                LinkRow(stringResource(R.string.about_contact, CONTACT_EMAIL)) { open("mailto:$CONTACT_EMAIL") }
                 LinkRow(stringResource(R.string.about_source)) { open(GITHUB) }
                 LinkRow(stringResource(R.string.about_licences), onLicences)
             }

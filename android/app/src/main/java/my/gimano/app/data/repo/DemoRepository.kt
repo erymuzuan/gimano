@@ -322,7 +322,21 @@ class DemoRepository(
     // --- Community places, reviews, photos (demo) ------------------------------------------
     private val community = java.util.concurrent.ConcurrentHashMap<String, Place>()
     private val verifications = java.util.concurrent.ConcurrentHashMap<String, Int>()
-    private val reviewStore = java.util.concurrent.ConcurrentHashMap<String, MutableList<Review>>()
+    /**
+     * Three sample reviews on Masjid Negara by three sample authors, each with an opaque author handle, so "Block this
+     * user" can be tried in demo mode. Demo data only.
+     */
+    private val reviewStore = java.util.concurrent.ConcurrentHashMap<String, MutableList<Review>>().apply {
+        val now = Instant.now()
+        fun r(id: String, rating: Int, text: String, name: String, ref: String, hoursAgo: Long) =
+            Review(id, "masjidnegara", rating, text, author = Author(name, 3, 12, authorRef = ref), helpfulCount = 2,
+                createdAt = now.minusSeconds(hoursAgo * 3600).toString())
+        put("masjidnegara", java.util.concurrent.CopyOnWriteArrayList(listOf(
+            r("demo-rv-1", 5, "Bersih, parkir mudah selepas Isyak.", "Badak 5880", "demo-author-badak", 48),
+            r("demo-rv-2", 4, "Cantik waktu malam. Parkir penuh hari Jumaat.", "Kancil 1204", "demo-author-kancil", 120),
+            r("demo-rv-3", 4, "Good for visitors; the guides are friendly.", "Helang 77", "demo-author-helang", 300),
+        )))
+    }
     private val photoStore = java.util.concurrent.ConcurrentHashMap<String, MutableList<Photo>>()
     private val photoUploadedAt = java.util.concurrent.ConcurrentHashMap<String, Long>()
 
@@ -415,6 +429,7 @@ class DemoRepository(
     }
 
     override suspend fun flagReview(reviewId: String, reason: String) {}
+    override suspend fun flagPhoto(photoId: String, reason: String) {}
 
     override suspend fun uploadPhoto(placeId: String, jpeg: ByteArray, caption: String?): Photo {
         delay(600)

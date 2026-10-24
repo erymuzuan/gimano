@@ -200,7 +200,14 @@ data class Place(
 }
 
 @Serializable
-data class Author(val displayName: String = "", val level: Int? = null, val reviewCount: Int? = null)
+data class Author(
+    val displayName: String = "", val level: Int? = null, val reviewCount: Int? = null,
+    /**
+     * Opaque, stable per-author handle from the server (not the pseudonym key, not the user id), used only to block an
+     * author on this phone. Field name per docs/api.md once the backend lands; the alternatives keep older/newer names.
+     */
+    @kotlinx.serialization.json.JsonNames("authorHandle", "handle", "ref") val authorRef: String? = null,
+)
 
 @Serializable
 data class Photo(
