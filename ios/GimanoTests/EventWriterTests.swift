@@ -326,13 +326,13 @@ struct EventHostCenterTests {
         let center = EventCenter(store: try EventStore(directory: nil), secrets: InMemoryEventSecretStore())
         center.now = { EventHostTests.now }
         let id = center.newEvent()
-        #expect(center.path == [.host(id)] && center.hosted.count == 1)
+        #expect(center.path == [.create(id)] && center.hosted.count == 1)
         var d = EventHostTests.draft()
         d.id = id
         center.saveDraft(d)
         #expect(await center.publish(id) == nil)
         #expect(center.publishing == nil)
-        #expect(center.path == [.host(id), .share(id)])
+        #expect(center.path == [.create(id), .share(id)])
         let link = try #require(center.invites[id]?.link)
         #expect(center.inviteFileURL(id).map { FileManager.default.fileExists(atPath: $0.path) } == true)
         center.path = []

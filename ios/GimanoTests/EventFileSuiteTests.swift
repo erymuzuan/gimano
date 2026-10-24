@@ -210,15 +210,15 @@ struct EventFileSuiteTests {
         let secrets = InMemoryEventSecretStore()
         var d = FV.draft()
         try store.saveDraft(d)
-        guard case .success(let v1) = EventPublisher.publish(eventId: d.id, store: store, secrets: secrets, now: FV.now) else {
+        guard case .success(let v1) = EventPublisher.publish(eventId: d.id, store: store, secrets: secrets, codeFile: true, now: FV.now) else {
             Testing.Issue.record("v1"); return
         }
-        guard case .success(let again) = EventPublisher.publish(eventId: d.id, store: store, secrets: secrets, now: FV.now) else {
+        guard case .success(let again) = EventPublisher.publish(eventId: d.id, store: store, secrets: secrets, codeFile: true, now: FV.now) else {
             Testing.Issue.record("again"); return
         }
         d.stops[0].location = LatLng(lat: 2.9901, lng: 101.7955)
         try store.saveDraft(d)
-        guard case .success(let v2) = EventPublisher.publish(eventId: d.id, store: store, secrets: secrets, now: FV.now.addingTimeInterval(60)) else {
+        guard case .success(let v2) = EventPublisher.publish(eventId: d.id, store: store, secrets: secrets, codeFile: true, now: FV.now.addingTimeInterval(60)) else {
             Testing.Issue.record("v2"); return
         }
         #expect(again.reused && v2.doc.rev == 2)
@@ -226,13 +226,13 @@ struct EventFileSuiteTests {
         #expect(stored.fileCode == v1.secretCode)
         #expect([again.secretCode, v2.secretCode].allSatisfy { $0 == v1.secretCode })
         #expect(SecretCodeV2.isWellFormed(v1.secretCode))
-        let salts = try [v1, again, v2].map { try FV.salt($0.fileBytes) }
+        let salts = try [v1, again, v2].map { try FV.salt($0.codeFileBytes!) }
         #expect(Set(salts.map(B64u.encode)).count == 3)
-        #expect(try EventPack.openFile(v1.fileBytes, secretCode: v1.secretCode).event.rev == 1)
-        #expect(try EventPack.openFile(again.fileBytes, secretCode: v1.secretCode).event.rev == 1)
-        #expect(try EventPack.openFile(v2.fileBytes, secretCode: v1.secretCode).event.rev == 2)
+        #expect(try EventPack.openFile(v1.codeFileBytes!, secretCode: v1.secretCode).event.rev == 1)
+        #expect(try EventPack.openFile(again.codeFileBytes!, secretCode: v1.secretCode).event.rev == 1)
+        #expect(try EventPack.openFile(v2.codeFileBytes!, secretCode: v1.secretCode).event.rev == 2)
         // The file key isn't the link key.
-        let parsed = try EventPack.parseFile(v2.fileBytes)
+        let parsed = try EventPack.parseFile(v2.codeFileBytes!)
         #expect(FV.code { _ = try EventPack.open(key: stored.packKey, sealed: parsed.sealed) } == "decrypt")
     }
 
@@ -242,7 +242,7 @@ struct EventFileSuiteTests {
         let secrets = InMemoryEventSecretStore()
         var d = FV.draft()
         try store.saveDraft(d)
-        guard case .success(let v1) = EventPublisher.publish(eventId: d.id, store: store, secrets: secrets, now: FV.now) else {
+        guard case .success(let v1) = EventPublisher.publish(eventId: d.id, store: store, secrets: secrets, codeFile: true, now: FV.now) else {
             Testing.Issue.record("v1"); return
         }
         // What an older build left in the Keychain: seed ‖ pack key (64 bytes), no file code.
@@ -253,7 +253,7 @@ struct EventFileSuiteTests {
 
         d.title = "Kenduri Aqil & Sofea (dikemas kini)"
         try store.saveDraft(d)
-        guard case .success(let v2) = EventPublisher.publish(eventId: d.id, store: store, secrets: secrets, now: FV.now.addingTimeInterval(60)) else {
+        guard case .success(let v2) = EventPublisher.publish(eventId: d.id, store: store, secrets: secrets, codeFile: true, now: FV.now.addingTimeInterval(60)) else {
             Testing.Issue.record("v2"); return
         }
         let migrated = try #require(secrets.load(eventId: d.id))
@@ -261,9 +261,9 @@ struct EventFileSuiteTests {
         #expect(migrated.seed == full.seed && migrated.packKey == full.packKey)   // same organizer and link key
         let (l1, l2) = (try #require(v1.link), try #require(v2.link))
         #expect(try EventPack.openLink(l2).organizerPub == (try EventPack.openLink(l1).organizerPub))
-        #expect(try EventPack.openFile(v2.fileBytes, secretCode: v2.secretCode).event.rev == 2)
+        #expect(try EventPack.openFile(v2.codeFileBytes!, secretCode: v2.secretCode).event.rev == 2)
 
-        guard case .success(let v3) = EventPublisher.publish(eventId: d.id, store: store, secrets: secrets, now: FV.now.addingTimeInterval(120)) else {
+        guard case .success(let v3) = EventPublisher.publish(eventId: d.id, store: store, secrets: secrets, codeFile: true, now: FV.now.addingTimeInterval(120)) else {
             Testing.Issue.record("v3"); return
         }
         #expect(v3.secretCode == v2.secretCode)

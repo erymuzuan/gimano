@@ -99,6 +99,17 @@ extension EventPack {
         return "\(base)/a/#\(f)"
     }
 
+    /// Suite 3 framing (`encode_open_file`, the default share): `"MNTE" ‖ 0x01 ‖ 0x03 ‖ key(32) ‖ nonce(24) ‖ ciphertext`,
+    /// the same key, nonce and ciphertext as this publication's link (`fragment(key:sealed:)`), so the file and the link
+    /// are interchangeable. Only the 20 MiB file limit applies, not the link's 16 000 characters. Never a stops-only
+    /// variant: pass the pack sealed from the full event bytes.
+    static func openFileBytes(key: [UInt8], sealed: SealedEventPack) throws(EventPackError) -> [UInt8] {
+        guard key.count == keyBytes, sealed.nonce.count == nonceBytes else { throw .malformedFile }
+        let bytes = fileMagic + [fileFormatV1, fileSuiteOpen] + key + sealed.nonce + sealed.ciphertext
+        if bytes.count > EventLimits.maxFileBytes { throw .fileTooLarge }
+        return bytes
+    }
+
     /// Suite 2 framing (`encode_file`): `"MNTE" ‖ 0x01 ‖ 0x02 ‖ salt(16) ‖ nonce(24) ‖ ciphertext`, for a pack sealed
     /// under `EventFileKey.derive(code:salt:)`. Suite 1 is read only and never written.
     static func fileBytes(salt: [UInt8], sealed: SealedEventPack) throws(EventPackError) -> [UInt8] {
@@ -140,6 +151,36 @@ enum EventLinks {
 /// The ready-to-post texts for "Kongsi…" (WhatsApp etc.), in the event's own language (`lang`).
 /// The secret code is never part of these; it has its own copy/share button.
 enum EventShareMessage {
+    /// "Ahad 15 Nov · 11:00–16:00" (§5.2.1 `<date · time>`): 24-hour times, in the event's language and time zone.
+    static func shortDateLine(_ doc: EventDoc) -> String {
+        func f(_ pattern: String) -> DateFormatter {
+            let x = DateFormatter()
+            x.calendar = Calendar(identifier: .gregorian)
+            x.locale = Locale(identifier: doc.lang == .ms ? "ms_MY" : "en_MY")
+            x.timeZone = doc.timeZone
+            x.dateFormat = pattern
+            return x
+        }
+        let day = f("EEEE d MMM"), time = f("HH:mm")
+        var cal = Calendar(identifier: .gregorian)
+        cal.timeZone = doc.timeZone
+        let (s, e) = (doc.start.date, doc.end.date)
+        if cal.isDate(s, inSameDayAs: e) {
+            return "\(day.string(from: s)) · \(time.string(from: s))–\(time.string(from: e))"
+        }
+        return "\(day.string(from: s)) · \(time.string(from: s)) – \(day.string(from: e)) · \(time.string(from: e))"
+    }
+
+    /// §5.2.1 default share ("Hantar fail"): the text next to the suite-3 file. No code, no key, no link.
+    static func openFile(_ doc: EventDoc, downloadURL: String = AppConfig.downloadURL) -> String {
+        switch doc.lang {
+        case .ms:
+            "Jemputan: \(doc.title)\n\(shortDateLine(doc))\nKetik fail untuk buka di Manotu.\nBelum ada Manotu? \(downloadURL)"
+        case .en:
+            "Invitation: \(doc.title)\n\(shortDateLine(doc))\nTap the file to open it in Manotu.\nNo Manotu yet? \(downloadURL)"
+        }
+    }
+
     private static func dateLine(_ doc: EventDoc) -> String {
         let locale = Locale(identifier: doc.lang == .ms ? "ms_MY" : "en_MY")
         let tz = doc.timeZone
@@ -173,7 +214,7 @@ enum EventShareMessage {
         }
     }
 
-    /// Text next to the attached `.manotu-event` file. Never contains the key or the secret code.
+    /// Text next to a suite-2 ("Acara sensitif") `.manotu-event` file. Never contains the key or the secret code.
     static func file(_ doc: EventDoc, downloadURL: String = AppConfig.downloadURL) -> String {
         switch doc.lang {
         case .ms:

@@ -1,6 +1,6 @@
 import XCTest
 
-/// Organizer flow (boards "1 · Acara baharu" and "2 · Kongsi jemputan"): create an event, add a place from the map,
+/// Organizer flow (wizard boards EwType … EwShare): create an event step by step, add places from the map,
 /// publish, copy the link, then open that link as the host: it must open the host's own event, not an import.
 final class EventHostUITests: XCTestCase {
     var lang: String { ProcessInfo.processInfo.environment["GIMANO_LANG"] ?? "en" }
@@ -24,28 +24,54 @@ final class EventHostUITests: XCTestCase {
         wait(app.buttons["menuEvents"]).tap()
         wait(app.buttons["eventNew"]).tap()
 
+        // 1 · Jenis
+        wait(app.buttons["eventTemplate.kenduri"]).tap()
+        shot(app, "wizard-1-type")
+        wait(app.buttons["eventWizardNext"]).tap()
+
+        // 2 · Bila: the name starts as the template's.
         let title = wait(app.textFields["eventTitleField"])
         title.tap()
-        title.typeText("Kenduri UI Test")
-        shot(app, "event-new")
+        title.typeText(" UI Test")
+        shot(app, "wizard-2-when")
+        app.buttons["eventWizardNext"].tap()
 
+        // 3 · Di mana: main venue, then a parking place.
         wait(app.buttons["eventAddPlace"]).tap()
         wait(app.buttons["eventPickOnMap"]).tap()
         wait(app.buttons["selectChoose"], 20).tap()
-
+        wait(app.buttons["eventAddStop.parking"], 20).tap()
+        wait(app.buttons["eventPickOnMap"]).tap()
+        wait(app.buttons["selectChoose"], 20).tap()
         let label = wait(app.textFields["eventStopLabel"], 20)
         label.tap()
-        label.typeText("Parkir tetamu")
+        label.typeText(" tetamu")
         wait(app.buttons["eventStopDone"]).tap()
-        shot(app, "event-with-place")
+        shot(app, "wizard-3-place")
+        wait(app.buttons["eventWizardNext"]).tap()
 
-        let share = app.buttons["eventShareInvitation"]
-        for _ in 0..<6 where !share.isHittable { app.swipeUp() }
-        wait(share).tap()
+        // 4 · Info
+        wait(app.buttons["eventAddInfo.dress"]).tap()
+        let dress = wait(app.textFields["eventInfoText.dress"])
+        dress.tap()
+        dress.typeText("Batik")
+        shot(app, "wizard-4-info")
+        app.buttons["eventWizardNext"].tap()
+
+        // 5 · Semak → Kongsi
+        wait(app.buttons["eventReview.when"])
+        wait(app.staticTexts["eventHostSafetyCode"])
+        shot(app, "wizard-5-review")
+        wait(app.buttons["eventShareInvitation"]).tap()
         wait(app.staticTexts["eventShareVersion"], 20)
+        XCTAssertTrue(app.buttons["eventShareFile"].exists)
+        XCTAssertFalse(app.staticTexts["eventSecretCodeValue"].exists, "no code on the default share")
         shot(app, "event-share")
-        app.buttons["eventSecretCodeShow"].tap()
+        let sensitive = wait(app.switches["eventShareSensitive"])
+        sensitive.coordinate(withNormalizedOffset: CGVector(dx: 0.93, dy: 0.5)).tap()
+        wait(app.buttons["eventSecretCodeShow"], 20).tap()
         XCTAssertFalse(app.staticTexts["eventSecretCodeValue"].label.contains("•"))
+        shot(app, "event-share-sensitive")
         wait(app.buttons["eventCopyLink"]).tap()
         wait(app.buttons["eventShareDone"]).tap()
 
@@ -57,6 +83,8 @@ final class EventHostUITests: XCTestCase {
         wait(app.buttons["eventOpenOwn"], 20)
         shot(app, "event-own-link")
         app.buttons["eventOpenOwn"].tap()
-        wait(app.textFields["eventTitleField"])
+        // Editing an existing event opens on "Semak".
+        wait(app.buttons["eventReview.when"])
+        shot(app, "event-edit-review")
     }
 }

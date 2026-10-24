@@ -84,6 +84,7 @@ enum EventLimits {
     static let maxEventDays = 14
     static let maxStops = 200
     static let maxSessions = 50
+    static let maxInfoBlocks = 12
     static let maxRoutes = 20
     static let maxPolylinePoints = 50_000
     static let maxFileBytes = 20 * 1024 * 1024
@@ -97,6 +98,7 @@ enum EventLimits {
     static let audienceChars = 40
     static let routeTitleChars = 80
     static let sessionTitleChars = 120
+    static let infoTextChars = 1000
     static let aliasChars = 80
     static let tzChars = 64
     static let maxDwellMin: UInt32 = 14 * 24 * 60
@@ -324,6 +326,11 @@ enum EventFileSuite: Equatable, Sendable {
     case rawKey
     /// Suite 2: Argon2id over the 8-character code and this salt.
     case code(salt: [UInt8])
+    /// Suite 3 (the default share since 24 Oct 2026): the file carries the link's own 32-byte key. No code.
+    case open(key: [UInt8])
+
+    /// Opening needs a code from the host (suites 1 and 2); suite 3 never asks.
+    var needsCode: Bool { if case .open = self { false } else { true } }
 }
 
 struct ParsedEventFile: Equatable, Sendable {
@@ -357,6 +364,8 @@ enum EventPack {
     static let fileSuiteRawKey: UInt8 = 0x01
     /// Suite 2: the key is derived with Argon2id from an 8-character code and the file's salt. Written since 24 Oct 2026.
     static let fileSuiteCode: UInt8 = 0x02
+    /// Suite 3: the pack key is in the file, the same key, nonce and ciphertext as the link (§5.2). No code.
+    static let fileSuiteOpen: UInt8 = 0x03
     static let fileExtension = "manotu-event"
     static let fileUTType = "my.manotu.event"
     static let linkVersion = "1"
@@ -400,7 +409,8 @@ enum EventPack {
 
     // MARK: file (§5.2)
 
-    /// Suite 2: `"MNTE" ‖ 01 ‖ 02 ‖ salt(16) ‖ nonce(24) ‖ ciphertext`; suite 1: `"MNTE" ‖ 01 ‖ 01 ‖ nonce(24) ‖ ciphertext`.
+    /// Suite 3: `"MNTE" ‖ 01 ‖ 03 ‖ key(32) ‖ nonce(24) ‖ ciphertext`;
+    /// suite 2: `"MNTE" ‖ 01 ‖ 02 ‖ salt(16) ‖ nonce(24) ‖ ciphertext`; suite 1: `"MNTE" ‖ 01 ‖ 01 ‖ nonce(24) ‖ ciphertext`.
     static func parseFile(_ bytes: [UInt8]) throws(EventPackError) -> ParsedEventFile {
         if bytes.count > EventLimits.maxFileBytes { throw .fileTooLarge }
         let header = 6
@@ -415,6 +425,10 @@ enum EventPack {
             guard bytes.count >= at + EventFileKey.saltBytes else { throw .malformedFile }
             suite = .code(salt: Array(bytes[at..<at + EventFileKey.saltBytes]))
             at += EventFileKey.saltBytes
+        case fileSuiteOpen:
+            guard bytes.count >= at + keyBytes else { throw .malformedFile }
+            suite = .open(key: Array(bytes[at..<at + keyBytes]))
+            at += keyBytes
         default:
             throw .unsupportedSuite(bytes[5])
         }
@@ -425,19 +439,35 @@ enum EventPack {
 
     /// The key of a parsed file from the code the organizer sent: suite 1 takes the 52-character code (the key itself),
     /// suite 2 the 8-character code (Argon2id: slow, call it off the main actor). The other suite's code is
-    /// `invalid_secret_code`, checked before any derivation.
+    /// `invalid_secret_code`, checked before any derivation. A suite-3 file carries its key; the code is ignored.
     static func fileKey(_ suite: EventFileSuite, secretCode: String) throws(EventPackError) -> [UInt8] {
         switch suite {
+        case .open(let key): key
         case .rawKey: try SecretCode.decode(secretCode)
         case .code(let salt): try EventFileKey.derive(code: secretCode, salt: salt)
         }
     }
 
-    /// Opens a file of either suite with the secret code the organizer sent through another channel.
+    /// Opens a file of any suite with the secret code the organizer sent through another channel. A suite-3 file
+    /// ignores `secretCode` (check `fileNeedsCode` first so nobody is asked for one).
     /// Suite 2 runs Argon2id (64 MiB): never call this on the main actor.
     static func openFile(_ bytes: [UInt8], secretCode: String) throws(EventPackError) -> OpenedEventPack {
         let parsed = try parseFile(bytes)
         let key = try fileKey(parsed.suite, secretCode: secretCode)
+        return try open(key: key, sealed: parsed.sealed)
+    }
+
+    /// Whether opening needs a code: false for suite 3, true for suites 1 and 2. Fails like `parseFile` on a malformed
+    /// or unsupported file, so the app reports that before prompting.
+    static func fileNeedsCode(_ bytes: [UInt8]) throws(EventPackError) -> Bool {
+        try parseFile(bytes).suite.needsCode
+    }
+
+    /// Opens a suite-3 file, which carries its key, with every link rule (signature, §7). Suites 1 and 2 fail with
+    /// `invalid_secret_code` ("a code is required"). Cheap: no Argon2id.
+    static func openFileWithoutCode(_ bytes: [UInt8]) throws(EventPackError) -> OpenedEventPack {
+        let parsed = try parseFile(bytes)
+        guard case .open(let key) = parsed.suite else { throw .invalidSecretCode("a code is required") }
         return try open(key: key, sealed: parsed.sealed)
     }
 

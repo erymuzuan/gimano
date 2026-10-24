@@ -82,7 +82,12 @@ struct EventTime: Decodable, Hashable, Sendable, Comparable {
 }
 
 enum EventTemplate: String, Sendable, CaseIterable {
-    case kenduri, dinner, company, ride, convoy, trip, other
+    case kenduri, dinner, company, ride, convoy, trip, meeting, seminar, picnic, hike, other
+}
+
+/// `info[].kind` (§4.1). Unknown values from newer writers read as `.other`.
+enum EventInfoKind: String, Sendable, CaseIterable {
+    case dress, safety, documents, bring, contact, other
 }
 
 enum EventLang: String, Decodable, Sendable { case ms, en }
@@ -99,6 +104,12 @@ enum EventGeometrySource: String, Decodable, Sendable { case routed, sketch, gpx
 extension EventTemplate: Decodable {
     init(from decoder: any Decoder) throws {
         self = EventTemplate(rawValue: try decoder.singleValueContainer().decode(String.self)) ?? .other
+    }
+}
+
+extension EventInfoKind: Decodable {
+    init(from decoder: any Decoder) throws {
+        self = EventInfoKind(rawValue: try decoder.singleValueContainer().decode(String.self)) ?? .other
     }
 }
 
@@ -148,6 +159,12 @@ struct EventSession: Decodable, Hashable, Sendable, Identifiable {
     var start: EventTime
     var end: EventTime
     var stopId: String?
+}
+
+/// One guest info block (§4.1): plain guest-visible text, 1–1000 code points, newlines allowed, no markup.
+struct EventInfoBlock: Decodable, Hashable, Sendable {
+    var kind: EventInfoKind
+    var text: String
 }
 
 struct EventRouteLeg: Decodable, Hashable, Sendable {
@@ -229,12 +246,14 @@ struct EventDoc: Decodable, Hashable, Sendable, Identifiable {
     var organizer: EventOrganizer?
     var stops: [EventStop]
     var sessions: [EventSession]
+    /// Guest info blocks (§4.1), shown in order after the agenda.
+    var info: [EventInfoBlock]
     var routes: [EventRoute]
     /// Present only on a stops-only variant (§5.5); `null` or absent = the full event.
     var variant: EventVariant?
 
     enum CodingKeys: String, CodingKey {
-        case id, rev, parent, publishedAt, template, title, description, lang, tz, start, end, expiresAt, organizer, stops, sessions, routes
+        case id, rev, parent, publishedAt, template, title, description, lang, tz, start, end, expiresAt, organizer, stops, sessions, info, routes
         case variant
     }
 
@@ -255,6 +274,7 @@ struct EventDoc: Decodable, Hashable, Sendable, Identifiable {
         organizer = try c.decodeIfPresent(EventOrganizer.self, forKey: .organizer)
         stops = try c.decodeIfPresent([EventStop].self, forKey: .stops) ?? []
         sessions = try c.decodeIfPresent([EventSession].self, forKey: .sessions) ?? []
+        info = try c.decodeIfPresent([EventInfoBlock].self, forKey: .info) ?? []
         routes = try c.decodeIfPresent([EventRoute].self, forKey: .routes) ?? []
         variant = try c.decodeIfPresent(EventVariant.self, forKey: .variant)
     }
@@ -438,6 +458,11 @@ enum EventValidation {
             try text(p("title"), s.title, min: 1, max: EventLimits.sessionTitleChars)
             try window(p("end"), s.start, s.end)
             if let sid = s.stopId { try knownStop(p("stopId"), sid) }
+        }
+
+        if e.info.count > EventLimits.maxInfoBlocks { throw fail("info", "has more than 12 info blocks") }
+        for (i, b) in e.info.enumerated() {
+            try text("info[\(i)].text", b.text, min: 1, max: EventLimits.infoTextChars)
         }
 
         if e.routes.count > EventLimits.maxRoutes { throw fail("routes", "has more than 20 routes") }

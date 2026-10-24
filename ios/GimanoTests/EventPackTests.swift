@@ -15,7 +15,9 @@ private enum Vectors {
                         "negative-wrong-key", "negative-expired", "negative-oversized-fragment",
                         "ride-two-day-stops-only", "negative-variant-with-polyline", "negative-missing-polyline",
                         "negative-unknown-variant", "import-stops-only-sequence", "argon2-kat",
-                        "negative-wrong-secret-code", "negative-invalid-secret-code"]
+                        "negative-wrong-secret-code", "negative-invalid-secret-code",
+                        "negative-info-text-too-long", "negative-too-many-info", "negative-file-v3-truncated",
+                        "unknown-template-and-info-kind"]
     static let positive = ["kenduri-one-day", "ride-two-day", "ride-two-day-stops-only"]
     /// Correctly signed events that break a §5.5 variant rule, with the error each must give.
     static let variantNegatives = ["negative-variant-with-polyline", "negative-missing-polyline", "negative-unknown-variant"]
@@ -332,7 +334,7 @@ struct EventPackRuleTests {
         #expect(EventPack.extractLink(fromPasted: "  1.AB.CD \n") == "1.AB.CD")
         #expect(Vectors.code { _ = try EventPack.parseFile(Array("MNTX".utf8) + [UInt8](repeating: 1, count: 60)) } == "malformed_file")
         #expect(Vectors.code { _ = try EventPack.parseFile(Array("MNTE".utf8) + [2, 1] + [UInt8](repeating: 1, count: 60)) } == "unsupported_file_format")
-        #expect(Vectors.code { _ = try EventPack.parseFile(Array("MNTE".utf8) + [1, 3] + [UInt8](repeating: 1, count: 60)) } == "unsupported_suite")
+        #expect(Vectors.code { _ = try EventPack.parseFile(Array("MNTE".utf8) + [1, 4] + [UInt8](repeating: 1, count: 60)) } == "unsupported_suite")
         // Suite 2 needs room for salt + nonce + tag (16 + 24 + 16); suite 1 for nonce + tag.
         #expect(Vectors.code { _ = try EventPack.parseFile(Array("MNTE".utf8) + [1, 2] + [UInt8](repeating: 1, count: 55)) } == "malformed_file")
         #expect(try EventPack.parseFile(Array("MNTE".utf8) + [1, 2] + [UInt8](repeating: 1, count: 56)).suite == .code(salt: [UInt8](repeating: 1, count: 16)))
