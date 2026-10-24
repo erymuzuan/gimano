@@ -185,7 +185,7 @@ fun PlaceCard(sel: PlaceSel, vm: MainViewModel, cvm: ContributeViewModel, apiBas
             // Settle whenever the card isn't resting at its state's height, including a drag clamped exactly onto
             // the other anchor (a swipe down to the peek must still switch the state and re-centre the map).
             override suspend fun onPreFling(available: Velocity): Velocity {
-                if (heightPx >= 0f && abs(heightPx - anchorsPx[state.ordinal]) >= 1f) { release(available.y); return available }
+                if (heightPx >= 0f && PlaceSheetLayout.needsSettle(heightPx / density.density, state, anchors)) { release(available.y); return available }
                 return Velocity.Zero
             }
         }
@@ -342,7 +342,7 @@ private fun PeekHeader(sel: PlaceSel, vm: MainViewModel, reviews: my.gimano.app.
     val d = sel.detail
     val priv = sel.privatePlace
     // Distance only from a real fix (search distances are from the map view otherwise).
-    val distance = p.distanceM?.takeIf { vm.myFreshLocation() != null }?.let { Formatters.distance(it) }
+    val distance = my.gimano.app.core.places.PlaceDistance.metres(vm.myFreshLocation(), p.lat, p.lng)?.let { Formatters.distance(it) }
     Row(Modifier.padding(top = 2.dp), verticalAlignment = Alignment.CenterVertically) {
         CategoryBadge(p.category, size = 52.dp)
         Spacer(Modifier.width(12.dp))
@@ -465,7 +465,9 @@ private fun Details(sel: PlaceSel, vm: MainViewModel, cvm: ContributeViewModel) 
     val priv = sel.privatePlace
     (priv?.openingHours ?: d?.openingHours)?.let { Text(stringResource(R.string.hours, it), Modifier.padding(top = 2.dp, bottom = 4.dp), fontSize = 14.sp, color = c.textMuted) }
     (priv?.description ?: d?.description)?.let { Text(it, Modifier.padding(bottom = 6.dp), fontSize = 15.sp, color = c.text) }
-    if (d != null && Verification.canVerify(d.isCommunity, d.status, p.distanceM, d.rural)) {
+    // Nearby check from the phone's own fresh fix (no position is sent to load the card).
+    val nearM = my.gimano.app.core.places.PlaceDistance.metres(vm.myFreshLocation(), p.lat, p.lng)
+    if (d != null && Verification.canVerify(d.isCommunity, d.status, nearM, d.rural)) {
         Column(Modifier.fillMaxWidth().padding(vertical = 8.dp).clip(RoundedCornerShape(Radius.md)).background(c.brandMist).padding(14.dp)) {
             my.gimano.app.ui.contribute.VerifyPanel(onAnswer = { a, n, l ->
                 cvm.verify(my.gimano.app.ui.contribute.VetTarget.of(d), a, n, l) { vm.refreshPlace() }

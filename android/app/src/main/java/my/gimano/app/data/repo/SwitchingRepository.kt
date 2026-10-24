@@ -83,7 +83,7 @@ class SwitchingRepository(
     override suspend fun deleteMyData() = if (settings.current.demoMode) Unit else remote.deleteMyData()
     override suspend fun search(q: String, lat: Double?, lng: Double?, limit: Int, category: String?) = pick { search(q, lat, lng, limit, category) }
     override suspend fun nearby(lat: Double, lng: Double, category: String, radius: Int) = pick { nearby(lat, lng, category, radius) }
-    override suspend fun place(id: String, lat: Double?, lng: Double?) = pick { place(id, lat, lng) }
+    override suspend fun place(id: String) = pick { place(id) }
     override suspend fun reverse(lat: Double, lng: Double) = pick { reverse(lat, lng) }
     override suspend fun searchFull(q: String, lat: Double?, lng: Double?, limit: Int, exact: Boolean, near: GeoPointLite?) = pick { searchFull(q, lat, lng, limit, exact, near) }
     override suspend fun routes(req: RouteRequest) = pick { routes(req) }

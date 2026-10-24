@@ -1067,8 +1067,8 @@ class MainViewModel(private val c: AppContainer) : ViewModel() {
             return
         }
         viewModelScope.launch {
-            val me = here()
-            val d = runCatching { repo.place(p.id, me.lat, me.lng) }.getOrNull()
+            // No position on GET /places/{id}: the card computes the distance on the phone (PlaceDistance).
+            val d = runCatching { repo.place(p.id) }.getOrNull()
             _ui.update { s -> if (s.place?.summary?.id == p.id) s.copy(place = s.place.copy(detail = d, loading = false)) else s }
             loadPlaceIssues(p.id, GeoPoint(p.lat, p.lng))
         }
@@ -1078,7 +1078,7 @@ class MainViewModel(private val c: AppContainer) : ViewModel() {
         val p = _ui.value.place?.summary ?: return
         if (p.id.startsWith("pin:") || p.id.startsWith("private:")) return
         viewModelScope.launch {
-            val d = runCatching { repo.place(p.id, here().lat, here().lng) }.getOrNull() ?: return@launch
+            val d = runCatching { repo.place(p.id) }.getOrNull() ?: return@launch
             _ui.update { s -> if (s.place?.summary?.id == p.id) s.copy(place = s.place.copy(detail = d)) else s }
         }
     }

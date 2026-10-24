@@ -115,7 +115,7 @@ class DemoRepository(
             .take(15)
     }
 
-    override suspend fun place(id: String, lat: Double?, lng: Double?): Place {
+    override suspend fun place(id: String): Place {
         latency()
         community[id]?.let { return it.copy(photos = photoStore[id].orEmpty().map(::settle), reviewCount = reviewStore[id].orEmpty().size, rating = ratingOf(id)) }
         val base = catalog.firstOrNull { it.id == id } ?: catalog.first()

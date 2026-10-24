@@ -65,7 +65,8 @@ interface GimanoApi {
     ): SearchResponse
 
     @GET("places/{id}")
-    suspend fun place(@Path("id") id: String, @Query("lat") lat: Double? = null, @Query("lng") lng: Double? = null): Place
+    // No position: the user's location goes to the server only when routing. The app computes distanceM itself.
+    suspend fun place(@Path("id") id: String): Place
 
     @GET("geocode/reverse")
     suspend fun reverse(@Query("lat") lat: Double, @Query("lng") lng: Double): ReverseGeocode

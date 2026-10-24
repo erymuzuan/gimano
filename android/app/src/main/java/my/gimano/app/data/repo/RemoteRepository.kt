@@ -145,7 +145,7 @@ class RemoteRepository(
     override suspend fun search(q: String, lat: Double?, lng: Double?, limit: Int, category: String?) =
         authed { search(q, lat, lng, limit, category).results }
     override suspend fun nearby(lat: Double, lng: Double, category: String, radius: Int) = authed { nearby(lat, lng, category, radius).results }
-    override suspend fun place(id: String, lat: Double?, lng: Double?) = authed { place(id, lat, lng) }
+    override suspend fun place(id: String) = authed { place(id) }
     override suspend fun reverse(lat: Double, lng: Double) = authed { reverse(lat, lng) }
     override suspend fun searchFull(q: String, lat: Double?, lng: Double?, limit: Int, exact: Boolean, near: GeoPointLite?) =
         authed { search(q, lat, lng, limit, null, if (exact) true else null, near?.let { String.format(java.util.Locale.US, "%.5f,%.5f", it.lat, it.lng) }) }
