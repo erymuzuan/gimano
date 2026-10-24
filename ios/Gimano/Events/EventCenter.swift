@@ -60,6 +60,10 @@ final class EventCenter {
     private(set) var pending: PendingEventImport?
     /// Bytes of a `.manotu-event` file waiting for its secret code.
     private(set) var pendingFile: [UInt8]?
+    /// Argon2id is running for the pending file (suite 2, §5.2): the code screen shows progress.
+    private(set) var isOpeningFile = false
+    /// The hosted event being published (its file runs Argon2id): the editor shows progress.
+    private(set) var publishing: String?
     var errorMessage: String?
     /// The stop a per-stop "Buka di Manotu" link asked for; the event screen highlights it.
     var focusStopId: String?
@@ -127,8 +131,16 @@ final class EventCenter {
     }
 
     /// Publishes (a new revision when something changed) and opens "Kongsi jemputan". Returns an error message.
-    func publish(_ id: String) -> String? {
-        switch EventPublisher.publish(eventId: id, store: store, secrets: secrets, now: now()) {
+    /// Sealing the file runs Argon2id, so the work happens off the main actor.
+    func publish(_ id: String) async -> String? {
+        guard publishing == nil else { return nil }
+        publishing = id
+        defer { publishing = nil }
+        let (store, secrets, at) = (store, secrets, now())
+        let result = await Task.detached(priority: .userInitiated) {
+            EventPublisher.publish(eventId: id, store: store, secrets: secrets, now: at)
+        }.value
+        switch result {
         case .success(let invite):
             invites[id] = invite
             hosted = (try? store.hostedEvents()) ?? hosted
@@ -271,11 +283,18 @@ final class EventCenter {
         path.append(.secretCode)
     }
 
-    /// Returns an error message for the secret-code screen, or nil when the file opened.
-    func openPendingFile(secretCode: String) -> String? {
-        guard let bytes = pendingFile else { return nil }
+    /// Returns an error message for the secret-code screen, or nil when the file opened. Suite-2 files run Argon2id
+    /// (64 MiB, a fraction of a second) off the main actor while `isOpeningFile` is set.
+    func openPendingFile(secretCode: String) async -> String? {
+        guard let bytes = pendingFile, !isOpeningFile else { return nil }
+        isOpeningFile = true
+        defer { isOpeningFile = false }
+        let result = await Task.detached(priority: .userInitiated) { () -> Result<OpenedEventPack, EventPackError> in
+            do throws(EventPackError) { return .success(try EventPack.openFile(bytes, secretCode: secretCode)) } catch { return .failure(error) }
+        }.value
         do {
-            let pack = try EventPack.openFile(bytes, secretCode: secretCode)
+            let pack = try result.get()
+            guard pendingFile == bytes else { return nil }   // the file changed while deriving
             pendingFile = nil
             path.removeAll { $0 == .secretCode }
             try decide(pack)

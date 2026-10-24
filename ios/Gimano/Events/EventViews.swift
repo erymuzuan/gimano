@@ -382,28 +382,41 @@ struct EventSecretCodeView: View {
     @State private var code = ""
     @State private var error: String?
 
+    /// Argon2id running (suite-2 files take a fraction of a second, longer on older phones).
+    private var opening: Bool { model.events.isOpeningFile }
+
     var body: some View {
         Form {
             Section {
-                TextField(text: $code, prompt: Text(verbatim: "XXXX-XXXX-XXXX-…"), axis: .vertical) { Text("Secret code") }
-                    .font(.system(.body, design: .monospaced))
+                TextField(text: $code, prompt: Text(verbatim: "XXXX-XXXX"), axis: .vertical) { Text("Secret code") }
+                    .font(.system(.title3, design: .monospaced))
                     .textInputAutocapitalization(.characters)
                     .autocorrectionDisabled()
                     .lineLimit(2...4)
                     .accessibilityIdentifier("eventSecretCode")
-                if let error {
+                    .disabled(opening)
+                if opening {
+                    HStack(spacing: Tokens.Space.s) {
+                        ProgressView()
+                        Text("Unlocking the invitation…").font(Tokens.Font.caption).foregroundStyle(Color.textMuted)
+                    }
+                    .accessibilityIdentifier("eventSecretCodeProgress")
+                } else if let error {
                     Text(verbatim: error).font(Tokens.Font.caption).foregroundStyle(Color.speeding)
                 }
             } header: {
                 Text("Secret code")
             } footer: {
-                Text("Enter the secret code the organizer sent you separately.")
+                Text("Enter the 8-character secret code the organizer sent you separately, e.g. K7M4-QX9P. Older invitations use a longer code: paste it as it is.")
             }
             Section {
-                Button { error = model.events.openPendingFile(secretCode: code) } label: { Text("Open invitation") }
+                Button {
+                    error = nil
+                    Task { error = await model.events.openPendingFile(secretCode: code) }
+                } label: { Text("Open invitation") }
                     .buttonStyle(PrimaryButtonStyle())
                     .listRowInsets(EdgeInsets())
-                    .disabled(code.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                    .disabled(opening || code.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                     .accessibilityIdentifier("eventSecretCodeOpen")
             }
             .listRowBackground(Color.clear)

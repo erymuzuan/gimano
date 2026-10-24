@@ -3249,6 +3249,16 @@
         }
       }
     },
+    "Enter the 8-character secret code the organizer sent you separately, e.g. K7M4-QX9P. Older invitations use a longer code: paste it as it is." : {
+      "localizations" : {
+        "ms" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Masukkan kod rahsia 8 aksara yang dihantar oleh penganjur secara berasingan, cth. K7M4-QX9P. Jemputan lama menggunakan kod yang lebih panjang: tampal sahaja seperti asal."
+          }
+        }
+      }
+    },
     "Enter the roundabout" : {
       "localizations" : {
         "ms" : {
@@ -3265,16 +3275,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Masuk bulatan menuju %@"
-          }
-        }
-      }
-    },
-    "Enter the secret code the organizer sent you separately." : {
-      "localizations" : {
-        "ms" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Masukkan kod rahsia yang dihantar oleh penganjur secara berasingan."
           }
         }
       }
@@ -6944,6 +6944,16 @@
         }
       }
     },
+    "Preparing invitation…" : {
+      "localizations" : {
+        "ms" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Menyediakan jemputan…"
+          }
+        }
+      }
+    },
     "Privacy" : {
       "localizations" : {
         "ms" : {
@@ -9828,6 +9838,16 @@
         }
       }
     },
+    "This phone couldn't unlock the file right now. Close other apps and try again." : {
+      "localizations" : {
+        "ms" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Telefon ini tidak dapat membuka fail sekarang. Tutup aplikasi lain dan cuba lagi."
+          }
+        }
+      }
+    },
     "This place may already exist." : {
       "localizations" : {
         "ms" : {
@@ -10264,6 +10284,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Nyahpaut daripada tempat acara"
+          }
+        }
+      }
+    },
+    "Unlocking the invitation…" : {
+      "localizations" : {
+        "ms" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Membuka kunci jemputan…"
           }
         }
       }

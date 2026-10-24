@@ -217,7 +217,7 @@ struct StopsOnlyShareTests {
 
     @MainActor
     @Test("Guest: the stops-only link imports; the file later replaces it silently (\"Full route added\"); the link again changes nothing")
-    func guestUpgrade() throws {
+    func guestUpgrade() async throws {
         let (inv, _) = try EV.publish(EV.draft(geometry: EV.scribble(6000, from: LatLng(lat: 3.8, lng: 102.4), seed: 7)))
         let guest = EventCenter(store: try EventStore(directory: nil), secrets: InMemoryEventSecretStore())
         guest.now = { EV.now }
@@ -227,7 +227,8 @@ struct StopsOnlyShareTests {
         #expect(guest.event(id)?.doc.isStopsOnly == true && guest.event(id)?.doc.routes.first?.points.isEmpty == true)
 
         guest.receiveFile(inv.fileBytes)
-        #expect(guest.openPendingFile(secretCode: inv.secretCode) == nil)
+        #expect(await guest.openPendingFile(secretCode: inv.secretCode) == nil)
+        #expect(!guest.isOpeningFile)
         #expect(guest.pending == nil && guest.fullRouteAdded == id)          // no prompt
         #expect(guest.path.last == .detail(id))
         let full = try #require(guest.event(id))

@@ -52,7 +52,8 @@ struct EventWriterVectorTests {
         #expect(EventPack.fragment(key: key, sealed: sealed) == (try WV.string(v, "linkFragment")))
         #expect(try EventPack.link(site: try WV.string(v, "site"), key: key, sealed: sealed) == (try WV.string(v, "link")))
         #expect(try EventPack.link(site: try WV.string(v, "site") + "/", key: key, sealed: sealed) == (try WV.string(v, "link")))
-        #expect(try EventPack.fileBytes(sealed) == (try WV.bytes(v, "fileB64u")))
+        // Suite 1 is read only: the vector file parses to the same nonce and ciphertext.
+        #expect(try EventPack.parseFile(try WV.bytes(v, "fileB64u")) == ParsedEventFile(suite: .rawKey, sealed: sealed))
         #expect(SecretCode.encode(key) == (try WV.string(v, "secretCode")))
         #expect(EventCodes.safetyCode(org.publicKey) == (try WV.string(v, "safetyCode")))
         #expect(B64u.encode(EventCodes.revisionHash(eventBytes)) == (try WV.string(v, "revisionHashB64u")))
@@ -194,7 +195,8 @@ struct EventHostTests {
         #expect(v2.changes.map(\.kind) == [.stopMoved])
         let g2 = try EventPack.openLink(try #require(v2.link))
         #expect(g2.organizerPub == g1.organizerPub)
-        #expect(v2.secretCode == v1.secretCode)   // one pack key per event, like the desktop
+        #expect(v2.secretCode == v1.secretCode)   // one file code per event, like the desktop
+        #expect(SecretCodeV2.isWellFormed(v1.secretCode) && v1.secretCode.count == 9)
 
         // A guest who has rev 1 sees an update whose parent matches.
         let guest = try EventStore(directory: nil)
@@ -320,7 +322,7 @@ struct EventChangeTests {
 @Suite("Organizer in the app")
 struct EventHostCenterTests {
     @Test("The host opening their own link sees their event, not an import from someone else")
-    func ownLink() throws {
+    func ownLink() async throws {
         let center = EventCenter(store: try EventStore(directory: nil), secrets: InMemoryEventSecretStore())
         center.now = { EventHostTests.now }
         let id = center.newEvent()
@@ -328,7 +330,8 @@ struct EventHostCenterTests {
         var d = EventHostTests.draft()
         d.id = id
         center.saveDraft(d)
-        #expect(center.publish(id) == nil)
+        #expect(await center.publish(id) == nil)
+        #expect(center.publishing == nil)
         #expect(center.path == [.host(id), .share(id)])
         let link = try #require(center.invites[id]?.link)
         #expect(center.inviteFileURL(id).map { FileManager.default.fileExists(atPath: $0.path) } == true)

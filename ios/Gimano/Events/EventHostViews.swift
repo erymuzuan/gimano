@@ -253,8 +253,18 @@ struct EventEditorView: View {
             }
 
             Section {
-                Button { share() } label: { Text("Share invitation") }
+                Button { share() } label: {
+                    if model.events.publishing == eventId {
+                        HStack(spacing: Tokens.Space.s) {
+                            ProgressView()
+                            Text("Preparing invitation…")
+                        }
+                    } else {
+                        Text("Share invitation")
+                    }
+                }
                     .buttonStyle(PrimaryButtonStyle())
+                    .disabled(model.events.publishing != nil)
                     .listRowInsets(EdgeInsets())
                     .accessibilityIdentifier("eventShareInvitation")
             } footer: {
@@ -331,7 +341,7 @@ struct EventEditorView: View {
         let (_, issues) = d.event(rev: 1, parent: nil, publishedAt: Date())
         problems = issues
         guard issues.isEmpty else { blockedTap += 1; return }
-        publishError = model.events.publish(eventId)
+        Task { publishError = await model.events.publish(eventId) }
     }
 }
 
@@ -642,8 +652,8 @@ struct EventShareView: View {
                 .accessibilityIdentifier("eventShareFile")
             Divider()
             Text("Secret code").font(Tokens.Font.label).foregroundStyle(Color.textMuted)
-            Text(verbatim: showCode ? inv.secretCode : String(repeating: "••••-", count: 12) + "••••")
-                .font(.system(.callout, design: .monospaced).weight(.semibold))
+            Text(verbatim: showCode ? inv.secretCode : "••••-••••")
+                .font(.system(.title2, design: .monospaced).weight(.semibold))
                 .foregroundStyle(Color.brandInk)
                 .textSelection(.enabled)
                 .accessibilityIdentifier("eventSecretCodeValue")
