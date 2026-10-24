@@ -434,6 +434,10 @@ namespace Gimano.Core.Data.Migrations
                         .HasColumnType("character varying(1000)")
                         .HasColumnName("description");
 
+                    b.Property<int>("FlagCount")
+                        .HasColumnType("integer")
+                        .HasColumnName("flag_count");
+
                     b.Property<Point>("Location")
                         .IsRequired()
                         .HasColumnType("geography (point, 4326)")
@@ -1465,6 +1469,36 @@ namespace Gimano.Core.Data.Migrations
                     b.ToTable("place_disputes", (string)null);
                 });
 
+            modelBuilder.Entity("Gimano.Core.Domain.PlaceFlag", b =>
+                {
+                    b.Property<string>("PlaceId")
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)")
+                        .HasColumnName("place_id");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("user_id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("Reason")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("reason");
+
+                    b.HasKey("PlaceId", "UserId")
+                        .HasName("pk_place_flags");
+
+                    b.HasIndex("UserId")
+                        .HasDatabaseName("ix_place_flags_user_id");
+
+                    b.ToTable("place_flags", (string)null);
+                });
+
             modelBuilder.Entity("Gimano.Core.Domain.PlaceSalt", b =>
                 {
                     b.Property<string>("PlaceId")
@@ -2347,6 +2381,10 @@ namespace Gimano.Core.Data.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("id");
 
+                    b.Property<DateTimeOffset?>("BannedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("banned_at");
+
                     b.Property<string>("DeviceId")
                         .HasMaxLength(200)
                         .HasColumnType("character varying(200)")
@@ -2620,6 +2658,23 @@ namespace Gimano.Core.Data.Migrations
                         .HasForeignKey("ContributorId")
                         .OnDelete(DeleteBehavior.SetNull)
                         .HasConstraintName("fk_place_disputes_users_contributor_id");
+                });
+
+            modelBuilder.Entity("Gimano.Core.Domain.PlaceFlag", b =>
+                {
+                    b.HasOne("Gimano.Core.Domain.CommunityPlace", null)
+                        .WithMany()
+                        .HasForeignKey("PlaceId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_place_flags_community_places_place_id");
+
+                    b.HasOne("Gimano.Core.Domain.User", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_place_flags_users_user_id");
                 });
 
             modelBuilder.Entity("Gimano.Core.Domain.PlaceSuggestion", b =>

@@ -29,6 +29,8 @@ public sealed class User
     public int VerifierVotes { get; set; }
     public int VerifierAgreed { get; set; }
     public DateTimeOffset? SuspendedUntil { get; set; }
+    /// <summary>Banned by a moderator (abusive contributor): their public contributions are hidden and new ones are rejected.</summary>
+    public DateTimeOffset? BannedAt { get; set; }
     public DateOnly? LastActiveDay { get; set; }
     /// <summary>Votes cast on <see cref="VotesDay"/> (≤ 20/day); kept here because resolved votes are unlinked.</summary>
     public DateOnly? VotesDay { get; set; }

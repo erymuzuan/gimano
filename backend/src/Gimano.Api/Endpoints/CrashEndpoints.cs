@@ -20,17 +20,29 @@ public static class CrashEndpoints
         api.MapPost("/crash-reports", Create).WithTags("Crash reports").RequireAuthorization()
             .WithMetadata(new Microsoft.AspNetCore.Mvc.RequestSizeLimitAttribute(256 * 1024))
             .WithSummary("Submit a crash record (sent only with the user's consent). 201 {id, signature}; 429 above 20/day.");
+        api.MapDelete("/crash-reports/{id:guid}/contact", DeleteContact).WithTags("Crash reports").RequireAuthorization()
+            .WithSummary("Withdraw the contact left on a crash report (X-Contact-Token from the create response).");
         return api;
+    }
+
+    private static async Task<Results<NoContent, NotFound>> DeleteContact(Guid id, HttpContext http, GimanoDbContext db, ContactCrypto crypto, CancellationToken ct)
+    {
+        if (!crypto.CheckWithdrawToken(ContactSubject.Crash, id, http.Request.Headers[FeedbackEndpoints.ContactTokenHeader].ToString()))
+            return TypedResults.NotFound();
+        await db.ReportContacts.Where(c => c.SubjectType == ContactSubject.Crash && c.SubjectId == id).ExecuteDeleteAsync(ct);
+        return TypedResults.NoContent();
     }
 
     private static async Task<Results<Created<CrashReportCreated>, ValidationProblem, ProblemHttpResult>> Create(
         CrashReportRequest req, HttpContext http, GimanoDbContext db, ContactCrypto crypto, TimeProvider clock,
-        ILogger<CrashReportRequest> log, CancellationToken ct)
+        ILogger<CrashReportRequest> log, Microsoft.Extensions.Caching.Memory.IMemoryCache cache, CancellationToken ct)
     {
         if (Validate(req) is { } problem) return problem;
         var uid = http.User.RequiredUserId();
         var now = clock.GetUtcNow();
-        if (await db.CrashReports.CountAsync(c => c.UserId == uid && c.CreatedAt > now.AddDays(-1), ct) >= MaxPerDay)
+        var withContact = FeedbackEndpoints.WillStoreContact(crypto, req.Contact);
+        if (await db.CrashReports.CountAsync(c => c.UserId == uid && c.CreatedAt > now.AddDays(-1), ct)
+            + UnlinkedReports.Count(cache, "crash", uid, now, TimeSpan.FromDays(1)) >= MaxPerDay)
             return TypedResults.Problem(statusCode: StatusCodes.Status429TooManyRequests, title: "Too many crash reports",
                 detail: $"At most {MaxPerDay} crash reports per day.");
 
@@ -39,14 +51,17 @@ public static class CrashEndpoints
         var signature = CrashScrubber.Signature(exception, stack);
         var report = new CrashReport
         {
-            UserId = await db.Users.AnyAsync(u => u.Id == uid, ct) ? uid : null,
+            // With a volunteered contact the report is not linked to the account (the contact must not be linkable to it).
+            UserId = !withContact && await db.Users.AnyAsync(u => u.Id == uid, ct) ? uid : null,
             Signature = signature, Kind = req.Kind, Exception = exception,
             Message = CrashScrubber.Scrub(req.Message, 500), Stack = stack, Threads = CrashScrubber.Scrub(req.Threads, MaxStack),
             Screen = req.Screen?.Length > 32 ? req.Screen[..32] : req.Screen, UptimeS = req.UptimeS, Device = req.Device,
             OccurredAt = req.OccurredAt is { } o && o <= now.AddMinutes(5) ? o : now, CreatedAt = now,
         };
         await RecordAsync(db, report, exception, now, d => FeedbackEndpoints.StoreContact(d, crypto, ContactSubject.Crash, report.Id, req.Contact, now, log), ct);
-        return TypedResults.Created($"/api/v1/crash-reports/{report.Id}", new CrashReportCreated(report.Id, signature));
+        if (withContact) UnlinkedReports.Add(cache, "crash", uid, now, TimeSpan.FromDays(1));
+        return TypedResults.Created($"/api/v1/crash-reports/{report.Id}", new CrashReportCreated(report.Id, signature,
+            withContact ? crypto.WithdrawToken(ContactSubject.Crash, report.Id) : null));
     }
 
     /// <summary>

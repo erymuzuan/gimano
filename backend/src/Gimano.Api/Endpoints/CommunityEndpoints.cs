@@ -25,6 +25,7 @@ public static class CommunityEndpoints
         places.MapGet("/{id}/reviews", ListReviews).AllowAnonymous();
         places.MapPost("/{id}/reviews", CreateReview).RequireSignature();
         places.MapGet("/{id}/photos", ListPhotos).AllowAnonymous();
+        places.MapPost("/{id}/flag", FlagPlace).WithSummary("Report a community place (spam, offensive, …). 3 reports hide it pending moderation.");
 
         api.MapGet("/me/places/contributed", Contributed).WithTags("Community places").RequireAuthorization();
 
@@ -114,6 +115,12 @@ public static class CommunityEndpoints
     {
         await svc.ToggleHelpfulAsync(http.User.RequiredUserId(), id, ct);
         return TypedResults.NoContent();
+    }
+
+    private static async Task<Accepted> FlagPlace(string id, FlagRequest req, HttpContext http, CommunityService svc, CancellationToken ct)
+    {
+        await svc.FlagAsync(http.User.RequiredUserId(), id, req.Reason, ct);
+        return TypedResults.Accepted((string?)null);
     }
 
     private static async Task<Accepted> FlagReview(Guid id, FlagRequest req, HttpContext http, ReviewService svc, CancellationToken ct)
