@@ -3,7 +3,8 @@ import Foundation
 // "Bina laluan" (route builder): the editable route, mirroring the desktop reference
 // (`desktop/src-tauri/src/editing.rs` edit rules, `assemble.rs` publishing, `route-core` polyline/geo/gpx).
 //
-// Privacy: a route draft lives only on this phone (an event's draft, or "Laluan saya" in the events database).
+// Privacy: a route draft lives only on this phone (an event's draft in the events database, or "Laluan saya" in the
+// personal store, which is also in the user's own backup).
 // Routing sends the two leg ends' coordinates and the travel mode only (`"store": false`), never a name.
 
 /// Why a leg couldn't be calculated (desktop `problem` codes).
@@ -408,10 +409,6 @@ struct RouteDraft: Codable, Hashable, Sendable, Identifiable {
         return total
     }
 
-    /// No elevation service yet: ascent/descent are unavailable for drawn and routed routes.
-    var ascentM: Double? { nil }
-    var descentM: Double? { nil }
-
     /// gpx > sketch > routed; nil while any leg isn't calculated.
     var source: EventGeometrySource? { RouteDraft.combine(legs.map(\.source)) }
 
@@ -487,7 +484,8 @@ extension RouteDraft {
             id: id, title: t.isEmpty ? nil : String(t.unicodeScalars.prefix(EventLimits.routeTitleChars).map(Character.init)),
             mode: mode, day: day, stopIds: stopIds, polyline: Polyline.encode(geometry), source: source,
             distanceM: RouteGeo.meters(distanceM), durationS: durationS.map(RouteGeo.meters),
-            ascentM: ascentM.map(RouteGeo.meters), descentM: descentM.map(RouteGeo.meters), legs: eventLegs))
+            // The phone never writes climb/descent (no elevation): readers accept them from other writers.
+            ascentM: nil, descentM: nil, legs: eventLegs))
     }
 }
 

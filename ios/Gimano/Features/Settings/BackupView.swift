@@ -358,6 +358,7 @@ struct RestoreSheet: View {
                         LabeledContent("Saved places", value: "\(m.counts["saved_places"] ?? 0)")
                         LabeledContent("Private places", value: "\(m.counts["private_places"] ?? 0)")
                         LabeledContent("Recents", value: "\(m.counts["recents"] ?? 0)")
+                        LabeledContent("My routes", value: "\(m.counts["personal_routes"] ?? 0)")
                     }
                 }
                 Section {

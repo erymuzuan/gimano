@@ -80,11 +80,13 @@
 		7C69BDCE20FBD4840F4154F4 /* ProdHooksUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = EEBE29304DF119F04E43590B /* ProdHooksUITests.swift */; };
 		807E60834CE5B29604F03882 /* EventCenter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 44EC389A12CC8DCF67AEFFF7 /* EventCenter.swift */; };
 		840729B64DD469FC77A20C5A /* AddPlaceFlow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3C0F8DF2CCB59B6F1619E7D8 /* AddPlaceFlow.swift */; };
+		86CDC74911E0D574086736E7 /* PersonalRouteTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C4DB04186BD2AE95335FA52 /* PersonalRouteTests.swift */; };
 		87FD09782450E365BAF7B2AD /* IssueViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = CD408DDE5BFD3CC67D453ECA /* IssueViews.swift */; };
 		8D2B6BCD9D0B533C050DD32C /* DrivingCardsUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 99EFABF04426006DE9903A84 /* DrivingCardsUITests.swift */; };
 		8D4ADB9D79B660A1AB81D12C /* ShareDriveTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2D90713368FDFFC83AF819E5 /* ShareDriveTests.swift */; };
 		91A71275CF784270F9E4C450 /* FavoritesViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 10C8980C61AB2C11DC29BA4A /* FavoritesViews.swift */; };
 		923C38259DAA5E15A0F5E112 /* PlannedDrivesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A28FF1A102FC82C9B86A3FD6 /* PlannedDrivesView.swift */; };
+		93C3723D1FCBEE4EBBFE838C /* personal-route-v1.json in Resources */ = {isa = PBXBuildFile; fileRef = 80FCC2D5B5CE50A7E97B4F15 /* personal-route-v1.json */; };
 		9479BDFB94242004B415BBDC /* Keychain.swift in Sources */ = {isa = PBXBuildFile; fileRef = FEBDD7794BF35380C8835FD5 /* Keychain.swift */; };
 		97690B0DB8285043D2503E70 /* PhotoAndBrandUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D2165133D336C822DD9FA666 /* PhotoAndBrandUITests.swift */; };
 		997A6F6EE64064654956768F /* HomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CD7F057954292BA508D976F5 /* HomeView.swift */; };
@@ -186,6 +188,7 @@
 		10AA21DC87B7FF32492B1428 /* negative-bad-signature.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = "negative-bad-signature.json"; sourceTree = "<group>"; };
 		10C8980C61AB2C11DC29BA4A /* FavoritesViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FavoritesViews.swift; sourceTree = "<group>"; };
 		15D166F80F9F3A6ACB804638 /* Issues.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Issues.swift; sourceTree = "<group>"; };
+		1C4DB04186BD2AE95335FA52 /* PersonalRouteTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PersonalRouteTests.swift; sourceTree = "<group>"; };
 		1C81FFCBA32722136F5E9C5B /* ReportSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReportSheet.swift; sourceTree = "<group>"; };
 		1DCB10BF337BCDBA04303A29 /* EventHostUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EventHostUITests.swift; sourceTree = "<group>"; };
 		1E10D2741068A818F9DD4A47 /* GimanoApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GimanoApp.swift; sourceTree = "<group>"; };
@@ -244,6 +247,7 @@
 		7CCD7755F233520667D922F4 /* MapState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MapState.swift; sourceTree = "<group>"; };
 		7DC0C241B3E142FFDC4652B9 /* FlatIconData.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FlatIconData.swift; sourceTree = "<group>"; };
 		8049E321A75192B9AFC2354D /* Tokens.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Tokens.swift; sourceTree = "<group>"; };
+		80FCC2D5B5CE50A7E97B4F15 /* personal-route-v1.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = "personal-route-v1.json"; sourceTree = "<group>"; };
 		8106EEE1D3C7F24F35288A1F /* GimanoUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GimanoUITests.swift; sourceTree = "<group>"; };
 		8719815DF8C7658CF6818127 /* VettingViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VettingViews.swift; sourceTree = "<group>"; };
 		89A39526DCB2ED97862BD4FC /* RouteDraft.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RouteDraft.swift; sourceTree = "<group>"; };
@@ -503,6 +507,8 @@
 				FCB4A8EBDBFD3D3E30CD851F /* InboxTests.swift */,
 				D028E26C9546B7B894417E36 /* NavigationTests.swift */,
 				FF9AC16956C2FFE93935B45F /* ParityFixesTests.swift */,
+				80FCC2D5B5CE50A7E97B4F15 /* personal-route-v1.json */,
+				1C4DB04186BD2AE95335FA52 /* PersonalRouteTests.swift */,
 				3EB1195B33BE0861CC3B8188 /* PhotoPrivacyTests.swift */,
 				8F80C78F3101B2C2AE7A35FB /* PlaceCardTests.swift */,
 				A27E86E151EC912063DD181D /* PlannedDrivePrivacyTests.swift */,
@@ -893,6 +899,7 @@
 				42830BA8A122E1CBA79221CE /* negative-oversized-fragment.json in Resources */,
 				C041471C8817A6B70EFEB5DA /* negative-tampered-ciphertext.json in Resources */,
 				DF8E830642C8DC906CD2DDD9 /* negative-wrong-key.json in Resources */,
+				93C3723D1FCBEE4EBBFE838C /* personal-route-v1.json in Resources */,
 				2ED8C5B989C22BCA74B3A695 /* ride-two-day.json in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -915,6 +922,7 @@
 				CD7DC3409E227B4A874AA1EB /* InboxTests.swift in Sources */,
 				A5EEC9BEAC5DEBA6083B81A3 /* NavigationTests.swift in Sources */,
 				F1E0ED92A8054B6114CC01B1 /* ParityFixesTests.swift in Sources */,
+				86CDC74911E0D574086736E7 /* PersonalRouteTests.swift in Sources */,
 				29B0A4A29D75F3B988CACC6A /* PhotoPrivacyTests.swift in Sources */,
 				DA112C0CBF28A294057DD3D6 /* PlaceCardTests.swift in Sources */,
 				41894C17F9B8C24CDB9F93F9 /* PlannedDrivePrivacyTests.swift in Sources */,

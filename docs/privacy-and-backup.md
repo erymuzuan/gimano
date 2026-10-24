@@ -50,7 +50,7 @@ CREATE TABLE planned_drives (
   waypoints_json TEXT, vehicle TEXT NOT NULL, depart_at TEXT, created_at TEXT NOT NULL);
 
 CREATE TABLE personal_routes (         -- "Laluan saya": routes from the route builder (schema 3)
-  id TEXT PRIMARY KEY,                 -- UUID
+  id TEXT PRIMARY KEY,                 -- unique id (UUID or random b64u)
   name TEXT NOT NULL,                  -- ≤ 80
   mode TEXT NOT NULL CHECK (mode IN ('car','motorcycle','bicycle','walk')),
   route_json TEXT NOT NULL,            -- see "personal_routes.route_json" below

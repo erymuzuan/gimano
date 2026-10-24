@@ -281,10 +281,10 @@ struct BackupService: Sendable {
                 }
                 switch mode {
                 case .replace:
-                    for t in ["private_place_photos", "private_places", "saved_places", "recents", "planned_drives", "settings"] {
+                    for t in ["private_place_photos", "private_places", "saved_places", "recents", "planned_drives", "personal_routes", "settings"] {
                         try db.execute(sql: "DELETE FROM main.\(t)")
                     }
-                    for t in ["saved_places", "recents", "private_places", "private_place_photos", "planned_drives", "settings"] {
+                    for t in ["saved_places", "recents", "private_places", "private_place_photos", "planned_drives", "personal_routes", "settings"] {
                         let c = try cols(t)
                         try db.execute(sql: "INSERT INTO main.\(t) (\(c)) SELECT \(c) FROM b.\(t)")
                     }
@@ -321,6 +321,14 @@ struct BackupService: Sendable {
                           website = excluded.website, opening_hours = excluded.opening_hours, amenities_json = excluded.amenities_json,
                           created_at = excluded.created_at, updated_at = excluded.updated_at
                         WHERE julianday(excluded.updated_at) > julianday(private_places.updated_at)
+                        """)
+                    let rt = try cols("personal_routes")
+                    try db.execute(sql: """
+                        INSERT INTO main.personal_routes (\(rt)) SELECT \(rt) FROM b.personal_routes WHERE true
+                        ON CONFLICT(id) DO UPDATE SET name = excluded.name, mode = excluded.mode, route_json = excluded.route_json,
+                          distance_m = excluded.distance_m, duration_s = excluded.duration_s,
+                          created_at = excluded.created_at, updated_at = excluded.updated_at
+                        WHERE julianday(excluded.updated_at) > julianday(personal_routes.updated_at)
                         """)
                     for t in ["private_place_photos", "planned_drives", "settings"] {
                         let c = try cols(t)

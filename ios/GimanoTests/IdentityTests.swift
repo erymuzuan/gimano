@@ -145,7 +145,7 @@ struct IdentityStorageTests {
         let snap = try DatabaseQueue(path: tmp.appendingPathComponent("data.sqlite").path)
         let inBackup = try snap.read { db in try String.fetchOne(db, sql: "SELECT seed_b64 FROM identity") }
         #expect(inBackup == Data(keys.seed).base64EncodedString())
-        #expect(try snap.read { db in try Int.fetchOne(db, sql: "PRAGMA user_version") } == 2)
+        #expect(try snap.read { db in try Int.fetchOne(db, sql: "PRAGMA user_version") } == LocalStore.schemaVersion)
 
         // A new phone already registered a fresh pseudonym; restoring brings back the old one.
         let dst = try freshStore()
@@ -198,6 +198,7 @@ struct IdentityStorageTests {
         let snap = try DatabaseQueue(path: tmp.appendingPathComponent("data.sqlite").path)
         try snap.writeWithoutTransaction { db in
             try db.execute(sql: "DROP TABLE identity")
+            try db.execute(sql: "DROP TABLE personal_routes")   // schema 3
             try db.execute(sql: "PRAGMA user_version = 1")
         }
         try snap.close()

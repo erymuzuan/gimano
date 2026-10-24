@@ -329,14 +329,7 @@ struct RouteStatsRow: View {
                 .accessibilityIdentifier("routeDistance")
             stat("clock", RouteFormat.duration(route.durationS) ?? String(localized: "Unavailable"), a11y: "Time",
                  muted: route.durationS == nil)
-            HStack(spacing: 2) {
-                Image(systemName: "arrow.up.right")
-                Image(systemName: "arrow.down.right")
-                Text(route.ascentM == nil ? "Unavailable" : "")
-            }
-            .font(Tokens.Font.small).foregroundStyle(Color.textMuted)
-            .accessibilityElement(children: .ignore)
-            .accessibilityLabel(Text("Ascent and descent unavailable"))
+            // Distance and time only: the phone shows no climb/descent.
             Spacer(minLength: 0)
         }
     }
@@ -475,7 +468,7 @@ struct RouteSaveSheet: View {
                     case .personal:
                         Label { VStack(alignment: .leading, spacing: 2) {
                             Text("My routes").font(Tokens.Font.bodyBold)
-                            Text("This phone only. You can share it as GPX.").font(Tokens.Font.caption).foregroundStyle(Color.textMuted)
+                            Text("On this phone and in your own backup. You can share it as GPX.").font(Tokens.Font.caption).foregroundStyle(Color.textMuted)
                         } } icon: { Image(systemName: "lock.fill") }
                     }
                     if b.route.hasSketch {

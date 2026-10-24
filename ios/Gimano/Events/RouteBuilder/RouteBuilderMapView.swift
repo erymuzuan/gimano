@@ -2,6 +2,53 @@ import MapLibre
 import SwiftUI
 import UIKit
 
+/// One "Lukis" stroke. One finger draws; when a second finger lands the stroke is cancelled (nothing is added, the
+/// map pans and zooms with the two fingers instead) and stays cancelled until every finger lifts, so the jump to the
+/// two fingers' centre never becomes a zig-zag in the line.
+struct DrawStroke<Coordinate> {
+    /// A point is kept at least this far (pt) from the previous one (desktop map.ts).
+    static var minSpacing: CGFloat { 4 }
+
+    private(set) var screen: [CGPoint] = []
+    private(set) var line: [Coordinate] = []
+    private(set) var isCancelled = false
+
+    var isActive: Bool { !line.isEmpty && !isCancelled }
+
+    /// A new stroke: only with exactly one finger.
+    mutating func begin(at p: CGPoint, _ c: Coordinate, touches: Int) {
+        screen = []
+        line = []
+        isCancelled = touches != 1
+        if !isCancelled { screen = [p]; line = [c] }
+    }
+
+    /// Returns true when the live line changed.
+    mutating func move(to p: CGPoint, _ c: @autoclosure () -> Coordinate, touches: Int) -> Bool {
+        guard !isCancelled, !line.isEmpty else { return false }
+        if touches != 1 {
+            cancel()
+            return true
+        }
+        if let last = screen.last, hypot(p.x - last.x, p.y - last.y) < Self.minSpacing { return false }
+        screen.append(p)
+        line.append(c())
+        return true
+    }
+
+    mutating func cancel() {
+        isCancelled = true
+        screen = []
+        line = []
+    }
+
+    /// The finished line (at least 2 points), or nil when cancelled or too short. Resets the stroke.
+    mutating func finish() -> [Coordinate]? {
+        defer { screen = []; line = []; isCancelled = false }
+        return !isCancelled && line.count >= 2 ? line : nil
+    }
+}
+
 /// The builder's full-screen map. Taps add points, a point can be dragged, a tap on the line inserts a point, and in
 /// "Lukis" one finger draws (two fingers still pan and zoom). Road legs are solid cobalt, sketches dashed, legs still
 /// to calculate are a thin dotted grey connector (never drawn as a road), unmatched drawing stretches dashed orange.
@@ -43,8 +90,7 @@ struct RouteBuilderMapView: UIViewRepresentable {
         private var drawPan: UIPanGestureRecognizer!
         private var pointPan: UIPanGestureRecognizer!
         private var dragging: (index: Int, at: LatLng)?
-        private var drawing: [LatLng] = []
-        private var lastDrawPoint: CGPoint?
+        private var stroke = DrawStroke<LatLng>()
         private var lastRendered: RouteBuilderModel.Snapshot?
         private var lastSelected: Int?
         private var fitted = false
@@ -67,7 +113,8 @@ struct RouteBuilderMapView: UIViewRepresentable {
             map.addGestureRecognizer(pointPan)
 
             drawPan = UIPanGestureRecognizer(target: self, action: #selector(handleDraw(_:)))
-            drawPan.maximumNumberOfTouches = 1
+            // Two, so a second finger landing mid-stroke is seen (and cancels the stroke) instead of being ignored.
+            drawPan.maximumNumberOfTouches = 2
             drawPan.delegate = self
             map.addGestureRecognizer(drawPan)
 
@@ -250,8 +297,17 @@ struct RouteBuilderMapView: UIViewRepresentable {
         func gestureRecognizerShouldBegin(_ g: UIGestureRecognizer) -> Bool {
             guard let map else { return false }
             if g === pointPan { return model.tool == .points && pointIndex(near: g.location(in: map)) != nil }
-            if g === drawPan { return model.tool == .draw }
+            // Only one finger starts a stroke; two fingers go to the map (pan, pinch zoom).
+            if g === drawPan { return model.tool == .draw && g.numberOfTouches == 1 }
             return true
+        }
+
+        /// While a stroke is under way, the map's two-finger pan and pinch may still start: the second finger then
+        /// cancels the stroke and moves the map.
+        func gestureRecognizer(_ g: UIGestureRecognizer, shouldRecognizeSimultaneouslyWith other: UIGestureRecognizer) -> Bool {
+            guard g === drawPan || other === drawPan else { return false }
+            let mapGesture = g === drawPan ? other : g
+            return mapGesture === mapPan || mapGesture is UIPinchGestureRecognizer || mapGesture is UIRotationGestureRecognizer
         }
 
         @objc func handleTap(_ g: UITapGestureRecognizer) {
@@ -293,21 +349,17 @@ struct RouteBuilderMapView: UIViewRepresentable {
             let pt = g.location(in: map)
             switch g.state {
             case .began:
-                drawing = [LatLng(map.convert(pt, toCoordinateFrom: map))]
-                lastDrawPoint = pt
+                stroke.begin(at: pt, LatLng(map.convert(pt, toCoordinateFrom: map)), touches: g.numberOfTouches)
             case .changed:
-                // A point at least 4 pt from the previous one (desktop map.ts).
-                if let last = lastDrawPoint, hypot(pt.x - last.x, pt.y - last.y) < 4 { return }
-                lastDrawPoint = pt
-                drawing.append(LatLng(map.convert(pt, toCoordinateFrom: map)))
-                source("rb-live")?.shape = polyline(drawing)
+                guard stroke.move(to: pt, LatLng(map.convert(pt, toCoordinateFrom: map)), touches: g.numberOfTouches) else { return }
+                source("rb-live")?.shape = stroke.isActive ? polyline(stroke.line) : nil
             case .ended:
-                let line = drawing
-                drawing = []
+                let line = stroke.finish()
                 source("rb-live")?.shape = nil
-                if line.count >= 2 { model.draw(line) }
+                if let line { model.draw(line) }
             default:
-                drawing = []
+                stroke.cancel()
+                _ = stroke.finish()
                 source("rb-live")?.shape = nil
             }
         }

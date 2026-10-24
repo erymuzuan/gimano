@@ -1,6 +1,6 @@
 import SwiftUI
 
-// "Laluan saya" (personal routes, on this phone only) and the "Laluan" section of the event editor.
+// "Laluan saya" (personal routes, on this phone and in the user's own backup) and the "Laluan" section of the event editor.
 
 struct MyRoutesView: View {
     @Environment(AppModel.self) private var model
@@ -25,19 +25,15 @@ struct MyRoutesView: View {
                         .contextMenu {
                             Button { gpx = center.gpxFileURL(r, name: r.title) } label: { Label("Share GPX", systemImage: "square.and.arrow.up") }
                                 .disabled(r.joinedGeometry.count < 2)
-                            Menu {
-                                ForEach(center.hosted) { h in
-                                    Button(h.draft.title.isEmpty ? String(localized: "Untitled event") : h.draft.title) {
-                                        center.usePersonalRoute(r, inEvent: h.id)
-                                    }
-                                }
-                                Button { useInNewEvent(r) } label: { Label("New event", systemImage: "plus") }
-                            } label: { Label("Use in an event", systemImage: "party.popper") }
+                            // A new event with "Mula"/"Tamat" places (Android does the same). To add it to an existing
+                            // event, the event editor has "From My routes".
+                            Button { center.useRouteInNewEvent(r) } label: { Label("Use in an event", systemImage: "party.popper") }
+                                .disabled(r.points.count < 2)
                             Button("Delete", systemImage: "trash", role: .destructive) { center.deletePersonalRoute(r.id) }
                         }
                 }
             } footer: {
-                Label("Your routes stay on this phone. Routing sends only coordinates and travel mode, and nothing is stored on the server.",
+                Label("Your routes stay on this phone and in your own backup. Routing sends only coordinates and travel mode, and nothing is stored on the server.",
                       systemImage: "lock.shield")
             }
         }
@@ -51,14 +47,6 @@ struct MyRoutesView: View {
             }
         }
         .sheet(item: Binding(get: { gpx.map(SharedFile.init) }, set: { gpx = $0?.url })) { f in ActivityView(items: [f.url]) }
-    }
-
-    private func useInNewEvent(_ r: RouteDraft) {
-        let id = model.events.newEvent()
-        guard var d = model.events.hostedEvent(id)?.draft else { return }
-        d.template = .trip
-        model.events.saveDraft(d)
-        model.events.usePersonalRoute(r, inEvent: id)
     }
 }
 

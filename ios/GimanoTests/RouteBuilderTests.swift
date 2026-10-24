@@ -417,14 +417,18 @@ struct RouteRoutingTests {
         #expect(off.route.joinedGeometry.isEmpty)
     }
 
-    @Test("A personal route is stored only in the on-device events database")
+    @Test("A personal route is stored in the on-device personal store (schema 3), not the events database")
     func personalStore() throws {
-        let store = try EventStore(directory: nil)
+        let store = try LocalStore(path: nil, photosDirectory: FileManager.default.temporaryDirectory.appendingPathComponent("rb-\(UUID().uuidString)"))
         var r = RouteDraft(title: "Kayuh pagi")
         r.addPoint(RB.a); r.addPoint(RB.b)
         try store.savePersonalRoute(r)
-        #expect(try store.personalRoutes() == [r])
+        let back = try store.personalRoutes()
+        #expect(back.map(\.id) == [r.id] && back.first?.title == "Kayuh pagi")
+        #expect(try back.map(PersonalRouteJSON.encode) == [PersonalRouteJSON.encode(r)])
         try store.deletePersonalRoute(id: r.id)
         #expect(try store.personalRoutes().isEmpty)
+        let events = try EventStore(directory: nil)
+        #expect(try events.legacyPersonalRoutes().isEmpty)
     }
 }

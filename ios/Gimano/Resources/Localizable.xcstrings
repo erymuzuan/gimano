@@ -10223,16 +10223,6 @@
         }
       }
     },
-    "Ascent and descent unavailable": {
-      "localizations": {
-        "ms": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Naik dan turun tidak tersedia"
-          }
-        }
-      }
-    },
     "Only the coordinates and travel mode are sent to the routing server. Nothing is stored there.": {
       "localizations": {
         "ms": {
@@ -10303,12 +10293,12 @@
         }
       }
     },
-    "This phone only. You can share it as GPX.": {
+    "On this phone and in your own backup. You can share it as GPX.": {
       "localizations": {
         "ms": {
           "stringUnit": {
             "state": "translated",
-            "value": "Telefon ini sahaja. Boleh kongsi sebagai GPX."
+            "value": "Di telefon ini dan dalam sandaran anda sendiri. Boleh kongsi sebagai GPX."
           }
         }
       }
@@ -10383,12 +10373,12 @@
         }
       }
     },
-    "Your routes stay on this phone. Routing sends only coordinates and travel mode, and nothing is stored on the server.": {
+    "Your routes stay on this phone and in your own backup. Routing sends only coordinates and travel mode, and nothing is stored on the server.": {
       "localizations": {
         "ms": {
           "stringUnit": {
             "state": "translated",
-            "value": "Laluan anda kekal di telefon ini. Pengiraan laluan hanya menghantar koordinat dan mod perjalanan, dan tiada apa disimpan di pelayan."
+            "value": "Laluan anda kekal di telefon ini dan dalam sandaran anda sendiri. Pengiraan laluan hanya menghantar koordinat dan mod perjalanan, dan tiada apa disimpan di pelayan."
           }
         }
       }

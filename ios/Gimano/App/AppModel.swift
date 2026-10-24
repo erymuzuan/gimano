@@ -171,8 +171,9 @@ final class AppModel {
     var menuSheet: MenuSheet?
     /// A `.gimano` file opened from another app.
     var incomingBackup: URL?
-    /// Imported events (Acara), kept on this phone only and never backed up.
-    let events = EventCenter(store: .shared)
+    /// Imported and hosted events (Acara), kept on this phone only and never backed up. Its "Laluan saya" live in
+    /// `store` (backed up).
+    let events: EventCenter
     /// On-device personal data (favourites, recents, private places, settings).
     let store: LocalStore
     let backup: BackupManager
@@ -196,6 +197,10 @@ final class AppModel {
         self.map = MapState(styleURL: config.styleURL)
         self.repo = DemoRepository()
         self.store = store
+        // Schema 3: "Laluan saya" saved by earlier builds in the events database move here once (never into the
+        // in-memory fallback store, which would lose them).
+        if !store.isInMemory { try? PersonalRouteMove.run(from: .shared, to: store) }
+        self.events = EventCenter(store: .shared, personalStore: store)
         self.backup = BackupManager(store: store)
         #if DEBUG
         Self.applyTestLaunchArguments(store: store)
@@ -534,6 +539,7 @@ final class AppModel {
         privatePlaces = (try? store.privatePlaces()) ?? []
         plannedDrives = (try? store.plannedDrives()) ?? []
         map.privatePins = privatePlaces.map { $0.location }
+        events.reloadPersonalRoutes()
     }
 
     /// Local "Just for me" places matching a query.

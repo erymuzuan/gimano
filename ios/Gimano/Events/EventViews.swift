@@ -571,8 +571,8 @@ struct EventDetailView: View {
                         GimanoIcon(icon: r.mode.vehicle.gIcon, size: 24).frame(width: 28)
                         VStack(alignment: .leading, spacing: 2) {
                             Text(verbatim: r.title ?? doc.title).font(Tokens.Font.bodyBold)
-                            let extra = [r.durationS.map { ETAFormatter.duration(Double($0)) }, r.day,
-                                         r.ascentM.map { "↑ \($0) m" }, r.descentM.map { "↓ \($0) m" }].compactMap { $0 }
+                            // Distance and time only: climb/descent from other writers are read but not shown.
+                            let extra = [r.durationS.map { ETAFormatter.duration(Double($0)) }, r.day].compactMap { $0 }
                             Text(verbatim: ([EventFormat.distance(r.distanceM)] + extra).joined(separator: " · "))
                                 .font(Tokens.Font.caption).foregroundStyle(Color.textMuted)
                             if r.source != .routed {

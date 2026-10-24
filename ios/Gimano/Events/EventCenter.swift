@@ -39,13 +39,15 @@ enum EventNavRoute: Hashable {
 @Observable
 final class EventCenter {
     let store: EventStore
+    /// The personal store (backed up to the user's own storage) that holds "Laluan saya".
+    let personalStore: LocalStore
     let secrets: any EventSecretStore
     private(set) var events: [ImportedEvent] = []
     /// Events this phone organizes.
     private(set) var hosted: [HostedEvent] = []
     /// The last publication per hosted event, in memory only (links and codes are never stored).
     private(set) var invites: [String: PublishedInvite] = [:]
-    /// "Laluan saya" (on this phone only).
+    /// "Laluan saya" (on this phone and in the user's own backup).
     private(set) var personalRoutes: [RouteDraft] = []
     /// Set by "Navigate" to an event stop; checked when a newer revision moves that stop.
     var activeTrip: EventActiveTrip?
@@ -64,8 +66,11 @@ final class EventCenter {
 
     @ObservationIgnored var now: () -> Date = { .now }
 
-    init(store: EventStore, secrets: any EventSecretStore = KeychainEventSecretStore()) {
+    /// `personalStore` nil: a throwaway in-memory store (tests). The app passes `LocalStore.shared`.
+    init(store: EventStore, personalStore: LocalStore? = nil, secrets: any EventSecretStore = KeychainEventSecretStore()) {
         self.store = store
+        self.personalStore = personalStore ?? (try! LocalStore(path: nil, photosDirectory: FileManager.default.temporaryDirectory
+            .appendingPathComponent("manotu-test-photos-\(UUID().uuidString)", isDirectory: true)))
         self.secrets = secrets
     }
 
@@ -85,7 +90,7 @@ final class EventCenter {
     }
 
     func reloadPersonalRoutes() {
-        personalRoutes = (try? store.personalRoutes()) ?? []
+        personalRoutes = (try? personalStore.personalRoutes()) ?? []
     }
 
     // MARK: organizer
