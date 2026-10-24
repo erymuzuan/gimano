@@ -189,6 +189,21 @@ public sealed class CommunityService(GimanoDbContext db, IEventPublisher bus, Gi
         return new VerifyResult(place.Status, Math.Round(place.WeightedYes, 2), RequiredFor(place));
     }
 
+    /// <summary>"Report this place": one flag per user; 3 hide a community place pending moderation (as for reviews and photos).</summary>
+    public async Task FlagAsync(Guid userId, string id, FlagReason reason, CancellationToken ct)
+    {
+        var place = await db.CommunityPlaces.FirstOrDefaultAsync(p => p.Id == id, ct)
+                    ?? throw new NotFoundException("Only community places can be reported here; use suggest-edit for map data.");
+        if (place.OwnerId == userId) return;
+        if (await db.PlaceFlags.FindAsync([id, userId], ct) is not null) return;
+        db.PlaceFlags.Add(new PlaceFlag { PlaceId = id, UserId = userId, Reason = reason, CreatedAt = clock.GetUtcNow() });
+        place.FlagCount++;
+        var hidden = place.FlagCount >= CommunityRules.FlagsToHide && place.Status is PlaceStatus.Pending or PlaceStatus.Published;
+        if (hidden) { place.Status = PlaceStatus.Hidden; place.UpdatedAt = clock.GetUtcNow(); }
+        await db.SaveChangesAsync(ct);
+        if (hidden) await bus.PublishAsync(RoutingKeys.PlaceChanged, new PlaceChangedEvent(id), ct);
+    }
+
     /// <summary>
     /// The legacy 0.1.0 body {exists, correctLocation} has no `answer` and no proximity field, and installed 0.1.0 apps can't
     /// send them, so it is still accepted, without a proximity check, but only from accounts with no signing key (what 0.1.0
@@ -326,8 +341,9 @@ public sealed class CommunityService(GimanoDbContext db, IEventPublisher bus, Gi
         return place;
     }
 
+    /// <summary>The contributing user (add, verify, suggest); a banned account gets 403 (Moderation.EnsureMayContribute).</summary>
     private async Task<User> RequireUserAsync(Guid userId, CancellationToken ct) =>
-        await db.Users.FirstOrDefaultAsync(u => u.Id == userId, ct) ?? throw new UnauthorizedAccessException("This account was deleted.");
+        Moderation.EnsureMayContribute(await db.Users.FirstOrDefaultAsync(u => u.Id == userId, ct) ?? throw new UnauthorizedAccessException("This account was deleted."));
 
     private PlaceDto Dto(CommunityPlace p) =>
         PlaceService.ToDto(p, null, null, null, [], TimeZoneInfo.ConvertTime(clock.GetUtcNow(), ValhallaMapper.MalaysiaTime).DateTime);

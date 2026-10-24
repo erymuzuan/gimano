@@ -34,6 +34,8 @@ public sealed class CommunityPlace
     public DateTimeOffset? ResolvedAt { get; set; }
     public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;
     public DateTimeOffset UpdatedAt { get; set; } = DateTimeOffset.UtcNow;
+    /// <summary>Reports by users ("Report this place"); 3 hide it pending moderation, like reviews and photos.</summary>
+    public int FlagCount { get; set; }
 
     public static string NewId() => "c" + Guid.CreateVersion7().ToString("N");
     public static bool IsCommunityId(string id) => id.Length == 33 && id[0] == 'c';
@@ -161,6 +163,15 @@ public sealed class Photo
     public int Height { get; set; }
     public string? RejectReason { get; set; }
     public int FlagCount { get; set; }
+    public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;
+}
+
+/// <summary>One report of a community place per user (POST /places/{id}/flag).</summary>
+public sealed class PlaceFlag
+{
+    public required string PlaceId { get; set; }
+    public Guid UserId { get; set; }
+    public FlagReason Reason { get; set; }
     public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;
 }
 

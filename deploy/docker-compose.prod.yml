@@ -156,6 +156,9 @@ services:
       Identity__AllowLegacyUnsigned: ${ALLOW_LEGACY_UNSIGNED:-true}
       Feedback__ContactKey: ${FEEDBACK_CONTACT_KEY:?Set FEEDBACK_CONTACT_KEY in deploy/.env.prod}
       Admin__Key: ${ADMIN_KEY:-}
+      # Opaque per-author handles for on-device blocking (base64, 32 bytes). Empty = derived from the JWT key (then rotating
+      # the JWT key changes every handle and empties the apps' block lists). openssl rand -base64 32
+      Community__AuthorHandleKey: ${AUTHOR_HANDLE_KEY:-}
       # Agent endpoints /admin/v1 and /mcp (docs/back-office.md): OFF in production until the back office is deliberately
       # deployed here. To enable, set AGENT_ADMIN_ENABLED=true and AGENT_ADMIN_NETWORKS to the agents' CIDR (Tailscale:
       # 100.64.0.0/10) in deploy/.env.prod. Requests through Cloudflare are refused either way (Admin__AllowPublic=false).
@@ -184,8 +187,8 @@ services:
     logging: *logging
     environment:
       <<: *app-env
-      Feedback__GitHubRepo: ${FEEDBACK_GITHUB_REPO:-}
-      Feedback__GitHubToken: ${FEEDBACK_GITHUB_TOKEN:-}
+      # No GitHub-issue sink in production: feedback is free text a user may fill with personal details, and the privacy
+      # policy promises it goes only to us. (The worker also refuses it outside Development unless explicitly allowed.)
     volumes: ["media:/data/media"]
     networks: [gimano]
     depends_on:

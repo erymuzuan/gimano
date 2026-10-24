@@ -13,7 +13,14 @@ public sealed class GitHubFeedbackOptions
     /// <summary>"owner/repo". Empty = sink disabled (default).</summary>
     public string? GitHubRepo { get; set; }
     public string? GitHubToken { get; set; }
+    /// <summary>
+    /// Feedback text is free text that may contain personal details, so the public sink only runs in Development unless this
+    /// is explicitly true (and the privacy policy says feedback can be published).
+    /// </summary>
+    public bool AllowOutsideDevelopment { get; set; }
     public bool Enabled => !string.IsNullOrWhiteSpace(GitHubRepo) && !string.IsNullOrWhiteSpace(GitHubToken);
+
+    public bool EnabledIn(string environmentName) => Enabled && (AllowOutsideDevelopment || environmentName == "Development");
 }
 
 /// <summary>Optional: opens a GitHub issue per feedback item (off unless Feedback:GitHubRepo and Feedback:GitHubToken are set).</summary>

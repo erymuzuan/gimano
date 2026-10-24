@@ -8,7 +8,7 @@ using Microsoft.EntityFrameworkCore;
 namespace Gimano.Api.Services;
 
 /// <summary>Reviews: one per user per place, helpful toggle, flags (3 distinct → hidden), rate limits, cursor pages.</summary>
-public sealed class ReviewService(GimanoDbContext db, IEventPublisher bus, TimeProvider clock)
+public sealed class ReviewService(GimanoDbContext db, IEventPublisher bus, TimeProvider clock, AuthorHandles handles)
 {
     public const int PageSize = 20;
 
@@ -40,7 +40,7 @@ public sealed class ReviewService(GimanoDbContext db, IEventPublisher bus, TimeP
 
     public async Task<ReviewDto> CreateAsync(Guid userId, string placeId, CreateReviewRequest req, CancellationToken ct)
     {
-        var user = await db.Users.FirstOrDefaultAsync(u => u.Id == userId, ct) ?? throw new UnauthorizedAccessException("This account was deleted.");
+        var user = Moderation.EnsureMayContribute(await db.Users.FirstOrDefaultAsync(u => u.Id == userId, ct) ?? throw new UnauthorizedAccessException("This account was deleted."));
         await CheckPlaceAsync(placeId, userId, ct);
         var text = CheckText(req.Rating, req.Text);
         if (await db.Reviews.AnyAsync(r => r.PlaceId == placeId && r.UserId == userId, ct))
@@ -164,10 +164,10 @@ public sealed class ReviewService(GimanoDbContext db, IEventPublisher bus, TimeP
             .GroupBy(r => r.UserId!.Value).Select(g => new { g.Key, Count = g.Count() }).ToDictionaryAsync(x => x.Key, x => x.Count, ct);
         return rows.Select(r => new ReviewDto(
             r.Id, r.PlaceId, r.Rating, r.Text,
-            photos.Where(p => p.ReviewId == r.Id).Select(PhotoService.ToDto).ToList(),
+            photos.Where(p => p.ReviewId == r.Id).Select(p => PhotoService.ToDto(p, handles)).ToList(),
             r.User is null
                 ? new ReviewAuthor("Pemandu Manotu", 1, 0)
-                : new ReviewAuthor(r.User.DisplayName, r.User.Level, counts.GetValueOrDefault(r.User.Id)),
+                : new ReviewAuthor(r.User.DisplayName, r.User.Level, counts.GetValueOrDefault(r.User.Id), handles.For(r.User.Id)),
             r.HelpfulCount, r.CreatedAt, r.EditedAt, r.Status)).ToList();
     }
 }
