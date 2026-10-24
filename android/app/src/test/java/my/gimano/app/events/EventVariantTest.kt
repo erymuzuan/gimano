@@ -278,7 +278,7 @@ class EventVariantTest {
         val small = SealedInvitation.seal(writer, withRoute(plan, plan.routes.single().points), seed, key)
         assertEquals(ShareMode.LINK, small.mode)
         assertNull(small.stopsOnly)
-        val pubSmall = Publication(plan, key, small, reused = false, previous = null, secretCode = "2222-2222", fileBytes = ByteArray(0))
+        val pubSmall = Publication(plan, key, small, reused = false, previous = null, secretCode = "2222-2222")
         assertNotNull(pubSmall.link(EventLinks.DEFAULT_SITE))
         assertNull(pubSmall.stopsOnlyLink(EventLinks.DEFAULT_SITE))
 
@@ -289,7 +289,7 @@ class EventVariantTest {
         assertEquals(ShareMode.STOPS_ONLY_OR_FILE, long.mode)
         val code = writer.newSecretCode()
         val pub = Publication(EventParser.parse(longBytes), key, long, reused = false, previous = null, secretCode = code,
-            fileBytes = EventFileWriter(writer, reader).seal(longBytes, seed, code))
+            codeFileBytes = EventFileWriter(writer, reader).seal(longBytes, seed, code))
         assertNull(pub.link(EventLinks.DEFAULT_SITE))
         val stopsLink = pub.stopsOnlyLink(EventLinks.DEFAULT_SITE)!!
         val opened = reader.openLink(stopsLink)
@@ -297,7 +297,9 @@ class EventVariantTest {
         assertEquals(plan.rev, opened.event.rev)
         assertArrayEquals(EventHashes.sha256(longBytes), opened.revisionHash)
         // The file stays full, same organiser key.
-        val file = reader.openFile(pub.file(), pub.secretCode)
+        val file = reader.openFile(pub.codeFile()!!, pub.secretCode)
+        // The default open file (suite 3) is the same full event, no code.
+        assertArrayEquals(longBytes, reader.openFileWithoutCode(pub.file()).eventBytes)
         assertFalse(file.event.stopsOnly)
         assertArrayEquals(longBytes, file.eventBytes)
         assertArrayEquals(file.organizerPub, opened.organizerPub)
@@ -314,7 +316,7 @@ class EventVariantTest {
         val fileOnly = SealedInvitation.seal(writer, hugeBytes, seed, key)
         assertTrue(fileOnly.stopsOnlyFragmentLength!! > EventLimits.MAX_FRAGMENT_CHARS)
         assertEquals(ShareMode.FILE_ONLY, fileOnly.mode)
-        assertNull(Publication(huge, key, fileOnly, reused = false, previous = null, secretCode = "2222-2222", fileBytes = ByteArray(0)).stopsOnlyLink(EventLinks.DEFAULT_SITE))
+        assertNull(Publication(huge, key, fileOnly, reused = false, previous = null, secretCode = "2222-2222").stopsOnlyLink(EventLinks.DEFAULT_SITE))
         // No routes at all and too long: nothing to drop, the file only.
         val noRoutes = EventJsonWriter.write(huge.copy(routes = emptyList()))
         val nr = SealedInvitation.seal(writer, noRoutes, seed, key)

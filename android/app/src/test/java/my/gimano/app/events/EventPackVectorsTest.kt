@@ -67,7 +67,67 @@ class EventPackVectorsTest {
         checkOpened(v, reader.openFile(v.b("fileB64u"), v.s("secretCode")))
         checkOpened(v, reader.openFile(v.b("fileB64u"), v.s("secretCode").lowercase().replace('-', ' ')))
         if ("fileV2B64u" in v) suite2(v)
+        if ("fileV3B64u" in v) suite3(v)
         layers(v)
+    }
+
+    /** Suite 3 (the default share): the link's key, nonce and ciphertext framed as a file; opens with no code. */
+    private fun suite3(v: JsonObject) {
+        val v3 = v.b("fileV3B64u")
+        assertEquals(EventTransport.FILE_SUITE_OPEN, v3[5])
+        assertFalse(EventTransport.fileNeedsCode(v3))
+        val (key, sealed) = EventTransport.parseLink(v.s("linkFragment"))
+        assertArrayEquals("writer framing is byte-identical", v3, EventLinks.openFile(key, sealed))
+        checkOpened(v, reader.openFileWithoutCode(v3))
+        checkOpened(v, reader.openFile(v3, ""))
+        // Suites 1 and 2 still need their code.
+        assertTrue(EventTransport.fileNeedsCode(v.b("fileB64u")))
+        assertCode(EventPackException.INVALID_SECRET_CODE) { reader.openFileWithoutCode(v.b("fileB64u")) }
+    }
+
+    private fun assertInvalidAt(path: String, block: () -> Unit) {
+        try {
+            block(); fail("expected invalid_event at $path")
+        } catch (e: EventPackException) {
+            assertEquals(EventPackException.INVALID_EVENT, e.code)
+            assertTrue(e.message, e.message!!.startsWith("$path:"))
+        }
+    }
+
+    @Test fun infoLimits() {
+        for (n in listOf("negative-info-text-too-long", "negative-too-many-info")) {
+            val v = vector(n)
+            assertEquals(EventPackException.INVALID_EVENT, v.s("expectedError"))
+            assertInvalidAt(v.s("expectedPath")) { reader.openLink(v.s("linkFragment")) }
+            assertInvalidAt(v.s("expectedPath")) { reader.openFileWithoutCode(v.b("fileV3B64u")) }
+            assertInvalidAt(v.s("expectedPath")) { EventParser.parse(v.s("eventJson").toByteArray()) }
+        }
+        // Blank info text is invalid too.
+        val ok = vector("kenduri-one-day").s("eventJson")
+        val blank = ok.replace("Tema pastel. Baju Melayu / baju kurung digalakkan.", "  ")
+        assertNotEquals(ok, blank)
+        assertInvalidAt("info[0].text") { EventParser.parse(blank.toByteArray()) }
+    }
+
+    @Test fun unknownTemplateAndInfoKindReadAsOther() {
+        val v = vector("unknown-template-and-info-kind")
+        val exp = v.getValue("expected").jsonObject
+        for (p in listOf(reader.openLink(v.s("linkFragment")), reader.openFileWithoutCode(v.b("fileV3B64u")))) {
+            assertEquals(exp.s("template"), p.event.template.name.lowercase())
+            assertEquals(exp.getValue("infoKinds").jsonArray.map { it.jsonPrimitive.content }, p.event.info.map { it.kind.name.lowercase() })
+            assertEquals(exp.getValue("infoTexts").jsonArray.map { it.jsonPrimitive.content }, p.event.info.map { it.text })
+            assertEquals(v.s("revisionHashB64u"), p.revisionHashB64u)
+        }
+    }
+
+    @Test fun truncatedSuite3FilesAreMalformed() {
+        val v = vector("negative-file-v3-truncated")
+        val files = v.getValue("filesB64u").jsonArray.map { B64u.decode(it.jsonPrimitive.content)!! }
+        assertEquals(v.getValue("lengths").jsonArray.map { it.jsonPrimitive.int }, files.map { it.size })
+        for (f in files) {
+            assertCode(v.s("expectedError")) { EventTransport.parseFile(f) }
+            assertCode(v.s("expectedError")) { reader.openFileWithoutCode(f) }
+        }
     }
 
     /** Suite 2 (what writers produce now): Argon2id over the 8-character code and the file salt. */
@@ -119,6 +179,9 @@ class EventPackVectorsTest {
         assertEquals("navigate to the vehicle entrance when present", 2.9866, parking.navigationTarget.lat, 0.0)
         assertEquals(101.7942, parking.navigationTarget.lng, 0.0)
         assertEquals(EventTemplate.KENDURI, p.event.template)
+        assertEquals(listOf(InfoKind.DRESS, InfoKind.BRING), p.event.info.map { it.kind })
+        // The writer reproduces the signed bytes, info blocks included (after sessions, before routes).
+        assertArrayEquals(p.eventBytes, EventJsonWriter.write(p.event))
         assertEquals("Keluarga Aqil", p.event.organizerAlias)
     }
 
@@ -247,7 +310,8 @@ class EventPackVectorsTest {
         val names = listOf("kenduri-one-day", "ride-two-day", "negative-tampered-ciphertext", "negative-bad-signature", "negative-wrong-key",
             "negative-expired", "negative-oversized-fragment", "ride-two-day-stops-only", "negative-variant-with-polyline",
             "negative-missing-polyline", "negative-unknown-variant", "import-stops-only-sequence",
-            "argon2-kat", "negative-wrong-secret-code", "negative-invalid-secret-code")
+            "argon2-kat", "negative-wrong-secret-code", "negative-invalid-secret-code",
+            "negative-info-text-too-long", "negative-too-many-info", "negative-file-v3-truncated", "unknown-template-and-info-kind")
         val dir = javaClass.classLoader!!.getResource("event-vectors")!!.let { File(it.toURI()) }
         assertEquals(names.sorted(), dir.listFiles()!!.filter { it.extension == "json" }.map { it.nameWithoutExtension }.sorted())
     }
@@ -263,7 +327,7 @@ class EventPackVectorsTest {
         assertCode(EventPackException.MALFORMED_FILE) { EventTransport.parseFile(ok.copyOf(45)) }
         assertCode(EventPackException.MALFORMED_FILE) { EventTransport.parseFile(byteArrayOf(0) + ok.copyOfRange(1, ok.size)) }
         assertCode(EventPackException.UNSUPPORTED_FILE_FORMAT) { EventTransport.parseFile(ok.copyOf().also { it[4] = 2 }) }
-        assertCode(EventPackException.UNSUPPORTED_SUITE) { EventTransport.parseFile(ok.copyOf().also { it[5] = 3 }) }
+        assertCode(EventPackException.UNSUPPORTED_SUITE) { EventTransport.parseFile(ok.copyOf().also { it[5] = 4 }) }
         assertCode(EventPackException.UNSUPPORTED_SUITE) { EventTransport.parseFile(ok.copyOf().also { it[5] = 0 }) }
         // Suite 2: salt(16) before the nonce; too short for salt + nonce + tag is malformed.
         val ok2 = EventTransport.FILE_MAGIC + byteArrayOf(1, 2) + ByteArray(16) { 7 } + ByteArray(40)

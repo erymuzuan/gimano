@@ -25,6 +25,8 @@ enum class EventNotice {
     OWN_EVENT, CANNOT_OPEN, TOO_LONG, NOT_A_FILE, EXPIRED, DIFFERENT_ORGANIZER, ALREADY_IMPORTED, OLDER,
     /** "Laluan penuh ditambah": the event file upgraded a stops-only invitation, silently (§7.4). */
     FULL_ROUTE_ADDED,
+    /** A file from a newer Manotu (unknown format or suite): update the app. */
+    NEEDS_UPDATE,
 }
 
 sealed interface EventImportUi {
@@ -73,9 +75,22 @@ class EventImporter(
         run { reader.openLink(link) }
     }
 
+    /**
+     * A `.manotu-event` file (or anything shared as one: WhatsApp often sends it as application/octet-stream). The
+     * suite decides: suite 3 opens at once like a link; only suites 1 and 2 ask for the code. Anything without the
+     * "MNTE" header, or a broken or unknown header, is "not an event file".
+     */
     fun openFile(bytes: ByteArray) {
         stopHint = null
         if (!EventTransport.looksLikeFile(bytes)) { _ui.value = EventImportUi.Notice(EventNotice.NOT_A_FILE); return }
+        val needsCode = try {
+            EventTransport.fileNeedsCode(bytes)
+        } catch (e: EventPackException) {
+            _ui.value = EventImportUi.Notice(if (e.code == EventPackException.UNSUPPORTED_SUITE || e.code == EventPackException.UNSUPPORTED_FILE_FORMAT)
+                EventNotice.NEEDS_UPDATE else EventNotice.NOT_A_FILE)
+            return
+        }
+        if (!needsCode) { pendingFile = null; run { reader.openFileWithoutCode(bytes) }; return }
         pendingFile = bytes
         _ui.value = EventImportUi.NeedCode()
     }

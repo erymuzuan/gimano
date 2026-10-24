@@ -50,6 +50,26 @@
                 <data android:pathPattern=".*\\..*\\.manotu-event" />
                 <data android:pathPattern=".*\\..*\\..*\\.manotu-event" />
             </intent-filter>
+            <!-- WhatsApp and others hand documents over as application/octet-stream content:// URIs with no file name
+                 in the path, so accept any octet-stream; MainActivity reads at most 20 MiB and checks "MNTE" first,
+                 anything else is "not an event file". -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:scheme="content" />
+                <data android:mimeType="application/octet-stream" />
+            </intent-filter>
+            <!-- "Share to Manotu" of an event file (ACTION_SEND with EXTRA_STREAM). -->
+            <intent-filter>
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="application/vnd.manotu.event" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="application/octet-stream" />
+            </intent-filter>
         </activity>
     </application>
 </manifest>

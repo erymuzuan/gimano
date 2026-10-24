@@ -13,6 +13,8 @@ import my.gimano.app.core.events.DraftIssue
 import my.gimano.app.core.events.EventIds
 import my.gimano.app.core.events.EventLimits
 import my.gimano.app.core.events.EventPackException
+import my.gimano.app.core.events.EventWizard
+import my.gimano.app.core.events.HostInfo
 import my.gimano.app.core.events.HostDraft
 import my.gimano.app.core.events.HostDraftRules
 import my.gimano.app.core.events.HostStop
@@ -61,17 +63,38 @@ class HostEditor(
     private val mutex = Mutex()
     private var saveJob: Job? = null
 
+    /** The wizard step on screen (kept here so it survives the map picker and search). */
+    private val _step = MutableStateFlow(EventWizard.Step.TYPE)
+    val step: StateFlow<EventWizard.Step> = _step.asStateFlow()
+
+    /** Opened from a Semak row: "Seterusnya" goes straight back to Semak. */
+    private val _backToReview = MutableStateFlow(false)
+    val backToReview: StateFlow<Boolean> = _backToReview.asStateFlow()
+
+    /** Kind (and day) of the next stop added from the map picker / search / saved places; null = by position. */
+    var addKind: String? = null
+    var addDay: Int = 0
+    /** "Tukar": the next picked place moves this stop instead of adding one. */
+    var relocate: String? = null
+
+    /** Sealing the suite-2 file after "Acara sensitif" was switched on at the share screen. */
+    private val _sealingCodeFile = MutableStateFlow(false)
+    val sealingCodeFile: StateFlow<Boolean> = _sealingCodeFile.asStateFlow()
+
     fun newEvent(lang: String, zone: ZoneId = ZoneId.systemDefault(), today: LocalDate = LocalDate.now()) {
         _draft.value = HostDraft.new(EventIds.newEventId(), lang, zone, today)
         publishedOnce = false
         reset()
+        _step.value = EventWizard.Step.TYPE
     }
 
+    /** An existing event opens on Semak (every row there jumps to its step). */
     suspend fun open(id: String): Boolean {
         val h = store.load(id) ?: return false
         _draft.value = h.draft
         publishedOnce = h.published != null
         reset()
+        _step.value = EventWizard.Step.REVIEW
         return true
     }
 
@@ -80,6 +103,73 @@ class HostEditor(
         _publication.value = null
         _editingStop.value = null
         entranceFor = null
+        addKind = null
+        addDay = 0
+        relocate = null
+        _backToReview.value = false
+    }
+
+    // --- Wizard navigation ---------------------------------------------------------------------------------
+
+    fun goTo(step: EventWizard.Step, fromReview: Boolean = false) {
+        _backToReview.value = fromReview && step != EventWizard.Step.REVIEW
+        _step.value = step
+    }
+
+    /** "Seterusnya": the next step, or Semak when the step was opened from Semak. */
+    fun next() {
+        val s = _step.value
+        if (s == EventWizard.Step.REVIEW) return
+        _step.value = if (_backToReview.value) EventWizard.Step.REVIEW else EventWizard.Step.entries[s.ordinal + 1]
+        if (_step.value == EventWizard.Step.REVIEW) _backToReview.value = false
+    }
+
+    /** Back arrow: the previous step; false on the first step (or on Semak of an existing event), so the caller leaves. */
+    fun back(): Boolean {
+        val s = _step.value
+        if (_backToReview.value) { _backToReview.value = false; _step.value = EventWizard.Step.REVIEW; return true }
+        if (s == EventWizard.Step.TYPE || (s == EventWizard.Step.REVIEW && publishedOnce)) return false
+        _step.value = EventWizard.Step.entries[s.ordinal - 1]
+        return true
+    }
+
+    /** Problems found by "Kongsi jemputan": open the step of the first one. */
+    fun showIssue(issue: DraftIssue) {
+        goTo(EventWizard.stepFor(issue), fromReview = true)
+        issue.stop?.let { i -> _draft.value?.stops?.getOrNull(i)?.let { _editingStop.value = it.id } }
+    }
+
+    // --- Info cards ---------------------------------------------------------------------------------------
+
+    fun addInfo(kind: String) = update { d ->
+        if (kind == HostInfo.AGENDA && d.info.any { it.kind == HostInfo.AGENDA }) d
+        else if (kind != HostInfo.AGENDA && d.info.count { it.kind != HostInfo.AGENDA } >= EventLimits.MAX_INFO_BLOCKS) d
+        else d.copy(info = d.info + HostInfo(EventIds.newItemId(), kind))
+    }
+
+    fun updateInfo(id: String, text: String) = update { d -> d.copy(info = d.info.map { if (it.id == id) it.copy(text = text) else it }) }
+
+    fun removeInfo(id: String) = update { d -> d.copy(info = d.info.filterNot { it.id == id }) }
+
+    // --- Sensitive (suite 2) ----------------------------------------------------------------------------
+
+    /** "Hantar sebagai fail + kod" / "Acara sensitif". At the share screen, seals the suite-2 file when switched on. */
+    fun setSensitive(on: Boolean) {
+        update { it.copy(sensitive = on) }
+        val p = _publication.value ?: return
+        if (!on || p.codeFile() != null) return
+        val id = _draft.value?.id ?: return
+        _sealingCodeFile.value = true
+        scope.launch {
+            try {
+                val f = mutex.withLock { store.sealCodeFile(id) }
+                if (_publication.value === p) _publication.value = p.withCodeFile(f)
+            } catch (e: EventPackException) {
+                update { it.copy(sensitive = false) }
+            } finally {
+                _sealingCodeFile.value = false
+            }
+        }
     }
 
     fun update(f: (HostDraft) -> HostDraft) {
@@ -117,10 +207,20 @@ class HostEditor(
     fun route(id: String): BuilderRoute? = _draft.value?.routes?.firstOrNull { it.id == id }
 
     /** A new route's default mode from the template (ride: bicycle, convoy: motorcycle, others: car). */
-    fun defaultMode(): String = when (_draft.value?.template) {
-        "ride" -> my.gimano.app.core.events.EventTravelMode.BICYCLE.wire
-        "convoy" -> my.gimano.app.core.events.EventTravelMode.MOTORCYCLE.wire
-        else -> my.gimano.app.core.events.EventTravelMode.CAR.wire
+    fun defaultMode(): String = _draft.value?.let(EventWizard::mode) ?: my.gimano.app.core.events.EventTravelMode.CAR.wire
+
+    /** "Laluan" mode buttons: new routes use it; the routes of [day] (or all, one-day) switch too (legs recalculated). */
+    fun setMode(mode: String, dayDate: String?) = update { d ->
+        d.copy(mode = mode, routes = d.routes.map { r ->
+            if (r.mode != mode && (dayDate == null || r.day == null || r.day == dayDate)) RouteEdit.setOptions(r, mode = mode) else r
+        })
+    }
+
+    /** "Lebih dari sehari": one more day / back to one day (stops of removed days move to the last day). */
+    fun setDays(days: Int) = update { d ->
+        val n = days.coerceIn(1, EventLimits.MAX_EVENT_DAYS.toInt())
+        val endDate = if (n <= 1) null else d.localDate().plusDays((n - 1).toLong()).toString()
+        d.copy(endDate = endDate, stops = d.stops.map { if (it.day > n - 1) it.copy(day = n - 1) else it })
     }
 
     fun moveStop(id: String, by: Int) = update { d ->
@@ -132,11 +232,45 @@ class HostEditor(
     /** From the map picker, search or a saved place; opens the new stop's sheet so the host can name it. */
     fun addStop(lat: Double, lng: Double, label: String) {
         val d = _draft.value ?: return
+        val moving = relocate
+        val preset = addLabel
+        relocate = null
+        addLabel = null
+        if (moving != null && d.stops.any { it.id == moving }) {
+            // "Tukar": the place moves; a name from search replaces an empty one.
+            updateStop(moving) { it.copy(lat = lat, lng = lng, label = it.label.ifBlank { label.trim().take(EventLimits.STOP_LABEL_CHARS) }) }
+            addKind = null
+            return
+        }
         if (d.stops.size >= EventLimits.MAX_STOPS) return
-        val kind = if (d.stops.isEmpty()) "venue" else "parking"
-        val s = HostStop(EventIds.newItemId(), kind, label.trim().take(EventLimits.STOP_LABEL_CHARS), lat, lng)
-        update { it.copy(stops = it.stops + s) }
+        val journey = EventWizard.isJourney(d.template)
+        val kind = addKind ?: when {
+            d.stops.isEmpty() -> if (journey) "start" else "venue"
+            journey -> "other"
+            else -> "parking"
+        }
+        val day = addDay.coerceIn(0, d.dayCount() - 1)
+        addKind = null
+        val name = label.trim().ifEmpty { preset.orEmpty() }.take(EventLimits.STOP_LABEL_CHARS)
+        val s = HostStop(EventIds.newItemId(), kind, name, lat, lng, day = day)
+        update { it.copy(stops = insertStop(it.stops, s)) }
         _editingStop.value = s.id
+    }
+
+    /** Preset name for the next added stop when the picked place has none ("Lobi", "Pendaftaran"…). */
+    var addLabel: String? = null
+
+    /** Journey order within a day: start first, finish last, other stops before that day's finish. */
+    private fun insertStop(stops: List<HostStop>, s: HostStop): List<HostStop> {
+        val out = stops.toMutableList()
+        val sameDay = out.indices.filter { out[it].day == s.day }
+        val at = when (s.kind) {
+            "start" -> sameDay.firstOrNull() ?: out.size
+            "finish" -> out.size
+            else -> sameDay.firstOrNull { out[it].kind == "finish" } ?: out.size
+        }
+        out.add(at, s)
+        return out
     }
 
     fun setEntrance(lat: Double, lng: Double) {
@@ -159,6 +293,14 @@ class HostEditor(
     private suspend fun saveNow() {
         val d = _draft.value ?: return
         mutex.withLock { runCatching { store.save(d) } }
+    }
+
+    /** The organizer safety code of this event (saves first: a new event gets its keys on its first save). */
+    suspend fun safetyCode(): String? {
+        val d = _draft.value ?: return null
+        saveJob?.cancel()
+        saveNow()
+        return runCatching { store.safetyCode(d.id) }.getOrNull()
     }
 
     /** Leaving the editor: save; an untouched new event leaves nothing behind. */

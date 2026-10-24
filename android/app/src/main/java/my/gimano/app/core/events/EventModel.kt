@@ -15,7 +15,13 @@ import java.time.format.DateTimeFormatter
  * lang / mode / source rejected; text lengths count code points.
  */
 
-enum class EventTemplate { KENDURI, DINNER, COMPANY, RIDE, CONVOY, TRIP, OTHER }
+enum class EventTemplate { KENDURI, DINNER, COMPANY, RIDE, CONVOY, TRIP, MEETING, SEMINAR, PICNIC, HIKE, OTHER }
+
+/** `info[].kind` (§4.1); unknown kinds read as OTHER. */
+enum class InfoKind { DRESS, SAFETY, DOCUMENTS, BRING, CONTACT, OTHER }
+
+/** One guest info block (§4.1): plain guest-visible text, 1–1000 code points, newlines allowed. */
+data class InfoBlock(val kind: InfoKind, val text: String)
 enum class StopKind { PARKING, DROPOFF, ENTRANCE, VENUE, MEAL, CHECKPOINT, FUEL, WATER, REST, PRAYER, ACCOMMODATION, START, FINISH, OTHER }
 enum class EventTravelMode(val wire: String) { CAR("car"), MOTORCYCLE("motorcycle"), BICYCLE("bicycle"), WALK("walk") }
 enum class GeometrySource(val wire: String) {
@@ -93,6 +99,8 @@ data class EventPlan(
     val routes: List<EventRoute>,
     /** Non-null only on a stops-only variant (§5.5): no route lines; the event file has them. */
     val variant: EventVariant? = null,
+    /** Guest info blocks (§4.1), shown in order after the agenda. */
+    val info: List<InfoBlock> = emptyList(),
 ) {
     val stopsOnly: Boolean get() = variant?.kind == EventVariant.STOPS_ONLY
     fun stop(id: String): EventStop? = stops.firstOrNull { it.id == id }
@@ -113,6 +121,8 @@ internal data class RawStop(
     val notes: String? = null, val audience: String? = null,
 )
 
+@Serializable internal data class RawInfo(val kind: String, val text: String)
+
 @Serializable internal data class RawSession(val id: String, val title: String, val start: String, val end: String, val stopId: String? = null)
 
 @Serializable
@@ -130,7 +140,7 @@ internal data class RawEvent(
     val id: String, val rev: Long, val parent: String? = null, val publishedAt: String, val template: String,
     val title: String, val description: String? = null, val lang: String, val tz: String,
     val start: String, val end: String, val expiresAt: String, val organizer: RawOrganizer? = null,
-    val stops: List<RawStop>? = null, val sessions: List<RawSession>? = null, val routes: List<RawRoute>? = null,
+    val stops: List<RawStop>? = null, val sessions: List<RawSession>? = null, val info: List<RawInfo>? = null, val routes: List<RawRoute>? = null,
     val variant: RawVariant? = null,
 )
 
@@ -188,6 +198,8 @@ internal object EventValidator {
         !s.contains("//") && s.all { (it in 'a'..'z') || (it in 'A'..'Z') || (it in '0'..'9') || it == '/' || it == '_' || it == '-' || it == '+' }
 
     private fun template(s: String) = runCatching { EventTemplate.valueOf(s.uppercase()) }.getOrNull()?.takeIf { s == s.lowercase() } ?: EventTemplate.OTHER
+
+    private fun infoKind(s: String) = runCatching { InfoKind.valueOf(s.uppercase()) }.getOrNull()?.takeIf { s == s.lowercase() } ?: InfoKind.OTHER
 
     private fun kind(s: String) = runCatching { StopKind.valueOf(s.uppercase()) }.getOrNull()?.takeIf { s == s.lowercase() } ?: StopKind.OTHER
 
@@ -279,6 +291,13 @@ internal object EventValidator {
             EventSession(s.id, s.title, ss, se, s.stopId)
         }
 
+        val rawInfo = e.info.orEmpty()
+        if (rawInfo.size > EventLimits.MAX_INFO_BLOCKS) invalid("info", "has more than 12 info blocks")
+        val info = rawInfo.mapIndexed { i, b ->
+            text("info[$i].text", b.text, 1, EventLimits.INFO_TEXT_CHARS)
+            InfoBlock(infoKind(b.kind), b.text)
+        }
+
         if (rawRoutes.size > EventLimits.MAX_ROUTES) invalid("routes", "has more than 20 routes")
         val routeIds = HashSet<String>()
         var points = 0
@@ -308,7 +327,7 @@ internal object EventValidator {
         }
 
         return EventPlan(e.id, e.rev, e.parent, publishedAt, template(e.template), e.title, e.description, e.lang, e.tz, start, end, expiresAt,
-            e.organizer?.alias, stops, sessions, routes, e.variant?.let { EventVariant(it.kind, it.fullHash) })
+            e.organizer?.alias, stops, sessions, routes, e.variant?.let { EventVariant(it.kind, it.fullHash) }, info)
     }
 }
 

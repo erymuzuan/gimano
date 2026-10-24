@@ -44,6 +44,17 @@ class EventPackReader(private val sodium: LazySodium) {
      * (Argon2id, 64 MiB, a fraction of a second: never on the main thread), 52 for suite 1. A code of the other
      * suite's shape is `invalid_secret_code`, checked before deriving.
      */
+    /**
+     * Opens a suite-3 file, which carries its key (no code; every link rule applies). Suites 1 and 2 fail with
+     * `invalid_secret_code` ("a code is required"), like event-core `open_file_without_code`.
+     */
+    fun openFileWithoutCode(bytes: ByteArray): OpenedPack {
+        val parsed = EventTransport.parseFile(bytes)
+        val key = parsed.key ?: fail(EventPackException.INVALID_SECRET_CODE, "a code is required")
+        try { return open(key, parsed.sealed) } finally { key.fill(0) }
+    }
+
+    /** Any suite; a suite-3 file ignores [secretCode] (check [EventTransport.fileNeedsCode] first to avoid prompting). */
     fun openFile(bytes: ByteArray, secretCode: String): OpenedPack {
         val parsed = EventTransport.parseFile(bytes)
         val key = fileKey(parsed, secretCode)
@@ -51,7 +62,7 @@ class EventPackReader(private val sodium: LazySodium) {
     }
 
     fun fileKey(parsed: ParsedFile, secretCode: String): ByteArray =
-        parsed.salt?.let { deriveFileKey(secretCode, it) } ?: SecretCode.decode(secretCode)
+        parsed.key?.copyOf() ?: parsed.salt?.let { deriveFileKey(secretCode, it) } ?: SecretCode.decode(secretCode)
 
     /**
      * The suite-2 file key: Argon2id13 over the code's 8 upper-case characters (no separator) with the file salt.
