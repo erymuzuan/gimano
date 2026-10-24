@@ -203,12 +203,32 @@
         }
       }
     },
+    "%lld routes": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld laluan"
+          }
+        }
+      }
+    },
     "%lld stars": {
       "localizations": {
         "ms": {
           "stringUnit": {
             "state": "translated",
             "value": "%lld bintang"
+          }
+        }
+      }
+    },
+    "%lld stops": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld hentian"
           }
         }
       }
@@ -369,6 +389,26 @@
         }
       }
     },
+    "Access ends %@": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Akses tamat %@"
+          }
+        }
+      }
+    },
+    "Access ends %@. The event is then deleted from this phone.": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Akses tamat %@. Acara kemudian dipadam dari telefon ini."
+          }
+        }
+      }
+    },
     "Accident": {
       "localizations": {
         "ms": {
@@ -495,6 +535,16 @@
         }
       }
     },
+    "Agenda": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Atur cara"
+          }
+        }
+      }
+    },
     "Air conditioning": {
       "localizations": {
         "ms": {
@@ -561,6 +611,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Benarkan lokasi"
+          }
+        }
+      }
+    },
+    "Already imported": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sudah diimport"
           }
         }
       }
@@ -1181,6 +1241,16 @@
         }
       }
     },
+    "Can't open invitation": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Jemputan tidak dapat dibuka"
+          }
+        }
+      }
+    },
     "Can't turn": {
       "localizations": {
         "ms": {
@@ -1301,6 +1371,26 @@
         }
       }
     },
+    "Check this code with the organizer (for example by phone) before you trust the plan.": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Semak kod ini dengan penganjur (contohnya melalui telefon) sebelum mempercayai pelan ini."
+          }
+        }
+      }
+    },
+    "Choose a .manotu-event file": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pilih fail .manotu-event"
+          }
+        }
+      }
+    },
     "Choose a backup file": {
       "localizations": {
         "ms": {
@@ -1357,6 +1447,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Pilih titik ini"
+          }
+        }
+      }
+    },
+    "Choose this version": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pilih versi ini"
           }
         }
       }
@@ -1473,6 +1573,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Konflik kepentingan"
+          }
+        }
+      }
+    },
+    "Conflicting version": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Versi bercanggah"
           }
         }
       }
@@ -1687,12 +1797,32 @@
         }
       }
     },
+    "Delete event": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Padam acara"
+          }
+        }
+      }
+    },
     "Delete review": {
       "localizations": {
         "ms": {
           "stringUnit": {
             "state": "translated",
             "value": "Padam ulasan"
+          }
+        }
+      }
+    },
+    "Delete this event from this phone?": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Padam acara ini dari telefon ini?"
           }
         }
       }
@@ -1873,6 +2003,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Mungkin anda maksudkan"
+          }
+        }
+      }
+    },
+    "Different organizer": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Penganjur berbeza"
           }
         }
       }
@@ -2211,12 +2351,62 @@
         }
       }
     },
+    "Enter the secret code the organizer sent you separately.": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Masukkan kod rahsia yang dihantar oleh penganjur secara berasingan."
+          }
+        }
+      }
+    },
     "Entrance or parking wrong": {
       "localizations": {
         "ms": {
           "stringUnit": {
             "state": "translated",
             "value": "Pintu masuk / parkir salah"
+          }
+        }
+      }
+    },
+    "Event deleted": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Acara dipadam"
+          }
+        }
+      }
+    },
+    "Event has ended": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Acara telah tamat"
+          }
+        }
+      }
+    },
+    "Event imported": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Acara diimport"
+          }
+        }
+      }
+    },
+    "Events": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Acara"
           }
         }
       }
@@ -2874,6 +3064,26 @@
         }
       }
     },
+    "Import": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Import"
+          }
+        }
+      }
+    },
+    "Import invitation": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Import jemputan"
+          }
+        }
+      }
+    },
     "In %@, %@": {
       "localizations": {
         "ms": {
@@ -2974,6 +3184,26 @@
         }
       }
     },
+    "Invitation": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Jemputan"
+          }
+        }
+      }
+    },
+    "Invitations are kept on this phone only, never in backups, and deleted when the event's access ends.": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Jemputan disimpan di telefon ini sahaja, tidak sekali-kali dalam sandaran, dan dipadam apabila akses acara tamat."
+          }
+        }
+      }
+    },
     "Is it this one?": {
       "localizations": {
         "ms": {
@@ -3010,6 +3240,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Ia membantu kami membaikinya. Lokasi, e-mel, nombor telefon, token dan laluan fail dibuang dalam telefon anda dahulu. Tiada kegemaran, laluan, carian atau tangkapan skrin."
+          }
+        }
+      }
+    },
+    "It replaces the version on this phone.": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ia menggantikan versi di telefon ini."
           }
         }
       }
@@ -3826,12 +4066,42 @@
         }
       }
     },
+    "Navigate": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pandu"
+          }
+        }
+      }
+    },
     "Navigate here": {
       "localizations": {
         "ms": {
           "stringUnit": {
             "state": "translated",
             "value": "Navigasi ke sini"
+          }
+        }
+      }
+    },
+    "Navigates to the vehicle entrance": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pandu ke pintu masuk kenderaan"
+          }
+        }
+      }
+    },
+    "Navigation sends only the stop's coordinates, never its name.": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Navigasi hanya menghantar koordinat hentian, bukan namanya."
           }
         }
       }
@@ -3952,6 +4222,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Belum ada sandaran"
+          }
+        }
+      }
+    },
+    "No events yet": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Belum ada acara"
           }
         }
       }
@@ -4156,6 +4436,16 @@
         }
       }
     },
+    "OK": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "OK"
+          }
+        }
+      }
+    },
     "Object": {
       "localizations": {
         "ms": {
@@ -4222,6 +4512,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Okey"
+          }
+        }
+      }
+    },
+    "Older version": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Versi lebih lama"
           }
         }
       }
@@ -4342,6 +4642,16 @@
         }
       }
     },
+    "Open": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Buka"
+          }
+        }
+      }
+    },
     "Open Manotu for the best time to leave for %@ (arrive %@)": {
       "localizations": {
         "ms": {
@@ -4362,12 +4672,42 @@
         }
       }
     },
+    "Open an invitation link or file from the organizer.": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Buka pautan atau fail jemputan daripada penganjur."
+          }
+        }
+      }
+    },
+    "Open event": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Buka acara"
+          }
+        }
+      }
+    },
     "Open for the best time": {
       "localizations": {
         "ms": {
           "stringUnit": {
             "state": "translated",
             "value": "Buka untuk masa terbaik"
+          }
+        }
+      }
+    },
+    "Open invitation": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Buka jemputan"
           }
         }
       }
@@ -4418,6 +4758,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Arah bertentangan"
+          }
+        }
+      }
+    },
+    "Organizer: %@": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Penganjur: %@"
           }
         }
       }
@@ -4478,6 +4828,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "Frasa laluan (8+ aksara)"
+          }
+        }
+      }
+    },
+    "Paste": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tampal"
+          }
+        }
+      }
+    },
+    "Paste an invitation link": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tampal pautan jemputan"
           }
         }
       }
@@ -5348,6 +5718,16 @@
         }
       }
     },
+    "Safety code": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kod keselamatan"
+          }
+        }
+      }
+    },
     "Save": {
       "localizations": {
         "ms": {
@@ -5544,6 +5924,16 @@
         }
       }
     },
+    "Secret code": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kod rahsia"
+          }
+        }
+      }
+    },
     "See details": {
       "localizations": {
         "ms": {
@@ -5560,6 +5950,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Lihat butiran"
+          }
+        }
+      }
+    },
+    "Selected stop": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hentian dipilih"
           }
         }
       }
@@ -5874,6 +6274,16 @@
         }
       }
     },
+    "Show on map": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lihat di peta"
+          }
+        }
+      }
+    },
     "Show recovery code": {
       "localizations": {
         "ms": {
@@ -5964,6 +6374,16 @@
         }
       }
     },
+    "Sketch: not for turn-by-turn navigation": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lakaran: bukan untuk navigasi belokan demi belokan"
+          }
+        }
+      }
+    },
     "Skip": {
       "localizations": {
         "ms": {
@@ -5990,6 +6410,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Sesetengah tambang tidak diketahui, jadi jumlah ini adalah minimum."
+          }
+        }
+      }
+    },
+    "Some updates in between were missed.": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ada kemas kini di antaranya yang terlepas."
           }
         }
       }
@@ -6674,12 +7104,32 @@
         }
       }
     },
+    "The event has ended. Copies outside Manotu may still exist.": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Acara telah tamat. Salinan di luar Manotu mungkin masih wujud."
+          }
+        }
+      }
+    },
     "The pin stays in the centre · pinch to zoom": {
       "localizations": {
         "ms": {
           "stringUnit": {
             "state": "translated",
             "value": "Pin kekal di tengah · cubit untuk zum"
+          }
+        }
+      }
+    },
+    "The secret code is not valid. Check it and try again.": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kod rahsia tidak sah. Semak dan cuba lagi."
           }
         }
       }
@@ -6700,6 +7150,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Tema"
+          }
+        }
+      }
+    },
+    "There is already a different version %lld of this event. Both will be kept and you can choose one.": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sudah ada versi %lld yang berbeza untuk acara ini. Kedua-duanya disimpan dan anda boleh memilih satu."
           }
         }
       }
@@ -6742,6 +7202,36 @@
           "stringUnit": {
             "state": "translated",
             "value": "Fail ini bukan sandaran Manotu."
+          }
+        }
+      }
+    },
+    "This invitation can't be opened or verified.": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Jemputan ini tidak dapat dibuka / disahkan."
+          }
+        }
+      }
+    },
+    "This invitation is already on this phone. Nothing changed.": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Jemputan ini sudah diimport. Tiada perubahan."
+          }
+        }
+      }
+    },
+    "This invitation link is too long. Ask the organizer for the .manotu-event file instead.": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pautan jemputan ini terlalu panjang. Minta fail .manotu-event daripada penganjur."
           }
         }
       }
@@ -6802,6 +7292,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "Tempat ini"
+          }
+        }
+      }
+    },
+    "This update is signed by a different organizer than the one you trusted. It was not imported.": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kemas kini ini ditandatangani oleh penganjur berbeza daripada yang anda percayai. Ia tidak diimport."
+          }
+        }
+      }
+    },
+    "This version doesn't follow the one on this phone. Check with the organizer.": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Versi ini tidak menyusul versi di telefon ini. Semak dengan penganjur."
           }
         }
       }
@@ -6976,6 +7486,26 @@
         }
       }
     },
+    "Two versions of this event have the same number. Choose the one the organizer confirms.": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dua versi acara ini mempunyai nombor yang sama. Pilih yang disahkan oleh penganjur."
+          }
+        }
+      }
+    },
+    "Two versions: choose one": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dua versi: pilih satu"
+          }
+        }
+      }
+    },
     "Typical traffic": {
       "localizations": {
         "ms": {
@@ -7098,6 +7628,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Kemas kini aplikasi untuk menandatangani sumbangan anda"
+          }
+        }
+      }
+    },
+    "Update to version %lld": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kemas kini ke versi %lld"
           }
         }
       }
@@ -7584,6 +8124,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Ya, buka"
+          }
+        }
+      }
+    },
+    "You already have version %lld. The newer version is kept.": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Anda sudah mempunyai versi %lld. Versi lebih baharu dikekalkan."
           }
         }
       }

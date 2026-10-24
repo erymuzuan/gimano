@@ -58,12 +58,19 @@ struct GimanoApp: App {
                 .font(Tokens.Font.body)
                 .task {
                     AppDelegate.onOpenPlannedDrive = { [model] id in model.openPlannedDrive(id: id) }
+                    // Expired events are deleted on start-up (docs/events.md §7.5).
+                    model.events.refresh()
                     await model.bootstrap()
                     if let id = AppDelegate.pendingDriveId { AppDelegate.pendingDriveId = nil; model.openPlannedDrive(id: id) }
                 }
-                .onChange(of: scenePhase) { _, phase in model.isForeground = phase == .active }
+                .onChange(of: scenePhase) { _, phase in
+                    model.isForeground = phase == .active
+                    if phase == .active { model.events.refresh() }
+                }
                 .onOpenURL { url in
                     if GIDSignIn.sharedInstance.handle(url) { return }
+                    // Event invitations: manotu://event#…, gimano://event#…, …/a/#1.… links and .manotu-event files.
+                    if model.events.handle(url: url) { return }
                     // A .manotu (or older .gimano) backup opened from Files / WhatsApp / Mail.
                     if ["manotu", "gimano"].contains(url.pathExtension.lowercased()) { model.incomingBackup = url }
                 }
@@ -151,6 +158,9 @@ struct RootView: View {
             SavePlaceSheet(place: p).presentationDetents([.large])
         }
         .sheet(isPresented: $model.showCrashPrompt) { CrashReportSheet() }
+        .sheet(isPresented: Bindable(model.events).isPresented, onDismiss: { model.clearEventFromMap() }) {
+            EventsSheet()
+        }
         .sheet(item: $model.deviationPrompt) { d in DeviationPromptSheet(event: d).presentationDetents([.medium]) }
         .sheet(item: $model.vettingPrompt) { p in
             VettingPromptSheet(place: p).presentationDetents([.medium, .large])
