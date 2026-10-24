@@ -25,6 +25,15 @@ struct HomeView: View {
                     }
                     .padding(.horizontal, Tokens.Space.gutter)
                     .padding(.top, 8)
+                    // After installing from an invitation page (§5.6): one tap to paste the copied link.
+                    if model.events.showDeferredLinkCard && model.homeDetent != .full {
+                        EventDeferredLinkCard()
+                            .background(Color.surface, in: RoundedRectangle(cornerRadius: Tokens.Radius.md, style: .continuous))
+                            .fabShadow()
+                            .padding(.horizontal, Tokens.Space.gutter)
+                            .padding(.top, Tokens.Space.s)
+                            .transition(.move(edge: .top).combined(with: .opacity))
+                    }
                     Spacer()
                 }
 

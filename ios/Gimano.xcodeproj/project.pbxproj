@@ -25,6 +25,7 @@
 		12C0483DE6032187524DDA08 /* APIClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2E4FA99DFCD83AC93051F13 /* APIClient.swift */; };
 		1411F07311E084B2270AD2FE /* Polyline.swift in Sources */ = {isa = PBXBuildFile; fileRef = FBED0F8FE579F3B5F1450975 /* Polyline.swift */; };
 		167305D4048DDF1691A858AF /* LocalStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8D72CA1FD99C025348465D00 /* LocalStore.swift */; };
+		16E1F0632C338D1D39F83478 /* negative-drop-link.json in Resources */ = {isa = PBXBuildFile; fileRef = 98E0234EF2B405A7CFEB37DD /* negative-drop-link.json */; };
 		16EC9485447746EEF014A383 /* FlatIconData.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7DC0C241B3E142FFDC4652B9 /* FlatIconData.swift */; };
 		173BC60F5DAE8E1991038D63 /* RouteListViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = A02085C06D9DA6B742E31157 /* RouteListViews.swift */; };
 		18FC7697C4D36096EC2D8390 /* Round2Tests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4F93249E570D3CB483EE564A /* Round2Tests.swift */; };
@@ -60,6 +61,7 @@
 		476344D198C67608FFD33F05 /* Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4D9A99725AFCF5CA1B28EB82 /* Models.swift */; };
 		4823253E3469298C388F2D45 /* Formatters.swift in Sources */ = {isa = PBXBuildFile; fileRef = F6C8B1343BB36DDAC8D6166E /* Formatters.swift */; };
 		48CF90FCFED2CCD35DD3A1C5 /* DiagnosticsUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4306ADA546661E0B89FA832C /* DiagnosticsUITests.swift */; };
+		4A170B5B4B4BA1B18C27EB3F /* EventDrop.swift in Sources */ = {isa = PBXBuildFile; fileRef = B208817BEF2428367FB05D02 /* EventDrop.swift */; };
 		4B7F0C375936D9A7E18B8253 /* SearchLogic.swift in Sources */ = {isa = PBXBuildFile; fileRef = AFDE93443589E6281138CCF2 /* SearchLogic.swift */; };
 		4F17776D5D826E8D6D901C9A /* PlaceCardUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 58DC58BC8FB5E870EC452254 /* PlaceCardUITests.swift */; };
 		4F902BD3BD1138DEEAA5AB4E /* Round3UITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6FBA37416C29B4B20D878BFB /* Round3UITests.swift */; };
@@ -78,6 +80,7 @@
 		68DB4BF492F9F7AD492B82EC /* EventWizardModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8AE02E6422D5375DB4E630C6 /* EventWizardModel.swift */; };
 		6CBFA0B419583CF5ACDF5082 /* FormatterTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D54728F5506AB4817C165892 /* FormatterTests.swift */; };
 		6CC34AC9F92492D8A5093CD3 /* Round3Tests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5BA7609B4C2F03EEE40530B1 /* Round3Tests.swift */; };
+		6E34445A2441FBAE82E4CAA4 /* negative-drop-wrong-secret.json in Resources */ = {isa = PBXBuildFile; fileRef = 02B44E55C6F14E2B57CED3E6 /* negative-drop-wrong-secret.json */; };
 		6F24D8B870987FF57D0BAA5F /* DriveView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8E333AAFC271BC55DBE183BD /* DriveView.swift */; };
 		701C90310AC26FACD1D6872B /* GimanoUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8106EEE1D3C7F24F35288A1F /* GimanoUITests.swift */; };
 		7118A6A8294BE461BCD4FFCF /* negative-expired.json in Resources */ = {isa = PBXBuildFile; fileRef = 6CC48A992D5DF90F0BE3A6AC /* negative-expired.json */; };
@@ -104,6 +107,7 @@
 		99AD437AD034E5F0FC1FB500 /* PreciseLocationUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 327388AA4FE1D5A5AAC4723E /* PreciseLocationUITests.swift */; };
 		9AE23F06243B59D9F4024210 /* RouteBuilderModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2945549C567F9EAB3BD431A8 /* RouteBuilderModel.swift */; };
 		9B1881F81CE1327DEDC2B2DC /* PlannedDrives.swift in Sources */ = {isa = PBXBuildFile; fileRef = A6522DC93B862C2E6B1412BF /* PlannedDrives.swift */; };
+		9E261AF442260C4A6A6C9601 /* EventDropTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 919C22C75008496B8765F565 /* EventDropTests.swift */; };
 		9E7840552B1D16C7B821968E /* EventInfoSuite3Tests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F5C417C4F943ECCA68D99CE5 /* EventInfoSuite3Tests.swift */; };
 		9F4BCB3288CE9E4FDDC19D27 /* CloudBackup.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9A722110659E231FED8F3BBE /* CloudBackup.swift */; };
 		A1E58CC9523B8F224A754471 /* EventShareViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1398F861AA6091DA247C6A6A /* EventShareViews.swift */; };
@@ -114,6 +118,7 @@
 		AC5957FAE17AF21C50492785 /* StoreBackupUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E3DF46400A5C1C4B11374FC /* StoreBackupUITests.swift */; };
 		AC660909C29CEC1666DB4070 /* AppModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = C3B2DDD99414433CDAF4242E /* AppModel.swift */; };
 		ACE5678C2F2E89103CA2A5D7 /* EventModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = D193174D1FE3B2AD1E9CC844 /* EventModel.swift */; };
+		AE27B4F2E5CE233677E38BF2 /* negative-drop-blob-truncated.json in Resources */ = {isa = PBXBuildFile; fileRef = 9032C31DE91F7F78E6129937 /* negative-drop-blob-truncated.json */; };
 		B0F6914BF17DA8396D847ECF /* SideMenu.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3F56F9F5C1405379C126E611 /* SideMenu.swift */; };
 		B1687F9A70EFA7664C220B4C /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 61ABE43688D60686AFC62829 /* PrivacyInfo.xcprivacy */; };
 		B358607653EFCA61C445D832 /* OpeningHours.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94CB44593B331E35D3A5B771 /* OpeningHours.swift */; };
@@ -202,6 +207,7 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		02B44E55C6F14E2B57CED3E6 /* negative-drop-wrong-secret.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = "negative-drop-wrong-secret.json"; sourceTree = "<group>"; };
 		048F3F93B703ED18CCF2F483 /* LiveHubClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiveHubClient.swift; sourceTree = "<group>"; };
 		07AC3F3D3189966A65C15D1C /* DriveSimulator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DriveSimulator.swift; sourceTree = "<group>"; };
 		097C283DEC62883C913FC1BD /* EventImport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EventImport.swift; sourceTree = "<group>"; };
@@ -297,11 +303,14 @@
 		8E5E3F2B1E2E9F780E5DFEA7 /* RouteBuilderView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RouteBuilderView.swift; sourceTree = "<group>"; };
 		8F61AD0CCCDDEAC0ABCF996A /* ImageProcessing.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImageProcessing.swift; sourceTree = "<group>"; };
 		8F80C78F3101B2C2AE7A35FB /* PlaceCardTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaceCardTests.swift; sourceTree = "<group>"; };
+		9032C31DE91F7F78E6129937 /* negative-drop-blob-truncated.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = "negative-drop-blob-truncated.json"; sourceTree = "<group>"; };
+		919C22C75008496B8765F565 /* EventDropTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EventDropTests.swift; sourceTree = "<group>"; };
 		92B6ACBA56FD62A3A279DC94 /* RoutePreviewView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RoutePreviewView.swift; sourceTree = "<group>"; };
 		94CB44593B331E35D3A5B771 /* OpeningHours.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpeningHours.swift; sourceTree = "<group>"; };
 		9638ED22C676057646BE86BE /* negative-too-many-info.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = "negative-too-many-info.json"; sourceTree = "<group>"; };
 		969F6EA20B8B7F833B5111A0 /* Diagnostics.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Diagnostics.swift; sourceTree = "<group>"; };
 		9872BA301C2D39E8614CD42B /* IconData.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IconData.swift; sourceTree = "<group>"; };
+		98E0234EF2B405A7CFEB37DD /* negative-drop-link.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = "negative-drop-link.json"; sourceTree = "<group>"; };
 		99EFABF04426006DE9903A84 /* DrivingCardsUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DrivingCardsUITests.swift; sourceTree = "<group>"; };
 		9A036FEB486539C0CE10B8E9 /* ReviewsAndPhotos.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReviewsAndPhotos.swift; sourceTree = "<group>"; };
 		9A722110659E231FED8F3BBE /* CloudBackup.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CloudBackup.swift; sourceTree = "<group>"; };
@@ -321,6 +330,7 @@
 		AFDE93443589E6281138CCF2 /* SearchLogic.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SearchLogic.swift; sourceTree = "<group>"; };
 		B0BDAB0405E1278C02CE9ECC /* EventPack.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EventPack.swift; sourceTree = "<group>"; };
 		B1835603C2A99BB4AE306564 /* Theme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Theme.swift; sourceTree = "<group>"; };
+		B208817BEF2428367FB05D02 /* EventDrop.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EventDrop.swift; sourceTree = "<group>"; };
 		B261D21A745EDDB052477CFD /* bip39-english.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = "bip39-english.txt"; sourceTree = "<group>"; };
 		B2ED008C3B744E568D5B0C37 /* Vetting.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Vetting.swift; sourceTree = "<group>"; };
 		B5ADB4D9750870AD43B247AC /* Repository.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Repository.swift; sourceTree = "<group>"; };
@@ -555,6 +565,7 @@
 				B61FA022B75DA0086D56060A /* DemoAndReviewTests.swift */,
 				A4335E371053A3AA19932113 /* DiagnosticsTests.swift */,
 				F342C78189D1799124E3966D /* DrivingCardsTests.swift */,
+				919C22C75008496B8765F565 /* EventDropTests.swift */,
 				82EF4B60C0652EDE8D590A6B /* EventFileSuiteTests.swift */,
 				F5C417C4F943ECCA68D99CE5 /* EventInfoSuite3Tests.swift */,
 				A581466252AE64385A6A96EF /* EventPackTests.swift */,
@@ -767,6 +778,9 @@
 				6023B07BB4A55205325F42E2 /* import-stops-only-sequence.json */,
 				BD42F4950F1A17C2FE2E0E43 /* kenduri-one-day.json */,
 				10AA21DC87B7FF32492B1428 /* negative-bad-signature.json */,
+				9032C31DE91F7F78E6129937 /* negative-drop-blob-truncated.json */,
+				98E0234EF2B405A7CFEB37DD /* negative-drop-link.json */,
+				02B44E55C6F14E2B57CED3E6 /* negative-drop-wrong-secret.json */,
 				6CC48A992D5DF90F0BE3A6AC /* negative-expired.json */,
 				3B1A6B0FF167AEB93F9DCB44 /* negative-file-v3-truncated.json */,
 				436DAC239AB19ED86D2E2144 /* negative-info-text-too-long.json */,
@@ -791,6 +805,7 @@
 			children = (
 				44EC389A12CC8DCF67AEFFF7 /* EventCenter.swift */,
 				710CB86F224C97FB69A75461 /* EventChanges.swift */,
+				B208817BEF2428367FB05D02 /* EventDrop.swift */,
 				39554626B0986D9A23045DF3 /* EventHost.swift */,
 				BCE5BDD6B0E7DB774F0AFFF3 /* EventHostViews.swift */,
 				86573C0B4E65BBFA3AD8B589 /* EventIcons.swift */,
@@ -980,6 +995,9 @@
 				D804C280482F22AA0D7C5EC8 /* import-stops-only-sequence.json in Resources */,
 				03F30FCF737FE6D3BC66FCAF /* kenduri-one-day.json in Resources */,
 				24FAF0844856C0523CDC2C5B /* negative-bad-signature.json in Resources */,
+				AE27B4F2E5CE233677E38BF2 /* negative-drop-blob-truncated.json in Resources */,
+				16E1F0632C338D1D39F83478 /* negative-drop-link.json in Resources */,
+				6E34445A2441FBAE82E4CAA4 /* negative-drop-wrong-secret.json in Resources */,
 				7118A6A8294BE461BCD4FFCF /* negative-expired.json in Resources */,
 				09798B80E41BBF341945A553 /* negative-file-v3-truncated.json in Resources */,
 				925D57F413DE634F5EA3BB84 /* negative-info-text-too-long.json in Resources */,
@@ -1011,6 +1029,7 @@
 				298D71CFB6D7F0FA0EBA14D6 /* DemoAndReviewTests.swift in Sources */,
 				A5A31ED5F84B52E17A80FF36 /* DiagnosticsTests.swift in Sources */,
 				C967E664805E5EF04BD3FA0D /* DrivingCardsTests.swift in Sources */,
+				9E261AF442260C4A6A6C9601 /* EventDropTests.swift in Sources */,
 				788A134665F33C5089E58F78 /* EventFileSuiteTests.swift in Sources */,
 				9E7840552B1D16C7B821968E /* EventInfoSuite3Tests.swift in Sources */,
 				429928E72A74110CD370C745 /* EventPackTests.swift in Sources */,
@@ -1062,6 +1081,7 @@
 				6F24D8B870987FF57D0BAA5F /* DriveView.swift in Sources */,
 				807E60834CE5B29604F03882 /* EventCenter.swift in Sources */,
 				DC8C072D5AABD46E0A082DC2 /* EventChanges.swift in Sources */,
+				4A170B5B4B4BA1B18C27EB3F /* EventDrop.swift in Sources */,
 				DA482411E45A20D4BD5C4E2C /* EventHost.swift in Sources */,
 				EF620C41D665458575965FE7 /* EventHostViews.swift in Sources */,
 				5512A729ED8B6F49D82202C5 /* EventIcons.swift in Sources */,

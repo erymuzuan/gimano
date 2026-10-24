@@ -41,12 +41,14 @@ import my.gimano.app.ui.common.TwoToneIcon
 import my.gimano.app.ui.theme.Gimano
 import my.gimano.app.ui.theme.GimanoType
 import my.gimano.app.ui.theme.Radius
+import kotlinx.coroutines.launch
 import java.io.File
 
 /*
  * "Kongsi jemputan", link first (owner decision 24 Oct 2026, after device testing: files were too much work for
- * guests). One share action sends the invitation text with the full link (§5.1); "Salin pautan" copies the link. When
- * the full link is too long, the stops-only link (§5.5) after a confirm. Files (suites 2 and 3) stay supported by the
+ * guests). One share action sends the invitation text with the short link (§5.6, uploaded on the first tap, PUT after a
+ * republish); "Salin pautan" copies the same link. When the short link can't be made: the full link (§5.1), or when
+ * that is too long the stops-only link (§5.5) after a confirm. Files (suites 2 and 3) stay supported by the
  * codec and guests still open them; the host UI no longer offers them, except as the last resort when no link fits.
  */
 
@@ -93,9 +95,20 @@ fun EventShareScreen(editor: HostEditor, use24h: Boolean, onBack: () -> Unit) {
     val stopsOnly = remember(p) { if (full == null) p.stopsOnlyLink(EventLinks.DEFAULT_SITE) else null }
     var stopsOnlyOk by remember(p) { mutableStateOf(false) }
     var askStopsOnly by remember(p) { mutableStateOf(false) }
-    val link = full ?: stopsOnly?.takeIf { stopsOnlyOk }
-    val message = link?.let { InviteMessages.linkMessage(plan, it, BuildConfig.DOWNLOAD_URL) }
+    // The short link (§5.6) is made on the first tap of "Kongsi jemputan" / "Salin pautan"; when it can't be made, the
+    // full link (or the stops-only link after a confirm, or the file) as before, with a one-line note.
+    val short by editor.shortLink.collectAsStateWithLifecycle()
+    val scope = rememberCoroutineScope()
+    val shortFailed = short is HostEditor.ShortLink.Failed
+    val working = short == HostEditor.ShortLink.Working
+    val fallback = full ?: stopsOnly?.takeIf { stopsOnlyOk }
+    val link = (short as? HostEditor.ShortLink.Ready)?.link ?: fallback
+    val canShare = !working && (!shortFailed || fallback != null)
     var copied by remember { mutableStateOf<Int?>(null) }
+    /** The short link if it can be made, else the fallback link (null: nothing fits, see the file below). */
+    fun withLink(use: (String) -> Unit) {
+        scope.launch { (editor.shortLinkForShare() ?: fallback)?.let(use) }
+    }
     Column(Modifier.fillMaxSize().background(c.background).windowInsetsPadding(WindowInsets.statusBars)) {
         Row(Modifier.fillMaxWidth().padding(4.dp), verticalAlignment = Alignment.CenterVertically) {
             IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, stringResource(R.string.back), tint = c.text) }
@@ -110,7 +123,9 @@ fun EventShareScreen(editor: HostEditor, use24h: Boolean, onBack: () -> Unit) {
                 Text(stringResource(R.string.ew_share_guests_get), style = GimanoType.label, color = c.textMuted)
             }
             // A chat-style preview of the message guests receive (the link shortened for display only).
-            val preview = InviteMessages.linkMessage(plan, shortLink(link ?: full ?: stopsOnly ?: EventLinks.DEFAULT_SITE + "/a/#1.…"), BuildConfig.DOWNLOAD_URL)
+            val previewLink = (short as? HostEditor.ShortLink.Ready)?.link
+                ?: (if (shortFailed) link ?: full ?: stopsOnly else null) ?: EventLinks.DEFAULT_SITE + "/j/#…"
+            val preview = InviteMessages.linkMessage(plan, shortLink(previewLink), BuildConfig.DOWNLOAD_URL)
             Column(Modifier.padding(top = 8.dp).fillMaxWidth().clip(RoundedCornerShape(Radius.lg)).background(c.surfaceAlt).padding(16.dp)) {
                 Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(Radius.md)).background(c.surface).padding(12.dp)) {
                     val url = BuildConfig.DOWNLOAD_URL
@@ -119,8 +134,17 @@ fun EventShareScreen(editor: HostEditor, use24h: Boolean, onBack: () -> Unit) {
                     }
                 }
             }
-            // Too long for a link: the stops-only link after a confirm, or (last resort) the file.
-            if (full == null) {
+            if (working) Row(Modifier.padding(top = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+                CircularProgressIndicator(Modifier.size(18.dp), color = c.brand, strokeWidth = 2.dp)
+                Spacer(Modifier.width(10.dp))
+                Text(stringResource(R.string.host_short_link_working), fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = c.textMuted)
+            }
+            if (shortFailed) Text(stringResource(R.string.host_short_link_failed), fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = c.textMuted,
+                modifier = Modifier.padding(top = 12.dp))
+            if (short is HostEditor.ShortLink.Ready) Text(stringResource(R.string.host_short_link_on), fontSize = 13.sp, color = c.textMuted,
+                modifier = Modifier.padding(top = 12.dp))
+            // No short link and too long for a full link: the stops-only link after a confirm, or (last resort) the file.
+            if (full == null && shortFailed) {
                 Warning(stringResource(R.string.host_link_too_long, p.fragmentLength, my.gimano.app.core.events.EventLimits.MAX_FRAGMENT_CHARS))
                 when {
                     p.mode == ShareMode.STOPS_ONLY_OR_FILE && stopsOnly != null && !stopsOnlyOk -> {
@@ -146,15 +170,19 @@ fun EventShareScreen(editor: HostEditor, use24h: Boolean, onBack: () -> Unit) {
         }
         Column(Modifier.fillMaxWidth().background(c.surface).padding(16.dp).navigationBarsPadding()) {
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                OutlinedButton(onClick = { link?.let { copySensitive(context, "Manotu", it); copied = R.string.host_copied_link } }, enabled = link != null,
+                OutlinedButton(onClick = { withLink { copySensitive(context, "Manotu", it); copied = R.string.host_copied_link } }, enabled = canShare,
                     modifier = Modifier.height(56.dp), shape = RoundedCornerShape(Radius.md)) {
                     Icon(Icons.Filled.ContentCopy, null, modifier = Modifier.size(18.dp)); Spacer(Modifier.width(6.dp))
                     Text(stringResource(R.string.ew_share_copy_link), fontWeight = FontWeight.ExtraBold, color = c.brand)
                 }
-                Button(onClick = { message?.let { shareText(context, it) } }, enabled = message != null, modifier = Modifier.weight(1f).height(56.dp),
+                Button(onClick = { withLink { shareText(context, InviteMessages.linkMessage(plan, it, BuildConfig.DOWNLOAD_URL)) } }, enabled = canShare,
+                    modifier = Modifier.weight(1f).height(56.dp),
                     shape = RoundedCornerShape(Radius.md), colors = ButtonDefaults.buttonColors(containerColor = c.brand, contentColor = c.brandOn)) {
-                    Icon(Icons.Filled.Share, null); Spacer(Modifier.width(8.dp))
-                    Text(stringResource(R.string.host_share_invite), fontWeight = FontWeight.ExtraBold, fontSize = 17.sp)
+                    if (working) CircularProgressIndicator(Modifier.size(22.dp), color = c.brandOn, strokeWidth = 2.dp)
+                    else {
+                        Icon(Icons.Filled.Share, null); Spacer(Modifier.width(8.dp))
+                        Text(stringResource(R.string.host_share_invite), fontWeight = FontWeight.ExtraBold, fontSize = 17.sp)
+                    }
                 }
             }
             Text(stringResource(R.string.ew_share_link_hint), fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = c.textMuted, modifier = Modifier.padding(top = 8.dp))

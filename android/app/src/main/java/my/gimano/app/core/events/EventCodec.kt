@@ -36,6 +36,12 @@ class EventPackException(val code: String, message: String = code) : Exception(m
         const val VARIANT_HAS_POLYLINE = "variant_has_polyline"
         /** §5.5: a full event with a route lacking `polyline`. */
         const val MISSING_POLYLINE = "missing_polyline"
+        /** §5.6: a short link whose dropId is not 10 base58 characters or whose secret is not 16 bytes of strict b64u. */
+        const val MALFORMED_DROP_LINK = "malformed_drop_link"
+        /** §5.6: a drop blob shorter than nonce + tag. */
+        const val MALFORMED_DROP = "malformed_drop"
+        /** §5.6: a drop blob over 256 KiB. */
+        const val DROP_TOO_LARGE = "drop_too_large"
     }
 }
 

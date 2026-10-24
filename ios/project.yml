@@ -60,6 +60,8 @@ targets:
           - "Resources/Info-Debug.plist"
           - "Resources/Gimano.entitlements"
           - "Resources/Gimano-NoCloud.entitlements"
+          - "Resources/Gimano-AppLinks.entitlements"
+          - "Resources/Gimano-NoCloud-AppLinks.entitlements"
     dependencies:
       - package: MapLibre
       - package: GRDB

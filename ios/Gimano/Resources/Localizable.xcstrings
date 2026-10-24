@@ -2485,6 +2485,36 @@
         }
       }
     },
+    "Couldn't end the link. Check your connection and try again." : {
+      "localizations" : {
+        "ms" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pautan tidak dapat ditamatkan. Semak sambungan anda dan cuba lagi."
+          }
+        }
+      }
+    },
+    "Couldn't fetch the invitation. Check your connection and try again." : {
+      "localizations" : {
+        "ms" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Jemputan tidak dapat diambil. Semak sambungan anda dan cuba lagi."
+          }
+        }
+      }
+    },
+    "Couldn't make a short link right now, so the full link is used." : {
+      "localizations" : {
+        "ms" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pautan pendek tidak dapat dibuat sekarang, jadi pautan penuh digunakan."
+          }
+        }
+      }
+    },
     "Couldn't send report" : {
       "localizations" : {
         "ms" : {
@@ -3055,6 +3085,16 @@
         }
       }
     },
+    "Did you copy an invitation before installing Manotu? Paste it to open the event." : {
+      "localizations" : {
+        "ms" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ada salin pautan jemputan sebelum memasang Manotu? Tampal untuk membuka acara."
+          }
+        }
+      }
+    },
     "Did you mean" : {
       "localizations" : {
         "ms" : {
@@ -3461,6 +3501,36 @@
         }
       }
     },
+    "End link" : {
+      "localizations" : {
+        "ms" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tamatkan pautan"
+          }
+        }
+      }
+    },
+    "End short link" : {
+      "localizations" : {
+        "ms" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tamatkan pautan"
+          }
+        }
+      }
+    },
+    "End the short link?" : {
+      "localizations" : {
+        "ms" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tamatkan pautan pendek?"
+          }
+        }
+      }
+    },
     "End-to-end encrypted. Gimano never stores your passphrase: if you lose it, this backup can't be recovered." : {
       "localizations" : {
         "en" : {
@@ -3489,6 +3559,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Disulitkan hujung ke hujung: hanya orang yang ada pautan boleh melihat kedudukan anda. Pelayan Manotu tidak dapat membacanya."
+          }
+        }
+      }
+    },
+    "Ending link…" : {
+      "localizations" : {
+        "ms" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Menamatkan pautan…"
           }
         }
       }
@@ -4306,6 +4386,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Tetamu nampak tempat, masa dan jarak laluan, tetapi bukan garisan laluan. Hantar juga fail acara untuk sesiapa yang mahukan laluan penuh."
+          }
+        }
+      }
+    },
+    "Guests who haven't opened it yet can't any more. Guests who already have the event keep it, but won't get updates. Sharing again makes a new link." : {
+      "localizations" : {
+        "ms" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tetamu yang belum membukanya tidak dapat membukanya lagi. Tetamu yang sudah ada acara ini masih menyimpannya, tetapi tidak menerima kemas kini. Kongsi semula untuk membuat pautan baharu."
           }
         }
       }
@@ -5318,6 +5408,16 @@
         }
       }
     },
+    "Link ended" : {
+      "localizations" : {
+        "ms" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pautan ditamatkan"
+          }
+        }
+      }
+    },
     "Link without routes" : {
       "localizations" : {
         "ms" : {
@@ -5520,6 +5620,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Kod Manotu sumber terbuka (MIT)"
+          }
+        }
+      }
+    },
+    "Manotu keeps only an encrypted copy, without its key, until 14 days after the event." : {
+      "localizations" : {
+        "ms" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Manotu hanya menyimpan salinan yang disulitkan, tanpa kuncinya, sehingga 14 hari selepas acara."
           }
         }
       }
@@ -6584,6 +6694,16 @@
         }
       }
     },
+    "Notes for the organizer stay on this phone. Manotu's servers only keep the short link's encrypted copy, never its key." : {
+      "localizations" : {
+        "ms" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nota penganjur kekal di telefon ini. Pelayan Manotu hanya menyimpan salinan pautan pendek yang disulitkan, tidak sekali-kali kuncinya."
+          }
+        }
+      }
+    },
     "Nothing shared yet" : {
       "localizations" : {
         "ms" : {
@@ -6950,6 +7070,16 @@
         }
       }
     },
+    "Opening invitation…" : {
+      "localizations" : {
+        "ms" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Membuka jemputan…"
+          }
+        }
+      }
+    },
     "Opens on any phone, with or without Manotu. Good for e-cards and WhatsApp." : {
       "localizations" : {
         "ms" : {
@@ -7171,6 +7301,16 @@
       }
     },
     "Paste an invitation link" : {
+      "localizations" : {
+        "ms" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tampal pautan jemputan"
+          }
+        }
+      }
+    },
+    "Paste the invitation link" : {
       "localizations" : {
         "ms" : {
           "stringUnit" : {
@@ -7630,6 +7770,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Menyediakan jemputan…"
+          }
+        }
+      }
+    },
+    "Preparing link…" : {
+      "localizations" : {
+        "ms" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Menyediakan pautan…"
           }
         }
       }
@@ -10366,6 +10516,16 @@
         }
       }
     },
+    "That isn't a Manotu invitation link." : {
+      "localizations" : {
+        "ms" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Itu bukan pautan jemputan Manotu."
+          }
+        }
+      }
+    },
     "The agenda can have 50 items at most." : {
       "localizations" : {
         "ms" : {
@@ -10576,6 +10736,16 @@
         }
       }
     },
+    "The short link stops working. Full links and files you already sent keep working until their access ends." : {
+      "localizations" : {
+        "ms" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pautan pendek berhenti berfungsi. Pautan penuh dan fail yang telah dihantar masih boleh dibuka sehingga akses tamat."
+          }
+        }
+      }
+    },
     "Their reviews and photos will be hidden on this phone. You can unblock them in Settings." : {
       "localizations" : {
         "ms" : {
@@ -10688,6 +10858,16 @@
         }
       }
     },
+    "This invitation has ended or was deleted." : {
+      "localizations" : {
+        "ms" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Jemputan ini telah tamat atau dipadam."
+          }
+        }
+      }
+    },
     "This invitation is already on this phone. Nothing changed." : {
       "localizations" : {
         "ms" : {
@@ -10744,6 +10924,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Tempat ini mungkin sudah wujud."
+          }
+        }
+      }
+    },
+    "This plan is too big for a short link, so the full link is used." : {
+      "localizations" : {
+        "ms" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pelan ini terlalu besar untuk pautan pendek, jadi pautan penuh digunakan."
           }
         }
       }
@@ -12086,6 +12276,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Anda belum menyekat sesiapa."
+          }
+        }
+      }
+    },
+    "You keep this copy until its access ends, but updates from the organizer no longer arrive." : {
+      "localizations" : {
+        "ms" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Salinan ini kekal sehingga akses tamat, tetapi kemas kini daripada penganjur tidak lagi diterima."
           }
         }
       }

@@ -174,6 +174,8 @@ struct EventWizardView: View {
     @State private var problems: [EventDraftIssue] = []
     @State private var publishError: String?
     @State private var confirmDelete = false
+    @State private var confirmEndLink = false
+    @State private var endingLink = false
     @State private var showAdvanced = false
     @State private var adding: AddPlace?
     @State private var editingStop: HostedStopDraft?
@@ -247,7 +249,12 @@ struct EventWizardView: View {
         .confirmationDialog("Delete this event from this phone?", isPresented: $confirmDelete, titleVisibility: .visible) {
             Button("Delete", role: .destructive) { model.events.deleteHosted(eventId) }
         } message: {
-            Text("Invitations you already sent keep working until their access ends.")
+            Text("The short link stops working. Full links and files you already sent keep working until their access ends.")
+        }
+        .confirmationDialog("End the short link?", isPresented: $confirmEndLink, titleVisibility: .visible) {
+            Button("End link", role: .destructive) { endShortLink() }
+        } message: {
+            Text("Guests who haven't opened it yet can't any more. Guests who already have the event keep it, but won't get updates. Sharing again makes a new link.")
         }
         .sensoryFeedback(.error, trigger: blockedTap)
     }
@@ -1198,9 +1205,22 @@ struct EventWizardView: View {
                         Text("Version \(Int(rev)) was shared.")
                     }
                 }
-                Text("Notes for the organizer stay on this phone. Manotu's servers never receive this event.")
+                Text("Notes for the organizer stay on this phone. Manotu's servers only keep the short link's encrypted copy, never its key.")
             }
             .font(Tokens.Font.small).foregroundStyle(Color.textMuted)
+            if model.events.existingShortLink(eventId) != nil {
+                Button(role: .destructive) { confirmEndLink = true } label: {
+                    if endingLink {
+                        HStack(spacing: Tokens.Space.s) { ProgressView(); Text("Ending link…") }
+                    } else {
+                        Label("End short link", systemImage: "link.badge.minus")
+                    }
+                }
+                .font(Tokens.Font.label)
+                .disabled(endingLink)
+                .padding(.top, Tokens.Space.s)
+                .accessibilityIdentifier("eventEndShortLink")
+            }
             Button(role: .destructive) { confirmDelete = true } label: { Label("Delete event", systemImage: "trash") }
                 .font(Tokens.Font.label)
                 .padding(.top, Tokens.Space.s)
@@ -1219,6 +1239,15 @@ struct EventWizardView: View {
                         .font(Tokens.Font.caption).foregroundStyle(Color.speeding)
                 }
             }
+        }
+    }
+
+    private func endShortLink() {
+        endingLink = true
+        Task {
+            let error = await model.events.endShortLink(eventId)
+            endingLink = false
+            if let error { publishError = error } else { model.showToast(String(localized: "Link ended")) }
         }
     }
 

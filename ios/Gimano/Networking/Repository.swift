@@ -707,6 +707,43 @@ extension LiveRepository: RouteBuilderTransport {
     }
 }
 
+// MARK: - Event short links (docs/events.md §5.6): the encrypted blob only
+
+extension LiveRepository: EventDropTransport {
+    func createDrop(blob: [UInt8], expiresAt: Date) async throws -> EventDropCreated {
+        let headers = ["X-Drop-Expires": EventDropHTTP.expiresHeader(expiresAt)]
+        let data = try await authed { try await self.client.raw("POST", "drops", body: Data(blob), headers: headers) }
+        do {
+            return try JSON.makeDecoder().decode(EventDropCreated.self, from: data)
+        } catch {
+            throw APIError.decoding(String(describing: error))
+        }
+    }
+
+    func putDrop(id: String, writeToken: String, blob: [UInt8], expiresAt: Date) async throws {
+        _ = try await client.raw("PUT", "drops/\(id)", body: Data(blob), authorization: "Drop \(writeToken)",
+                                 headers: ["X-Drop-Expires": EventDropHTTP.expiresHeader(expiresAt)])
+    }
+
+    func getDrop(id: String) async throws -> [UInt8] {
+        [UInt8](try await client.raw("GET", "drops/\(id)", body: nil, anonymous: true, accept: "application/octet-stream"))
+    }
+
+    func deleteDrop(id: String, writeToken: String) async throws {
+        _ = try await client.raw("DELETE", "drops/\(id)", body: nil, authorization: "Drop \(writeToken)")
+    }
+}
+
+/// Auto mode: short links always use the real server (never the demo store).
+extension FallbackRepository: EventDropTransport {
+    func createDrop(blob: [UInt8], expiresAt: Date) async throws -> EventDropCreated { try await live.createDrop(blob: blob, expiresAt: expiresAt) }
+    func putDrop(id: String, writeToken: String, blob: [UInt8], expiresAt: Date) async throws {
+        try await live.putDrop(id: id, writeToken: writeToken, blob: blob, expiresAt: expiresAt)
+    }
+    func getDrop(id: String) async throws -> [UInt8] { try await live.getDrop(id: id) }
+    func deleteDrop(id: String, writeToken: String) async throws { try await live.deleteDrop(id: id, writeToken: writeToken) }
+}
+
 /// Auto mode: the builder always asks the real server (never demo geometry); unreachable reads as offline.
 extension FallbackRepository: RouteBuilderTransport {
     func builderRoute(_ request: BuilderRouteRequest) async throws -> BuilderRoutesResponse { try await live.builderRoute(request) }

@@ -117,6 +117,19 @@ struct EventsListView: View {
     var body: some View {
         let center = model.events
         List {
+            if center.fetchingDrop {
+                Section {
+                    HStack(spacing: Tokens.Space.s) {
+                        ProgressView()
+                        Text("Opening invitation…").font(Tokens.Font.body)
+                    }
+                    .accessibilityElement(children: .combine)
+                    .accessibilityIdentifier("eventFetchingDrop")
+                }
+            }
+            if center.showDeferredLinkCard {
+                Section { EventDeferredLinkCard() }
+            }
             Section {
                 Button { center.newEvent() } label: {
                     Label("New event", systemImage: "plus.circle.fill").font(Tokens.Font.bodyBold)
@@ -183,6 +196,7 @@ struct EventsListView: View {
                     .listRowBackground(Color.clear)
             }
         }
+        .refreshable { await center.refreshAllDrops() }
         .navigationTitle("Events")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar { ToolbarItem(placement: .topBarTrailing) { Button("Done") { center.isPresented = false } } }
@@ -492,6 +506,15 @@ struct EventDetailView: View {
                     } header: { Text("Good to know").font(Tokens.Font.label) }
                 }
                 if !doc.routes.isEmpty { routesSection(doc) }
+                if model.events.endedDrops.contains(e.eventId) {
+                    Section {
+                        Label("This invitation has ended or was deleted.", systemImage: "link.badge.minus")
+                            .font(Tokens.Font.caption).foregroundStyle(Color.textMuted)
+                            .accessibilityIdentifier("eventDropEnded")
+                    } footer: {
+                        Text("You keep this copy until its access ends, but updates from the organizer no longer arrive.")
+                    }
+                }
                 Section {
                     Button(role: .destructive) { confirmDelete = true } label: { Label("Delete event", systemImage: "trash") }
                         .accessibilityIdentifier("eventDelete")
@@ -503,6 +526,9 @@ struct EventDetailView: View {
                 model.showEventOnMap(e)
                 if let f = focus { DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { proxy.scrollTo(f.id, anchor: .center) } }
             }
+            // Opened from a short link (§5.6): later revisions arrive when the event is opened, and on pull to refresh.
+            .task(id: e.eventId) { await model.events.refreshDrop(e.eventId) }
+            .refreshable { await model.events.refreshDrop(e.eventId, force: true) }
         }
         .navigationTitle(Text(verbatim: doc.title))
         .confirmationDialog("Delete this event from this phone?", isPresented: $confirmDelete, titleVisibility: .visible) {
@@ -685,5 +711,43 @@ struct EventOrganizerRow: View {
                 .accessibilityElement(children: .combine)
             }
         }
+    }
+}
+
+// MARK: - Deferred link (§5.6)
+
+/// "Tampal pautan jemputan": after installing from an invitation page, the guest pastes the link the page copied with
+/// the system paste control (no paste prompt, never a silent read). Opening it shows the usual confirmation.
+struct EventDeferredLinkCard: View {
+    @Environment(AppModel.self) private var model
+
+    var body: some View {
+        HStack(alignment: .center, spacing: Tokens.Space.m) {
+            Image(systemName: "envelope.open.fill")
+                .font(.title2).foregroundStyle(Color.brand)
+                .accessibilityHidden(true)
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Paste the invitation link").font(Tokens.Font.bodyBold)
+                Text("Did you copy an invitation before installing Manotu? Paste it to open the event.")
+                    .font(Tokens.Font.small).foregroundStyle(Color.textMuted)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            Spacer(minLength: 0)
+            VStack(spacing: Tokens.Space.xs) {
+                PasteButton(payloadType: String.self) { strings in
+                    let text = strings.joined(separator: "\n")
+                    Task { @MainActor in model.events.openDeferredPaste(text) }
+                }
+                .labelStyle(.titleAndIcon)
+                .buttonBorderShape(.capsule)
+                .tint(Color.brand)
+                .accessibilityIdentifier("eventDeferredPaste")
+                Button { model.events.showDeferredLinkCard = false } label: { Text("Not now") }
+                    .font(Tokens.Font.small).foregroundStyle(Color.textMuted)
+                    .accessibilityIdentifier("eventDeferredDismiss")
+            }
+        }
+        .padding(Tokens.Space.m)
+        .accessibilityIdentifier("eventDeferredCard")
     }
 }

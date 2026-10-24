@@ -20,7 +20,8 @@ struct ImportedEvent: Identifiable, Hashable, Sendable {
 /// Imported events (docs/events.md §7). Deliberately **not** in `LocalStore`: that database is what backups
 /// copy (`VACUUM INTO`), and event data must never be in a backup (§7.6). This one lives in its own directory,
 /// excluded from iCloud/Finder device backups, with complete file protection (unreadable while the phone is
-/// locked). It holds no pack keys: only the signed event bytes and the pinned organizer key, deleted at `expiresAt`.
+/// locked). It holds no pack keys: only the signed event bytes, the pinned organizer key and, for events opened from a
+/// short link (§5.6), that link's drop id and secret, all deleted at `expiresAt`.
 final class EventStore: Sendable {
     let dbQueue: DatabaseQueue
     /// The directory holding the database (nil for in-memory test stores).
@@ -128,6 +129,16 @@ final class EventStore: Sendable {
         // bytes are a variant, so the full event of the same revision replaces them ("Laluan penuh ditambah").
         m.registerMigration("v4-stops-only") { db in
             try db.execute(sql: "ALTER TABLE event_revisions ADD COLUMN stops_only INTEGER NOT NULL DEFAULT 0")
+        }
+        // Short links (§5.6): the guest keeps the drop id and its secret with the imported event, to fetch later
+        // revisions. Same protection as the event itself (this database, never backed up); removed with the event.
+        m.registerMigration("v5-drops") { db in
+            try db.execute(sql: """
+                CREATE TABLE event_drops (
+                  event_id TEXT PRIMARY KEY REFERENCES event_organizers(event_id) ON DELETE CASCADE,
+                  drop_id TEXT NOT NULL,
+                  secret BLOB NOT NULL);
+                """)
         }
         return m
     }
@@ -245,9 +256,40 @@ final class EventStore: Sendable {
         }
     }
 
+    // MARK: short links (§5.6)
+
+    /// Keeps the short link an event was opened from (the newest one wins). The event must already be stored.
+    func saveDrop(_ ref: EventDropRef, eventId: String) throws {
+        try dbQueue.write { db in
+            try db.execute(sql: """
+                INSERT INTO event_drops (event_id, drop_id, secret) SELECT ?, ?, ?
+                WHERE EXISTS (SELECT 1 FROM event_organizers WHERE event_id = ?)
+                ON CONFLICT(event_id) DO UPDATE SET drop_id = excluded.drop_id, secret = excluded.secret
+                """, arguments: [eventId, ref.dropId, Data(ref.secret), eventId])
+        }
+    }
+
+    func drop(eventId: String) throws -> EventDropRef? {
+        try dbQueue.read { db in
+            try Row.fetchOne(db, sql: "SELECT drop_id, secret FROM event_drops WHERE event_id = ?", arguments: [eventId]).map {
+                EventDropRef(dropId: $0["drop_id"], secret: [UInt8]($0["secret"] as Data))
+            }
+        }
+    }
+
+    /// Events opened from a short link.
+    func dropEventIds() throws -> [String] {
+        try dbQueue.read { db in try String.fetchAll(db, sql: "SELECT event_id FROM event_drops") }
+    }
+
+    func deleteDrop(eventId: String) throws {
+        try dbQueue.write { db in try db.execute(sql: "DELETE FROM event_drops WHERE event_id = ?", arguments: [eventId]) }
+    }
+
     /// Removes the event, its revisions and the pinned organizer key.
     func delete(eventId: String) throws {
         try dbQueue.write { db in
+            try db.execute(sql: "DELETE FROM event_drops WHERE event_id = ?", arguments: [eventId])
             try db.execute(sql: "DELETE FROM event_revisions WHERE event_id = ?", arguments: [eventId])
             try db.execute(sql: "DELETE FROM event_organizers WHERE event_id = ?", arguments: [eventId])
         }
@@ -267,6 +309,7 @@ final class EventStore: Sendable {
                   AND NOT EXISTS (SELECT 1 FROM event_revisions r WHERE r.event_id = o.event_id AND r.payload IS NOT NULL AND r.expires_at > ?)
                 """, arguments: [t, t])
             for id in ids {
+                try db.execute(sql: "DELETE FROM event_drops WHERE event_id = ?", arguments: [id])
                 try db.execute(sql: "DELETE FROM event_revisions WHERE event_id = ?", arguments: [id])
                 try db.execute(sql: "DELETE FROM event_organizers WHERE event_id = ?", arguments: [id])
             }
@@ -278,6 +321,7 @@ final class EventStore: Sendable {
 
     func deleteAll() throws {
         try dbQueue.write { db in
+            try db.execute(sql: "DELETE FROM event_drops")
             try db.execute(sql: "DELETE FROM event_revisions")
             try db.execute(sql: "DELETE FROM event_organizers")
             try db.execute(sql: "DELETE FROM hosted_revisions")

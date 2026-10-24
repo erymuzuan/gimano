@@ -58,8 +58,12 @@ struct GimanoApp: App {
                 .font(Tokens.Font.body)
                 .task {
                     AppDelegate.onOpenPlannedDrive = { [model] id in model.openPlannedDrive(id: id) }
+                    // Short links (docs/events.md §5.6) use the live server; demo mode has none (the full link is used).
+                    model.events.dropTransport = { [weak model] in model?.eventDropTransport }
                     // Expired events are deleted on start-up (docs/events.md §7.5).
                     model.events.refresh()
+                    // First launches: offer to paste an invitation link copied before installing (§5.6). Once per launch.
+                    model.events.checkDeferredLink()
                     await model.bootstrap()
                     if let id = AppDelegate.pendingDriveId { AppDelegate.pendingDriveId = nil; model.openPlannedDrive(id: id) }
                 }
@@ -67,11 +71,16 @@ struct GimanoApp: App {
                     model.isForeground = phase == .active
                     if phase == .active { model.events.refresh() }
                 }
+                // Universal Links (https://manotu.app/j/#…, /a/#…), when the Associated Domains entitlement is on.
+                .onContinueUserActivity(NSUserActivityTypeBrowsingWeb) { activity in
+                    if let url = activity.webpageURL { model.events.handleIncoming(url: url) }
+                }
                 .onOpenURL { url in
                     // Google sign-in redirects exist only in builds with Drive backup (GIMANO_DRIVE = YES).
                     if GoogleDriveBackupDestination.isEnabled && GIDSignIn.sharedInstance.handle(url) { return }
-                    // Event invitations: manotu://event#…, gimano://event#…, …/a/#1.… links and .manotu-event files.
-                    if model.events.handle(url: url) { return }
+                    // Event invitations: manotu://event#…, manotu://event?drop=…#…, gimano://event#…, …/a/#1.… and …/j/#…
+                    // links, and .manotu-event files.
+                    if model.events.handleIncoming(url: url) { return }
                     // A .manotu (or older .gimano) backup opened from Files / WhatsApp / Mail.
                     if ["manotu", "gimano"].contains(url.pathExtension.lowercased()) { model.incomingBackup = url }
                 }

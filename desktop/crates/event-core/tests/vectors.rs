@@ -7,6 +7,9 @@ use std::path::PathBuf;
 
 use common::fixtures;
 use event_core::{
+    DropSecret, is_drop_link, open_drop, parse_drop_link, seal_drop, seal_drop_parts,
+};
+use event_core::{
     Envelope, Error, Event, FileSuite, ImportCandidate, ImportDecision, OrganizerKey, PackKey,
     ParentCheck, SealedPack, StoredEvent, StoredRevision, b64u, b64u_decode, bytes_hash,
     decide_import, decrypt, derive_file_key, encode_file, encode_link, encode_open_file, encrypt,
@@ -224,6 +227,97 @@ fn ride_two_day() {
     assert_eq!(e.stops.len(), 5);
     assert_eq!(e.routes[0].legs.len(), 2);
     check_positive("ride-two-day", e);
+}
+
+/// §5.6 short link on the kenduri vector: HKDF alone, the blob's framing, open, and the writer.
+#[test]
+fn kenduri_drop() {
+    let v = load("kenduri-one-day.json");
+    let secret = DropSecret::from_b64u(s(&v, "secretB64u")).unwrap();
+    assert_eq!(secret.as_bytes().len(), 16);
+    assert_eq!(b64u(secret.key().as_bytes()), s(&v, "dropKeyB64u"));
+
+    let link = parse_drop_link(s(&v, "dropLink")).unwrap();
+    assert_eq!(link.drop_id, s(&v, "dropId"));
+    assert_eq!(link.secret, secret);
+    assert_eq!(parse_drop_link(s(&v, "dropAppLink")).unwrap(), link);
+    assert_eq!(parse_drop_link(s(&v, "dropFragment")).unwrap(), link);
+    assert_eq!(link.fragment(), s(&v, "dropFragment"));
+    assert_eq!(link.to_link(event_core::DEFAULT_SITE), s(&v, "dropLink"));
+    assert_eq!(link.to_app_link(), s(&v, "dropAppLink"));
+    assert!(!is_drop_link(s(&v, "link")));
+
+    // Blob = nonce ‖ XChaCha20-Poly1305(dropKey, nonce, AD, deflatedB64u).
+    let blob = bytes(&v, "dropBlobB64u");
+    assert_eq!(blob[..24], bytes(&v, "dropNonceB64u"));
+    let key = PackKey::from_bytes(arr(&v, "dropKeyB64u"));
+    let nonce: [u8; 24] = arr(&v, "dropNonceB64u");
+    assert_eq!(
+        encrypt(&key, &nonce, &bytes(&v, "deflatedB64u")).unwrap(),
+        blob[24..]
+    );
+
+    let opened = open_drop(&blob, &secret).unwrap();
+    assert_eq!(opened, open_link(s(&v, "link")).unwrap());
+    assert_eq!(opened.event_bytes, s(&v, "eventJson").as_bytes());
+    assert_eq!(opened.safety_code(), s(&v, "safetyCode"));
+
+    // Writer: the deterministic parts are byte-identical; a fresh-nonce seal opens again.
+    let organizer = OrganizerKey::from_seed(&arr(&v, "ed25519SeedB64u"));
+    let event_bytes = bytes(&v, "eventB64u");
+    let (_, again) = seal_drop_parts(&event_bytes, &organizer, &secret, nonce).unwrap();
+    assert_eq!(open_drop(&again, &secret).unwrap().event_bytes, event_bytes);
+    let fresh = seal_drop(&event_bytes, &organizer, &secret).unwrap();
+    assert_ne!(fresh[..24], blob[..24]);
+    assert_eq!(open_drop(&fresh, &secret).unwrap(), opened);
+
+    // Never a stops-only variant (§5.6: always the full event).
+    let ride = load("ride-two-day-stops-only.json");
+    let variant_org = OrganizerKey::from_seed(&arr(&ride, "ed25519SeedB64u"));
+    assert_eq!(
+        seal_drop(&bytes(&ride, "eventB64u"), &variant_org, &secret).unwrap_err(),
+        Error::NotFullEvent
+    );
+}
+
+#[test]
+fn negative_drop_link() {
+    let v = negative("negative-drop-link");
+    let links = v["links"].as_array().unwrap();
+    assert!(links.len() >= 10);
+    for l in links {
+        let err = parse_drop_link(l.as_str().unwrap()).unwrap_err();
+        assert_eq!(err, Error::MalformedDropLink, "{l}");
+        assert_eq!(err.code(), s(&v, "expectedError"));
+    }
+}
+
+#[test]
+fn negative_drop_blob_truncated() {
+    let v = negative("negative-drop-blob-truncated");
+    let secret = DropSecret::from_b64u(s(&v, "secretB64u")).unwrap();
+    for (b, n) in v["blobsB64u"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .zip(v["lengths"].as_array().unwrap())
+    {
+        let blob = b64u_decode(b.as_str().unwrap()).unwrap();
+        assert_eq!(blob.len() as u64, n.as_u64().unwrap());
+        let err = open_drop(&blob, &secret).unwrap_err();
+        assert_eq!(err.code(), s(&v, "expectedError"));
+    }
+}
+
+#[test]
+fn negative_drop_wrong_secret() {
+    let v = negative("negative-drop-wrong-secret");
+    let link = parse_drop_link(s(&v, "dropLink")).unwrap();
+    assert_eq!(link.drop_id, s(&v, "dropId"));
+    assert_eq!(b64u(link.secret.key().as_bytes()), s(&v, "dropKeyB64u"));
+    let err = open_drop(&bytes(&v, "dropBlobB64u"), &link.secret).unwrap_err();
+    assert_eq!(err, Error::Decrypt);
+    assert_eq!(err.code(), s(&v, "expectedError"));
 }
 
 fn negative(name: &str) -> Value {

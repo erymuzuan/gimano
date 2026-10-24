@@ -17,7 +17,9 @@ private enum Vectors {
                         "negative-unknown-variant", "import-stops-only-sequence", "argon2-kat",
                         "negative-wrong-secret-code", "negative-invalid-secret-code",
                         "negative-info-text-too-long", "negative-too-many-info", "negative-file-v3-truncated",
-                        "unknown-template-and-info-kind"]
+                        "unknown-template-and-info-kind",
+                        // Short links (§5.6), exercised in EventDropTests.swift.
+                        "negative-drop-link", "negative-drop-blob-truncated", "negative-drop-wrong-secret"]
     static let positive = ["kenduri-one-day", "ride-two-day", "ride-two-day-stops-only"]
     /// Correctly signed events that break a §5.5 variant rule, with the error each must give.
     static let variantNegatives = ["negative-variant-with-polyline", "negative-missing-polyline", "negative-unknown-variant"]

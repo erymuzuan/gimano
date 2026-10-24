@@ -139,11 +139,21 @@ class AppContainer(val app: Application) {
             onChanged = { scheduleEventExpiry() },
         )
     }
-    val hostEditor by lazy { my.gimano.app.data.events.HostEditor(scope, hostStore) }
-    val eventImporter by lazy {
-        my.gimano.app.data.events.EventImporter(scope, my.gimano.app.core.events.EventPackReader(eventSodium), eventStore,
-            isOwn = { id, pub -> hostStore.isOwn(id, pub) })
+    /**
+     * Event short links (docs/events.md §5.6): the relay only ever gets ciphertext. POST carries the app JWT (the quota);
+     * GET/PUT/DELETE go without it. Demo mode has no relay (the share screen falls back to the full link).
+     */
+    val drops: my.gimano.app.data.events.DropApi by lazy {
+        my.gimano.app.data.events.HttpDropApi({ settings.current.apiBaseUrl }, { refresh -> remote.bearerToken(refresh) },
+            demo = { repo.isDemo })
     }
+    val hostEditor by lazy { my.gimano.app.data.events.HostEditor(scope, hostStore, drops = drops) }
+    val eventImporter: my.gimano.app.data.events.EventImporter by lazy {
+        my.gimano.app.data.events.EventImporter(scope, my.gimano.app.core.events.EventPackReader(eventSodium), eventStore,
+            isOwn = { id, pub -> hostStore.isOwn(id, pub) }, drops = drops, onCopiedHandled = { deferredLinks.remember(it) })
+    }
+    /** "Buka jemputan dari pautan yang disalin?" on the first launches after install (§5.6). */
+    val deferredLinks: my.gimano.app.data.events.DeferredLinkCheck by lazy { my.gimano.app.data.events.DeferredLinkCheck(app, scope, eventImporter, eventStore) }
     /** "Laluan saya": personal routes in the main DB (`personal_routes`), so they are in the user's own backups. */
     val personalRoutes by lazy { my.gimano.app.data.routes.PersonalRouteStore({ my.gimano.app.data.backup.AndroidSqlPort(db.openHelper.writableDatabase) }) }
     /** Once on upgrade: personal routes kept in manotu-events.db before schema 3 move to the main DB. */

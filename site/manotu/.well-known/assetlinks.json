@@ -1,0 +1,22 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "my.manotu.app",
+      "sha256_cert_fingerprints": [
+        "B9:BA:DD:CD:63:B3:D7:4B:8A:37:4C:B9:3D:F3:27:85:79:BA:4F:AE:AE:12:1C:35:82:7D:37:7E:21:0B:BE:C9"
+      ]
+    }
+  },
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "my.manotu.app.dev",
+      "sha256_cert_fingerprints": [
+        "18:08:CD:A2:E2:9A:1B:E1:74:26:3A:23:E1:79:18:71:17:A9:FF:EC:E7:8C:58:9D:02:49:2D:77:64:AC:E8:E7"
+      ]
+    }
+  }
+]

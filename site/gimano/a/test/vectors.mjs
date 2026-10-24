@@ -2,13 +2,15 @@
 //   node site/manotu/a/test/vectors.mjs [vectorsDir]
 // Positive: link, bare fragment, suite-3 file (no code) and suite-1 file + secret code open to the exact signed bytes,
 // the organizer key, safety code, revision hash and the expected summary/decision. Negative: the expected error code
-// (or `expired`). Parse: unknown template / info kind read as "other".
+// (or `expired`). Parse: unknown template / info kind read as "other". Short links (§5.6): the HKDF key (WebCrypto),
+// the three link forms and the drop blob (`dropBlobB64u` + `secretB64u`), plus the drop negatives.
 import assert from "node:assert/strict";
 import { readFileSync, readdirSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { createHash } from "node:crypto";
-import { sha256, safetyCode, openLink, openFile, decide, decideImport, readEvent, b64uDecode, b64uEncode, decodePolyline, inflateRaw, PackError, parseLink, parseFile, fileNeedsCode, INFO_KINDS } from "../pack.mjs";
+import { createHash, createHmac } from "node:crypto";
+import { sha256, safetyCode, openLink, openFile, decide, decideImport, readEvent, b64uDecode, b64uEncode, decodePolyline, inflateRaw, PackError, parseLink, parseFile, fileNeedsCode, INFO_KINDS,
+  parseDropLink, dropKey, openDrop, parseDropBlob, dropFragment, MAX_DROP_BYTES } from "../pack.mjs";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const repo = resolve(here, "../../../..");
@@ -79,6 +81,30 @@ for (const f of files) {
         assert.equal(f.length, 6 + 32 + 24 + p.ciphertext.length);
       });
     }
+    if (v.dropBlobB64u) {
+      await check("short link: HKDF key (WebCrypto and RFC 5869 by hand)", async () => {
+        const secret = b64uDecode(v.secretB64u);
+        assert.equal(secret.length, 16);
+        assert.equal(b64uEncode(await dropKey(secret)), v.dropKeyB64u);
+        const prk = createHmac("sha256", Buffer.alloc(32)).update(secret).digest();
+        const okm = createHmac("sha256", prk).update(Buffer.concat([Buffer.from("manotu-drop-v1"), Buffer.from([1])])).digest();
+        assert.equal(b64uEncode(okm), v.dropKeyB64u);
+      });
+      await check("short link: /j/, manotu:// and bare fragment parse alike", () => {
+        for (const l of [v.dropLink, v.dropAppLink, v.dropFragment, `#${v.dropFragment}`]) {
+          const p = parseDropLink(l);
+          assert.equal(p.dropId, v.dropId, l); assert.equal(b64uEncode(p.secret), v.secretB64u, l);
+        }
+        assert.equal(dropFragment(v.dropId, b64uDecode(v.secretB64u)), v.dropFragment);
+        assert.throws(() => parseDropLink(v.link), e => e.code === "malformed_drop_link");
+        assert.throws(() => parseLink(v.dropLink), e => e instanceof PackError);
+      });
+      await check("short link: blob = nonce ‖ ciphertext, opens to the signed bytes", async () => {
+        const blob = b64uDecode(v.dropBlobB64u), b = parseDropBlob(blob);
+        assert.equal(b64uEncode(b.nonce), v.dropNonceB64u);
+        verify(await openDrop(blob, parseDropLink(v.dropLink).secret), "drop");
+      });
+    }
     await check("lower-case secret code with spaces", async () =>
       verify(await openFile(b64uDecode(v.fileB64u), v.secretCode.toLowerCase().replaceAll("-", " ")), "file"));
     await check("deflatedB64u inflates to envelopeJson", async () =>
@@ -127,6 +153,29 @@ for (const f of files) {
     }
   } else {
     const want = v.expectedError;
+    // Short-link negatives (§5.6).
+    if (v.links) {
+      await check(`every short link → ${want}`, () => {
+        v.links.forEach((l, i) => assert.throws(() => parseDropLink(l), e => e.code === want, v.reasons[i]));
+      });
+      continue;
+    }
+    if (v.blobsB64u) {
+      await check(`every truncated drop blob → ${want}`, async () => {
+        const secret = b64uDecode(v.secretB64u);
+        for (const b of v.blobsB64u) assert.equal(await code(openDrop(b64uDecode(b), secret)), want);
+      });
+      continue;
+    }
+    if (v.dropBlobB64u) {
+      await check(`drop blob with this secret → ${want}`, async () => {
+        const { secret, dropId } = parseDropLink(v.dropLink);
+        assert.equal(dropId, v.dropId);
+        assert.equal(b64uEncode(await dropKey(secret)), v.dropKeyB64u);
+        assert.equal(await code(openDrop(b64uDecode(v.dropBlobB64u), secret)), want);
+      });
+      continue;
+    }
     if (v.eventJson && want !== "expired") await check(`eventJson → ${want}`, () =>
       assert.equal((() => { try { readEvent(JSON.parse(v.eventJson)); return "ok"; } catch (e) { return e.code; } })(), want));
     if (v.filesB64u) {
@@ -167,6 +216,13 @@ console.log("reader rules");
 await check("b64u is strict", () => {
   assert.equal(b64uDecode("AA=="), null); assert.equal(b64uDecode("AB"), null); assert.deepEqual(b64uDecode("AA"), new Uint8Array([0]));
   assert.equal(b64uDecode("A+"), null); assert.equal(b64uDecode("A"), null);
+});
+await check("drop blob over 256 KiB is drop_too_large; 40 bytes of zeros is decrypt", async () => {
+  const s = new Uint8Array(16);
+  assert.equal(await code(openDrop(new Uint8Array(MAX_DROP_BYTES + 1), s)), "drop_too_large");
+  assert.equal(await code(openDrop(new Uint8Array(40), s)), "decrypt");
+  assert.equal(parseDropLink("gimano://event?stop=AAAAAAAAAAA&drop=7Kx2Qp9mWd#AAAAAAAAAAAAAAAAAAAAAA").dropId, "7Kx2Qp9mWd");
+  assert.equal(parseDropLink("https://www.bukitbunga.com/gimano/j/#7Kx2Qp9mWd.AAAAAAAAAAAAAAAAAAAAAA").dropId, "7Kx2Qp9mWd");
 });
 await check("inflate output is capped, not truncated", async () => {
   const { deflateRawSync } = await import("node:zlib");

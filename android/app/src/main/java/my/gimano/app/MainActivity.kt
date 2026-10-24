@@ -70,8 +70,10 @@ class MainActivity : AppCompatActivity() {
         val uri = sent ?: i.data ?: return
         val importer = (application as GimanoApp).container.eventImporter
         when (uri.scheme?.lowercase()) {
+            // `manotu://event?drop=<id>#<secret>` (§5.6) is fetched; `manotu://event#1.…` opens directly (§5.3).
             "manotu", "gimano" -> if (uri.host.equals("event", ignoreCase = true))
                 importer.openLink(uri.toString(), runCatching { uri.getQueryParameter("stop") }.getOrNull())
+            // `/j/#<dropId>.<secret>` short links and `/a/#1.…` links; the importer tells them apart.
             "https" -> importer.openLink(uri.toString())
             "content", "file" -> lifecycleScope.launch {
                 val bytes = withContext(Dispatchers.IO) {
@@ -98,6 +100,12 @@ class MainActivity : AppCompatActivity() {
     }
 
     private val vm: MainViewModel by viewModels { MainViewModel.Factory((application as GimanoApp).container) }
+
+    /** Deferred short link (§5.6): Android lets only the focused app read the clipboard. Manotu builds only. */
+    override fun onWindowFocusChanged(hasFocus: Boolean) {
+        super.onWindowFocusChanged(hasFocus)
+        if (hasFocus && BuildConfig.FLAVOR == "manotu") (application as GimanoApp).container.deferredLinks.onFocus()
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         enableEdgeToEdge()

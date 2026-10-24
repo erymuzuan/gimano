@@ -12,12 +12,15 @@ anything except tests.
 
 | File | Kind | Reader must |
 |---|---|---|
-| `kenduri-one-day.json` | positive | open the link/fragment, the suite-3 file (`fileV3B64u`, no code), the suite-2 file (`fileV2B64u` + `secretCodeV2`) and the suite-1 file (`fileB64u` + `secretCode`) to `eventJson`; decision `new`. Its event has 2 `info` blocks (`dress`, `bring`) |
+| `kenduri-one-day.json` | positive | open the link/fragment, the suite-3 file (`fileV3B64u`, no code), the suite-2 file (`fileV2B64u` + `secretCodeV2`), the suite-1 file (`fileB64u` + `secretCode`) and the short-link blob (`dropBlobB64u` + `secretB64u`, §5.6) to `eventJson`; decision `new`. Its event has 2 `info` blocks (`dress`, `bring`) |
 | `ride-two-day.json` | positive | same, with 1 route (7 points, 2 legs, ascent/descent) and no `info` |
 | `unknown-template-and-info-kind.json` | parse | open `linkFragment` and `fileV3B64u` (no code) to `eventJson` (`template` `"gala"`, `info[1].kind` `"weather"`): `expected.template` is `other`, `expected.infoKinds` is `["dress","other"]`, texts as `expected.infoTexts`; keep the signed bytes (`revisionHashB64u`) |
 | `negative-info-text-too-long.json` | negative | decrypt and verify (link, or suite-3 `fileV3B64u`), then reject the event with `invalid_event` at `expectedPath` `info[1].text` (1003 code points) |
 | `negative-too-many-info.json` | negative | same, 13 info blocks: `invalid_event` at `info` |
 | `negative-file-v3-truncated.json` | negative | every entry of `filesB64u` (suite-3 files cut to `lengths` 6, 37, 61, 77 bytes) fails with `malformed_file` before any decryption |
+| `negative-drop-link.json` | negative | every entry of `links` (bad dropId character or length, secret not 16 bytes of strict b64u, wrong path or no `drop=`; `reasons` says which) fails with `malformed_drop_link` before any request |
+| `negative-drop-blob-truncated.json` | negative | every entry of `blobsB64u` (the kenduri drop blob cut to `lengths` 0, 23, 24, 39 bytes) fails with `malformed_drop` before any decryption |
+| `negative-drop-wrong-secret.json` | negative | the kenduri drop blob with a well-formed different secret (`dropKeyB64u` is its HKDF key): fail with `decrypt` |
 | `negative-tampered-ciphertext.json` | negative | fail with `decrypt` |
 | `negative-bad-signature.json` | negative | decrypt and inflate, then fail with `signature` |
 | `negative-wrong-key.json` | negative | fail with `decrypt` (link, and suite-1 file + `secretCode`) |
@@ -57,6 +60,12 @@ All binary values are base64url without padding (`…B64u`); some are also given
 | `fileKeyV2B64u` | suite 2: Argon2id13(`secretCodeV2` upper case without `-`, `fileSaltB64u`, opslimit 3, 64 MiB) — independent of `keyB64u` |
 | `fileV3B64u` | **suite 3** (default share): `MNTE` ‖ `01` ‖ `03` ‖ key ‖ nonce ‖ ciphertext, where key = `keyB64u`, nonce = `nonceB64u`, ciphertext = `ciphertextB64u`: exactly the link's bytes. Opens with no code |
 | `fileV2B64u` | **suite 2**: `MNTE` ‖ `01` ‖ `02` ‖ salt ‖ nonce ‖ XChaCha20-Poly1305(`fileKeyV2B64u`, nonce, AD `manotu-event-v1`) of `deflatedB64u` |
+| `dropId` | short link (§5.6): 10 characters of base58 `123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz` (chosen by the server; fixed here) |
+| `secretB64u` | short link: the 16-byte secret (22 b64u characters) |
+| `dropKeyB64u` | short link: HKDF-SHA256(ikm = secret, salt = empty, info = ASCII `manotu-drop-v1`, L = 32), so HKDF can be checked alone |
+| `dropNonceB64u` | short link: the blob's 24-byte nonce |
+| `dropBlobB64u` | short link: nonce ‖ XChaCha20-Poly1305(`dropKeyB64u`, nonce, AD `manotu-event-v1`) of `deflatedB64u`, the bytes `GET /api/v1/drops/{dropId}` returns |
+| `dropFragment`, `dropLink`, `dropAppLink` | `<dropId>.<secretB64u>`, `https://manotu.app/j/#<dropFragment>` and `manotu://event?drop=<dropId>#<secretB64u>` |
 | `safetyCode` | first 30 bits of SHA-256(pub) as 6 chars of `23456789ABCDEFGHJKLMNPQRSTUVWXYZ` (docs/events.md §7.3) |
 | `revisionHashB64u` | SHA-256(eventBytes), the next revision's `parent` |
 | `now` | time to use for the import decision |
@@ -95,6 +104,17 @@ Writers produce **suite 3** (default share) and **suite 2** (sensitive events); 
   kenduri and ride file keys.
 - A suite-1 file opened with an 8-character code, or a suite-2 file opened with a 52-character code, fails with
   `invalid_secret_code`.
+
+## Short links (§5.6)
+
+The fixed short-link inputs are SHA-256 of `manotu-vector:kenduri-one-day:drop-id|drop-secret|drop-nonce`
+(the dropId maps each of the first 10 bytes to the alphabet by `byte mod 58`). The blob is reproducible byte for
+byte from `deflatedB64u`, `dropKeyB64u` and `dropNonceB64u`. Readers parse the three link forms (`dropLink`, also
+on any site ending in `/j/`; `dropAppLink`, also `gimano://` and with other query parameters such as `stop`; the bare
+`dropFragment`), and an `/a/` link (`#1.<key>.<data>`) is never a short link. Error codes: `malformed_drop_link` (dropId
+not exactly 10 base58 characters, or the secret not exactly 16 bytes of strict b64u), `malformed_drop` (blob shorter
+than 24 + 16 bytes), `drop_too_large` (blob over 256 KiB, no vector), then the link codes (`decrypt`, `signature`, …).
+Writers seal only full events (`not_full_event` for a stops-only variant) and use a fresh nonce for every upload.
 
 ## Stops-only variant (§5.5) and import sequence (§7.4)
 

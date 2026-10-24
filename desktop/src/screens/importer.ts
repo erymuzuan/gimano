@@ -47,7 +47,12 @@ export function openImportDialog(onImported: () => void): void {
   const out = h("div", { "aria-live": "polite" });
   const showError = (e: unknown) => {
     const code = errorCode(e);
-    out.replaceChildren(h("p", { class: "error", role: "alert" }, code === "invalid_secret_code" ? errorMessage(e) : t("cannotOpen")));
+    // Short links (§5.6) add drop_gone (404/410) and offline/server (retry with the same button).
+    const text = code === "invalid_secret_code" ? errorMessage(e)
+      : code === "drop_gone" ? t("dropGone")
+      : code === "offline" || code === "server" ? t("dropOffline")
+      : t("cannotOpen");
+    out.replaceChildren(h("p", { class: "error", role: "alert" }, text));
   };
 
   const linkInput = h("textarea", { class: "input", rows: 3, spellcheck: "false", autocomplete: "off" });

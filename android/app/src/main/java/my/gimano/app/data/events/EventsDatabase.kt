@@ -28,6 +28,8 @@ data class EventPinEntity(
     /** Epoch ms; the whole event (pin, revisions, payloads) is deleted at this time. */
     @ColumnInfo(name = "expires_at") val expiresAt: Long,
     @ColumnInfo(name = "pinned_at") val pinnedAt: Long,
+    /** Short link (§5.6) this event came from, `dropId ‖ secret` sealed by the events vault; re-fetched on open. v5. */
+    @ColumnInfo(name = "drop_ref") val dropRef: ByteArray? = null,
 )
 
 /**
@@ -110,6 +112,8 @@ data class HostEventEntity(
     /** Epoch ms of the last publication's `expiresAt`; the record (keys included) is deleted then. Null = never published. */
     @ColumnInfo(name = "expires_at") val expiresAt: Long?,
     @ColumnInfo(name = "updated_at") val updatedAt: Long,
+    /** The event's short link (§5.6): dropId, secret and write token, sealed by the events vault like [secrets]. v5. */
+    @ColumnInfo(name = "drop_ref") val dropRef: ByteArray? = null,
 )
 
 @Dao
@@ -174,9 +178,10 @@ object EventsMigrations {
 }
 
 @Database(
-    entities = [EventPinEntity::class, EventRevisionEntity::class, HostEventEntity::class, PersonalRouteEntity::class], version = 4, exportSchema = true,
+    entities = [EventPinEntity::class, EventRevisionEntity::class, HostEventEntity::class, PersonalRouteEntity::class], version = 5, exportSchema = true,
     // 3 → 4: event_revision.stops_only (default 0: every revision imported before variants existed is a full event).
-    autoMigrations = [AutoMigration(from = 1, to = 2), AutoMigration(from = 3, to = 4)],
+    // 4 → 5: event_pin.drop_ref and event_host.drop_ref (short links, §5.6), nullable.
+    autoMigrations = [AutoMigration(from = 1, to = 2), AutoMigration(from = 3, to = 4), AutoMigration(from = 4, to = 5)],
 )
 abstract class EventsDatabase : RoomDatabase() {
     abstract fun events(): EventDao

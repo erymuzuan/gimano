@@ -34,6 +34,13 @@ class EventPackReader(private val sodium: LazySodium) {
         const val FILE_KEY_BYTES = 32
     }
 
+    /** A short-link blob (§5.6) under HKDF(secret); every link rule applies. */
+    fun openDrop(secret: ByteArray, blob: ByteArray): OpenedPack {
+        val sealed = DropLinks.parseBlob(blob)
+        val key = DropKeys.key(secret)
+        try { return open(key, sealed) } finally { key.fill(0) }
+    }
+
     fun openLink(link: String): OpenedPack {
         val (key, sealed) = EventTransport.parseLink(link)
         return open(key, sealed)

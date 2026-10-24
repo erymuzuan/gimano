@@ -181,6 +181,8 @@ const ms = {
   parent_mismatch: "Amaran: versi sebelumnya tidak sepadan.",
   parent_missed_revisions: "Beberapa versi terlepas.",
   cannotOpen: "Jemputan ini tidak dapat dibuka / disahkan",
+  dropGone: "Jemputan ini telah tamat atau dipadam",
+  dropOffline: "Jemputan tidak dapat dimuat turun. Semak sambungan dan cuba lagi.",
   // gpx
   gpxTitle: "Import GPX",
   track: "Trek",
@@ -417,6 +419,8 @@ const en: Record<Key, string> = {
   parent_mismatch: "Warning: the previous revision does not match.",
   parent_missed_revisions: "Some revisions were missed.",
   cannotOpen: "This invitation cannot be opened / verified",
+  dropGone: "This invitation has ended or was deleted",
+  dropOffline: "The invitation could not be downloaded. Check the connection and try again.",
   gpxTitle: "Import GPX",
   track: "Track",
   gpxRoute: "GPX route",

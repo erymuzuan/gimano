@@ -10,6 +10,8 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import my.gimano.app.core.events.DropLinks
+import my.gimano.app.core.events.DropRef
 import my.gimano.app.core.events.EventPackException
 import my.gimano.app.core.events.EventPackReader
 import my.gimano.app.core.events.EventPlan
@@ -27,11 +29,17 @@ enum class EventNotice {
     FULL_ROUTE_ADDED,
     /** A file from a newer Manotu (unknown format or suite): update the app. */
     NEEDS_UPDATE,
+    /** Short link (§5.6) unknown, expired or deleted (404 / 410): "Jemputan ini telah tamat atau dipadam". */
+    DROP_GONE,
+    /** Short link could not be fetched (offline, server error): "Cuba lagi". */
+    NETWORK,
 }
 
 sealed interface EventImportUi {
     data object Idle : EventImportUi
     data object Working : EventImportUi
+    /** Deferred link (§5.6): a copied `manotu.app/j/#…` link; "Buka jemputan dari pautan yang disalin?" Never auto-imported. */
+    data class OfferCopied(val ref: DropRef) : EventImportUi
     /**
      * A `.manotu-event` file is waiting for its secret code. [wrong]: the last code did not open it (wrong code or a
      * damaged file); [invalid]: the last code is not a code (wrong length or a character outside the alphabet);
@@ -57,6 +65,10 @@ class EventImporter(
     private val work: CoroutineDispatcher = Dispatchers.Default,
     /** True when this phone organises the event with that organizer key (the host opening their own link). */
     private val isOwn: suspend (eventId: String, organizerPub: ByteArray) -> Boolean = { _, _ -> false },
+    /** The short-link relay (§5.6); null = short links can't be fetched (NETWORK). */
+    private val drops: DropApi? = null,
+    /** A copied link was answered (opened or declined): remember it so it is not offered again. */
+    private val onCopiedHandled: (DropRef) -> Unit = {},
 ) {
     private val _ui = MutableStateFlow<EventImportUi>(EventImportUi.Idle)
     val ui: StateFlow<EventImportUi> = _ui.asStateFlow()
@@ -66,13 +78,102 @@ class EventImporter(
     val open: SharedFlow<Pair<String, String?>> = _open
 
     private var pending: OpenedPack? = null
+    /** The short link [pending] came from: kept with the event so later revisions arrive by themselves. */
+    private var pendingDrop: DropRef? = null
+    /** The short link a NETWORK notice can retry. */
+    private var retryDrop: DropRef? = null
+    /** Event ids being re-fetched in the background. */
+    private val refreshing = HashSet<String>()
     private var pendingFile: ByteArray? = null
     /** From `manotu://event?stop=<id>#…`: select this stop after import; ignored if unknown. */
     private var stopHint: String? = null
 
     fun openLink(link: String, stop: String? = null) {
+        // A short link (`/j/#<dropId>.<secret>`, `manotu://event?drop=…`) is fetched; anything else opens as `/a/`.
+        DropLinks.parseOrNull(link)?.let { openDrop(it, stop); return }
         stopHint = stop
+        pendingDrop = null
         run { reader.openLink(link) }
+    }
+
+    /** §5.6: GET the blob, decrypt with HKDF(secret), then the normal import (§7). */
+    fun openDrop(ref: DropRef, stop: String? = null) {
+        stopHint = stop
+        retryDrop = null
+        pendingDrop = null
+        _ui.value = EventImportUi.Working
+        scope.launch {
+            val blob = try {
+                fetch(ref)
+            } catch (e: DropException) {
+                if (e.kind == DropException.Kind.GONE) _ui.value = EventImportUi.Notice(EventNotice.DROP_GONE)
+                else { retryDrop = ref; _ui.value = EventImportUi.Notice(EventNotice.NETWORK) }
+                return@launch
+            }
+            val r = withContext(work) { runCatching { reader.openDrop(ref.secret, blob) } }
+            r.onSuccess { decide(it, ref) }.onFailure { _ui.value = EventImportUi.Notice(EventNotice.CANNOT_OPEN) }
+        }
+    }
+
+    private suspend fun fetch(ref: DropRef): ByteArray = (drops ?: throw DropException(DropException.Kind.UNAVAILABLE)).fetch(ref.dropId)
+
+    /** "Cuba lagi" on a NETWORK notice. */
+    fun retry() {
+        val ref = retryDrop ?: return dismiss()
+        openDrop(ref, stopHint)
+    }
+
+    /** Deferred link: offer a copied short link, only when nothing else is on screen. */
+    fun offerCopied(ref: DropRef) {
+        if (_ui.value == EventImportUi.Idle) _ui.value = EventImportUi.OfferCopied(ref)
+    }
+
+    fun acceptCopied() {
+        val s = _ui.value as? EventImportUi.OfferCopied ?: return
+        runCatching { onCopiedHandled(s.ref) }
+        openDrop(s.ref)
+    }
+
+    fun declineCopied() {
+        val s = _ui.value as? EventImportUi.OfferCopied ?: return
+        runCatching { onCopiedHandled(s.ref) }
+        _ui.value = EventImportUi.Idle
+    }
+
+    /**
+     * The event was opened (or "Muat semula"): re-fetch its short link, if it came from one, quietly. A newer revision
+     * or a fork shows the usual update sheet; the full route over a stops-only copy is saved silently; anything else
+     * (same revision, offline) shows nothing. A link that is gone is forgotten.
+     */
+    fun refresh(eventId: String) {
+        if (drops == null || !refreshing.add(eventId)) return
+        scope.launch {
+            try {
+                val ref = runCatching { store.dropFor(eventId) }.getOrNull() ?: return@launch
+                val blob = try { fetch(ref) } catch (e: DropException) {
+                    if (e.kind == DropException.Kind.GONE) runCatching { store.setDrop(eventId, null, null) }
+                    return@launch
+                }
+                val p = withContext(work) { runCatching { reader.openDrop(ref.secret, blob) }.getOrNull() } ?: return@launch
+                if (p.event.id != eventId) return@launch
+                if (runCatching { isOwn(p.event.id, p.organizerPub) }.getOrDefault(false)) return@launch
+                when (val d = EventImport.decide(ImportCandidate.of(p), store.storedFor(p.event.id), clock())) {
+                    is ImportDecision.UpgradeToFull -> runCatching { store.save(p, d) }
+                    is ImportDecision.Newer, is ImportDecision.Fork -> if (_ui.value == EventImportUi.Idle) {
+                        val previous = runCatching { store.load(p.event.id)?.plan }.getOrNull()
+                        if (_ui.value == EventImportUi.Idle) {
+                            pending = p
+                            pendingDrop = ref
+                            stopHint = null
+                            _ui.value = EventImportUi.Review(p.event, p.safetyCode, d, previous)
+                        }
+                    }
+                    else -> Unit
+                }
+            } finally {
+                refreshing.remove(eventId)
+            }
+        }
     }
 
     /**
@@ -82,6 +183,7 @@ class EventImporter(
      */
     fun openFile(bytes: ByteArray) {
         stopHint = null
+        pendingDrop = null
         if (!EventTransport.looksLikeFile(bytes)) { _ui.value = EventImportUi.Notice(EventNotice.NOT_A_FILE); return }
         val needsCode = try {
             EventTransport.fileNeedsCode(bytes)
@@ -129,13 +231,17 @@ class EventImporter(
         }
     }
 
-    private suspend fun decide(p: OpenedPack) {
+    private suspend fun decide(p: OpenedPack, drop: DropRef? = null) {
+        pendingDrop = drop
         if (runCatching { isOwn(p.event.id, p.organizerPub) }.getOrDefault(false)) {
             // The host's own invitation: never "imported from someone else".
             _ui.value = EventImportUi.Notice(EventNotice.OWN_EVENT, p.event.id)
             return
         }
         val d = EventImport.decide(ImportCandidate.of(p), store.storedFor(p.event.id), clock())
+        // Same organizer, nothing new to save: still keep the short link with the stored event, for later revisions.
+        if (drop != null && (d == ImportDecision.AlreadyImported || d is ImportDecision.Older || d is ImportDecision.UpgradeToFull))
+            runCatching { store.setDrop(p.event.id, p.organizerPub, drop) }
         _ui.value = when (d) {
             ImportDecision.Expired -> EventImportUi.Notice(EventNotice.EXPIRED)
             ImportDecision.DifferentOrganizer -> EventImportUi.Notice(EventNotice.DIFFERENT_ORGANIZER)
@@ -161,9 +267,10 @@ class EventImporter(
         scope.launch {
             // Re-decide against the store right before writing (another import may have landed meanwhile).
             val d = EventImport.decide(ImportCandidate.of(p), store.storedFor(p.event.id), clock())
-            val ok = d::class == s.decision::class && runCatching { store.save(p, d) }.getOrDefault(false)
+            val drop = pendingDrop
+            val ok = d::class == s.decision::class && runCatching { store.save(p, d, drop) }.getOrDefault(false)
             pending = null
-            if (ok) { _ui.value = EventImportUi.Idle; if (openAfter) emitOpen(p.event) else stopHint = null } else decide(p)
+            if (ok) { pendingDrop = null; _ui.value = EventImportUi.Idle; if (openAfter) emitOpen(p.event) else stopHint = null } else decide(p, drop)
         }
     }
 
@@ -177,6 +284,8 @@ class EventImporter(
     /** "Batal" / dismiss: forget the pack, the file and the key. */
     fun dismiss() {
         pending = null
+        pendingDrop = null
+        retryDrop = null
         pendingFile = null
         stopHint = null
         _ui.value = EventImportUi.Idle

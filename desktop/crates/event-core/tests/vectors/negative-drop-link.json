@@ -1,0 +1,42 @@
+{
+  "description": "Short links (§5.6) with a dropId that is not exactly 10 base58 characters, or a secret that is not exactly 16 bytes of strict base64url: each must fail with malformed_drop_link before any request is made.",
+  "expectedError": "malformed_drop_link",
+  "kind": "negative",
+  "links": [
+    "8jrM9b4bb0.pYWCGJTPdGKzy5IgdWuP8w",
+    "8jrM9b4bbO.pYWCGJTPdGKzy5IgdWuP8w",
+    "8jrM9b4bbI.pYWCGJTPdGKzy5IgdWuP8w",
+    "8jrM9b4bbl.pYWCGJTPdGKzy5IgdWuP8w",
+    "8jrM9b4bb-.pYWCGJTPdGKzy5IgdWuP8w",
+    "8jrM9b4bb.pYWCGJTPdGKzy5IgdWuP8w",
+    "8jrM9b4bbf2.pYWCGJTPdGKzy5IgdWuP8w",
+    "8jrM9b4bbf.BwcHBwcHBwcHBwcHBwcH",
+    "8jrM9b4bbf.BwcHBwcHBwcHBwcHBwcHBwc",
+    "8jrM9b4bbf.pYWCGJTPdGKzy5IgdWuP8w==",
+    "8jrM9b4bbf.pYWCGJTPdGKzy5IgdWuP8+",
+    "8jrM9b4bbf.",
+    "8jrM9b4bbf",
+    "https://manotu.app/a/#8jrM9b4bbf.pYWCGJTPdGKzy5IgdWuP8w",
+    "manotu://event#pYWCGJTPdGKzy5IgdWuP8w",
+    "8jrM9b4bbf.pYWCGJTPdGKzy5IgdWuP8x"
+  ],
+  "name": "negative-drop-link",
+  "reasons": [
+    "dropId has 0 (not base58)",
+    "dropId has O (not base58)",
+    "dropId has I (not base58)",
+    "dropId has l (not base58)",
+    "dropId has -",
+    "dropId has 9 characters",
+    "dropId has 11 characters",
+    "secret is 15 bytes",
+    "secret is 17 bytes",
+    "secret has padding",
+    "secret has a character outside base64url",
+    "secret missing",
+    "no secret and no separator",
+    "short-link fragment under /a/",
+    "app link without drop=",
+    "secret has non-zero trailing bits"
+  ]
+}

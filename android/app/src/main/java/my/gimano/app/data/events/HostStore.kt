@@ -33,7 +33,31 @@ data class HostedEvent(
     val published: EventPlan?,
     /** The draft has guest-visible changes not yet published. */
     val changed: Boolean,
+    /** The event has a live short link (§5.6) that "Tamatkan pautan" can end. */
+    val shortLink: Boolean = false,
 )
+
+/**
+ * The organizer's short link (§5.6): [secret] (16 bytes, made here), the server's [dropId] and [writeToken], and the
+ * revision hash (b64u) of the bytes last uploaded ([uploadedHash]), so an unchanged revision is not uploaded again.
+ * Sealed by the events vault in the event's row, next to its keys.
+ */
+/** A sealed drop blob and the revision hash (b64u) of the event bytes inside it. */
+class DropUpload(val blob: ByteArray, val hash: String)
+
+@kotlinx.serialization.Serializable
+data class HostDrop(val dropId: String, val secretB64u: String, val writeToken: String, val uploadedHash: String? = null) {
+    val ref: my.gimano.app.core.events.DropRef
+        get() = my.gimano.app.core.events.DropRef(dropId, my.gimano.app.core.events.B64u.decodeExact(secretB64u, my.gimano.app.core.events.DropLinks.SECRET_BYTES)!!)
+
+    fun encode(): ByteArray = kotlinx.serialization.json.Json.encodeToString(serializer(), this).toByteArray()
+
+    override fun toString() = "HostDrop($dropId, …)"   // never the secret or the token
+
+    companion object {
+        fun decode(b: ByteArray): HostDrop = kotlinx.serialization.json.Json { ignoreUnknownKeys = true }.decodeFromString(serializer(), b.toString(Charsets.UTF_8))
+    }
+}
 
 /**
  * One sealed invitation, held in memory only while the share screen is open. [key] is the link's pack key. The default
@@ -108,7 +132,7 @@ class HostStore(
         val changed = pub == null || runCatching {
             !EventJsonWriter.write(HostDraftRules.toPlan(d, pub.rev, pub.parent, pub.publishedAt)).contentEquals(bytes)
         }.getOrDefault(true)
-        return HostedEvent(d, pub, changed)
+        return HostedEvent(d, pub, changed, shortLink = e.dropRef != null)
     }
 
     fun events(): Flow<List<HostedEvent>> = dao.allFlow().map { rows ->
@@ -219,6 +243,47 @@ class HostStore(
             s.fill(0)
         }
     }
+
+    // --- Short link (§5.6) ------------------------------------------------------------------------------------
+
+    /** The event's short link, if it has one (sealed with the keys; never in a backup). */
+    suspend fun drop(id: String): HostDrop? {
+        val sealed = dao.get(id)?.dropRef ?: return null
+        return runCatching { HostDrop.decode(vault.open(sealed)) }.getOrNull()
+    }
+
+    /** Records (or with null forgets) the event's short link. */
+    suspend fun saveDrop(id: String, drop: HostDrop?) {
+        val e = dao.get(id) ?: return
+        dao.update(e.copy(dropRef = drop?.let { vault.seal(it.encode()) }))
+        changed()
+    }
+
+    /** A new 16-byte drop secret, made on this phone; it stays the same for every revision of the event. */
+    fun newDropSecret(): ByteArray = writer.sodium.randomBytesBuf(my.gimano.app.core.events.DropLinks.SECRET_BYTES)
+
+    /**
+     * The blob to upload: the last published revision (exactly those bytes, always the full event) sealed under
+     * HKDF([secret]) with a fresh nonce, opened again before it leaves the phone. Null before the first publication.
+     */
+    suspend fun dropBlob(id: String, secret: ByteArray): DropUpload? {
+        val e = dao.get(id) ?: return null
+        val bytes = publishedOf(e) ?: return null
+        val s = vault.open(e.secrets)
+        try {
+            val seed = s.copyOfRange(0, SEED_END)
+            try {
+                val blob = withContext(work) { my.gimano.app.core.events.EventDrops.seal(writer, bytes, seed, secret) }
+                return DropUpload(blob, my.gimano.app.core.events.B64u.encode(my.gimano.app.core.events.EventHashes.revisionHash(bytes)))
+            } finally { seed.fill(0) }
+        } finally {
+            s.fill(0)
+        }
+    }
+
+    /** b64u revision hash of the last published bytes (what an up-to-date short link holds), or null. */
+    suspend fun publishedHash(id: String): String? =
+        dao.get(id)?.let(::publishedOf)?.let { my.gimano.app.core.events.B64u.encode(my.gimano.app.core.events.EventHashes.revisionHash(it)) }
 
     /** §7.5 for the host too: keys, draft and revisions go at the published `expiresAt`. */
     suspend fun purgeExpired(): Int {

@@ -283,6 +283,70 @@ export async function openFile(bytes, secretCode) {
   return openSealed(suite === 3 ? key : decodeSecretCode(secretCode), nonce, ciphertext);
 }
 
+// ---- short link (§5.6): https://manotu.app/j/#<dropId>.<b64u(secret)> --------------------------------------------
+export const DROP_ID_ALPHABET = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
+export const DROP_ID_LEN = 10;
+export const DROP_SECRET_LEN = 16;
+export const DROP_HKDF_INFO = "manotu-drop-v1";
+export const MAX_DROP_BYTES = 256 * 1024;
+
+export const isDropId = id => typeof id === "string" && id.length === DROP_ID_LEN &&
+  [...id].every(c => DROP_ID_ALPHABET.includes(c));
+
+/** `/j/` link, `manotu://event?drop=<id>#<secret>` (also `gimano://`, other query parameters allowed) or a bare
+ *  `<dropId>.<secret>` → { dropId, secret }. Anything else, including an `/a/` link, is `malformed_drop_link`
+ *  (mirrors event_core::parse_drop_link). */
+export function parseDropLink(link) {
+  const s = String(link).trim();
+  const hash = s.indexOf("#");
+  const before = hash >= 0 ? s.slice(0, hash) : "";
+  const fragment = hash >= 0 ? s.slice(hash + 1) : s;
+  let dropId, secretText;
+  const scheme = ["manotu://event", "gimano://event"].find(p => before.startsWith(p));
+  if (scheme) {
+    const rest = before.slice(scheme.length);
+    if (!rest.startsWith("?")) throw new PackError("malformed_drop_link");
+    const kv = rest.slice(1).split("&").find(p => p.startsWith("drop="));
+    if (kv === undefined) throw new PackError("malformed_drop_link");
+    dropId = kv.slice(5); secretText = fragment;
+  } else {
+    if (before && !before.endsWith("/j/") && !before.endsWith("/j")) throw new PackError("malformed_drop_link");
+    const dot = fragment.indexOf(".");
+    if (dot < 0) throw new PackError("malformed_drop_link");
+    dropId = fragment.slice(0, dot); secretText = fragment.slice(dot + 1);
+  }
+  const secret = b64uDecode(secretText);
+  if (!isDropId(dropId) || !secret || secret.length !== DROP_SECRET_LEN) throw new PackError("malformed_drop_link");
+  return { dropId, secret };
+}
+
+export const dropFragment = (dropId, secret) => `${dropId}.${b64uEncode(secret)}`;
+
+/** key = HKDF-SHA256(ikm = secret, salt = empty, info = "manotu-drop-v1", L = 32), with WebCrypto. */
+export async function dropKey(secret) {
+  const subtle = globalThis.crypto?.subtle;
+  if (!subtle) throw new PackError("key_derivation", "WebCrypto unavailable");
+  try {
+    const ikm = await subtle.importKey("raw", secret, "HKDF", false, ["deriveBits"]);
+    const bits = await subtle.deriveBits({ name: "HKDF", hash: "SHA-256", salt: new Uint8Array(0),
+      info: new TextEncoder().encode(DROP_HKDF_INFO) }, ikm, 256);
+    return new Uint8Array(bits);
+  } catch { throw new PackError("key_derivation", "HKDF failed"); }
+}
+
+/** Blob = nonce (24) ‖ ciphertext; over 256 KiB is `drop_too_large`, shorter than nonce + tag `malformed_drop`. */
+export function parseDropBlob(blob) {
+  if (blob.length > MAX_DROP_BYTES) throw new PackError("drop_too_large");
+  if (blob.length < NONCE_LEN + TAG_LEN) throw new PackError("malformed_drop");
+  return { nonce: blob.slice(0, NONCE_LEN), ciphertext: blob.slice(NONCE_LEN) };
+}
+
+/** Opens a fetched blob with the secret from the link: every link rule applies (§7). */
+export async function openDrop(blob, secret) {
+  const { nonce, ciphertext } = parseDropBlob(blob);
+  return openSealed(await dropKey(secret), nonce, ciphertext);
+}
+
 /** Import decision for a viewer that stores nothing: `expired` at or after expiresAt (§7.5), else `new`. */
 export function decide(event, now = new Date()) {
   return now.getTime() >= event.expiresAt.ms ? "expired" : "new";
