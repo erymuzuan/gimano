@@ -182,36 +182,13 @@ enum EventShareMessage {
         }
     }
 
-    private static func dateLine(_ doc: EventDoc) -> String {
-        let locale = Locale(identifier: doc.lang == .ms ? "ms_MY" : "en_MY")
-        let tz = doc.timeZone
-        var cal = Calendar(identifier: .gregorian)
-        cal.timeZone = tz
-        let day = Date.FormatStyle(date: .complete, time: .omitted, locale: locale, calendar: cal, timeZone: tz)
-        let time = Date.FormatStyle(date: .omitted, time: .shortened, locale: locale, calendar: cal, timeZone: tz)
-        if cal.isDate(doc.start.date, inSameDayAs: doc.end.date) {
-            return "\(doc.start.date.formatted(day)), \(doc.start.date.formatted(time))–\(doc.end.date.formatted(time))"
-        }
-        return "\(doc.start.date.formatted(day)), \(doc.start.date.formatted(time)) – \(doc.end.date.formatted(day)), \(doc.end.date.formatted(time))"
-    }
-
-    /// Invitation link share.
+    /// "Kongsi jemputan" (the default share since build 19): the invitation link in one message, 24-hour date line.
     static func link(_ doc: EventDoc, link: String, downloadURL: String = AppConfig.downloadURL) -> String {
         switch doc.lang {
         case .ms:
-            """
-            Jemputan: \(doc.title)
-            \(dateLine(doc))
-            Buka pelan, tempat parkir & arah: \(link)
-            Belum ada Manotu? Muat turun: \(downloadURL)
-            """
+            "Jemputan: \(doc.title)\n\(shortDateLine(doc))\nBuka pelan, parkir & arah: \(link)\nBelum ada Manotu? \(downloadURL)"
         case .en:
-            """
-            Invitation: \(doc.title)
-            \(dateLine(doc))
-            Open the plan, parking & directions: \(link)
-            No Manotu yet? Download: \(downloadURL)
-            """
+            "Invitation: \(doc.title)\n\(shortDateLine(doc))\nOpen the plan, parking & directions: \(link)\nNo Manotu yet? \(downloadURL)"
         }
     }
 

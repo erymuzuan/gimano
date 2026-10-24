@@ -958,7 +958,7 @@ struct EventWizardView: View {
                     EventIconView(icon: .sliders, size: 26)
                     VStack(alignment: .leading, spacing: 2) {
                         Text("More options").font(Tokens.Font.bodyBold)
-                        Text("Organizer · access end · own note · file").font(Tokens.Font.small).foregroundStyle(Color.textMuted)
+                        Text("Organizer · access end · own note · language").font(Tokens.Font.small).foregroundStyle(Color.textMuted)
                     }
                     Spacer(minLength: 0)
                     Image(systemName: "chevron.right").foregroundStyle(Color.textMuted)
@@ -1283,17 +1283,6 @@ struct EventAdvancedSheet: View {
                         .frame(width: 110)
                         .accessibilityLabel(Text("Invitation language"))
                     }
-                    Toggle(isOn: $draft.sensitive) {
-                        HStack(spacing: Tokens.Space.m) {
-                            EventIconView(icon: .fileLock, size: 26)
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text("Send as file + code").font(Tokens.Font.bodyBold)
-                                Text("For sensitive events").font(Tokens.Font.small).foregroundStyle(Color.textMuted)
-                            }
-                        }
-                    }
-                    .tint(Color.brand)
-                    .accessibilityIdentifier("eventSensitiveToggle")
                 }
             }
             .navigationTitle("More options")

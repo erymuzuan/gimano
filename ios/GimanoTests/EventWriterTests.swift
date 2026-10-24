@@ -242,8 +242,10 @@ struct EventHostTests {
         let link = try #require(inv.link)
         let ms = EventShareMessage.link(inv.doc, link: link)
         #expect(ms.hasPrefix("Jemputan: Kenduri Aqil & Sofea\n"))
-        #expect(ms.contains("Buka pelan, tempat parkir & arah: \(link)"))
-        #expect(ms.contains("Belum ada Manotu? Muat turun: \(AppConfig.downloadURL)"))
+        #expect(ms.hasPrefix("Jemputan: \(inv.doc.title)\n"))
+        #expect(ms.contains("\nBuka pelan, parkir & arah: \(link)\n"))
+        #expect(ms.hasSuffix("\nBelum ada Manotu? \(AppConfig.downloadURL)"))
+        #expect(ms.split(separator: "\n").count == 4)
         #expect(ms.contains("11:00"))
         #expect(!ms.contains(inv.secretCode))
         let file = EventShareMessage.file(inv.doc)
@@ -255,7 +257,7 @@ struct EventHostTests {
         // English follows the event's lang.
         d.lang = .en
         let en = try #require(d.event(rev: 1, parent: nil, publishedAt: Self.now).0)
-        #expect(EventShareMessage.link(en, link: link).contains("Open the plan, parking & directions: \(link)"))
+        #expect(EventShareMessage.link(en, link: link).contains("\nOpen the plan, parking & directions: \(link)\nNo Manotu yet? \(AppConfig.downloadURL)"))
         #expect(EventShareMessage.file(en).contains("No Manotu yet? Download: \(AppConfig.downloadURL)"))
     }
 

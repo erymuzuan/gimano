@@ -599,8 +599,8 @@ enum EventPublisher {
     }
 
     /// Validates, signs with the event's own key, seals with a fresh nonce, re-opens to verify, records the revision.
-    /// The link and the default suite-3 file are the same sealed bytes. `codeFile` (default: the draft's "send as file +
-    /// code") also makes the suite-2 file, which runs Argon2id (64 MiB, a fraction of a second): call this off the main actor.
+    /// The link and the suite-3 file are the same sealed bytes. `codeFile` also makes a suite-2 file (not offered in the
+    /// app since the share went back to the link), which runs Argon2id (64 MiB, a fraction of a second): off the main actor.
     static func publish(eventId: String, store: EventStore, secrets: any EventSecretStore, site: String = EventLinks.site,
                         codeFile: Bool? = nil, now: Date = .now) -> Result<PublishedInvite, EventPublishError> {
         guard let hosted = try? store.hostedEvent(id: eventId) else { return .failure(.notFound) }
@@ -634,7 +634,7 @@ enum EventPublisher {
             // Suite 3 (§5.2): the link's own key, nonce and ciphertext behind the file header. No code, no Argon2id.
             let file = try EventPack.openFileBytes(key: s.packKey, sealed: sealed)
             // Suite 2 only when asked for: the event's stable code, a fresh salt and nonce; Argon2id runs here.
-            let codeFileBytes = (codeFile ?? hosted.draft.sensitive)
+            let codeFileBytes = (codeFile ?? false)
                 ? try EventPack.sealFile(eventBytes: prepared.bytes, organizer: organizer, code: code) : nil
             let stopsOnly = link == nil ? stopsOnlyLink(fullBytes: prepared.bytes, organizer: organizer, key: s.packKey, site: site) : nil
             if !prepared.reused { try? store.recordHostedRevision(eventId: eventId, doc: prepared.doc, bytes: prepared.bytes) }

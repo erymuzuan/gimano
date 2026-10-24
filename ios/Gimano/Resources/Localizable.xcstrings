@@ -1078,7 +1078,7 @@
         "ms" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Sesiapa yang ada pautan boleh melihat pelan. Kongsi dalam kumpulan yang anda percaya."
+            "value" : "Sesiapa yang ada pautan boleh lihat pelan. Kongsi dalam kumpulan yang dipercayai."
           }
         }
       }
@@ -4290,6 +4290,16 @@
         }
       }
     },
+    "Guests see the places, times and route distances, but not the route lines." : {
+      "localizations" : {
+        "ms" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tetamu nampak tempat, masa dan jarak laluan, tetapi bukan garis laluan."
+          }
+        }
+      }
+    },
     "Guests see the places, times and route distances, but not the route lines. Send the event file too for those who want the full route." : {
       "localizations" : {
         "ms" : {
@@ -7030,6 +7040,16 @@
         }
       }
     },
+    "Organizer · access end · own note · language" : {
+      "localizations" : {
+        "ms" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Penganjur · akses tamat · nota sendiri · bahasa"
+          }
+        }
+      }
+    },
     "Organizer: %@" : {
       "localizations" : {
         "ms" : {
@@ -9136,6 +9156,16 @@
         }
       }
     },
+    "Share a link without routes: guests see the places, times and route distances, but no lines on the map." : {
+      "localizations" : {
+        "ms" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kongsi pautan tanpa laluan: tetamu nampak tempat, masa dan jarak laluan, tetapi tiada garis di peta."
+          }
+        }
+      }
+    },
     "Share a link without routes?" : {
       "localizations" : {
         "ms" : {
@@ -10714,6 +10744,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Tempat ini mungkin sudah wujud."
+          }
+        }
+      }
+    },
+    "This plan is too long for a link." : {
+      "localizations" : {
+        "ms" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pelan ini terlalu panjang untuk pautan."
           }
         }
       }
@@ -12664,6 +12704,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "“Simpan” kekal dalam telefon anda sahaja. “Tambah tempat” bertanya sama ada untuk anda sahaja, atau dikongsi dan disahkan oleh orang berdekatan."
+          }
+        }
+      }
+    },
+    "“Share invitation” sends the event file instead. Guests open it in Manotu." : {
+      "localizations" : {
+        "ms" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "“Kongsi jemputan” akan menghantar fail acara. Tetamu membukanya dalam Manotu."
           }
         }
       }
