@@ -283,8 +283,8 @@ object HostAgenda {
     data class Item(val day: Int, val start: LocalTime, val end: LocalTime?, val title: String)
 
     private val DAY = Regex("""^(?:hari|day)\s*(\d{1,2})\s*:?$""", RegexOption.IGNORE_CASE)
-    private val ITEM = Regex("""^(\d{1,2})[:.](\d{2})(?:\s*[-–]\s*(\d{1,2})[:.](\d{2}))?\s*[-–:]?\s*(.+)$""")
-    private val TIME = Regex("""^(\d{1,2})[:.](\d{2})$""")
+    private val ITEM = Regex("""^(\d{1,2})[.:](\d{2})(?:\s*[-–]\s*(\d{1,2})[.:](\d{2}))?\s*[-–:]?\s*(.+)$""")
+    private val TIME = Regex("""^(\d{1,2})[.:](\d{2})$""")
 
     /** `H:mm`, `HH:mm` or `HH.mm`; null when it is not a time of day. */
     fun time(s: String): LocalTime? = TIME.matchEntire(s.trim())?.let { m -> hm(m.groupValues[1], m.groupValues[2]) }

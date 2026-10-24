@@ -320,6 +320,10 @@ private fun TypeStep(d: HostDraft, editor: HostEditor) {
         val untouched = EventWizard.defaults(cur.template).times.any { EventWizard.hm(it.start) == cur.startTime && EventWizard.hm(it.end) == cur.endTime }
         EventWizard.chooseTemplate(cur, t, { prefixes[it].orEmpty() }, untouched)
     }
+    // The pre-selected template names a new event too, not only a tapped one.
+    LaunchedEffect(d.id) {
+        if (d.title.isBlank()) editor.update { cur -> if (cur.title.isBlank()) cur.copy(title = prefixes[cur.template].orEmpty()) else cur }
+    }
     StepTitle(stringResource(R.string.ew_type_title), stringResource(R.string.ew_type_sub))
     TypeCard(selected = !EventWizard.isJourney(d.template), icon = "ev_place", title = stringResource(R.string.ew_type_place),
         sub = stringResource(R.string.ew_type_place_sub), foot = stringResource(R.string.ew_type_place_foot),
