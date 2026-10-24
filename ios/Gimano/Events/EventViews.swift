@@ -274,7 +274,7 @@ struct EventImportConfirmView: View {
                     .font(Tokens.Font.body)
             }
             Label { Text(verbatim: EventFormat.range(e.start, e.end, e)) } icon: { Image(systemName: "calendar") }
-            Label { Text("\(e.stops.count) stops") } icon: { Image(systemName: "mappin.and.ellipse") }
+            Label { Text("\(e.stops.count) places") } icon: { Image(systemName: "mappin.and.ellipse") }
             if !e.routes.isEmpty {
                 Label { Text("\(e.routes.count) routes") } icon: { Image(systemName: "point.topleft.down.to.point.bottomright.curvepath") }
                 if e.isStopsOnly {

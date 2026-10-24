@@ -37,7 +37,11 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionInParent
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -170,7 +174,7 @@ internal fun HostedRow(h: HostedEvent, use24h: Boolean, lang: Lang, onClick: () 
                 h.changed -> stringResource(R.string.host_status_changed, h.published.rev.toInt())
                 else -> stringResource(R.string.host_status_published, h.published.rev.toInt())
             }
-            Text(stringResource(R.string.event_stops_n, h.draft.stops.size) + " · " + status, fontSize = 13.sp,
+            Text(pluralStringResource(R.plurals.event_stops_n, h.draft.stops.size, h.draft.stops.size) + " · " + status, fontSize = 13.sp,
                 fontWeight = FontWeight.Bold, color = if (h.published == null || h.changed) c.brandInk else c.textMuted)
         }
     }
@@ -198,6 +202,21 @@ fun EventEditScreen(editor: HostEditor, saved: List<SavedPlace>, use24h: Boolean
     var pickRoute by remember { mutableStateOf(false) }
     // Rides, convoys and trips are about the route: its section comes first and stands out.
     val routeFirst = d.template in setOf("ride", "convoy", "trip")
+    // "Kongsi jemputan" with problems: scroll to the first one (DraftIssue.anchor) and say what it is, so the tap is
+    // never silent while the problem list sits below the fold.
+    val scroll = rememberScrollState()
+    val anchors = remember { HashMap<String, Float>() }
+    fun anchor(key: String): Modifier = Modifier.onGloballyPositioned { anchors[key] = it.positionInParent().y }
+    var blockedTap by remember { mutableIntStateOf(0) }
+    val firstIssue = issues.firstOrNull()
+    val firstIssueText = firstIssue?.let { issueText(it) }
+    val margin = with(LocalDensity.current) { 24.dp.toPx() }
+    LaunchedEffect(blockedTap) {
+        if (blockedTap == 0 || firstIssue == null) return@LaunchedEffect
+        firstIssueText?.let(vm::toastText)
+        val y = anchors[firstIssue.anchor] ?: anchors["issues"]
+        if (y != null) scroll.animateScrollTo((y - margin).toInt().coerceIn(0, scroll.maxValue))
+    }
 
     Column(Modifier.fillMaxSize().background(c.background).windowInsetsPadding(WindowInsets.statusBars).imePadding()) {
         Row(Modifier.fillMaxWidth().padding(4.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -212,8 +231,8 @@ fun EventEditScreen(editor: HostEditor, saved: List<SavedPlace>, use24h: Boolean
             }
             IconButton(onClick = { askDelete = true }) { Icon(Icons.Filled.Delete, stringResource(R.string.event_delete), tint = c.textMuted) }
         }
-        Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(horizontal = 16.dp)) {
-            OutlinedTextField(d.title, { v -> editor.update { it.copy(title = cap(v, EventLimits.TITLE_CHARS)) } }, Modifier.fillMaxWidth(),
+        Column(Modifier.weight(1f).verticalScroll(scroll).padding(horizontal = 16.dp)) {
+            OutlinedTextField(d.title, { v -> editor.update { it.copy(title = cap(v, EventLimits.TITLE_CHARS)) } }, anchor("title").fillMaxWidth(),
                 label = { Text(stringResource(R.string.host_title)) }, singleLine = true, shape = RoundedCornerShape(Radius.md),
                 isError = issues.any { it.code == DraftIssue.Code.TITLE_REQUIRED })
             Row(Modifier.padding(top = 10.dp).horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -224,36 +243,38 @@ fun EventEditScreen(editor: HostEditor, saved: List<SavedPlace>, use24h: Boolean
             val start = runCatching { d.start() }.getOrNull()
             val end = runCatching { d.end() }.getOrNull()
             val z = d.zone()
-            Row(Modifier.padding(top = 10.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(anchor("time").padding(top = 10.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 FieldButton(stringResource(R.string.host_date), start?.let { day(it, z, lang) } ?: d.date, Modifier.weight(1.2f)) { pickDate = true }
                 FieldButton(stringResource(R.string.host_start), start?.let { clock(it, z, use24h, lang) } ?: d.startTime, Modifier.weight(1f)) { pickTime = 0 }
                 FieldButton(stringResource(R.string.host_end), end?.let { clock(it, z, use24h, lang) } ?: d.endTime, Modifier.weight(1f)) { pickTime = 1 }
             }
             if (start != null && end != null && end.toLocalDate() != start.toLocalDate())
                 Text(stringResource(R.string.host_ends_next_day), fontSize = 13.sp, color = c.textMuted, modifier = Modifier.padding(top = 4.dp))
-            OutlinedTextField(d.alias, { v -> editor.update { it.copy(alias = cap(v, EventLimits.ALIAS_CHARS)) } }, Modifier.fillMaxWidth().padding(top = 10.dp),
+            OutlinedTextField(d.alias, { v -> editor.update { it.copy(alias = cap(v, EventLimits.ALIAS_CHARS)) } }, anchor("alias").fillMaxWidth().padding(top = 10.dp),
                 label = { Text(stringResource(R.string.host_alias)) }, supportingText = { Text(stringResource(R.string.host_alias_hint)) },
                 singleLine = true, shape = RoundedCornerShape(Radius.md))
             OutlinedTextField(d.description, { v -> editor.update { it.copy(description = cap(v, EventLimits.DESCRIPTION_CHARS)) } },
-                Modifier.fillMaxWidth(), label = { Text(stringResource(R.string.host_description)) }, minLines = 2, maxLines = 5, shape = RoundedCornerShape(Radius.md))
+                anchor("description").fillMaxWidth(), label = { Text(stringResource(R.string.host_description)) }, minLines = 2, maxLines = 5, shape = RoundedCornerShape(Radius.md))
 
-            if (routeFirst) RoutesSection(d, issues, prominent = true, canPick = personalRoutes != null, onOpen = vm::openEventRoute, onPick = { pickRoute = true })
+            if (routeFirst) RoutesSection(d, issues, prominent = true, canPick = personalRoutes != null, onOpen = vm::openEventRoute, onPick = { pickRoute = true }, anchor = ::anchor)
             Section(stringResource(R.string.host_stops_section))
             d.stops.forEachIndexed { i, s ->
                 StopCard(s, i, d.stops.size, bad = issues.any { it.stop == i }, onClick = { editor.editStop(s.id) },
-                    onUp = { editor.moveStop(s.id, -1) }, onDown = { editor.moveStop(s.id, 1) })
+                    onUp = { editor.moveStop(s.id, -1) }, onDown = { editor.moveStop(s.id, 1) }, modifier = anchor("stop:$i"))
                 Spacer(Modifier.height(8.dp))
             }
-            Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(Radius.md)).border(2.dp, c.outline, RoundedCornerShape(Radius.md))
+            val noStops = issues.any { it.code == DraftIssue.Code.NO_STOPS }
+            Row(anchor("add_stop").fillMaxWidth().clip(RoundedCornerShape(Radius.md))
+                .border(2.dp, if (noStops) c.report else c.outline, RoundedCornerShape(Radius.md))
                 .clickable(enabled = d.stops.size < EventLimits.MAX_STOPS) { addOpen = true }.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
                 Icon(Icons.Filled.Add, null, tint = c.brand)
                 Spacer(Modifier.width(8.dp))
                 Text(stringResource(R.string.host_add_stop), fontWeight = FontWeight.ExtraBold, color = c.brand, fontSize = 16.sp)
             }
-            if (!routeFirst) RoutesSection(d, issues, prominent = false, canPick = personalRoutes != null, onOpen = vm::openEventRoute, onPick = { pickRoute = true })
+            if (!routeFirst) RoutesSection(d, issues, prominent = false, canPick = personalRoutes != null, onOpen = vm::openEventRoute, onPick = { pickRoute = true }, anchor = ::anchor)
 
             // "Akses tamat Ahad 16 Nov, 16:00 (24 jam selepas acara). Boleh ubah."
-            Column(Modifier.padding(top = 16.dp).fillMaxWidth().clip(RoundedCornerShape(Radius.md)).background(c.brandMist).clickable { pickExpiryDate = true }.padding(14.dp)) {
+            Column(anchor("expiry").padding(top = 16.dp).fillMaxWidth().clip(RoundedCornerShape(Radius.md)).background(c.brandMist).clickable { pickExpiryDate = true }.padding(14.dp)) {
                 Text(stringResource(R.string.host_access_ends), style = GimanoType.label, color = c.brandInk)
                 val exp = runCatching { d.expires() }.getOrNull()
                 Text(exp?.let { instantText(it, z, use24h, lang) } ?: "-", fontSize = 17.sp, fontWeight = FontWeight.ExtraBold, color = c.text)
@@ -264,11 +285,11 @@ fun EventEditScreen(editor: HostEditor, saved: List<SavedPlace>, use24h: Boolean
             OutlinedTextField(d.organizerNotes, { v -> editor.update { it.copy(organizerNotes = cap(v, 2000)) } }, Modifier.fillMaxWidth().padding(top = 10.dp),
                 label = { Text(stringResource(R.string.host_organizer_notes)) }, supportingText = { Text(stringResource(R.string.host_organizer_notes_hint)) },
                 minLines = 2, maxLines = 5, shape = RoundedCornerShape(Radius.md))
-            issues.distinct().forEach { Warning(issueText(it)) }
+            Box(anchor("issues")) { Column { issues.distinct().forEach { Warning(issueText(it)) } } }
             Spacer(Modifier.height(16.dp))
         }
         Column(Modifier.fillMaxWidth().background(c.surface).padding(16.dp).navigationBarsPadding()) {
-            Button(onClick = { vm.shareHostEvent() }, enabled = !publishing, modifier = Modifier.fillMaxWidth().height(56.dp), shape = RoundedCornerShape(Radius.md),
+            Button(onClick = { vm.shareHostEvent { blockedTap++ } }, enabled = !publishing, modifier = Modifier.fillMaxWidth().height(56.dp), shape = RoundedCornerShape(Radius.md),
                 colors = ButtonDefaults.buttonColors(containerColor = c.brand, contentColor = c.brandOn)) {
                 if (publishing) CircularProgressIndicator(Modifier.size(22.dp), color = c.brandOn, strokeWidth = 2.dp)
                 else { Icon(Icons.Filled.Share, null); Spacer(Modifier.width(8.dp)); Text(stringResource(R.string.host_share_invite), fontWeight = FontWeight.ExtraBold, fontSize = 17.sp) }
@@ -346,13 +367,14 @@ fun EventEditScreen(editor: HostEditor, saved: List<SavedPlace>, use24h: Boolean
 
 /** "Laluan": the event's routes (route builder), with "Bina laluan" and "Dari Laluan saya". */
 @Composable
-private fun RoutesSection(d: HostDraft, issues: List<DraftIssue>, prominent: Boolean, canPick: Boolean, onOpen: (String?) -> Unit, onPick: () -> Unit) {
+private fun RoutesSection(d: HostDraft, issues: List<DraftIssue>, prominent: Boolean, canPick: Boolean, onOpen: (String?) -> Unit, onPick: () -> Unit,
+    anchor: (String) -> Modifier = { Modifier }) {
     val c = Gimano.colors
-    Section(stringResource(R.string.host_routes_section))
+    Box(anchor("routes")) { Section(stringResource(R.string.host_routes_section)) }
     d.routes.forEachIndexed { i, r ->
         val sum = remember(r) { my.gimano.app.core.routes.RouteAssembly.summary(r) }
         val bad = issues.any { it.route == i }
-        Row(Modifier.padding(bottom = 8.dp).fillMaxWidth().clip(RoundedCornerShape(Radius.md)).background(c.surface)
+        Row(anchor("route:$i").padding(bottom = 8.dp).fillMaxWidth().clip(RoundedCornerShape(Radius.md)).background(c.surface)
             .then(if (bad) Modifier.border(2.dp, c.report, RoundedCornerShape(Radius.md)) else Modifier)
             .clickable { onOpen(r.id) }.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
             Box(Modifier.size(40.dp).clip(RoundedCornerShape(12.dp)).background(c.brandMist), contentAlignment = Alignment.Center) {
@@ -369,7 +391,7 @@ private fun RoutesSection(d: HostDraft, issues: List<DraftIssue>, prominent: Boo
                     sum.navigable -> stringResource(R.string.rb_routed)
                     else -> stringResource(R.string.rb_sketch)
                 }
-                Text(listOf(Formatters.distance(sum.distanceM.toDouble()), stringResource(R.string.rb_points_n, r.points.size), status).joinToString(" · "),
+                Text(listOf(Formatters.distance(sum.distanceM.toDouble()), pluralStringResource(R.plurals.rb_points_n, r.points.size, r.points.size), status).joinToString(" · "),
                     fontSize = 13.sp, color = if (bad) c.report else c.textMuted, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
         }
@@ -419,9 +441,9 @@ private fun FieldButton(label: String, value: String, modifier: Modifier, onClic
 }
 
 @Composable
-private fun StopCard(s: HostStop, i: Int, n: Int, bad: Boolean, onClick: () -> Unit, onUp: () -> Unit, onDown: () -> Unit) {
+private fun StopCard(s: HostStop, i: Int, n: Int, bad: Boolean, onClick: () -> Unit, onUp: () -> Unit, onDown: () -> Unit, modifier: Modifier = Modifier) {
     val c = Gimano.colors
-    Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(Radius.md)).background(c.surface)
+    Row(modifier.fillMaxWidth().clip(RoundedCornerShape(Radius.md)).background(c.surface)
         .then(if (bad) Modifier.border(2.dp, c.report, RoundedCornerShape(Radius.md)) else Modifier)
         .clickable(onClick = onClick).padding(start = 12.dp, top = 10.dp, bottom = 10.dp, end = 4.dp), verticalAlignment = Alignment.CenterVertically) {
         Box(Modifier.size(40.dp).clip(RoundedCornerShape(12.dp)).background(c.brandMist), contentAlignment = Alignment.Center) {
@@ -619,7 +641,7 @@ fun EventShareScreen(editor: HostEditor, use24h: Boolean, onBack: () -> Unit) {
         }
         Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(horizontal = 16.dp).navigationBarsPadding()) {
             val z = EventSchedule.zone(plan)
-            Text(listOf(plan.title, stringResource(R.string.event_stops_n, plan.stops.size),
+            Text(listOf(plan.title, pluralStringResource(R.plurals.event_stops_n, plan.stops.size, plan.stops.size),
                 stringResource(R.string.host_share_ends, day(plan.expiresAt.atOffset(ZoneOffset.UTC), z, lang))).joinToString(" · "),
                 fontSize = 15.sp, fontWeight = FontWeight.Bold, color = c.textMuted)
             Text(stringResource(if (p.reused) R.string.host_share_same_rev else R.string.host_share_rev, plan.rev.toInt()), fontSize = 13.sp, color = c.textMuted)

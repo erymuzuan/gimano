@@ -123,6 +123,8 @@ class RouteBuilder(private val scope: CoroutineScope, private val router: LegRou
     fun closeLoop() = edit(RouteEdit::closeLoop)
     fun clear() { edit(RouteEdit::clear); select(null) }
     fun keepAsSketch(leg: Int) = edit { RouteEdit.keepLegAsSketch(it, leg) }
+    /** Every waiting or failed leg becomes a sketch at once (one undo step). */
+    fun keepOpenAsSketch() = edit(RouteEdit::keepOpenLegsAsSketch)
     fun retry() = edit(RouteEdit::retryUnresolved)
     fun setMode(mode: String) = edit { RouteEdit.setOptions(it, mode = mode) }
     fun setFollowRoads(on: Boolean) = edit { RouteEdit.setOptions(it, followRoads = on) }

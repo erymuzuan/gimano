@@ -42,7 +42,8 @@ struct MyRoutesView: View {
         .toolbar { ToolbarItem(placement: .topBarTrailing) { Button("Done") { center.isPresented = false } } }
         .onAppear { center.reloadPersonalRoutes() }
         .fullScreenCover(item: $building) { r in
-            RouteBuilderView(route: r, context: .personal, transport: model.routeBuilderTransport, start: model.position) { saved, _ in
+            RouteBuilderView(route: r, context: .personal, transport: model.routeBuilderTransport, isDemo: model.routeBuilderIsDemo,
+                             start: model.position) { saved, _ in
                 center.savePersonalRoute(saved)
             }
         }
@@ -99,6 +100,7 @@ struct EventRoutesSection: View {
                 }
                 .buttonStyle(.plain)
                 .accessibilityIdentifier("eventRoute.\(r.id)")
+                .id(EventDraftIssue.Anchor.route(r.id))
                 .contextMenu {
                     Button("Delete route", systemImage: "trash", role: .destructive) { draft.routes.removeAll { $0.id == r.id } }
                 }
@@ -110,6 +112,7 @@ struct EventRoutesSection: View {
             }
             .disabled(draft.routes.count >= EventLimits.maxRoutes)
             .accessibilityIdentifier("eventAddRoute")
+            .id(EventDraftIssue.Anchor.routes)
             let mine = model.events.personalRoutes
             if !mine.isEmpty {
                 Menu {

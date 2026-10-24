@@ -744,7 +744,10 @@
     <string name="event_by_unnamed">Organizer without a name</string>
     <string name="event_safety_code">Safety code</string>
     <string name="event_safety_hint">Check this code with the organizer (call or in person) before saving.</string>
-    <string name="event_stops_n">%1$d stops</string>
+    <plurals name="event_stops_n">
+        <item quantity="one">%1$d place</item>
+        <item quantity="other">%1$d places</item>
+    </plurals>
     <string name="event_rev">Revision %1$d</string>
     <string name="event_access_until">Opens until %1$s</string>
     <string name="event_warn_fork">The organizer published two different versions of revision %1$d. Both are kept; you can switch on the event page.</string>
@@ -943,6 +946,7 @@
     <string name="rb_open_legs">%1$d to calculate</string>
     <string name="rb_retry">Try again</string>
     <string name="rb_offline">No connection: points stay editable</string>
+    <string name="rb_demo">Demo mode: roads aren\'t calculated. Keep as sketch or turn off demo mode.</string>
     <string name="rb_no_route">No road found between these points</string>
     <string name="rb_unmatched">No road</string>
     <string name="rb_redraw">Redraw</string>
@@ -968,7 +972,10 @@
     <string name="rb_day_none">Any day</string>
     <string name="rb_too_many_routes">An event can have up to %1$d routes</string>
     <string name="rb_routed">follows roads</string>
-    <string name="rb_points_n">%1$d points</string>
+    <plurals name="rb_points_n">
+        <item quantity="one">%1$d point</item>
+        <item quantity="other">%1$d points</item>
+    </plurals>
     <string name="rb_delete_confirm">Delete this route?</string>
     <string name="rb_pick_route">Choose a route</string>
     <string name="rb_point_desc">%1$s, %2$s</string>

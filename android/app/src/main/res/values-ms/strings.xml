@@ -742,7 +742,9 @@
     <string name="event_by_unnamed">Penganjur tanpa nama</string>
     <string name="event_safety_code">Kod keselamatan</string>
     <string name="event_safety_hint">Semak kod ini dengan penganjur (telefon atau bersemuka) sebelum menyimpan.</string>
-    <string name="event_stops_n">%1$d hentian</string>
+    <plurals name="event_stops_n">
+        <item quantity="other">%1$d tempat</item>
+    </plurals>
     <string name="event_rev">Versi %1$d</string>
     <string name="event_access_until">Boleh dibuka sehingga %1$s</string>
     <string name="event_warn_fork">Penganjur menerbitkan dua versi %1$d yang berbeza. Kedua-duanya disimpan; anda boleh tukar di halaman acara.</string>
@@ -941,6 +943,7 @@
     <string name="rb_open_legs">%1$d perlu dikira</string>
     <string name="rb_retry">Cuba lagi</string>
     <string name="rb_offline">Tiada sambungan: titik masih boleh diubah</string>
+    <string name="rb_demo">Mod demo: jalan tidak dikira. Simpan sebagai lakaran atau matikan mod demo.</string>
     <string name="rb_no_route">Tiada jalan dijumpai antara titik ini</string>
     <string name="rb_unmatched">Tiada jalan</string>
     <string name="rb_redraw">Lukis semula</string>
@@ -966,7 +969,9 @@
     <string name="rb_day_none">Semua hari</string>
     <string name="rb_too_many_routes">Acara boleh ada %1$d laluan sahaja</string>
     <string name="rb_routed">ikut jalan</string>
-    <string name="rb_points_n">%1$d titik</string>
+    <plurals name="rb_points_n">
+        <item quantity="other">%1$d titik</item>
+    </plurals>
     <string name="rb_delete_confirm">Padam laluan ini?</string>
     <string name="rb_pick_route">Pilih laluan</string>
     <string name="rb_point_desc">%1$s, %2$s</string>

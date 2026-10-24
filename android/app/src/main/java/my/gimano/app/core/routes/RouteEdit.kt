@@ -164,6 +164,16 @@ object RouteEdit {
         return r.copy(legs = r.legs.toMutableList().also { it[legIndex] = leg })
     }
 
+    /**
+     * "Simpan sebagai lakaran" for every leg still waiting or failed (PENDING or UNRESOLVED), in one edit (one undo
+     * step). Routed, matched and sketch legs are left as they are; null when there is nothing to keep.
+     */
+    fun keepOpenLegsAsSketch(r: BuilderRoute): BuilderRoute? {
+        val idx = r.legs.indices.filter { r.legs[it].state == LegState.PENDING || r.legs[it].state == LegState.UNRESOLVED }
+        if (idx.isEmpty()) return null
+        return idx.fold(r) { acc, i -> keepLegAsSketch(acc, i) ?: acc }
+    }
+
     fun retryLeg(r: BuilderRoute, legIndex: Int): BuilderRoute? {
         if (legIndex !in r.legs.indices) return null
         return settle(invalidate(r, legIndex))

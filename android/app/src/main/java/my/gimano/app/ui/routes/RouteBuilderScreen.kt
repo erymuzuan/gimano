@@ -530,12 +530,18 @@ private fun StatusBanner(u: BuilderUi, sum: my.gimano.app.core.routes.RouteSumma
             IconAction(Icons.Filled.Timeline, stringResource(R.string.rb_keep_sketch)) { builder.keepAsSketch(unmatched) }
         }
         failed.isNotEmpty() -> {
+            // Demo data mode has no server: say so honestly instead of "no connection", and don't offer a retry.
+            val demo = failed.all { it.problem == RouteProblem.DEMO }
             val offline = failed.any { it.problem == RouteProblem.OFFLINE || it.problem == RouteProblem.UNAVAILABLE }
-            Banner(stringResource(R.string.rb_open_legs, sum.openLegs) + " · " +
-                stringResource(if (offline) R.string.rb_offline else R.string.rb_no_route)) {
-                BannerAction(stringResource(R.string.rb_retry), Icons.Filled.Refresh) { builder.retry() }
-                val li = r.legs.indexOfFirst { it.state == LegState.UNRESOLVED }
-                if (li >= 0) BannerAction(stringResource(R.string.rb_keep_sketch)) { builder.keepAsSketch(li) }
+            val reason = when {
+                demo -> R.string.rb_demo
+                offline -> R.string.rb_offline
+                else -> R.string.rb_no_route
+            }
+            Banner(stringResource(R.string.rb_open_legs, sum.openLegs) + " · " + stringResource(reason)) {
+                if (!demo) BannerAction(stringResource(R.string.rb_retry), Icons.Filled.Refresh) { builder.retry() }
+                // One tap turns every waiting or failed leg into a sketch (one undo step).
+                BannerAction(stringResource(R.string.rb_keep_sketch)) { builder.keepOpenAsSketch() }
             }
         }
         sum.pendingLegs > 0 -> Text(stringResource(R.string.rb_open_legs, sum.pendingLegs), Modifier.padding(top = 8.dp), fontSize = 13.sp,

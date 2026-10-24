@@ -226,6 +226,36 @@ enum EventDraftIssue: Equatable, Sendable {
         default: nil
         }
     }
+
+    /// Scroll targets in the event editor (`.id(...)`), so a blocked "Share invitation" can show the first problem.
+    enum Anchor {
+        static let title = "anchor.title"
+        static let alias = "anchor.alias"
+        static let description = "anchor.description"
+        static let time = "anchor.time"
+        static let expiry = "anchor.expiry"
+        static let addPlace = "anchor.addPlace"
+        static let routes = "anchor.routes"
+        static let problems = "anchor.problems"
+        static func stop(_ id: String) -> String { "anchor.stop.\(id)" }
+        static func route(_ id: String) -> String { "anchor.route.\(id)" }
+    }
+
+    /// Where the editor scrolls to for this problem: its field, place or route row, else the list of problems.
+    var anchor: String {
+        switch self {
+        case .titleMissing, .titleTooLong: Anchor.title
+        case .aliasTooLong: Anchor.alias
+        case .descriptionTooLong: Anchor.description
+        case .endBeforeStart, .tooLong: Anchor.time
+        case .expired: Anchor.expiry
+        case .noStops, .tooManyStops: Anchor.addPlace
+        case .stopLabel(let id), .stopNotes(let id), .stopAudience(let id): Anchor.stop(id)
+        case .routeIncomplete(let id), .routeUnmatched(let id): Anchor.route(id)
+        case .tooManyRoutes, .tooManyRoutePoints: Anchor.routes
+        case .invalid: Anchor.problems
+        }
+    }
 }
 
 // MARK: - Secrets (Keychain, this device only)

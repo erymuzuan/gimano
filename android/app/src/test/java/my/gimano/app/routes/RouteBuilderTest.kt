@@ -165,6 +165,38 @@ class RouteEditTest {
         assertEquals(LegState.PENDING, retried.legs[0].state)
     }
 
+    @Test fun keepAllOpenLegsAsSketchInOneEdit() {
+        var r = BuilderRoute("r")
+        for (i in 0 until 4) r = RouteEdit.addPoint(r, pos(3.0 + i * 0.1, 101.0 + i * 0.1))!!
+        val jobs = RouteEdit.pendingJobs(r)
+        // Leg 0 routed, leg 1 failed (demo mode), leg 2 still waiting.
+        r = RouteEdit.applyJob(r, jobs[0], RouteEdit.JobResult.Routed(listOf(pos(3.0, 101.0), pos(3.05, 101.06), pos(3.1, 101.1)), 1500, 300))!!
+        r = RouteEdit.applyJob(r, jobs[1], RouteEdit.JobResult.Failed(RouteProblem.DEMO))!!
+        assertEquals(listOf(LegState.ROUTED, LegState.UNRESOLVED, LegState.PENDING), r.legs.map { it.state })
+        val kept = RouteEdit.keepOpenLegsAsSketch(r)!!
+        assertEquals(listOf(LegState.ROUTED, LegState.SKETCH, LegState.SKETCH), kept.legs.map { it.state })
+        assertEquals(r.legs[0], kept.legs[0])                       // the road leg is untouched
+        assertEquals(listOf(r.points[1].pos, r.points[2].pos), kept.legs[1].geometry)
+        assertTrue(kept.legs.all { it.problem == null })
+        assertEquals(0, RouteAssembly.summary(kept).openLegs)
+        assertNull(RouteEdit.keepOpenLegsAsSketch(kept))            // nothing left to keep
+    }
+
+    @Test fun builderKeepAllAsSketchIsOneUndoStep() = runTest {
+        val router = object : LegRouter {
+            override suspend fun run(job: RouteEdit.LegJob): RouteEdit.JobResult = RouteEdit.JobResult.Failed(RouteProblem.DEMO)
+        }
+        val b = RouteBuilder(this, router)
+        b.start(BuilderRoute("r"), BuilderTarget.Event) {}
+        for (i in 0 until 4) b.tapMap(pos(3.0 + i * 0.1, 101.0 + i * 0.1))
+        advanceUntilIdle()
+        assertEquals(List(3) { LegState.UNRESOLVED }, b.route!!.legs.map { it.state })
+        assertTrue(b.keepOpenAsSketch())
+        assertEquals(List(3) { LegState.SKETCH }, b.route!!.legs.map { it.state })
+        b.undo()
+        assertEquals(List(3) { LegState.UNRESOLVED }, b.route!!.legs.map { it.state })
+    }
+
     @Test fun stopLinksFollowAndDrop() {
         var r = routed(3)
         r = RouteEdit.snapToStop(r, 1, "stopA", pos(3.0105, 101.5105))!!
@@ -291,6 +323,11 @@ class RouteAssemblyTest {
         assertEquals(GeometrySource.SKETCH, plan.routes.single().source)
         assertNull(plan.routes.single().durationS)
         assertTrue(plan.routes.single().stopIds.isEmpty())
+        // "Kongsi jemputan" with blockers scrolls to the first problem.
+        assertEquals("route:0", DraftIssue(DraftIssue.Code.ROUTE_NOT_READY, route = 0).anchor)
+        assertEquals("add_stop", HostDraftRules.issues(d0.copy(stops = emptyList()), now).first().anchor)
+        assertEquals("title", DraftIssue(DraftIssue.Code.TITLE_REQUIRED).anchor)
+        assertEquals("stop:2", DraftIssue(DraftIssue.Code.STOP_LABEL_REQUIRED, stop = 2).anchor)
         // Too many routes.
         val many = (0..20).map { routed(2).copy(id = EventIds.newItemId()) }
         assertTrue(HostDraftRules.issues(d0.copy(routes = many), now).any { it.code == DraftIssue.Code.TOO_MANY_ROUTES })
@@ -444,7 +481,11 @@ class LegRouterTest {
         assertEquals(RouteEdit.JobResult.Failed(RouteProblem.NO_ROUTE), router(Canned(200, """{"routes":[]}""")).run(job))
         val off = Canned(200, "{}").also { it.fail = IOException("no network") }
         assertEquals(RouteEdit.JobResult.Failed(RouteProblem.OFFLINE), router(off).run(job))
-        assertEquals(RouteEdit.JobResult.Failed(RouteProblem.OFFLINE), ApiLegRouter { null }.run(job))   // demo mode / no server
+        assertEquals(RouteEdit.JobResult.Failed(RouteProblem.OFFLINE), ApiLegRouter { null }.run(job))   // server unreachable (fallback)
+        // Demo data mode: an honest "demo" problem, never OFFLINE, and the server is not even asked.
+        var asked = false
+        assertEquals(RouteEdit.JobResult.Failed(RouteProblem.DEMO), ApiLegRouter(demo = { true }) { asked = true; null }.run(job))
+        assertFalse(asked)
     }
 }
 

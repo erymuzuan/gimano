@@ -69,6 +69,8 @@ struct EventEditorView: View {
     @State private var publishError: String?
     @State private var confirmDelete = false
     @State private var buildingRoute: RouteDraft?
+    /// Bumped when "Share invitation" is blocked: the form scrolls to the first problem (`EventDraftIssue.anchor`).
+    @State private var blockedTap = 0
 
     var body: some View {
         Group {
@@ -108,7 +110,7 @@ struct EventEditorView: View {
         .fullScreenCover(item: $buildingRoute) { r in
             let d = draft ?? .new()
             RouteBuilderView(route: r, stops: d.stops, context: .event(title: d.title.isEmpty ? String(localized: "New event") : d.title),
-                             days: d.days, transport: model.routeBuilderTransport, start: d.stops.first?.location ?? model.position) { saved, stops in
+                             days: d.days, transport: model.routeBuilderTransport, isDemo: model.routeBuilderIsDemo, start: d.stops.first?.location ?? model.position) { saved, stops in
                 guard var nd = draft else { return }
                 nd.stops = stops
                 if let i = nd.routes.firstIndex(where: { $0.id == saved.id }) { nd.routes[i] = saved } else { nd.routes.append(saved) }
@@ -135,11 +137,12 @@ struct EventEditorView: View {
     private var form: some View {
         let d = binding
         let hosted = model.events.hostedEvent(eventId)
-        return Form {
+        return ScrollViewReader { proxy in Form {
             Section {
                 TextField("Event name", text: d.title)
                     .font(Tokens.Font.bodyBold)
                     .accessibilityIdentifier("eventTitleField")
+                    .id(EventDraftIssue.Anchor.title)
                 Picker("Type", selection: d.template) {
                     ForEach(EventTemplate.allCases, id: \.self) { t in
                         Label { Text(t.title) } icon: { Image(systemName: EventFormat.icon(t)) }.tag(t)
@@ -147,8 +150,10 @@ struct EventEditorView: View {
                 }
                 TextField("Organizer name (optional)", text: d.alias)
                     .accessibilityIdentifier("eventAliasField")
+                    .id(EventDraftIssue.Anchor.alias)
                 TextField("Description (optional)", text: d.description, axis: .vertical)
                     .lineLimit(1...5)
+                    .id(EventDraftIssue.Anchor.description)
             } header: {
                 HStack {
                     Text("New event").font(Tokens.Font.label)
@@ -161,6 +166,7 @@ struct EventEditorView: View {
 
             Section {
                 DatePicker("Date", selection: shifting(d), displayedComponents: .date)
+                    .id(EventDraftIssue.Anchor.time)
                 DatePicker("Starts", selection: shifting(d), displayedComponents: .hourAndMinute)
                     .accessibilityIdentifier("eventStartTime")
                 Toggle("Ends on another day", isOn: $multiDay)
@@ -176,6 +182,7 @@ struct EventEditorView: View {
                     Button { editingStop = s } label: { stopRow(s) }
                         .buttonStyle(.plain)
                         .accessibilityIdentifier("eventStop.\(s.id)")
+                        .id(EventDraftIssue.Anchor.stop(s.id))
                         .contextMenu {
                             Button("Move up", systemImage: "arrow.up") { move(s.id, by: -1) }
                             Button("Move down", systemImage: "arrow.down") { move(s.id, by: 1) }
@@ -191,6 +198,11 @@ struct EventEditorView: View {
                         .font(Tokens.Font.label)
                 }
                 .accessibilityIdentifier("eventAddPlace")
+                .id(EventDraftIssue.Anchor.addPlace)
+                if problems.contains(.noStops) {
+                    Label { Text(verbatim: EventDraftIssue.noStops.message) } icon: { Image(systemName: "exclamationmark.circle.fill") }
+                        .font(Tokens.Font.caption).foregroundStyle(Color.speeding)
+                }
             } header: {
                 Text("Places in the event").font(Tokens.Font.label)
             } footer: {
@@ -206,6 +218,7 @@ struct EventEditorView: View {
                                                                                       timeZone: d.wrappedValue.timeZone)))
                         .font(Tokens.Font.bodyBold)
                         .accessibilityIdentifier("eventExpiry")
+                        .id(EventDraftIssue.Anchor.expiry)
                     if d.wrappedValue.expiresAtOverride == nil {
                         Text("(24 hours after the event). You can change it.").font(Tokens.Font.caption).foregroundStyle(Color.textMuted)
                     }
@@ -236,6 +249,7 @@ struct EventEditorView: View {
                             .font(Tokens.Font.caption).foregroundStyle(Color.speeding)
                     }
                 }
+                .id(EventDraftIssue.Anchor.problems)
             }
 
             Section {
@@ -260,6 +274,13 @@ struct EventEditorView: View {
             Section {
                 Button(role: .destructive) { confirmDelete = true } label: { Label("Delete event", systemImage: "trash") }
             }
+        }
+        // "Share invitation" with problems is never a silent tap: go to the first one (its row is marked) and buzz.
+        .onChange(of: blockedTap) {
+            guard let first = problems.first else { return }
+            withAnimation { proxy.scrollTo(first.anchor, anchor: .center) }
+        }
+        .sensoryFeedback(.error, trigger: blockedTap)
         }
     }
 
@@ -309,7 +330,7 @@ struct EventEditorView: View {
         model.events.saveDraft(d)
         let (_, issues) = d.event(rev: 1, parent: nil, publishedAt: Date())
         problems = issues
-        guard issues.isEmpty else { return }
+        guard issues.isEmpty else { blockedTap += 1; return }
         publishError = model.events.publish(eventId)
     }
 }

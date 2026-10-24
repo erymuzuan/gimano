@@ -193,6 +193,40 @@
         }
       }
     },
+    "%lld places" : {
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld place"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld places"
+                }
+              }
+            }
+          }
+        },
+        "ms" : {
+          "variations" : {
+            "plural" : {
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld tempat"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "%lld reviews" : {
       "localizations" : {
         "ms" : {
@@ -205,10 +239,34 @@
     },
     "%lld routes" : {
       "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld route"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld routes"
+                }
+              }
+            }
+          }
+        },
         "ms" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%lld laluan"
+          "variations" : {
+            "plural" : {
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld laluan"
+                }
+              }
+            }
           }
         }
       }
@@ -219,16 +277,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "%lld bintang"
-          }
-        }
-      }
-    },
-    "%lld stops" : {
-      "localizations" : {
-        "ms" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%lld hentian"
           }
         }
       }
@@ -2577,6 +2625,16 @@
         }
       }
     },
+    "Demo mode: roads aren't calculated. Keep as sketch or turn off demo mode." : {
+      "localizations" : {
+        "ms" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mod demo: jalan tidak dikira. Simpan sebagai lakaran atau matikan mod demo."
+          }
+        }
+      }
+    },
     "Demo mode: these backups stay on this phone. They are not in Google Drive or iCloud." : {
       "localizations" : {
         "ms" : {
@@ -4500,6 +4558,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Kekal"
+          }
+        }
+      }
+    },
+    "Keep as sketch" : {
+      "localizations" : {
+        "ms" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Simpan sebagai lakaran"
           }
         }
       }
@@ -6754,10 +6822,34 @@
     },
     "Point list, %lld points" : {
       "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Point list, %lld point"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Point list, %lld points"
+                }
+              }
+            }
+          }
+        },
         "ms" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Senarai titik, %lld titik"
+          "variations" : {
+            "plural" : {
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Senarai titik, %lld titik"
+                }
+              }
+            }
           }
         }
       }

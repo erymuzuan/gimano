@@ -153,12 +153,13 @@ class AppContainer(val app: Application) {
     }
     /**
      * Route builder legs: anonymous client (no account token, no request signing), coordinates + mode only, `store: false`.
-     * In demo mode (no server) legs stay "perlu dikira".
+     * In demo mode (no server) legs fail with RouteProblem.DEMO ("Mod demo: jalan tidak dikira").
      */
     private val routingClient by lazy { my.gimano.app.data.remote.ApiFactory.okHttp({ null }, null, { my.gimano.app.data.remote.ApiFactory.acceptLanguage(lang() == Lang.MS) }) }
     private var routingApi: Pair<String, my.gimano.app.data.remote.GimanoApi>? = null
     val routeBuilder by lazy {
-        my.gimano.app.data.routes.RouteBuilder(scope, my.gimano.app.data.routes.ApiLegRouter {
+        my.gimano.app.data.routes.RouteBuilder(scope, my.gimano.app.data.routes.ApiLegRouter(demo = { settings.current.demoMode }) {
+            // Server unreachable (fallback to demo data): a real connection problem, so legs fail as OFFLINE.
             if (repo.isDemo) null
             else {
                 val base = settings.current.apiBaseUrl

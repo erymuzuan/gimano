@@ -23,6 +23,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -171,7 +172,7 @@ private fun ReviewSheet(s: EventImportUi.Review, use24h: Boolean, lang: Lang, on
                 fontSize = 15.sp, fontWeight = FontWeight.Bold, color = c.textMuted)
             Spacer(Modifier.height(12.dp))
             InfoLine(eventWhen(p, use24h, lang))
-            InfoLine(stringResource(R.string.event_stops_n, p.stops.size) + " · " + stringResource(R.string.event_rev, p.rev.toInt()))
+            InfoLine(pluralStringResource(R.plurals.event_stops_n, p.stops.size, p.stops.size) + " · " + stringResource(R.string.event_rev, p.rev.toInt()))
             InfoLine(stringResource(R.string.event_access_until, instantText(p.expiresAt, EventSchedule.zone(p), use24h, lang)))
             Spacer(Modifier.height(14.dp))
             Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(Radius.md)).background(c.brandMist).padding(14.dp)) {
@@ -258,7 +259,7 @@ fun EventsListScreen(
                     Column(Modifier.weight(1f)) {
                         Text(e.plan.title, fontSize = 17.sp, fontWeight = FontWeight.ExtraBold, color = c.text, maxLines = 1, overflow = TextOverflow.Ellipsis)
                         Text(eventWhen(e.plan, use24h, lang), fontSize = 14.sp, color = c.textMuted)
-                        Text(stringResource(R.string.event_stops_n, e.plan.stops.size), fontSize = 13.sp, color = c.textMuted)
+                        Text(pluralStringResource(R.plurals.event_stops_n, e.plan.stops.size, e.plan.stops.size), fontSize = 13.sp, color = c.textMuted)
                     }
                 }
             }

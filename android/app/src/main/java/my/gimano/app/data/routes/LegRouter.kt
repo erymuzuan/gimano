@@ -24,7 +24,11 @@ interface LegRouter {
  * ignores the flag), drawn lines go to `POST /routes/match`. [api] is a client without the account token: the
  * routing endpoints are anonymous, so these requests are not tied to the user's pseudonym. Never logs coordinates.
  */
-class ApiLegRouter(private val api: () -> GimanoApi?) : LegRouter {
+class ApiLegRouter(
+    /** Demo data mode (no server): legs fail with [RouteProblem.DEMO], never with "no connection". */
+    private val demo: () -> Boolean = { false },
+    private val api: () -> GimanoApi?,
+) : LegRouter {
     companion object {
         /** Decoding bound for server polylines (route-core `MAX_RESPONSE_POINTS`). */
         const val MAX_RESPONSE_POINTS = 500_000
@@ -47,6 +51,7 @@ class ApiLegRouter(private val api: () -> GimanoApi?) : LegRouter {
     }
 
     override suspend fun run(job: RouteEdit.LegJob): RouteEdit.JobResult {
+        if (demo()) return RouteEdit.JobResult.Failed(RouteProblem.DEMO)
         val api = api() ?: return RouteEdit.JobResult.Failed(RouteProblem.OFFLINE)
         val isMatch = job.kind is RouteEdit.JobKind.Match
         return try {
