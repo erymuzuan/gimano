@@ -31,8 +31,12 @@ import my.gimano.app.data.repo.GimanoRepository
 import my.gimano.app.data.settings.SoundMode
 import java.time.Instant
 
-data class NavDestination(val name: String, val address: String, val point: GeoPoint, val placeId: String?) {
-    fun toDto() = LatLngDto(point.lat, point.lng, placeId, name)
+data class NavDestination(
+    val name: String, val address: String, val point: GeoPoint, val placeId: String?,
+    /** A stop of an imported event (docs/events.md §7.7): the routing request carries its coordinates only, never its label. */
+    val eventStop: Boolean = false,
+) {
+    fun toDto() = if (eventStop) LatLngDto(point.lat, point.lng) else LatLngDto(point.lat, point.lng, placeId, name)
 }
 
 data class NavState(

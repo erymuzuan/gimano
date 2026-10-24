@@ -20,6 +20,7 @@ import androidx.compose.material.icons.filled.DarkMode
 import androidx.compose.material.icons.filled.Backup
 import androidx.compose.material.icons.filled.Inbox
 import androidx.compose.material.icons.filled.Event
+import androidx.compose.material.icons.filled.Celebration
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -43,6 +44,8 @@ fun SideMenu(
     onAddPlace: () -> Unit, onBackup: () -> Unit, onTheme: () -> Unit, onFeedback: () -> Unit, onSettings: () -> Unit,
     /** Newer version waiting (after "Later"): a row with a badge. */
     updateVersion: String? = null, onUpdate: () -> Unit = {},
+    /** "Acara": imported events (docs/events.md). */
+    onEvents: () -> Unit = {},
 ) {
     val c = Gimano.colors
     ModalDrawerSheet(drawerContainerColor = c.surface, modifier = Modifier.width(330.dp)) {
@@ -64,6 +67,7 @@ fun SideMenu(
             if (updateVersion != null) Item(icon = Icons.Filled.SystemUpdate, label = stringResource(R.string.update_menu, updateVersion), badge = 1, onClick = onUpdate)
             Item(gicon = "star", label = stringResource(R.string.my_favourites), onClick = onFavourites)
             Item(icon = Icons.Filled.Event, label = stringResource(R.string.planned_drives), onClick = onPlanned)
+            Item(icon = Icons.Filled.Celebration, label = stringResource(R.string.events), onClick = onEvents)
             Item(icon = Icons.Filled.Inbox, label = stringResource(R.string.inbox), badge = inboxUnread, onClick = onInbox)
             Item(gicon = "add_stop", label = stringResource(R.string.my_contributions), onClick = onContributions)
             Item(gicon = "map", label = stringResource(R.string.add_a_place), onClick = onAddPlace)

@@ -73,6 +73,10 @@ sealed interface Screen {
     data object PinActions : Screen
     data object About : Screen
     data object Licences : Screen
+    /** Imported events (side menu "Acara"). */
+    data object Events : Screen
+    /** One event over the map; [stopId] selects a stop (from `manotu://event?stop=…`). */
+    data class EventDetail(val id: String, val stopId: String? = null) : Screen
 }
 
 data class PlaceSel(
@@ -109,6 +113,8 @@ data class RoutePlan(
     val countdownRunning: Boolean = false,
     val request: RouteRequest? = null,
     val computedAt: Instant = Instant.now(),
+    /** Opened from an event's stop: back returns to that event. */
+    val returnToEvent: String? = null,
 ) {
     val selected: Route? get() = routes.firstOrNull { it.id == selectedId } ?: routes.firstOrNull()
     val originName: String? get() = originPlace?.name
@@ -1166,15 +1172,29 @@ class MainViewModel(private val c: AppContainer) : ViewModel() {
 
     // --- Route planning ---------------------------------------------------------------------
 
-    fun routeTo(dest: NavDestination, stops: List<NavDestination> = emptyList(), quickPick: Boolean = false) {
+    fun routeTo(dest: NavDestination, stops: List<NavDestination> = emptyList(), quickPick: Boolean = false, returnToEvent: String? = null) {
         val st = settings.current
         val prev = _ui.value.plan
         val plan = RoutePlan(destination = dest, origin = null, originSource = OriginSource.LOCATING, stops = stops, quickPick = quickPick,
-            mode = TravelMode.from(st.vehicle), avoid = prev?.avoid ?: AvoidOptions(), loading = false)
+            mode = TravelMode.from(st.vehicle), avoid = prev?.avoid ?: AvoidOptions(), loading = false, returnToEvent = returnToEvent)
         GLog.d("VM", "route preview, ${stops.size} stops")
         _ui.update { it.copy(screen = Screen.RoutePreview, plan = plan, following = false, selectedAlertId = null) }
-        viewModelScope.launch { local.recordRecent(dest.name, dest.address, dest.point.lat, dest.point.lng, dest.placeId) }
+        // Event stops never go into recents (gimano.db is backed up; event data must not be: docs/events.md §7.6).
+        if (!dest.eventStop) viewModelScope.launch { local.recordRecent(dest.name, dest.address, dest.point.lat, dest.point.lng, dest.placeId) }
         resolveOrigin()
+    }
+
+    /**
+     * "Pandu" on an event stop: route preview to the stop's vehicle entrance, else its pin (§7.7). The label is shown on
+     * this phone only; the routing request carries coordinates and travel mode only ([NavDestination.eventStop]).
+     */
+    fun routeToEventStop(eventId: String, label: String, target: GeoPoint) =
+        routeTo(NavDestination(label, "", target, null, eventStop = true), returnToEvent = eventId)
+
+    /** Event screen: fit its stops and route lines above the bottom panel. */
+    fun fitEvent(points: List<GeoPoint>, bottomDp: Int) {
+        if (points.isEmpty()) return
+        _ui.update { it.copy(camera = if (points.size == 1) CameraCommand.MoveTo(points[0], 15.5) else CameraCommand.Fit(points, topDp = 120, bottomDp = bottomDp)) }
     }
 
     /** The user's own position for routing: a fix no older than 2 min, else null. Never the camera centre. */
@@ -1535,12 +1555,16 @@ class MainViewModel(private val c: AppContainer) : ViewModel() {
                 // Back to the place card at the place's zoom (not the route overview), pin centred above the card.
                 Screen.RoutePreview -> if (s.place != null) _ui.update {
                     it.copy(screen = Screen.PlaceCard, plan = null, camera = CameraCommand.MoveTo(GeoPoint(s.place.summary.lat, s.place.summary.lng), 15.5))
+                } else if (s.plan?.returnToEvent != null) _ui.update {
+                    it.copy(screen = Screen.EventDetail(s.plan.returnToEvent), plan = null)
                 } else _ui.update { it.copy(screen = Screen.Home, plan = null) }
                 Screen.Settings -> goHome()
                 Screen.Backup, Screen.MyFeedback, Screen.Account, Screen.About -> _ui.update { it.copy(screen = Screen.Settings) }
                 Screen.Licences -> _ui.update { it.copy(screen = Screen.About) }
                 Screen.Contributions, Screen.AddPlace, Screen.Planned, Screen.Favourites, Screen.Inbox -> goHome()
                 Screen.Theme -> goHome()
+                Screen.Events -> goHome()
+                is Screen.EventDetail -> _ui.update { it.copy(screen = Screen.Events) }
                 Screen.Navigating -> when {
                     s.navExpanded -> setNavExpanded(false)
                     nav.value.arrived -> stopNavigation()

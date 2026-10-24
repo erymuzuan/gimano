@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Manotu flavor only (my.manotu.app): opening event invitations (docs/events.md §5). The farewell my.gimano.app
+     builds don't register these, so a phone with both installed never shows a chooser. -->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <application>
+        <activity android:name=".MainActivity" android:exported="true">
+            <!-- Web viewer hand-off (§5.3): manotu://event#1.<key>.<data>, manotu://event?stop=<id>#…; gimano:// accepted too. -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="manotu" android:host="event" />
+                <data android:scheme="gimano" android:host="event" />
+            </intent-filter>
+            <!-- Invitation links (§5.1). No autoVerify: assetlinks.json can't be published at these sites' roots,
+                 so on Android 12+ the user enables them under App info → Open by default → Add link. -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="https" android:host="www.bukitbunga.com" android:path="/gimano/a/" />
+                <data android:scheme="https" android:host="www.bukitbunga.com" android:path="/gimano/a" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="https" />
+                <data android:host="manotu.app" />
+                <data android:host="www.manotu.app" />
+                <data android:path="/a/" />
+                <data android:path="/a" />
+            </intent-filter>
+            <!-- "Open with" a .manotu-event file (§5.2); the app checks the MNTE header before asking for the code. -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:scheme="content" />
+                <data android:scheme="file" />
+                <data android:mimeType="application/vnd.manotu.event" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:scheme="content" />
+                <data android:scheme="file" />
+                <data android:host="*" />
+                <data android:mimeType="application/octet-stream" />
+                <data android:pathPattern=".*\\.manotu-event" />
+                <data android:pathPattern=".*\\..*\\.manotu-event" />
+                <data android:pathPattern=".*\\..*\\..*\\.manotu-event" />
+            </intent-filter>
+        </activity>
+    </application>
+</manifest>

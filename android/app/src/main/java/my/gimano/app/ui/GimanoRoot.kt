@@ -62,6 +62,19 @@ fun GimanoRoot(vm: MainViewModel, onMic: () -> Unit, onExit: () -> Unit, onReque
     val crashPending by container.crashes.pending.collectAsStateWithLifecycle()
     val fallback by vm.fallbackActive.collectAsStateWithLifecycle()
     val handle = remember { MapHandle() }
+    // Events (docs/events.md): the open event, its selected stop, and the import dialogs' "open this event".
+    val eventVersion by container.eventStore.version.collectAsStateWithLifecycle()
+    val eventScreen = ui.screen as? Screen.EventDetail
+    val eventDetail by produceState<my.gimano.app.data.events.SavedEvent?>(null, eventScreen?.id, eventVersion) {
+        value = eventScreen?.let { runCatching { container.eventStore.load(it.id) }.getOrNull() }
+    }
+    var eventStopSel by remember(eventScreen?.id) { mutableStateOf(eventScreen?.stopId) }
+    val eventPanelFraction = 0.58f
+    val screenHeightDp = androidx.compose.ui.platform.LocalConfiguration.current.screenHeightDp
+    LaunchedEffect(Unit) { container.eventImporter.open.collect { (id, stop) -> vm.open(Screen.EventDetail(id, stop)) } }
+    LaunchedEffect(eventDetail?.hash) {
+        eventDetail?.let { vm.fitEvent(my.gimano.app.core.events.EventSchedule.mapPoints(it.plan), bottomDp = (screenHeightDp * eventPanelFraction).toInt() + 24) }
+    }
     val drawer = rememberDrawerState(DrawerValue.Closed)
     val snackbar = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
@@ -150,6 +163,7 @@ fun GimanoRoot(vm: MainViewModel, onMic: () -> Unit, onExit: () -> Unit, onReque
             screen == Screen.RoutePreview -> ui.plan?.routes.orEmpty().map { r ->
                 RouteDraw(r.id, ui.plan?.decoded?.get(r.id).orEmpty(), r.id == ui.plan?.selected?.id, r.trafficSegments)
             }
+            screen is Screen.EventDetail -> eventDetail?.plan?.routes.orEmpty().map { r -> RouteDraw("event-" + r.id, r.points, true, emptyList()) }
             else -> emptyList()
         },
         alerts = ui.alerts + if (screen == Screen.RoutePreview) ui.plan?.selected?.alerts.orEmpty().map { it.toReport() }.filter { a -> ui.alerts.none { it.id == a.id } } else emptyList(),
@@ -162,12 +176,14 @@ fun GimanoRoot(vm: MainViewModel, onMic: () -> Unit, onExit: () -> Unit, onReque
             Screen.PlaceCard -> ui.place?.summary?.let { my.gimano.app.core.geo.GeoPoint(it.lat, it.lng) }
             Screen.PinActions -> ui.pin?.place?.let { my.gimano.app.core.geo.GeoPoint(it.lat, it.lng) }
             Screen.RoutePreview -> ui.plan?.destination?.point
+            is Screen.EventDetail -> eventStopSel?.let { id -> eventDetail?.plan?.stop(id)?.navigationTarget }
             else -> if (navigating) nav.destination?.point else null
         },
         privatePins = if (screen == Screen.Home || screen == Screen.PlaceCard) ui.privatePins else emptyList(),
         stops = when {
             navigating -> nav.stops.map { it.point }
             screen == Screen.RoutePreview -> ui.plan?.stops.orEmpty().map { it.point }
+            screen is Screen.EventDetail -> eventDetail?.plan?.stops.orEmpty().map { it.pin }
             else -> emptyList()
         },
         showTraffic = settings.showTraffic,
@@ -187,6 +203,7 @@ fun GimanoRoot(vm: MainViewModel, onMic: () -> Unit, onExit: () -> Unit, onReque
                 onProfile = { scope.launch { drawer.close() }; vm.open(Screen.Contributions) },
                 onFavourites = { scope.launch { drawer.close() }; vm.open(Screen.Favourites) },
                 onPlanned = { scope.launch { drawer.close() }; vm.open(Screen.Planned) },
+                onEvents = { scope.launch { drawer.close() }; vm.open(Screen.Events) },
                 onInbox = { scope.launch { drawer.close() }; vm.open(Screen.Inbox) },
                 onContributions = { scope.launch { drawer.close() }; vm.open(Screen.Contributions) },
                 onAddPlace = { scope.launch { drawer.close() }; vm.startAddPlace(vm.here(), ""); cvm.startAdd(vm.here(), "") },
@@ -248,6 +265,19 @@ fun GimanoRoot(vm: MainViewModel, onMic: () -> Unit, onExit: () -> Unit, onReque
                 Screen.Favourites -> my.gimano.app.ui.more.FavouritesScreen(ui.saved, ui.myLocation?.point, settings.lastBackupAt, vm)
                 Screen.Inbox -> my.gimano.app.ui.inbox.InboxScreen(ui.inbox, settings.inboxRead, onBack = vm::back, onRefresh = { vm.refreshInbox() }, onMarkAll = { vm.markInboxRead() })
                 Screen.Theme -> my.gimano.app.ui.more.ThemeScreen(settings.theme, onPick = { vm.setTheme(it) }, onBack = vm::back)
+                Screen.Events -> my.gimano.app.ui.events.EventsListScreen(container.eventStore, settings.use24h, onBack = vm::back,
+                    onOpen = { id -> vm.open(Screen.EventDetail(id)) })
+                is Screen.EventDetail -> my.gimano.app.ui.events.EventDetailOverlay(
+                    eventDetail, container.eventStore, settings.use24h, selected = eventStopSel,
+                    onSelect = { id ->
+                        eventStopSel = id
+                        eventDetail?.plan?.stop(id)?.let { s -> vm.fitEvent(listOf(s.navigationTarget), 0) }
+                    },
+                    onBack = vm::back,
+                    onDrive = { s -> vm.routeToEventStop(screen.id, s.label, s.navigationTarget) },
+                    onDeleted = { vm.open(Screen.Events) },
+                    panelFraction = eventPanelFraction,
+                )
                 Screen.Planned -> my.gimano.app.ui.planned.PlannedDrivesScreen(pvm, settings.use24h, onBack = vm::back,
                     onAdd = { vm.openSearch(SearchPurpose.PLAN_DRIVE) }, onGo = vm::goPlanned)
             }
@@ -259,6 +289,7 @@ fun GimanoRoot(vm: MainViewModel, onMic: () -> Unit, onExit: () -> Unit, onReque
     }
 
     ui.favoriteSheet?.let { my.gimano.app.ui.sheets.FavoriteSheet(it, vm) }
+    my.gimano.app.ui.events.EventImportDialogs(container.eventImporter, settings.use24h)
     // In-app update (sideloaded APK): sheet on Home when not snoozed, blocking gate below minSupported.
     val lang = container.lang().tag.take(2)
     when (val d = upd.decision) {

@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- Android Auto Backup (API 31+): the on-device DB and private-place photos only.
-     Device identity/auth (DataStore) is excluded: a restored phone registers as a new device. -->
+     Device identity/auth (DataStore) is excluded: a restored phone registers as a new device.
+     Imported events (manotu-events.db) are deliberately NOT included: docs/events.md §7.6. -->
 <data-extraction-rules>
     <cloud-backup>
         <include domain="database" path="gimano.db" />
