@@ -51,6 +51,15 @@ class AppUpdateTest {
         assertTrue(UpdatePolicy.shouldCheck(now - 1, now, force = true))
     }
 
+    @Test fun playBuildNeverChecksOrOffersAnUpdate() {
+        val m = UpdateManifest.parse(full)!!
+        val now = 1_000_000_000L
+        assertEquals(UpdateDecision.UpToDate, UpdatePolicy.decide(2, m, 0, now, selfUpdate = false))
+        assertEquals("not even a required update", UpdateDecision.UpToDate, UpdatePolicy.decide(2, m.copy(minSupported = 3), 0, now, selfUpdate = false))
+        assertFalse(UpdatePolicy.shouldCheck(0, now, force = false, selfUpdate = false))
+        assertFalse(UpdatePolicy.shouldCheck(0, now, force = true, selfUpdate = false))
+    }
+
     @Test fun verifierRejectsHashSignerPackageAndVersionMismatches() {
         val m = UpdateManifest.parse(full)!!
         val mine = setOf("b9baddcd63b3d74b8a374cb93df3278579ba4faeae121c35827d377e210bbec9")
