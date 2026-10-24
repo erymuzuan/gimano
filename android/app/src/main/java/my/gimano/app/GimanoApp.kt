@@ -94,14 +94,26 @@ class AppContainer(val app: Application) {
 
     /** Imported events (docs/events.md): own DB file, excluded from every backup; payloads sealed with a Keystore key. */
     private val eventsDb by lazy { my.gimano.app.data.events.EventsDatabase.build(app) }
+    private val eventSodium by lazy { LazySodiumAndroid(SodiumAndroid()) }
+    private suspend fun scheduleEventExpiry() = my.gimano.app.data.events.EventExpiryWorker.schedule(
+        app, listOfNotNull(eventStore.nextExpiry(), hostStore.nextExpiry()).minOrNull())
     val eventStore: my.gimano.app.data.events.EventStore by lazy {
         my.gimano.app.data.events.EventStore(
             eventsDb.events(), my.gimano.app.data.events.KeystoreEventVault(), eventsDb.transactor(),
-            onChanged = { my.gimano.app.data.events.EventExpiryWorker.schedule(app, eventStore.nextExpiry()) },
+            onChanged = { scheduleEventExpiry() },
         )
     }
+    /** Events this phone organises: drafts, per-event keys and published revisions, same DB file and vault. */
+    val hostStore: my.gimano.app.data.events.HostStore by lazy {
+        my.gimano.app.data.events.HostStore(
+            eventsDb.hosted(), my.gimano.app.data.events.KeystoreEventVault(), my.gimano.app.core.events.EventPackWriter(eventSodium),
+            onChanged = { scheduleEventExpiry() },
+        )
+    }
+    val hostEditor by lazy { my.gimano.app.data.events.HostEditor(scope, hostStore) }
     val eventImporter by lazy {
-        my.gimano.app.data.events.EventImporter(scope, my.gimano.app.core.events.EventPackReader(LazySodiumAndroid(SodiumAndroid())), eventStore)
+        my.gimano.app.data.events.EventImporter(scope, my.gimano.app.core.events.EventPackReader(eventSodium), eventStore,
+            isOwn = { id, pub -> hostStore.isOwn(id, pub) })
     }
     val integrity by lazy { my.gimano.app.data.vetting.Integrity(app, BuildConfig.CLOUD_PROJECT_NUMBER) }
     val vetting = my.gimano.app.data.vetting.VettingMemory(db.settings())
@@ -151,6 +163,6 @@ class GimanoApp : Application() {
         })
         my.gimano.app.data.places.PhotoPrep.sweepCameraTemps(this)
         // Events past their expiresAt are deleted on every start (also by EventExpiryWorker at the time itself).
-        container.scope.launch(Dispatchers.IO) { runCatching { container.eventStore.purgeExpired() } }
+        container.scope.launch(Dispatchers.IO) { runCatching { container.eventStore.purgeExpired() }; runCatching { container.hostStore.purgeExpired() } }
     }
 }

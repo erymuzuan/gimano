@@ -58,7 +58,7 @@ fun CentrePin(color: Color = Color(0xFFFF6B4A)) {
 @Composable
 fun PickOnMapOverlay(pick: PickState, vm: MainViewModel, purpose: my.gimano.app.ui.SearchPurpose = my.gimano.app.ui.SearchPurpose.NAVIGATE) {
     val c = Gimano.colors
-    val entrance = purpose == my.gimano.app.ui.SearchPurpose.ENTRANCE
+    val entrance = purpose == my.gimano.app.ui.SearchPurpose.ENTRANCE || purpose == my.gimano.app.ui.SearchPurpose.EVENT_ENTRANCE
     // "Pintu masuk / parkir salah": a green pin for the navigation point (the display pin is unchanged).
     CentrePin(if (entrance) Color(0xFF1E9E5A) else Color(0xFFFF6B4A))
     Column(Modifier.fillMaxSize()) {
@@ -69,7 +69,11 @@ fun PickOnMapOverlay(pick: PickState, vm: MainViewModel, purpose: my.gimano.app.
         ) {
             IconButton(onClick = vm::back) { Icon(Icons.AutoMirrored.Filled.ArrowBack, stringResource(R.string.back), tint = c.brand) }
             Column {
-                Text(stringResource(if (entrance) R.string.entrance_title else R.string.pick_title), fontSize = 16.sp, fontWeight = FontWeight.Black, color = c.text)
+                Text(stringResource(when (purpose) {
+                    my.gimano.app.ui.SearchPurpose.EVENT_ENTRANCE -> R.string.host_entrance_pick
+                    my.gimano.app.ui.SearchPurpose.EVENT_STOP -> R.string.host_stop_pick
+                    else -> if (entrance) R.string.entrance_title else R.string.pick_title
+                }), fontSize = 16.sp, fontWeight = FontWeight.Black, color = c.text)
                 Text(stringResource(R.string.pick_hint), fontSize = 12.sp, fontWeight = FontWeight.ExtraBold, color = c.textMuted)
             }
         }

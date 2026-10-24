@@ -1,6 +1,7 @@
 package my.gimano.app.data.events
 
 import android.content.Context
+import androidx.room.AutoMigration
 import androidx.room.ColumnInfo
 import androidx.room.Dao
 import androidx.room.Database
@@ -86,9 +87,54 @@ interface EventDao {
     suspend fun nextExpiry(): Long?
 }
 
-@Database(entities = [EventPinEntity::class, EventRevisionEntity::class], version = 1, exportSchema = true)
+/**
+ * An event this phone organises (host side). Everything is sealed with the events vault: [draft] (incl. organiser-only
+ * notes), [secrets] (Ed25519 seed ‖ pack key: one pair per event, never reused) and [published] (the last signed bytes,
+ * the next revision's parent). Same file as imported events, so the same backup exclusion applies.
+ */
+@Entity(tableName = "event_host")
+data class HostEventEntity(
+    @PrimaryKey @ColumnInfo(name = "event_id") val eventId: String,
+    val draft: ByteArray,
+    val secrets: ByteArray,
+    val published: ByteArray?,
+    @ColumnInfo(name = "published_rev") val publishedRev: Long?,
+    /** Epoch ms of the last publication's `expiresAt`; the record (keys included) is deleted then. Null = never published. */
+    @ColumnInfo(name = "expires_at") val expiresAt: Long?,
+    @ColumnInfo(name = "updated_at") val updatedAt: Long,
+)
+
+@Dao
+interface HostEventDao {
+    @Query("SELECT * FROM event_host ORDER BY updated_at DESC")
+    fun allFlow(): Flow<List<HostEventEntity>>
+
+    @Query("SELECT * FROM event_host WHERE event_id = :id")
+    suspend fun get(id: String): HostEventEntity?
+
+    @Insert
+    suspend fun insert(e: HostEventEntity)
+
+    @Update
+    suspend fun update(e: HostEventEntity)
+
+    @Query("DELETE FROM event_host WHERE event_id = :id")
+    suspend fun delete(id: String)
+
+    @Query("DELETE FROM event_host WHERE expires_at IS NOT NULL AND expires_at <= :nowMs")
+    suspend fun deleteExpired(nowMs: Long): Int
+
+    @Query("SELECT MIN(expires_at) FROM event_host WHERE expires_at IS NOT NULL")
+    suspend fun nextExpiry(): Long?
+}
+
+@Database(
+    entities = [EventPinEntity::class, EventRevisionEntity::class, HostEventEntity::class], version = 2, exportSchema = true,
+    autoMigrations = [AutoMigration(from = 1, to = 2)],
+)
 abstract class EventsDatabase : RoomDatabase() {
     abstract fun events(): EventDao
+    abstract fun hosted(): HostEventDao
 
     companion object {
         const val DB_NAME = "manotu-events.db"

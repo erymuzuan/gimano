@@ -12,6 +12,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Celebration
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Directions
@@ -57,11 +58,11 @@ import java.util.Locale
 
 // --- Formatting (in the event's own time zone) ----------------------------------------------------------
 
-private fun locale(lang: Lang) = if (lang == Lang.MS) Locale.forLanguageTag("ms-MY") else Locale.UK
+internal fun locale(lang: Lang) = if (lang == Lang.MS) Locale.forLanguageTag("ms-MY") else Locale.UK
 
-private fun day(t: OffsetDateTime, z: ZoneId, lang: Lang) = t.atZoneSameInstant(z).format(DateTimeFormatter.ofPattern("EEE, d MMM", locale(lang)))
+internal fun day(t: OffsetDateTime, z: ZoneId, lang: Lang) = t.atZoneSameInstant(z).format(DateTimeFormatter.ofPattern("EEE, d MMM", locale(lang)))
 
-private fun clock(t: OffsetDateTime, z: ZoneId, use24h: Boolean, lang: Lang) = Formatters.clock(t.atZoneSameInstant(z), use24h, lang)
+internal fun clock(t: OffsetDateTime, z: ZoneId, use24h: Boolean, lang: Lang) = Formatters.clock(t.atZoneSameInstant(z), use24h, lang)
 
 /** "Sab, 15 Nov · 11:00 – 16:00" or "Sab, 21 Nov 07:00 – Ahd, 22 Nov 13:00". */
 fun eventWhen(p: EventPlan, use24h: Boolean, lang: Lang): String {
@@ -71,7 +72,7 @@ fun eventWhen(p: EventPlan, use24h: Boolean, lang: Lang): String {
     else "${day(p.start, z, lang)} ${clock(p.start, z, use24h, lang)} – ${day(p.end, z, lang)} ${clock(p.end, z, use24h, lang)}"
 }
 
-private fun instantText(i: Instant, z: ZoneId, use24h: Boolean, lang: Lang): String {
+internal fun instantText(i: Instant, z: ZoneId, use24h: Boolean, lang: Lang): String {
     val t = i.atZone(z)
     return "${t.format(DateTimeFormatter.ofPattern("EEE, d MMM", locale(lang)))} ${Formatters.clock(t, use24h, lang)}"
 }
@@ -79,7 +80,13 @@ private fun instantText(i: Instant, z: ZoneId, use24h: Boolean, lang: Lang): Str
 // --- Import: code entry, review sheet, notices -----------------------------------------------------------
 
 @Composable
-fun EventImportDialogs(importer: EventImporter, use24h: Boolean) {
+fun EventImportDialogs(
+    importer: EventImporter, use24h: Boolean,
+    /** The event stop being driven to right now, if any (EvUpdate warning). */
+    navigatingTo: my.gimano.app.nav.NavDestination? = null,
+    /** "Guna pelan baharu" + drive to the stop's new position: only on that explicit tap. */
+    onRetarget: (eventId: String, stop: EventStop) -> Unit = { _, _ -> },
+) {
     val c = Gimano.colors
     val lang = currentLang()
     when (val s = importer.ui.collectAsStateWithLifecycle().value) {
@@ -118,12 +125,16 @@ fun EventImportDialogs(importer: EventImporter, use24h: Boolean) {
                 dismissButton = { TextButton(onClick = importer::dismiss) { Text(stringResource(R.string.cancel)) } },
             )
         }
-        is EventImportUi.Review -> ReviewSheet(s, use24h, lang, onSave = importer::confirm, onCancel = importer::dismiss)
+        is EventImportUi.Review -> if (s.previous != null && s.decision !is ImportDecision.New)
+            UpdateSheet(s, s.previous, use24h, lang, navigatingTo, onKeep = importer::dismiss, onUse = { importer.confirm() },
+                onUseAndDrive = { st -> importer.confirm(openAfter = false); onRetarget(s.plan.id, st) })
+        else ReviewSheet(s, use24h, lang, onSave = { importer.confirm() }, onCancel = importer::dismiss)
         is EventImportUi.Notice -> AlertDialog(
             onDismissRequest = importer::dismiss,
             text = {
                 Text(
                     when (s.kind) {
+                        EventNotice.OWN_EVENT -> stringResource(R.string.event_own)
                         EventNotice.CANNOT_OPEN -> stringResource(R.string.event_cannot_open)
                         EventNotice.TOO_LONG -> stringResource(R.string.event_too_long)
                         EventNotice.NOT_A_FILE -> stringResource(R.string.event_not_a_file)
@@ -198,10 +209,10 @@ private fun ReviewSheet(s: EventImportUi.Review, use24h: Boolean, lang: Lang, on
 }
 
 @Composable
-private fun InfoLine(text: String) = Text(text, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = Gimano.colors.text, modifier = Modifier.padding(vertical = 2.dp))
+internal fun InfoLine(text: String) = Text(text, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = Gimano.colors.text, modifier = Modifier.padding(vertical = 2.dp))
 
 @Composable
-private fun Warning(text: String) {
+internal fun Warning(text: String) {
     val c = Gimano.colors
     Row(Modifier.padding(top = 12.dp).fillMaxWidth().clip(RoundedCornerShape(Radius.md)).background(c.reportTint).padding(12.dp), verticalAlignment = Alignment.Top) {
         Icon(Icons.Filled.Warning, null, tint = c.report, modifier = Modifier.size(20.dp))
@@ -213,18 +224,30 @@ private fun Warning(text: String) {
 // --- List ("Acara" in the side menu) ---------------------------------------------------------------------
 
 @Composable
-fun EventsListScreen(store: EventStore, use24h: Boolean, onBack: () -> Unit, onOpen: (String) -> Unit) {
+fun EventsListScreen(
+    store: EventStore, hostStore: my.gimano.app.data.events.HostStore, use24h: Boolean, onBack: () -> Unit, onOpen: (String) -> Unit,
+    onOpenHosted: (String) -> Unit, onNew: () -> Unit,
+) {
     val c = Gimano.colors
     val lang = currentLang()
-    LaunchedEffect(Unit) { runCatching { store.purgeExpired() } }
+    LaunchedEffect(Unit) { runCatching { store.purgeExpired() }; runCatching { hostStore.purgeExpired() } }
     val events by remember(store) { store.events() }.collectAsStateWithLifecycle(initialValue = emptyList())
+    val hosted by remember(hostStore) { hostStore.events() }.collectAsStateWithLifecycle(initialValue = emptyList())
     Column(Modifier.fillMaxSize().background(c.background).windowInsetsPadding(WindowInsets.statusBars)) {
         Row(Modifier.fillMaxWidth().padding(4.dp), verticalAlignment = Alignment.CenterVertically) {
             IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, stringResource(R.string.back), tint = c.text) }
             Text(stringResource(R.string.events), style = GimanoType.title, color = c.text, modifier = Modifier.weight(1f))
         }
-        if (events.isEmpty()) Text(stringResource(R.string.event_none), Modifier.padding(24.dp), color = c.textMuted, fontSize = 16.sp)
+        Button(onClick = onNew, Modifier.padding(horizontal = 16.dp, vertical = 4.dp).fillMaxWidth().height(54.dp), shape = RoundedCornerShape(Radius.md),
+            colors = ButtonDefaults.buttonColors(containerColor = c.brand, contentColor = c.brandOn)) {
+            Icon(Icons.Filled.Add, null); Spacer(Modifier.width(8.dp))
+            Text(stringResource(R.string.host_new), fontWeight = FontWeight.ExtraBold, fontSize = 17.sp)
+        }
+        if (events.isEmpty() && hosted.isEmpty()) Text(stringResource(R.string.event_none), Modifier.padding(24.dp), color = c.textMuted, fontSize = 16.sp)
         LazyColumn(Modifier.weight(1f), contentPadding = PaddingValues(bottom = 16.dp)) {
+            if (hosted.isNotEmpty()) item { Section(stringResource(R.string.host_mine), Modifier.padding(horizontal = 16.dp)) }
+            items(hosted, key = { "h" + it.draft.id }) { h -> HostedRow(h, use24h, lang) { onOpenHosted(h.draft.id) } }
+            if (hosted.isNotEmpty() && events.isNotEmpty()) item { Section(stringResource(R.string.host_invited), Modifier.padding(horizontal = 16.dp)) }
             items(events, key = { it.plan.id }) { e ->
                 Row(Modifier.fillMaxWidth().clickable { onOpen(e.plan.id) }.padding(horizontal = 16.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
                     Box(Modifier.size(48.dp).clip(RoundedCornerShape(14.dp)).background(c.brandMist), contentAlignment = Alignment.Center) {
@@ -360,8 +383,8 @@ fun EventDetailOverlay(
 }
 
 @Composable
-private fun Section(title: String) =
-    Text(title, style = GimanoType.label, color = Gimano.colors.brandInk, modifier = Modifier.padding(top = 18.dp, bottom = 4.dp))
+internal fun Section(title: String, modifier: Modifier = Modifier) =
+    Text(title, style = GimanoType.label, color = Gimano.colors.brandInk, modifier = modifier.padding(top = 18.dp, bottom = 4.dp))
 
 @Composable
 private fun StopRow(s: EventStop, selected: Boolean, z: ZoneId, use24h: Boolean, lang: Lang, onSelect: () -> Unit, onDrive: () -> Unit) {

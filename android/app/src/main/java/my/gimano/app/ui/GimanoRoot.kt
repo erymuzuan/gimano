@@ -71,7 +71,12 @@ fun GimanoRoot(vm: MainViewModel, onMic: () -> Unit, onExit: () -> Unit, onReque
     var eventStopSel by remember(eventScreen?.id) { mutableStateOf(eventScreen?.stopId) }
     val eventPanelFraction = 0.58f
     val screenHeightDp = androidx.compose.ui.platform.LocalConfiguration.current.screenHeightDp
-    LaunchedEffect(Unit) { container.eventImporter.open.collect { (id, stop) -> vm.open(Screen.EventDetail(id, stop)) } }
+    LaunchedEffect(Unit) {
+        container.eventImporter.open.collect { (id, stop) ->
+            // The host's own event opens in the editor, never as an invitation from someone else.
+            if (runCatching { container.hostStore.isHosted(id) }.getOrDefault(false)) vm.openHostEvent(id) else vm.open(Screen.EventDetail(id, stop))
+        }
+    }
     LaunchedEffect(eventDetail?.hash) {
         eventDetail?.let { vm.fitEvent(my.gimano.app.core.events.EventSchedule.mapPoints(it.plan), bottomDp = (screenHeightDp * eventPanelFraction).toInt() + 24) }
     }
@@ -265,8 +270,10 @@ fun GimanoRoot(vm: MainViewModel, onMic: () -> Unit, onExit: () -> Unit, onReque
                 Screen.Favourites -> my.gimano.app.ui.more.FavouritesScreen(ui.saved, ui.myLocation?.point, settings.lastBackupAt, vm)
                 Screen.Inbox -> my.gimano.app.ui.inbox.InboxScreen(ui.inbox, settings.inboxRead, onBack = vm::back, onRefresh = { vm.refreshInbox() }, onMarkAll = { vm.markInboxRead() })
                 Screen.Theme -> my.gimano.app.ui.more.ThemeScreen(settings.theme, onPick = { vm.setTheme(it) }, onBack = vm::back)
-                Screen.Events -> my.gimano.app.ui.events.EventsListScreen(container.eventStore, settings.use24h, onBack = vm::back,
-                    onOpen = { id -> vm.open(Screen.EventDetail(id)) })
+                Screen.Events -> my.gimano.app.ui.events.EventsListScreen(container.eventStore, container.hostStore, settings.use24h, onBack = vm::back,
+                    onOpen = { id -> vm.open(Screen.EventDetail(id)) }, onOpenHosted = { id -> vm.openHostEvent(id) }, onNew = vm::newHostEvent)
+                Screen.EventEdit -> my.gimano.app.ui.events.EventEditScreen(container.hostEditor, ui.saved, settings.use24h, vm)
+                Screen.EventShare -> my.gimano.app.ui.events.EventShareScreen(container.hostEditor, settings.use24h, onBack = vm::back)
                 is Screen.EventDetail -> my.gimano.app.ui.events.EventDetailOverlay(
                     eventDetail, container.eventStore, settings.use24h, selected = eventStopSel,
                     onSelect = { id ->
@@ -274,7 +281,7 @@ fun GimanoRoot(vm: MainViewModel, onMic: () -> Unit, onExit: () -> Unit, onReque
                         eventDetail?.plan?.stop(id)?.let { s -> vm.fitEvent(listOf(s.navigationTarget), 0) }
                     },
                     onBack = vm::back,
-                    onDrive = { s -> vm.routeToEventStop(screen.id, s.label, s.navigationTarget) },
+                    onDrive = { s -> vm.routeToEventStop(screen.id, s.id, s.label, s.navigationTarget) },
                     onDeleted = { vm.open(Screen.Events) },
                     panelFraction = eventPanelFraction,
                 )
@@ -289,7 +296,9 @@ fun GimanoRoot(vm: MainViewModel, onMic: () -> Unit, onExit: () -> Unit, onReque
     }
 
     ui.favoriteSheet?.let { my.gimano.app.ui.sheets.FavoriteSheet(it, vm) }
-    my.gimano.app.ui.events.EventImportDialogs(container.eventImporter, settings.use24h)
+    my.gimano.app.ui.events.EventImportDialogs(container.eventImporter, settings.use24h,
+        navigatingTo = nav.destination?.takeIf { nav.active && it.eventStop },
+        onRetarget = { eventId, st -> vm.retargetEventStop(eventId, st.id, st.label, st.navigationTarget) })
     // In-app update (sideloaded APK): sheet on Home when not snoozed, blocking gate below minSupported.
     val lang = container.lang().tag.take(2)
     when (val d = upd.decision) {

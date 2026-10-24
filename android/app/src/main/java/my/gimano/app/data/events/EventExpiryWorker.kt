@@ -14,8 +14,9 @@ import java.util.concurrent.TimeUnit
 /** Deletes events at their `expiresAt` (docs/events.md §7.5); reschedules itself for the next one. */
 class EventExpiryWorker(context: Context, params: WorkerParameters) : CoroutineWorker(context, params) {
     override suspend fun doWork(): Result {
-        val store = (applicationContext as GimanoApp).container.eventStore
-        store.purgeExpired()   // reschedules through onChanged
+        val c = (applicationContext as GimanoApp).container
+        c.eventStore.purgeExpired()   // reschedules through onChanged
+        c.hostStore.purgeExpired()
         return Result.success()
     }
 

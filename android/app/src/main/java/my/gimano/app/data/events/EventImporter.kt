@@ -21,7 +21,7 @@ import my.gimano.app.core.events.OpenedPack
 import java.time.Instant
 
 /** Why nothing was imported. */
-enum class EventNotice { CANNOT_OPEN, TOO_LONG, NOT_A_FILE, EXPIRED, DIFFERENT_ORGANIZER, ALREADY_IMPORTED, OLDER }
+enum class EventNotice { OWN_EVENT, CANNOT_OPEN, TOO_LONG, NOT_A_FILE, EXPIRED, DIFFERENT_ORGANIZER, ALREADY_IMPORTED, OLDER }
 
 sealed interface EventImportUi {
     data object Idle : EventImportUi
@@ -29,7 +29,11 @@ sealed interface EventImportUi {
     /** A `.manotu-event` file is waiting for its secret code. */
     data class NeedCode(val wrong: Boolean = false) : EventImportUi
     /** Show title, alias, safety code, dates…; Simpan / Batal. */
-    data class Review(val plan: EventPlan, val safetyCode: String, val decision: ImportDecision) : EventImportUi
+    data class Review(
+        val plan: EventPlan, val safetyCode: String, val decision: ImportDecision,
+        /** The saved revision this one replaces (Newer / Fork): the sheet shows what changed. */
+        val previous: EventPlan? = null,
+    ) : EventImportUi
     /** [eventId]: the stored event to open from the notice ("Buka"), when there is one. */
     data class Notice(val kind: EventNotice, val eventId: String? = null, val storedRev: Long? = null) : EventImportUi
 }
@@ -41,6 +45,8 @@ class EventImporter(
     private val store: EventStore,
     private val clock: () -> Instant = Instant::now,
     private val work: CoroutineDispatcher = Dispatchers.Default,
+    /** True when this phone organises the event with that organizer key (the host opening their own link). */
+    private val isOwn: suspend (eventId: String, organizerPub: ByteArray) -> Boolean = { _, _ -> false },
 ) {
     private val _ui = MutableStateFlow<EventImportUi>(EventImportUi.Idle)
     val ui: StateFlow<EventImportUi> = _ui.asStateFlow()
@@ -98,6 +104,11 @@ class EventImporter(
     }
 
     private suspend fun decide(p: OpenedPack) {
+        if (runCatching { isOwn(p.event.id, p.organizerPub) }.getOrDefault(false)) {
+            // The host's own invitation: never "imported from someone else".
+            _ui.value = EventImportUi.Notice(EventNotice.OWN_EVENT, p.event.id)
+            return
+        }
         val d = EventImport.decide(ImportCandidate.of(p), store.storedFor(p.event.id), clock())
         _ui.value = when (d) {
             ImportDecision.Expired -> EventImportUi.Notice(EventNotice.EXPIRED)
@@ -106,13 +117,14 @@ class EventImporter(
             is ImportDecision.Older -> EventImportUi.Notice(EventNotice.OLDER, p.event.id, d.storedRev)
             is ImportDecision.New, is ImportDecision.Fork, is ImportDecision.Newer -> {
                 pending = p
-                EventImportUi.Review(p.event, p.safetyCode, d)
+                val previous = if (d is ImportDecision.New) null else runCatching { store.load(p.event.id)?.plan }.getOrNull()
+                EventImportUi.Review(p.event, p.safetyCode, d, previous)
             }
         }
     }
 
-    /** "Simpan". */
-    fun confirm() {
+    /** "Simpan" / "Guna pelan baharu". [openAfter] false: the caller navigates itself (drive to a moved stop). */
+    fun confirm(openAfter: Boolean = true) {
         val s = _ui.value as? EventImportUi.Review ?: return
         val p = pending ?: return
         _ui.value = EventImportUi.Working
@@ -121,7 +133,7 @@ class EventImporter(
             val d = EventImport.decide(ImportCandidate.of(p), store.storedFor(p.event.id), clock())
             val ok = d::class == s.decision::class && runCatching { store.save(p, d) }.getOrDefault(false)
             pending = null
-            if (ok) { _ui.value = EventImportUi.Idle; emitOpen(p.event) } else decide(p)
+            if (ok) { _ui.value = EventImportUi.Idle; if (openAfter) emitOpen(p.event) else stopHint = null } else decide(p)
         }
     }
 
