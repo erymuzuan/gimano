@@ -59,6 +59,8 @@ struct RoutePreviewView: View {
             .sheet(isPresented: $showStops) {
                 StopsSheet(planner: planner) { stopCountdown() }.presentationDetents([.medium, .large])
             }
+            // At the largest text sizes "Go now" was pushed below the screen: cap like the home panel and place card.
+            .dynamicTypeSize(...DynamicTypeSize.accessibility2)
             .onChange(of: planner.isLoading) { _, loading in
                 // The 10 s countdown is off by default (Settings → Start navigation automatically) and, when on, only runs
                 // for one-tap trips from a fresh GPS fix (AutoStart, same rule as Android). `-GimanoNoAutoStart YES` (UI tests)

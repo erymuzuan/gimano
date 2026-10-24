@@ -153,6 +153,19 @@ extension LocalStore {
     }
 }
 
+/// The only call planned drives make to the server.
+protocol DepartureTimesSource: Sendable {
+    func departureTimes(origin: LatLng, destination: LatLng, date: Date, vehicle: Vehicle) async throws -> [DepartureSlot]
+}
+
+/// Why a planned drive's time is being computed.
+enum PlannedDriveTrigger: Equatable, Sendable {
+    /// App launch, opening the list: never with the user's position.
+    case automatic
+    /// The user saved the drive or tapped "Open for the best time": the fresh fix (if any) may be the origin.
+    case userAsked(fix: LatLng?)
+}
+
 /// Schedules "Leave by" local notifications for planned drives.
 @MainActor
 enum PlannedDriveNotifier {
@@ -164,15 +177,44 @@ enum PlannedDriveNotifier {
         (try? await UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound, .badge])) ?? false
     }
 
+    /// Where a drive's leave-by is computed from. A saved fixed start may be used any time (it is a saved place, not the
+    /// user); the live fix only when the user asked for this drive's time (never at launch or in the background).
+    static func origin(for drive: PlannedDrive, trigger: PlannedDriveTrigger) -> LatLng? {
+        if let o = drive.origin?.location { return o }
+        if case .userAsked(let fix) = trigger { return fix }
+        return nil
+    }
+
+    /// Reminder lead for a drive without a computed time ("Open for the best time").
+    static let noTimeLead: TimeInterval = 60 * 60
+
     /// Computes leave-by times for the next occurrences and replaces this drive's pending notifications.
-    /// Returns the next leave-by (for display).
+    /// Returns the next leave-by (for display), or nil when there is no origin to compute from: then one reminder an hour
+    /// before the next arrival asks the user to open the drive for the best time.
     @discardableResult
-    static func reschedule(_ drive: PlannedDrive, from origin: LatLng, repo: any GimanoRepository, now: Date = .now) async -> Date? {
+    static func reschedule(_ drive: PlannedDrive, trigger: PlannedDriveTrigger, repo: any DepartureTimesSource,
+                           now: Date = .now) async -> Date? {
         let center = UNUserNotificationCenter.current()
         let pending = await center.pendingNotificationRequests().map(\.identifier).filter { $0.hasPrefix("planned:\(drive.id):") }
         center.removePendingNotificationRequests(withIdentifiers: pending)
         var firstLeaveBy: Date?
-        let start = drive.origin?.location ?? origin
+        guard let start = origin(for: drive, trigger: trigger) else {
+            if let arrival = drive.nextArrivals(after: now, count: 1).first {
+                let fire = arrival.addingTimeInterval(-noTimeLead)
+                if fire > now {
+                    let content = UNMutableNotificationContent()
+                    content.title = drive.title
+                    content.body = String(localized: "Open Manotu for the best time to leave for \(drive.destination.name ?? drive.title) (arrive \(arrival.formatted(date: .omitted, time: .shortened)))")
+                    content.sound = .default
+                    content.categoryIdentifier = category
+                    content.userInfo = ["plannedDriveId": drive.id]
+                    let comps = Calendar.current.dateComponents([.year, .month, .day, .hour, .minute, .second], from: fire)
+                    try? await center.add(UNNotificationRequest(identifier: "planned:\(drive.id):\(Int(arrival.timeIntervalSince1970))",
+                                                                content: content, trigger: UNCalendarNotificationTrigger(dateMatching: comps, repeats: false)))
+                }
+            }
+            return nil
+        }
         for arrival in drive.nextArrivals(after: now) {
             // Origin/destination go to the server for this calculation only (never stored there).
             let slots = (try? await repo.departureTimes(origin: start, destination: drive.destination.location, date: arrival,

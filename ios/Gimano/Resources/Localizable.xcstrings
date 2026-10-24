@@ -525,6 +525,16 @@
         }
       }
     },
+    "Alerts only · voice directions off": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Amaran sahaja · suara arah dimatikan"
+          }
+        }
+      }
+    },
     "All reviews (%lld)": {
       "localizations": {
         "ms": {
@@ -2407,6 +2417,26 @@
         }
       }
     },
+    "Full sound": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bunyi penuh"
+          }
+        }
+      }
+    },
+    "Full sound · voice directions and alerts": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bunyi penuh · suara arah dan amaran"
+          }
+        }
+      }
+    },
     "Get within 1 km of the place to confirm it.": {
       "localizations": {
         "ms": {
@@ -2999,7 +3029,7 @@
         "ms": {
           "stringUnit": {
             "state": "translated",
-            "value": "Dah dibuka"
+            "value": "Sudah dibuka"
           }
         }
       }
@@ -3686,6 +3716,26 @@
         }
       }
     },
+    "Mute": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Senyap"
+          }
+        }
+      }
+    },
+    "Mute · no sound": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Senyap · tiada bunyi"
+          }
+        }
+      }
+    },
     "My contributions": {
       "localizations": {
         "ms": {
@@ -4006,6 +4056,16 @@
         }
       }
     },
+    "No sound": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tiada bunyi"
+          }
+        }
+      }
+    },
     "No upheld disputes in 90 days": {
       "localizations": {
         "ms": {
@@ -4282,12 +4342,32 @@
         }
       }
     },
+    "Open Manotu for the best time to leave for %@ (arrive %@)": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Buka Manotu untuk masa terbaik bertolak ke %@ (tiba %@)"
+          }
+        }
+      }
+    },
     "Open Settings": {
       "localizations": {
         "ms": {
           "stringUnit": {
             "state": "translated",
             "value": "Buka Tetapan"
+          }
+        }
+      }
+    },
+    "Open for the best time": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Buka untuk masa terbaik"
           }
         }
       }
@@ -4318,6 +4398,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Waktu buka salah"
+          }
+        }
+      }
+    },
+    "Opens the sound choices. Touch and hold to mute.": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Membuka pilihan bunyi. Tekan lama untuk senyap."
           }
         }
       }
@@ -4638,6 +4728,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Polis"
+          }
+        }
+      }
+    },
+    "Police, accidents, closed roads": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Polis, kemalangan, jalan ditutup"
           }
         }
       }
@@ -6069,7 +6169,7 @@
         "ms": {
           "stringUnit": {
             "state": "translated",
-            "value": "Masih"
+            "value": "Masih ditutup"
           }
         }
       }
@@ -7092,6 +7192,16 @@
         }
       }
     },
+    "Voice directions + alerts": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Suara arah + amaran"
+          }
+        }
+      }
+    },
     "Voice guidance": {
       "localizations": {
         "ms": {
@@ -7108,6 +7218,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "Carian suara"
+          }
+        }
+      }
+    },
+    "Voice volume": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kelantangan suara"
+          }
+        }
+      }
+    },
+    "Volume": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kelantangan"
           }
         }
       }

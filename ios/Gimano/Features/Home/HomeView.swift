@@ -70,18 +70,6 @@ struct HomeView: View {
     }
 }
 
-struct SoundFab: View {
-    @Environment(AppModel.self) private var model
-    var body: some View {
-        RoundFab(icon: model.soundMode == .alertsOnly ? .report : .sound,
-                 accessibilityLabel: LocalizedStringKey(String(localized: model.soundMode.title)),
-                 slashed: model.soundMode == .off) {
-            model.soundMode = model.soundMode.next
-            model.showToast(String(localized: model.soundMode.title))
-        }
-    }
-}
-
 struct LayersButton: View {
     @Environment(AppModel.self) private var model
     var body: some View {

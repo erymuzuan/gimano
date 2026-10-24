@@ -89,6 +89,14 @@ struct PlannedDrivesView: View {
                     Text("Leave").font(Tokens.Font.small).foregroundStyle(Color.textMuted)
                     Text(lb.formatted(date: .omitted, time: .shortened)).font(Tokens.Font.label).foregroundStyle(Color.brand)
                 }
+            } else if d.origin == nil {
+                // No fixed start: no time until the user asks (their position is sent only then).
+                Button { Task { await model.bestTime(for: d) } } label: {
+                    Text("Open for the best time").font(Tokens.Font.label).multilineTextAlignment(.trailing)
+                }
+                .buttonStyle(.borderless)
+                .foregroundStyle(Color.brand)
+                .accessibilityIdentifier("bestTime.\(d.title)")
             }
         }
         .foregroundStyle(Color.textPrimary)

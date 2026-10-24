@@ -2,7 +2,7 @@ import Foundation
 
 /// Everything the app needs from the backend. Implemented by `LiveRepository` (REST, docs/api.md),
 /// `DemoRepository` (offline canned Kuala Lumpur data) and `FallbackRepository` (live with demo fallback).
-protocol GimanoRepository: PlaceCardDataSource {
+protocol GimanoRepository: PlaceCardDataSource, DepartureTimesSource {
     func signIn() async throws -> DeviceAuthResponse
     /// Legacy device accounts: attach a signing key (`POST /me/keys`). No-op once the pseudonym has a key.
     func ensureIdentity() async

@@ -146,6 +146,8 @@ struct DriveView: View {
                         .transition(.move(edge: .bottom))
                 }
             }
+            // Glanceable while driving: the largest text sizes are capped so the banner, sound button, cards and Stop stay on screen.
+            .dynamicTypeSize(...DynamicTypeSize.accessibility1)
             .sheet(isPresented: Binding(get: { model.showShareSheet }, set: { model.showShareSheet = $0 })) {
                 if let s = model.driveShare { ShareDriveSheet(session: s, nav: nav).presentationDetents([.medium]) }
             }

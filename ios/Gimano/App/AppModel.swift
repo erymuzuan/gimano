@@ -129,7 +129,22 @@ final class AppModel {
     var showOnboarding = false
     var selectedAlert: Report?
     var toast: String?
-    var soundMode: SoundMode = .on { didSet { voice.mode = soundMode } }
+    /// Sound button / selector; remembered across drives (local settings table).
+    var soundMode: SoundMode = .on {
+        didSet {
+            voice.mode = soundMode
+            try? store.setSetting("sound_mode", soundMode.storageValue)
+        }
+    }
+    /// The mode before a long-press mute, for the next long-press.
+    var lastSoundMode: SoundMode = .on { didSet { try? store.setSetting("sound_mode_last", lastSoundMode.storageValue) } }
+    /// App voice volume 0…1 (sound selector slider), on the device only.
+    var voiceVolume: Double = 0.8 {
+        didSet {
+            voice.volume = Float(voiceVolume)
+            try? store.setSetting("voice_volume", String(format: "%.2f", voiceVolume))
+        }
+    }
     var vehicle: Vehicle = .car
     /// Settings → "Start navigation automatically" (local settings table; off by default, like Android).
     var autoStartNav = false { didSet { try? store.setSetting("auto_start_nav", autoStartNav ? "1" : nil) } }
@@ -191,6 +206,9 @@ final class AppModel {
         if let raw = UserDefaults.standard.string(forKey: "travelMode"), let v = Vehicle(rawValue: raw) { vehicle = v }
         if let raw = try? store.setting("theme"), let t = ThemeMode(rawValue: raw) { theme = t }
         autoStartNav = (try? store.setting("auto_start_nav")) == "1"
+        if let m = SoundMode(storageValue: try? store.setting("sound_mode")) { soundMode = m }
+        if let m = SoundMode(storageValue: try? store.setting("sound_mode_last")) { lastSoundMode = m }
+        if let raw = try? store.setting("voice_volume"), let v = Double(raw) { voiceVolume = min(1, max(0, v)) } else { voice.volume = Float(voiceVolume) }
         #if DEBUG
         if let raw = UserDefaults.standard.string(forKey: "GimanoTheme"), let t = ThemeMode(rawValue: raw) { theme = t }
         #endif
@@ -439,7 +457,8 @@ final class AppModel {
         Task {
             _ = await PlannedDriveNotifier.requestPermission()
             var drive = d
-            let leaveBy = await PlannedDriveNotifier.reschedule(drive, from: position, repo: repo)
+            // Saving is the user asking for this drive's time: the fresh fix (if any) may be the origin.
+            let leaveBy = await PlannedDriveNotifier.reschedule(drive, trigger: .userAsked(fix: freshFix), repo: repo)
             if drive.schedule.arriveAt != nil { drive.departAt = leaveBy }
             try? store.savePlannedDrive(drive)
             nextLeaveBy[drive.id] = leaveBy
@@ -455,10 +474,29 @@ final class AppModel {
         Task { await PlannedDriveNotifier.cancel(d.id) }
     }
 
+    /// Launch and the list: automatic, so drives without a fixed start get no traffic-based time (no position is sent).
     func rescheduleAllPlannedDrives() async {
         for d in plannedDrives {
-            nextLeaveBy[d.id] = await PlannedDriveNotifier.reschedule(d, from: position, repo: repo)
+            let lb = await PlannedDriveNotifier.reschedule(d, trigger: .automatic, repo: repo)
+            if lb != nil || d.origin != nil { nextLeaveBy[d.id] = lb }
         }
+    }
+
+    /// "Open for the best time" on a drive without a fixed start: computed from the fresh fix, only now.
+    func bestTime(for d: PlannedDrive) async {
+        guard let fix = freshFix else {
+            showToast(String(localized: "Your location unknown"))
+            return
+        }
+        let lb = await PlannedDriveNotifier.reschedule(d, trigger: .userAsked(fix: fix), repo: repo)
+        nextLeaveBy[d.id] = lb
+        showToast(lb.map { String(localized: "Leave by \($0.formatted(date: .omitted, time: .shortened))") } ?? String(localized: "Couldn't send. Try again."))
+    }
+
+    /// A GPS fix under 2 minutes old (route-start rules), else nil; never the default map position.
+    var freshFix: LatLng? {
+        if case .fresh(let p) = currentGPS() { return p }
+        return nil
     }
 
     /// Notification tap → route preview for that drive.
@@ -888,7 +926,18 @@ final class AppModel {
         guard let planner, let route = planner.selected else { return }
         let session = NavigationSession(destination: planner.destination, route: route, stops: planner.stops, vehicle: planner.vehicle,
                                         avoid: planner.avoid, repo: repo, voice: voice)
-        Task { await loadTripIssues(for: route) }
+        Task {
+            await loadTripIssues(for: route)
+            #if DEBUG
+            // `-GimanoFakeStillClosed YES`: a "Still closed?" prompt 3 s into the drive (device screenshots; never sent).
+            if UserDefaults.standard.bool(forKey: "GimanoFakeStillClosed") {
+                try? await Task.sleep(for: .seconds(3))
+                let p = position
+                stillClosedPrompt = Issue(id: "debug-still-closed", kind: .turnNotAllowed, state: .confirmed, lat: p.lat, lng: p.lng,
+                                          roadName: "Jalan SS 2/3", lastEvidenceAt: Date().addingTimeInterval(-5 * 3600))
+            }
+            #endif
+        }
         session.onRouteChanged = { [weak self] r in
             guard let self else { return }
             self.syncRouteLayers()
@@ -957,6 +1006,8 @@ final class AppModel {
 
     func voteIssue(_ issue: Issue, _ answer: IssueVoteAnswer) {
         stillClosedPrompt = nil
+        // DEBUG sample prompts (`-GimanoFakeStillClosed`) are never sent.
+        if issue.id.hasPrefix("debug-") { showToast(String(localized: "Thanks for checking!")); return }
         Task {
             do {
                 _ = try await repo.voteIssue(id: issue.id, IssueVote(answer: answer))
@@ -1415,11 +1466,11 @@ final class AppModel {
         }
     }
 
-    func showToast(_ text: String) {
+    func showToast(_ text: String, seconds: Double = 2.5) {
         toast = text
         toastTask?.cancel()
         toastTask = Task {
-            try? await Task.sleep(for: .seconds(2.5))
+            try? await Task.sleep(for: .seconds(seconds))
             if !Task.isCancelled { toast = nil }
         }
     }

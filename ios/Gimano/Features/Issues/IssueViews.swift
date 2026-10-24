@@ -193,35 +193,201 @@ struct StillClosedCard: View {
     let issue: Issue
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack(spacing: 12) {
-                Image(systemName: issue.kind.systemImage).font(.system(size: 28, weight: .bold)).foregroundStyle(Color.report)
-                    .frame(width: 56, height: 56)
-                    .background(Color.reportTint, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+        ConfirmCard(
+            title: Text("Still closed?"),
+            subtitle: IssueText.confirmSubtitle(issue),
+            choices: [
+                .init(id: "issueVote.still", title: "Still closed", style: .primary, glyph: .cross) { model.voteIssue(issue, .still) },
+                .init(id: "issueVote.cleared", title: "It's open", style: .pale, glyph: .check) { model.voteIssue(issue, .cleared) },
+                .init(id: "issueVote.unsure", title: "Not sure", style: .outlined, glyph: .question) { model.voteIssue(issue, .unsure) },
+            ],
+            onTimeout: { model.stillClosedPrompt = nil })
+            .accessibilityElement(children: .contain)
+            .accessibilityIdentifier("stillClosedCard")
+    }
+}
+
+/// Confirm prompt while driving (board NavSahkan): 22 pt title, "kind · street · age", equal 84 pt answer buttons with the
+/// icon above the full label (wrapping with Dynamic Type, never clipped), and a 10 s ring that dismisses the card with
+/// no answer.
+struct ConfirmCard: View {
+    struct Choice: Identifiable {
+        enum Style { case primary, pale, outlined }
+        enum Glyph { case cross, check, question }
+        let id: String
+        let title: LocalizedStringKey
+        let style: Style
+        let glyph: Glyph
+        let action: () -> Void
+    }
+
+    let title: Text
+    let subtitle: Text
+    let choices: [Choice]
+    var seconds: Int = ConfirmCountdown.seconds
+    let onTimeout: () -> Void
+    @State private var start = Date()
+    @Environment(\.dynamicTypeSize) private var typeSize
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(alignment: .center, spacing: 12) {
+                NoEntryGlyph()
+                    .frame(width: 32, height: 32)
+                    .frame(width: 52, height: 52)
+                    .background(Color.amberTile, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(issue.kind.title).font(Tokens.Font.bodyBold)
-                    Text(issue.roadName ?? issue.summary ?? "").font(Tokens.Font.caption).foregroundStyle(Color.textMuted).lineLimit(1)
+                    title.font(Tokens.Font.nunito(22, .black, relativeTo: .title2)).foregroundStyle(Color.textPrimary)
+                    subtitle.font(Tokens.Font.nunito(14, .bold, relativeTo: .subheadline)).foregroundStyle(Color.tileLabel)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
-                Spacer()
-                Button { model.stillClosedPrompt = nil } label: {
-                    Image(systemName: "xmark").font(.system(size: 14, weight: .bold)).foregroundStyle(Color.textMuted)
-                }
-                .accessibilityLabel(Text("Close"))
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .accessibilityElement(children: .combine)
+                CountdownRing(start: start, seconds: seconds, onDone: onTimeout)
             }
-            Text("Still closed?").font(Tokens.Font.label).foregroundStyle(Color.textMuted)
-            HStack(spacing: 8) {
-                Button("Still closed") { model.voteIssue(issue, .still) }.buttonStyle(PrimaryButtonStyle())
-                    .accessibilityIdentifier("issueVote.still")
-                Button("It's open") { model.voteIssue(issue, .cleared) }.buttonStyle(SecondaryButtonStyle())
-                    .accessibilityIdentifier("issueVote.cleared")
-                Button("Not sure") { model.voteIssue(issue, .unsure) }.buttonStyle(SecondaryButtonStyle())
-                    .accessibilityIdentifier("issueVote.unsure")
+            // Three equal buttons side by side; at accessibility text sizes they stack full width so a label never
+            // breaks inside a word.
+            let layout = typeSize.isAccessibilitySize ? AnyLayout(VStackLayout(spacing: 8)) : AnyLayout(HStackLayout(alignment: .top, spacing: 8))
+            layout {
+                ForEach(choices) { c in
+                    Button(action: c.action) {
+                        VStack(spacing: 6) {
+                            ChoiceGlyph(glyph: c.glyph).frame(width: 30, height: 30)
+                            Text(c.title)
+                                .font(Tokens.Font.nunito(15, .black, relativeTo: .body))
+                                .multilineTextAlignment(.center)
+                                .lineLimit(nil)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 8)
+                        .frame(maxWidth: .infinity, minHeight: ConfirmCountdown.buttonHeight, maxHeight: .infinity)
+                        .foregroundStyle(c.style == .primary ? Color.brandOn : c.style == .pale ? Color.brandInk : Color.textMuted)
+                        .background(
+                            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                                .fill(c.style == .primary ? Color.brand : c.style == .pale ? Color.brandMist : Color.surface)
+                        )
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                                .strokeBorder(c.style == .outlined ? Color.outline : .clear, lineWidth: 2)
+                        )
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityIdentifier(c.id)
+                }
+            }
+            // Equal heights: every button takes the tallest label's height.
+            .fixedSize(horizontal: false, vertical: true)
+        }
+        .padding(16)
+        .background(Color.surface, in: RoundedRectangle(cornerRadius: 24, style: .continuous))
+        .shadow(color: Color(red: 11 / 255, green: 27 / 255, blue: 58 / 255).opacity(0.22), radius: 11, y: 6)
+        .onAppear { start = Date() }
+    }
+}
+
+/// 10 s countdown on the confirm card; tapping the ring dismisses the card too.
+enum ConfirmCountdown {
+    static let seconds = 10
+    /// Answer buttons are at least this tall (board NavSahkan: 84 pt).
+    static let buttonHeight: CGFloat = 84
+    /// Whole seconds left (shown in the ring), never below 0.
+    static func remaining(elapsed: TimeInterval, total: Int = seconds) -> Int { max(0, Int((Double(total) - elapsed).rounded(.up))) }
+    /// Ring fill 1 → 0.
+    static func progress(elapsed: TimeInterval, total: Int = seconds) -> Double { max(0, min(1, 1 - elapsed / Double(total))) }
+}
+
+private struct CountdownRing: View {
+    let start: Date
+    let seconds: Int
+    let onDone: () -> Void
+
+    var body: some View {
+        TimelineView(.periodic(from: start, by: 0.25)) { ctx in
+            let elapsed = ctx.date.timeIntervalSince(start)
+            Button(action: onDone) {
+                ZStack {
+                    Circle().stroke(Color.brandMist, lineWidth: 4)
+                    Circle().trim(from: 0, to: ConfirmCountdown.progress(elapsed: elapsed, total: seconds))
+                        .stroke(Color.brand, style: StrokeStyle(lineWidth: 4, lineCap: .round))
+                        .rotationEffect(.degrees(-90))
+                    Text(verbatim: "\(ConfirmCountdown.remaining(elapsed: elapsed, total: seconds))")
+                        .font(Tokens.Font.nunito(12, .black)).foregroundStyle(Color.brand)
+                }
+                .frame(width: 40, height: 40)
+                .frame(width: 44, height: 44)
+                .contentShape(Circle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel(Text("Close"))
+            .accessibilityValue(Text(verbatim: "\(ConfirmCountdown.remaining(elapsed: elapsed, total: seconds)) s"))
+            .accessibilityIdentifier("confirmCountdown")
+        }
+        .task(id: start) {
+            try? await Task.sleep(for: .seconds(Double(seconds)))
+            if !Task.isCancelled { onDone() }
+        }
+    }
+}
+
+private struct ChoiceGlyph: View {
+    let glyph: ConfirmCard.Choice.Glyph
+
+    var body: some View {
+        Canvas { ctx, size in
+            let s = min(size.width, size.height) / 24
+            var t = CGAffineTransform(scaleX: s, y: s)
+            func stroke(_ d: String) -> Path { let p = SVGPath.parse(d).stroke; return Path(p.copy(using: &t) ?? p) }
+            func fill(_ d: String) -> Path { let p = SVGPath.parse(d).fill; return Path(p.copy(using: &t) ?? p) }
+            let disc = fill("M12 2a10 10 0 1 1 0 20 10 10 0 0 1 0-20z")
+            switch glyph {
+            case .cross:
+                ctx.fill(disc, with: .color(.white.opacity(0.25)))
+                ctx.stroke(stroke("M8 8l8 8M16 8l-8 8"), with: .color(.white), style: StrokeStyle(lineWidth: 2.6 * s, lineCap: .round))
+            case .check:
+                ctx.fill(disc, with: .color(Color.brandTint))
+                ctx.stroke(stroke("m7 12.5 3.2 3.2L17 9"), with: .color(Color.brand),
+                           style: StrokeStyle(lineWidth: 2.6 * s, lineCap: .round, lineJoin: .round))
+            case .question:
+                ctx.fill(disc, with: .color(Color.surfaceAlt))
+                ctx.stroke(stroke("M9.5 9.2a2.6 2.6 0 1 1 3.7 2.4c-.8.4-1.2.9-1.2 1.8v.4M12 16.6v.2"), with: .color(Color.tileLabel),
+                           style: StrokeStyle(lineWidth: 2.2 * s, lineCap: .round))
             }
         }
-        .padding(Tokens.Space.gutter)
-        .background(Color.surface, in: RoundedRectangle(cornerRadius: Tokens.Radius.lg, style: .continuous))
-        .fabShadow()
-        .accessibilityIdentifier("stillClosedCard")
+        .accessibilityHidden(true)
+    }
+}
+
+/// The amber no-entry sign on the confirm card's tile.
+private struct NoEntryGlyph: View {
+    var body: some View {
+        Canvas { ctx, size in
+            let s = min(size.width, size.height) / 24
+            var t = CGAffineTransform(scaleX: s, y: s)
+            ctx.fill(Path(ellipseIn: CGRect(x: 3 * s, y: 3 * s, width: 18 * s, height: 18 * s)), with: .color(Color(light: 0xFFE2A8, dark: 0x6B4A12)))
+            let d = "M12 4.5a7.5 7.5 0 1 1 0 15 7.5 7.5 0 0 1 0-15zm0 2a5.5 5.5 0 0 0-4.4 8.8l7.7-7.7A5.5 5.5 0 0 0 12 6.5zm4.4 2.2-7.7 7.7a5.5 5.5 0 0 0 7.7-7.7z"
+            let p = SVGPath.parse(d).fill
+            ctx.fill(Path(p.copy(using: &t) ?? p), with: .color(Color(light: 0x7A5200, dark: 0xFFD27A)), style: FillStyle(eoFill: true))
+        }
+        .accessibilityHidden(true)
+    }
+}
+
+extension Color {
+    /// Amber tile behind the confirm card's sign (#FFF1CC).
+    static let amberTile = Color(light: 0xFFF1CC, dark: 0x3A2E12)
+}
+
+extension IssueText {
+    /// "Can't turn · Jalan SS 2/3 · 5 hours ago".
+    static func confirmSubtitle(_ i: Issue) -> Text {
+        var parts: [Text] = [Text(i.kind.title)]
+        if let street = i.streetName, !street.isEmpty { parts.append(Text(verbatim: street)) }
+        if let at = i.lastEvidenceAt ?? i.createdAt {
+            parts.append(Text(at.formatted(.relative(presentation: .named, unitsStyle: .wide))))
+        }
+        return parts.dropFirst().reduce(parts[0]) { $0 + Text(verbatim: " · ") + $1 }
     }
 }
 

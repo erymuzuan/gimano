@@ -7,6 +7,8 @@ enum FlatIcon: String, CaseIterable, Sendable {
     case home, work, star, fuel, food, surau, parking, ev, atm, shop, more, recent
     // Place card (boards TempatIntai / TempatPenuh).
     case save, call, share, website, camera, review, edit
+    // Sound button and selector (boards NavBunyi / NavBunyiKeadaan).
+    case soundOn, soundAlerts, soundOff
 
     /// (base, detail) path data.
     var paths: (base: String, detail: String) {
@@ -35,6 +37,10 @@ enum FlatIcon: String, CaseIterable, Sendable {
         case .camera: ("M3 7h4l2-3h6l2 3h4v13H3z", "M12 9a4 4 0 1 1 0 8 4 4 0 0 1 0-8z")
         case .review: ("M3 4h18v13H8l-5 4z", "m12 6.5 1.4 2.9 3.1.4-2.3 2.2.6 3.1L12 13.6l-2.8 1.5.6-3.1-2.3-2.2 3.1-.4z")
         case .edit: ("M4 16 15 5l4 4L8 20H4z", "m16 4 2-2 4 4-2 2z")
+        case .soundOn: ("M3 9h4l5-4v14l-5-4H3z", "M15 8.5a5 5 0 0 1 0 7l-1.4-1.4a3 3 0 0 0 0-4.2zM17.8 5.7a9 9 0 0 1 0 12.6l-1.4-1.4a7 7 0 0 0 0-9.8z")
+        case .soundAlerts: ("M12 3a6 6 0 0 1 6 6v4l2 3H4l2-3V9a6 6 0 0 1 6-6z", "M10 18h4a2 2 0 0 1-4 0zM11 7h2v5h-2z")
+        case .soundOff: ("M3 9h4l5-4v14l-5-4H3z",
+                         "m15 9 1.4-1.4 2.1 2.1 2.1-2.1L22 9l-2.1 2.1L22 13.2l-1.4 1.4-2.1-2.1-2.1 2.1-1.4-1.4 2.1-2.1z")
         }
     }
 
@@ -67,7 +73,7 @@ struct FlatIconView: View {
             FlatIconShape(icon: icon, detail: false)
                 .fill(icon.isGold ? Color.starGold : Color.brandTint)
             FlatIconShape(icon: icon, detail: true)
-                .fill(icon.isGold ? Color.amberInk.opacity(0.35) : Color.brand, style: FillStyle(eoFill: true))
+                .fill(icon.isGold ? Color.amberInk.opacity(0.35) : icon == .soundOff ? Color.muteInk : Color.brand, style: FillStyle(eoFill: true))
         }
         .frame(width: size, height: size)
         .accessibilityHidden(true)
@@ -83,6 +89,9 @@ extension Color {
     static let sectionLabel = Color(light: 0x6B7A94, dark: 0x8C9AB4)
     /// Panel row divider (#EEF2F8).
     static let rowDivider = Color(light: 0xEEF2F8, dark: 0x1A2540)
+    /// Mute: the cross on the speaker and the button's ring (#C2410C), on a pale orange fill.
+    static let muteInk = Color(light: 0xC2410C, dark: 0xF08A5D)
+    static let muteMist = Color(light: 0xFFF1EA, dark: 0x3A1E12)
     /// Recent-row icon tile (#ECEEF1).
     static let recentTile = Color(light: 0xECEEF1, dark: 0x1F2A40)
 }

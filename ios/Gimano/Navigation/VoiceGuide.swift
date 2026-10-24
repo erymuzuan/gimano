@@ -27,12 +27,71 @@ enum SoundMode: String, CaseIterable, Sendable {
         case .off: "Sound off"
         }
     }
+
+    /// Row title in the sound selector (board NavBunyi).
+    var rowTitle: LocalizedStringResource {
+        switch self {
+        case .on: "Full sound"
+        case .alertsOnly: "Alerts only"
+        case .off: "Mute"
+        }
+    }
+
+    var rowSubtitle: LocalizedStringResource {
+        switch self {
+        case .on: "Voice directions + alerts"
+        case .alertsOnly: "Police, accidents, closed roads"
+        case .off: "No sound"
+        }
+    }
+
+    /// 2 s toast and the VoiceOver announcement after a change.
+    var changedMessage: LocalizedStringResource {
+        switch self {
+        case .on: "Full sound · voice directions and alerts"
+        case .alertsOnly: "Alerts only · voice directions off"
+        case .off: "Mute · no sound"
+        }
+    }
+
+    var flatIcon: FlatIcon {
+        switch self {
+        case .on: .soundOn
+        case .alertsOnly: .soundAlerts
+        case .off: .soundOff
+        }
+    }
+
+    /// Persisted value (same names as Android's SoundMode: ON / ALERTS_ONLY / OFF).
+    var storageValue: String {
+        switch self {
+        case .on: "on"
+        case .alertsOnly: "alerts_only"
+        case .off: "off"
+        }
+    }
+
+    init?(storageValue: String?) {
+        switch storageValue {
+        case "on": self = .on
+        case "alerts_only": self = .alertsOnly
+        case "off": self = .off
+        default: return nil
+        }
+    }
+
+    /// Long-press on the sound button: straight to Mute, or back to the mode before it.
+    static func quickMute(current: SoundMode, last: SoundMode) -> (mode: SoundMode, last: SoundMode) {
+        current == .off ? (last == .off ? .on : last, .off) : (.off, current)
+    }
 }
 
 /// Spoken guidance via AVSpeechSynthesizer, in the app language (en / ms), ducking other audio.
 @MainActor
 final class VoiceGuide {
     var mode: SoundMode = .on
+    /// App voice volume (0…1, Settings in the sound selector), applied to each utterance; the system volume is separate.
+    var volume: Float = 1
     private let synth = AVSpeechSynthesizer()
 
     static var languageCode: String {
@@ -61,9 +120,13 @@ final class VoiceGuide {
         let u = AVSpeechUtterance(string: text)
         u.voice = voice
         u.rate = AVSpeechUtteranceDefaultSpeechRate * 1.02
+        u.volume = Self.utteranceVolume(volume)
         if synth.isSpeaking { synth.stopSpeaking(at: .word) }
         synth.speak(u)
     }
+
+    /// Clamped to 0…1; never fully silent while sound is on (Mute is the way to silence).
+    nonisolated static func utteranceVolume(_ v: Float) -> Float { min(1, max(0.1, v)) }
 
     func stop() {
         synth.stopSpeaking(at: .immediate)

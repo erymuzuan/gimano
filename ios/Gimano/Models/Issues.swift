@@ -63,10 +63,19 @@ struct Issue: Codable, Sendable, Hashable, Identifiable {
     var until: Date?
     /// The server sends a temporary closure's day in `payload.until` (yyyy-MM-dd); other payload keys are ignored here.
     var payload: IssuePayload?
+    /// Snapped road segment (the server sends the street name here, not in `roadName`).
+    var segment: IssueSegment?
     var location: LatLng { LatLng(lat: lat, lng: lng) }
+
+    /// Street for prompts: `roadName`, else the snapped segment's name.
+    var streetName: String? { roadName ?? segment?.name }
 
     /// "Closed until" for a place_closed_temp badge: `until`, else the payload's Malaysian day.
     var closedUntil: Date? { until ?? payload?.until.flatMap(IssuePayload.day) }
+}
+
+struct IssueSegment: Codable, Sendable, Hashable {
+    var name: String?
 }
 
 struct IssuePayload: Codable, Sendable, Hashable {
