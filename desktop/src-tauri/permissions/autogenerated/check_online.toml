@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-check-online"
+description = "Enables the check_online command without any pre-configured scope."
+commands.allow = ["check_online"]
+
+[[permission]]
+identifier = "deny-check-online"
+description = "Denies the check_online command without any pre-configured scope."
+commands.deny = ["check_online"]

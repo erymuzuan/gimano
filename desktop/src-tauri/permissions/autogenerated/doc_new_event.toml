@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-doc-new-event"
+description = "Enables the doc_new_event command without any pre-configured scope."
+commands.allow = ["doc_new_event"]
+
+[[permission]]
+identifier = "deny-doc-new-event"
+description = "Denies the doc_new_event command without any pre-configured scope."
+commands.deny = ["doc_new_event"]

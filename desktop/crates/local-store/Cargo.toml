@@ -1,0 +1,22 @@
+[package]
+name = "local-store"
+version.workspace = true
+edition.workspace = true
+publish.workspace = true
+
+# Encrypted local persistence for Manotu Desktop: every record is an XChaCha20-Poly1305 blob in
+# SQLite under a 32-byte data key held in the OS keychain, or derived from a passphrase with
+# Argon2id when no secure store exists. Never plaintext.
+[features]
+default = ["keychain"]
+keychain = ["dep:keyring"]
+
+[dependencies]
+thiserror.workspace = true
+chrono.workspace = true
+chacha20poly1305.workspace = true
+getrandom.workspace = true
+zeroize.workspace = true
+rusqlite.workspace = true
+argon2.workspace = true
+keyring = { workspace = true, optional = true }

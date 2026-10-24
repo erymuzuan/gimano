@@ -1,6 +1,5 @@
 [workspace]
-# src-tauri joins the members when the desktop shell lands.
-members = ["crates/event-core", "crates/route-core"]
+members = ["crates/event-core", "crates/route-core", "crates/local-store", "src-tauri"]
 resolver = "3"
 
 [workspace.package]
@@ -24,6 +23,22 @@ zeroize = "=1.9.1"
 roxmltree = { version = "=0.21.1", default-features = false, features = ["std"] }
 reqwest = { version = "=0.12.28", default-features = false, features = ["rustls-tls-native-roots"] }
 tokio = { version = "=1.53.3", default-features = false }
+# Desktop app (local-store + src-tauri).
+rusqlite = { version = "=0.40.2", features = ["bundled"] }
+argon2 = { version = "=0.5.3", default-features = false, features = ["alloc", "zeroize"] }
+# keyring 3.x needs explicit native stores; without features it silently uses a mock store.
+keyring = { version = "=3.6.3", default-features = false, features = ["apple-native", "windows-native", "sync-secret-service", "crypto-rust", "vendored"] }
+tauri = { version = "=2.12.4", features = [] }
+tauri-build = { version = "=2.7.3", features = [] }
+tauri-plugin-dialog = "=2.8.3"
+tauri-plugin-clipboard-manager = "=2.5.0"
+
+# Argon2id with 64 MiB takes seconds unoptimised; keep unlock fast in debug builds too.
+[profile.dev.package.argon2]
+opt-level = 3
+
+[profile.dev.package.blake2]
+opt-level = 3
 
 [profile.release]
 lto = "thin"

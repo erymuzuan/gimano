@@ -24,6 +24,7 @@ one tap. It's built entirely on open data from OpenStreetMap.
 | [`backend/`](backend/) | .NET 10 / ASP.NET Core API, worker, and OSM importer. PostgreSQL + PostGIS, OpenSearch, RabbitMQ, Valhalla routing |
 | [`android/`](android/) | Native Android app: Kotlin, Jetpack Compose, MapLibre |
 | [`ios/`](ios/) | Native iOS app: Swift, SwiftUI, MapLibre |
+| [`desktop/`](desktop/) | Manotu Desktop (Tauri 2 + Rust core): private event and route planning, encrypted event packs ([README](desktop/README.md)) |
 | [`data/`](data/) | Scripts to download the Geofabrik Malaysia extract and import POIs and roads |
 | [`deploy/`](deploy/) | `docker-compose.yml` for the full stack |
 | [`docs/`](docs/) | [Architecture](docs/architecture.md) · [API contract](docs/api.md) · [Design tokens](docs/design-tokens.md) · [UX study](docs/research/ux-study.md) |

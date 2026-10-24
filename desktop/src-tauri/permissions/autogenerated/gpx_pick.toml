@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-gpx-pick"
+description = "Enables the gpx_pick command without any pre-configured scope."
+commands.allow = ["gpx_pick"]
+
+[[permission]]
+identifier = "deny-gpx-pick"
+description = "Denies the gpx_pick command without any pre-configured scope."
+commands.deny = ["gpx_pick"]

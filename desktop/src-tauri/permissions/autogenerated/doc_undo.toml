@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-doc-undo"
+description = "Enables the doc_undo command without any pre-configured scope."
+commands.allow = ["doc_undo"]
+
+[[permission]]
+identifier = "deny-doc-undo"
+description = "Denies the doc_undo command without any pre-configured scope."
+commands.deny = ["doc_undo"]
