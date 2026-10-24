@@ -6,7 +6,7 @@ import { fail } from "../app";
 import { h } from "../dom";
 import { distance, duration, when } from "../format";
 import { kindName, modeName, reasonText, t, templateName } from "../i18n";
-import { button, modal, toast } from "../ui";
+import { button, confirmDialog, modal, toast } from "../ui";
 import type { GuestEvent, PublishPreview } from "../types";
 import { tabList } from "./importer";
 
@@ -31,7 +31,8 @@ function guestPhone(ev: GuestEvent): HTMLElement {
       ev.sessions?.length ? [h("h4", {}, t("sessionsH")), h("ul", { class: "phone-sessions" }, ...ev.sessions.map((s) =>
         h("li", {}, `${when(s.start).slice(-5)} ${s.title}${s.stopId ? ` · ${stopName(s.stopId)}` : ""}`)))] : null,
       ev.routes?.length ? [h("h4", {}, t("routesH")), h("ul", {}, ...ev.routes.map((r) =>
-        h("li", {}, `${r.title ?? t("route")} · ${modeName(r.mode)} · ${distance(r.distanceM)}${r.durationS ? ` · ${duration(r.durationS)}` : ""}${r.source !== "routed" ? ` · ${t("sketchLabel")}` : ""}`)))] : null,
+        h("li", {}, `${r.title ?? t("route")} · ${modeName(r.mode)} · ${distance(r.distanceM)}${r.durationS ? ` · ${duration(r.durationS)}` : ""}${r.source !== "routed" ? ` · ${t("sketchLabel")}` : ""}`))),
+      ev.variant ? h("p", { class: "small muted" }, t("stopsOnlyNote")) : null] : null,
       h("p", { class: "small muted" }, `${t("expiresAt").split(" (")[0]}: ${when(ev.expiresAt)}`),
     ),
   );
@@ -58,12 +59,30 @@ export function openPublishDialog(onPublished: () => void): void {
         : h("div", {}, h("h3", {}, t("changes", { n: p.previousRev })), h("ul", { class: "changes" },
           ...p.changes.map((c) => h("li", { class: `chg-${c.kind}` }, `${c.kind === "added" ? "+" : c.kind === "removed" ? "−" : "~"} ${c.what}: ${c.label}${c.fields.length ? ` (${c.fields.join(", ")})` : ""}`))))
       : h("p", {}, t("firstRev"));
+    // Routes are already simplified (docs/events.md §5.4). Only when the full link is still over the
+    // limit is a stops-only link (§5.5, same revision, no route lines) offered, and only after asking.
+    const fullTooLong = p.fullFragmentLen > p.fragmentMax;
     const tooLong = p.fragmentLen > p.fragmentMax;
+    const shortFits = p.stopsOnlyFragmentLen != null && p.stopsOnlyFragmentLen <= p.fragmentMax;
     const status = h("div", { "aria-live": "polite" });
-    const stopsBox = h("input", { type: "checkbox", checked: stopsOnly, onchange: (e: Event) => {
-      stopsOnly = (e.target as HTMLInputElement).checked;
-      void load();
-    } });
+    const offer = fullTooLong && !p.stopsOnly
+      ? h("div", { class: "notice warn stack" },
+        h("p", {}, t("tooLong")),
+        h("div", { class: "row" },
+          button(t("saveFile"), () => tabs.querySelectorAll<HTMLButtonElement>("[role=tab]")[1]?.click()),
+          shortFits ? button(t("stopsOnly"), async () => {
+            if (!await confirmDialog(t("stopsOnlyAsk"), t("stopsOnlyOk"))) return;
+            stopsOnly = true;
+            void load();
+          }) : null,
+        ),
+        shortFits ? h("p", { class: "small muted" }, t("stopsOnlyLen", { n: (p.stopsOnlyFragmentLen ?? 0).toLocaleString() })) : null)
+      : null;
+    const active = p.stopsOnly
+      ? h("div", { class: "notice warn stack" },
+        h("p", {}, t("stopsOnlyActive")),
+        button(t("stopsOnlyBack"), () => { stopsOnly = false; void load(); }, "ghost"))
+      : null;
     const copyBtn = button(t("copyLink"), async () => {
       try {
         const r = await api.publishLink(stopsOnly);
@@ -75,8 +94,7 @@ export function openPublishDialog(onPublished: () => void): void {
     const linkPanel = h("section", { class: "stack" },
       h("p", { class: tooLong ? "error" : "muted" }, t("fragment", { n: p.fragmentLen.toLocaleString(), m: p.fragmentMax.toLocaleString() })),
       h("meter", { min: 0, max: p.fragmentMax, value: Math.min(p.fragmentLen, p.fragmentMax), high: p.fragmentMax * 0.8, "aria-label": t("fragment", { n: p.fragmentLen, m: p.fragmentMax }) }),
-      tooLong || stopsOnly ? h("p", { class: "notice warn" }, t("tooLong")) : null,
-      (ev.routes?.length || stopsOnly) ? h("label", { class: "check" }, stopsBox, " ", t("stopsOnly")) : null,
+      offer, active,
       copyBtn,
     );
     const codeOut = h("p", { class: "code secret", "aria-live": "polite" }, "•••• •••• ••••");
@@ -102,7 +120,7 @@ export function openPublishDialog(onPublished: () => void): void {
         ),
       ),
     );
-    const tabs = tabList([t("link"), t("file")], [linkPanel, filePanel], undefined, tooLong && !stopsOnly ? 1 : 0);
+    const tabs = tabList([t("link"), t("file")], [linkPanel, filePanel], undefined, tooLong ? 1 : 0);
     const warnings = p.issues.filter((i) => i.severity === "warning");
     m.body.replaceChildren(
       h("div", { class: "publish" },

@@ -39,12 +39,15 @@ pub use link::{
     parse_link,
 };
 pub use model::{
-    Event, Lang, Organizer, Session, Stop, StopKind, Template, TimeWindow, default_expiry,
+    Event, Lang, Organizer, Session, Stop, StopKind, Template, TimeWindow, VARIANT_STOPS_ONLY,
+    Variant, default_expiry, stops_only_variant,
 };
 pub use pack::{
     AEAD_AD, Envelope, MAX_INFLATED_BYTES, OpenedPack, SIGNATURE_PREFIX, SealedPack, SealedParts,
-    decrypt, deflate_raw, encrypt, inflate_raw, open, seal, seal_parts,
+    decrypt, deflate_raw, encrypt, inflate_raw, open, seal, seal_bytes, seal_parts,
 };
-pub use revision::{revision_hash, revision_hash_b64u};
-pub use route_core::{GeometrySource, LatLng, Route, RouteLeg, TravelMode};
+pub use revision::{bytes_hash, revision_hash, revision_hash_b64u};
+pub use route_core::{
+    EVENT_SIMPLIFY_TOLERANCE_M, GeometrySource, LatLng, Route, RouteLeg, TravelMode,
+};
 pub use validate::limits;

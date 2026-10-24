@@ -34,6 +34,40 @@ pub struct Event {
     pub sessions: Vec<Session>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub routes: Vec<Route>,
+    /// Present only on a stops-only variant (§5.5); always written last.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub variant: Option<Variant>,
+}
+
+/// `variant.kind` of a stops-only link (§5.5).
+pub const VARIANT_STOPS_ONLY: &str = "stops-only";
+
+/// `"variant": {"kind": "stops-only", "fullHash": "<b64u SHA-256 of the full event bytes>"}`.
+/// `kind` stays a string so an unknown kind is reported as such (`unsupported_variant`) rather
+/// than as malformed JSON.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Variant {
+    pub kind: String,
+    pub full_hash: String,
+}
+
+impl Variant {
+    pub fn stops_only(full_hash: [u8; 32]) -> Self {
+        Variant {
+            kind: VARIANT_STOPS_ONLY.into(),
+            full_hash: crate::encoding::b64u(&full_hash),
+        }
+    }
+
+    pub fn is_stops_only(&self) -> bool {
+        self.kind == VARIANT_STOPS_ONLY
+    }
+
+    /// The decoded `fullHash`, if it is a valid SHA-256 value.
+    pub fn full_hash_bytes(&self) -> Option<[u8; 32]> {
+        crate::encoding::b64u_array(&self.full_hash)
+    }
 }
 
 /// Unknown values from newer writers read as `Other` (display only).
@@ -144,33 +178,68 @@ pub fn default_expiry(end: &DateTime<FixedOffset>) -> DateTime<Utc> {
 }
 
 impl Event {
-    /// Validates and serializes; these are the bytes that get signed.
+    /// Validates and serializes; these are the bytes that get signed. Writers sign
+    /// [`Event::simplified`] (§5.4); [`crate::seal`] does that for you.
     pub fn to_bytes(&self) -> Result<Vec<u8>, Error> {
-        self.validate()?;
+        crate::validate::check(self)?;
         serde_json::to_vec(self).map_err(|e| Error::MalformedEvent(e.to_string()))
     }
 
-    /// Parses and validates signed event bytes.
+    /// Parses and validates signed event bytes (a full event or a stops-only variant).
     pub fn from_bytes(bytes: &[u8]) -> Result<Event, Error> {
         let event: Event =
             serde_json::from_slice(bytes).map_err(|e| Error::MalformedEvent(e.to_string()))?;
-        event.validate()?;
+        crate::validate::check(&event)?;
         Ok(event)
     }
 
+    /// Every rule as a [`ValidationError`]. [`Event::from_bytes`] and [`Event::to_bytes`] report
+    /// the variant rules (§5.5) with their own [`Error`] codes instead.
     pub fn validate(&self) -> Result<(), ValidationError> {
         crate::validate::validate(self)
+    }
+
+    /// A stops-only variant (§5.5), as opposed to a full event.
+    pub fn is_stops_only(&self) -> bool {
+        self.variant.as_ref().is_some_and(Variant::is_stops_only)
+    }
+
+    /// Copy with every route polyline simplified with Douglas–Peucker at 5 m (§5.4). Distances and
+    /// durations keep the routing values. Polylines that do not decode are left to validation.
+    pub fn simplified(&self) -> Event {
+        let mut e = self.clone();
+        for r in &mut e.routes {
+            if let Some(p) = &r.polyline
+                && let Ok(s) = route_core::simplify_polyline(
+                    p,
+                    route_core::EVENT_SIMPLIFY_TOLERANCE_M,
+                    crate::validate::limits::MAX_POLYLINE_POINTS,
+                )
+            {
+                r.polyline = Some(s);
+            }
+        }
+        e
     }
 
     pub fn stop(&self, id: &str) -> Option<&Stop> {
         self.stops.iter().find(|s| s.id == id)
     }
+}
 
-    /// The "stops only" variant offered when a link would be too long (§5.1).
-    pub fn without_route_geometry(&self) -> Event {
-        Event {
-            routes: Vec::new(),
-            ..self.clone()
-        }
+/// The stops-only variant of signed full event bytes (§5.5): the same event with every route's
+/// `polyline` removed and `variant: {kind: "stops-only", fullHash: SHA-256(full bytes)}` appended
+/// as the last field. Deterministic for given full bytes. Sign it with the same organizer key.
+pub fn stops_only_variant(full_event_bytes: &[u8]) -> Result<Vec<u8>, Error> {
+    let mut v = Event::from_bytes(full_event_bytes)?;
+    if v.variant.is_some() {
+        return Err(Error::NotFullEvent);
     }
+    for r in &mut v.routes {
+        r.polyline = None;
+    }
+    v.variant = Some(Variant::stops_only(crate::revision::bytes_hash(
+        full_event_bytes,
+    )));
+    v.to_bytes()
 }

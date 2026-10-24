@@ -40,8 +40,10 @@ pub struct Route {
     pub day: Option<String>,
     #[serde(default)]
     pub stop_ids: Vec<String>,
-    /// Google encoded polyline, precision 6.
-    pub polyline: String,
+    /// Google encoded polyline, precision 6. Required on a full event; absent on every route of a
+    /// stops-only variant (docs/events.md §5.5). Event validation enforces which.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub polyline: Option<String>,
     pub source: GeometrySource,
     pub distance_m: u32,
     /// Movement time only, excluding dwell.

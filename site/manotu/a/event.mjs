@@ -21,6 +21,7 @@ const T = {
     app: "Manotu", google: "Google Maps", other: "Apl lain", navTo: l => `ke ${l}`,
     distance: "Jarak", duration: "Masa bergerak", ascent: "Naik", descent: "Turun",
     sketch: "Laluan lakaran: bukan untuk navigasi belokan demi belokan.",
+    fullInFile: "Laluan penuh ada dalam fail acara — buka dengan Manotu",
     published: (r, d) => `Versi ${r} · diterbitkan ${d}`, at: "di", stopN: (n, l) => `Tempat ${n}: ${l}`,
     privacy: "Pelan acara ada dalam pautan ini sahaja dan dibuka dalam pelayar anda. Manotu tidak menyimpan atau melihatnya.",
     kinds: { parking: "Parkir", dropoff: "Turun penumpang", entrance: "Pintu masuk", venue: "Tempat acara", meal: "Makan",
@@ -46,6 +47,7 @@ const T = {
     app: "Manotu", google: "Google Maps", other: "Other app", navTo: l => `to ${l}`,
     distance: "Distance", duration: "Moving time", ascent: "Ascent", descent: "Descent",
     sketch: "Sketched route: not for turn-by-turn navigation.",
+    fullInFile: "The full route is in the event file — open it with Manotu",
     published: (r, d) => `Version ${r} · published ${d}`, at: "at", stopN: (n, l) => `Place ${n}: ${l}`,
     privacy: "The event plan is only in this link and is opened in your browser. Manotu doesn't store or see it.",
     kinds: { parking: "Parking", dropoff: "Drop-off", entrance: "Entrance", venue: "Venue", meal: "Meal",
@@ -227,6 +229,8 @@ function render() {
   }));
 
   $("routes-card").hidden = e.routes.length === 0;
+  // Stops-only link (docs/events.md §5.5): route list with distance and time, but no line on the map.
+  $("routes-note").hidden = !e.stopsOnly;
   $("routes").replaceChildren(...e.routes.map((r, i) => {
     const facts = [`${t("modes")[r.mode]}`, `${t("distance")} ${fmtKm(r.distanceM)}`];
     if (r.durationS !== undefined) facts.push(`${t("duration")} ${fmtDur(r.durationS)}`);
@@ -276,7 +280,7 @@ function showMap() {
   map.on("load", () => {
     const css = getComputedStyle(document.documentElement);
     const brand = css.getPropertyValue("--brand").trim() || "#0047AB";
-    map.addSource("routes", { type: "geojson", data: { type: "FeatureCollection", features: e.routes.map(r => ({
+    map.addSource("routes", { type: "geojson", data: { type: "FeatureCollection", features: e.routes.filter(r => r.points.length >= 2).map(r => ({
       type: "Feature", properties: { sketch: r.source !== "routed" },
       geometry: { type: "LineString", coordinates: r.points.map(([la, ln]) => [ln, la]) } })) } });
     map.addLayer({ id: "routes-casing", type: "line", source: "routes", layout: { "line-join": "round", "line-cap": "round" },

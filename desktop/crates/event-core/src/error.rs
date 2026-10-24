@@ -61,6 +61,18 @@ pub enum Error {
     BadSignature,
     #[error("random number generator failed")]
     Random,
+    /// `variant.kind` is not `stops-only` (§5.5).
+    #[error("unsupported event variant {0:?}")]
+    UnsupportedVariant(String),
+    /// A stops-only variant still carries `routes[route].polyline` (§5.5).
+    #[error("stops-only variant has a polyline on routes[{route}]")]
+    VariantHasPolyline { route: usize },
+    /// A full event lacks `routes[route].polyline` (§5.5).
+    #[error("routes[{route}] has no polyline")]
+    MissingPolyline { route: usize },
+    /// A stops-only variant can only be made from a full event.
+    #[error("not a full event")]
+    NotFullEvent,
 }
 
 impl Error {
@@ -84,6 +96,10 @@ impl Error {
             Error::UnsupportedEnvelopeVersion(_) => "unsupported_envelope_version",
             Error::BadSignature => "signature",
             Error::Random => "random",
+            Error::UnsupportedVariant(_) => "unsupported_variant",
+            Error::VariantHasPolyline { .. } => "variant_has_polyline",
+            Error::MissingPolyline { .. } => "missing_polyline",
+            Error::NotFullEvent => "not_full_event",
         }
     }
 }

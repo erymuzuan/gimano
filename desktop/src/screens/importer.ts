@@ -11,7 +11,9 @@ import type { DocView, GpxExportRequest, GpxPreview, ImportPreview, TravelMode }
 function previewBox(p: ImportPreview, onImported: () => void, close: () => void): HTMLElement {
   const decisionKey = `dec_${p.decision}` as Key;
   const box = h("div", { class: "stack import-preview" },
-    h("p", { class: p.canImport ? "notice" : "notice warn" }, t(decisionKey)),
+    // "upgraded" (laluan penuh ditambah) was applied already: it is good news, not a warning.
+    h("p", { class: p.canImport || p.decision === "upgraded" ? "notice ok" : "notice warn" }, t(decisionKey)),
+    p.stopsOnly ? h("p", { class: "notice" }, t("importStopsOnly")) : null,
     h("dl", { class: "kv" },
       h("dt", {}, t("title")), h("dd", {}, p.title),
       p.alias ? [h("dt", {}, t("alias")), h("dd", {}, p.alias)] : null,

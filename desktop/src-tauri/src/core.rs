@@ -124,22 +124,34 @@ pub struct DocView {
 pub struct PublishPreview {
     pub ok: bool,
     pub issues: Vec<Issue>,
-    /// The exact event JSON that goes into the pack (what guests see).
+    /// The exact event JSON that goes into the link (what guests see): the stops-only variant
+    /// when `stops_only` was asked for.
     pub event: Option<serde_json::Value>,
     pub rev: u32,
     pub reused: bool,
     pub changes: Vec<Change>,
     pub previous_rev: Option<u32>,
+    /// Link length for what was asked for (full, or stops-only).
     pub fragment_len: usize,
     pub fragment_max: usize,
+    /// Link length of the full event and of its stops-only variant (§5.5; `None` without
+    /// routes), so the UI can offer "Pautan tanpa laluan" only when the full link is too long.
+    pub full_fragment_len: usize,
+    pub stops_only_fragment_len: Option<usize>,
+    /// The file always carries the full event.
     pub file_bytes: usize,
+    pub stops_only: bool,
 }
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ImportPreview {
-    /// new | already | older | fork | newer | different_organizer | expired
+    /// new | already | upgraded | older | fork | newer | different_organizer | expired.
+    /// `upgraded`: the full event of a stored stops-only variant; it already replaced the variant
+    /// ("laluan penuh ditambah", §7.4) and nothing is left to confirm.
     pub decision: &'static str,
+    /// The pack is a stops-only variant (no route lines; the full plan is in the event file).
+    pub stops_only: bool,
     pub title: String,
     pub alias: Option<String>,
     pub rev: u32,
@@ -454,11 +466,7 @@ impl Core {
         Ok(s)
     }
 
-    pub fn prepare(
-        &self,
-        stops_only: bool,
-        now: DateTime<Utc>,
-    ) -> CmdResult<Result<Prepared, Vec<Issue>>> {
+    pub fn prepare(&self, now: DateTime<Utc>) -> CmdResult<Result<Prepared, Vec<Issue>>> {
         let ws = self.ws()?;
         if ws.doc.imported.is_some() {
             return Err(CmdError::new(
@@ -466,7 +474,7 @@ impl Core {
                 "imported events cannot be published",
             ));
         }
-        Ok(publish::prepare(&ws.doc, stops_only, now))
+        Ok(publish::prepare(&ws.doc, now))
     }
 
     pub fn publish_preview(
@@ -476,7 +484,7 @@ impl Core {
     ) -> CmdResult<PublishPreview> {
         let doc_id = self.ws()?.doc.id.clone();
         let previous_rev = self.ws()?.doc.published.last().map(|p| p.rev);
-        let prepared = match self.prepare(stops_only, now)? {
+        let prepared = match self.prepare(now)? {
             Ok(p) => p,
             Err(issues) => {
                 return Ok(PublishPreview {
@@ -489,34 +497,51 @@ impl Core {
                     previous_rev,
                     fragment_len: 0,
                     fragment_max: event_core::MAX_FRAGMENT_CHARS,
+                    full_fragment_len: 0,
+                    stops_only_fragment_len: None,
                     file_bytes: 0,
+                    stops_only: false,
                 });
             }
         };
         let secrets = self.secrets(&doc_id, now)?;
-        let (sealed, key) = publish::seal_bytes(&prepared, &secrets)?;
+        let (sealed, key) = publish::seal_bytes(&prepared.bytes, &secrets)?;
         let file_bytes = publish::file(&sealed).map_or(0, |f| f.len());
+        let full_fragment_len = publish::fragment_len(&sealed, &key);
+        let variant = if prepared.event.routes.is_empty() {
+            None
+        } else {
+            let bytes = publish::pack_bytes(&prepared, true)?;
+            let (sealed, key) = publish::seal_bytes(&bytes, &secrets)?;
+            Some((bytes, publish::fragment_len(&sealed, &key)))
+        };
+        let stops_only = stops_only && variant.is_some();
+        let (shown, fragment_len) = match &variant {
+            Some((bytes, len)) if stops_only => (bytes.as_slice(), *len),
+            _ => (prepared.bytes.as_slice(), full_fragment_len),
+        };
         Ok(PublishPreview {
             ok: true,
-            event: Some(serde_json::from_slice(&prepared.bytes)?),
+            event: Some(serde_json::from_slice(shown)?),
             rev: prepared.event.rev,
             reused: prepared.reused,
             changes: publish::changes(&prepared),
             previous_rev,
-            fragment_len: publish::fragment_len(&sealed, &key),
+            fragment_len,
             fragment_max: event_core::MAX_FRAGMENT_CHARS,
+            full_fragment_len,
+            stops_only_fragment_len: variant.map(|(_, len)| len),
             file_bytes,
+            stops_only,
             issues: prepared.issues,
         })
     }
 
-    /// Seals the next revision and records it. Returns the link or the file bytes; the caller
-    /// copies / writes them and never hands the key to the UI.
+    /// Seals the next revision and records it (always the full event's bytes). Returns the link
+    /// (full, or the stops-only variant of the same revision, §5.5) or the file bytes (always the
+    /// full event); the caller copies / writes them and never hands the key to the UI.
     pub fn publish(&mut self, target: PublishTarget, now: DateTime<Utc>) -> CmdResult<Published> {
-        let prepared = self.prepare(
-            matches!(target, PublishTarget::Link { stops_only: true }),
-            now,
-        )?;
+        let prepared = self.prepare(now)?;
         let prepared = prepared.map_err(|issues| {
             let first = issues
                 .iter()
@@ -526,7 +551,9 @@ impl Core {
         })?;
         let doc_id = self.ws()?.doc.id.clone();
         let secrets = self.secrets(&doc_id, now)?;
-        let (sealed, key) = publish::seal_bytes(&prepared, &secrets)?;
+        let stops_only = matches!(target, PublishTarget::Link { stops_only: true });
+        let bytes = publish::pack_bytes(&prepared, stops_only)?;
+        let (sealed, key) = publish::seal_bytes(&bytes, &secrets)?;
         let out = match target {
             PublishTarget::Link { .. } => {
                 Published::Link(publish::link(&self.settings.invite_site, &sealed, &key)?)
@@ -571,15 +598,26 @@ impl Core {
         opened: OpenedPack,
         now: DateTime<Utc>,
     ) -> CmdResult<ImportPreview> {
-        let stored = self
-            .import_record(&opened.event.id, now)?
-            .and_then(|r| r.stored());
+        let record = self.import_record(&opened.event.id, now)?;
+        let stored = record.as_ref().and_then(ImportRecord::stored);
         let decision = decide_import(&ImportCandidate::from(&opened), stored.as_ref(), now);
         let (name, parent_check, can) = match &decision {
             ImportDecision::Expired => ("expired", None, false),
             ImportDecision::New { .. } => ("new", None, true),
             ImportDecision::DifferentOrganizer => ("different_organizer", None, false),
             ImportDecision::AlreadyImported => ("already", None, false),
+            ImportDecision::UpgradeToFull { rev } => {
+                // §7.4: replace the stored stops-only variant silently; nothing to confirm.
+                let mut rec = record.ok_or_else(|| CmdError::new("storage", "record vanished"))?;
+                rec.upgrade_to_full(*rev, &opened);
+                self.store.put(
+                    KIND_IMPORTED,
+                    &opened.event.id,
+                    Some(opened.event.expires_at),
+                    &Zeroizing::new(serde_json::to_vec(&rec)?),
+                )?;
+                ("upgraded", None, false)
+            }
             ImportDecision::Older { .. } => ("older", None, false),
             ImportDecision::Fork { .. } => ("fork", None, true),
             ImportDecision::Newer { parent, .. } => (
@@ -595,6 +633,7 @@ impl Core {
         let e = &opened.event;
         let preview = ImportPreview {
             decision: name,
+            stops_only: e.is_stops_only(),
             title: e.title.clone(),
             alias: e.organizer.as_ref().and_then(|o| o.alias.clone()),
             rev: e.rev,

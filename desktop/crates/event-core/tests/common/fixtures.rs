@@ -137,6 +137,7 @@ pub fn kenduri() -> Event {
         ],
         stops: vec![parking, dropoff, venue],
         routes: vec![],
+        variant: None,
     }
 }
 
@@ -221,7 +222,7 @@ pub fn ride() -> Event {
         mode: TravelMode::Bicycle,
         day: Some("2026-11-21".into()),
         stop_ids: vec![start_stop.id.clone(), cp.id.clone(), stay.id.clone()],
-        polyline: encode_polyline(&ride_polyline()).unwrap(),
+        polyline: Some(encode_polyline(&ride_polyline()).unwrap()),
         source: GeometrySource::Routed,
         distance_m: 20_100,
         duration_s: Some(4_520),
@@ -281,6 +282,7 @@ pub fn ride() -> Event {
         ],
         stops: vec![start_stop, cp, lunch, stay, finish],
         routes: vec![route],
+        variant: None,
     }
 }
 
@@ -303,7 +305,7 @@ pub fn ride_long_route() -> Event {
         pts.push(LatLng::new(lat as f64 / 1e6, lng as f64 / 1e6));
     }
     let r = &mut e.routes[0];
-    r.polyline = encode_polyline(&pts).unwrap();
+    r.polyline = Some(encode_polyline(&pts).unwrap());
     r.source = GeometrySource::Sketch;
     r.duration_s = None;
     r.ascent_m = None;

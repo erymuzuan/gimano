@@ -7,10 +7,10 @@ use std::path::PathBuf;
 
 use common::fixtures;
 use event_core::{
-    Envelope, Error, Event, ImportCandidate, ImportDecision, OrganizerKey, PackKey, SealedPack,
-    b64u, b64u_decode, decide_import, decrypt, encode_file, encode_link, encrypt, inflate_raw,
-    open, open_file, open_link, parse_file, parse_link, revision_hash_b64u, safety_code,
-    seal_parts,
+    Envelope, Error, Event, ImportCandidate, ImportDecision, OrganizerKey, PackKey, ParentCheck,
+    SealedPack, StoredEvent, StoredRevision, b64u, b64u_decode, bytes_hash, decide_import, decrypt,
+    encode_file, encode_link, encrypt, inflate_raw, open, open_file, open_link, parse_file,
+    parse_link, revision_hash_b64u, safety_code, seal_parts, stops_only_variant,
 };
 use serde_json::Value;
 
@@ -54,6 +54,11 @@ fn check_positive(name: &str, fixture: Event) {
     assert_eq!(opened.safety_code(), s(&v, "safetyCode"));
     assert_eq!(b64u(&opened.revision_hash), s(&v, "revisionHashB64u"));
     assert_eq!(revision_hash_b64u(&event_bytes), s(&v, "revisionHashB64u"));
+    // `expected.stopsOnly` is absent (false) on full-event vectors.
+    assert_eq!(
+        opened.event.is_stops_only(),
+        v["expected"]["stopsOnly"].as_bool().unwrap_or(false)
+    );
 
     let exp = &v["expected"];
     assert_eq!(opened.event.id, exp["id"].as_str().unwrap());
@@ -190,4 +195,132 @@ fn negative_oversized_fragment() {
     let key = PackKey::from_secret_code(s(&v, "secretCode")).unwrap();
     let err = encode_link("https://x.test", &key, &parse_file(&file).unwrap()).unwrap_err();
     assert!(matches!(err, Error::FragmentTooLong { .. }));
+}
+
+// ---- §5.5 / §7.4 stops-only variant ----
+
+#[test]
+fn ride_two_day_stops_only() {
+    let full = load("ride-two-day.json");
+    let v = load("ride-two-day-stops-only.json");
+    let full_bytes = bytes(&full, "eventB64u");
+    let var_bytes = stops_only_variant(&full_bytes).unwrap();
+    // The reference writer's variant is deterministic from the full bytes.
+    assert_eq!(var_bytes, s(&v, "eventJson").as_bytes());
+    assert_eq!(s(&v, "fullVector"), "ride-two-day");
+    assert_eq!(s(&v, "fullHashB64u"), b64u(&bytes_hash(&full_bytes)));
+    assert_eq!(s(&v, "revisionHashB64u"), s(&full, "revisionHashB64u"));
+    assert_eq!(s(&v, "eventBytesHashB64u"), b64u(&bytes_hash(&var_bytes)));
+    // Same organizer seed and pack key as the full vector.
+    assert_eq!(s(&v, "ed25519SeedB64u"), s(&full, "ed25519SeedB64u"));
+    assert_eq!(s(&v, "keyB64u"), s(&full, "keyB64u"));
+    assert_eq!(v["expected"]["stopsOnly"], Value::Bool(true));
+    assert_eq!(v["expected"]["polylinePoints"].as_u64(), Some(0));
+
+    check_positive(
+        "ride-two-day-stops-only",
+        Event::from_bytes(&var_bytes).unwrap(),
+    );
+    let opened = open_link(s(&v, "link")).unwrap();
+    assert!(opened.event.routes.iter().all(|r| r.polyline.is_none()));
+    assert_eq!(opened.event.routes[0].distance_m, 20_100);
+}
+
+#[test]
+fn negative_variant_rules() {
+    for (name, code) in [
+        ("negative-variant-with-polyline", "variant_has_polyline"),
+        ("negative-missing-polyline", "missing_polyline"),
+        ("negative-unknown-variant", "unsupported_variant"),
+    ] {
+        let v = negative(name);
+        assert_eq!(s(&v, "expectedError"), code);
+        let err = open_link(s(&v, "linkFragment")).unwrap_err();
+        assert_eq!(err.code(), code, "{name}");
+        let err = Event::from_bytes(s(&v, "eventJson").as_bytes()).unwrap_err();
+        assert_eq!(err.code(), code, "{name}");
+    }
+}
+
+#[test]
+fn import_stops_only_sequence() {
+    let v = load("import-stops-only-sequence.json");
+    assert_eq!(s(&v, "kind"), "import-sequence");
+    let now = s(&v, "now").parse().unwrap();
+    let packs = &v["packs"];
+    for seq in v["sequences"].as_array().unwrap() {
+        let mut store: Option<StoredEvent> = None;
+        for step in seq["steps"].as_array().unwrap() {
+            let name = s(step, "import");
+            let o = open_link(s(&packs[name], "linkFragment")).unwrap();
+            assert_eq!(b64u(&o.revision_hash), s(&packs[name], "revisionHashB64u"));
+            assert_eq!(
+                Some(o.event.is_stops_only()),
+                packs[name]["stopsOnly"].as_bool()
+            );
+            let d = decide_import(&ImportCandidate::from(&o), store.as_ref(), now);
+            let entry = StoredRevision {
+                rev: o.event.rev,
+                hash: o.revision_hash,
+                stops_only: o.event.is_stops_only(),
+            };
+            let (got, parent) = match &d {
+                ImportDecision::New { .. } => {
+                    store = Some(StoredEvent {
+                        organizer_pub: o.organizer_pub,
+                        revisions: vec![entry],
+                    });
+                    ("new", None)
+                }
+                ImportDecision::UpgradeToFull { rev } => {
+                    for r in &mut store.as_mut().unwrap().revisions {
+                        if r.rev == *rev && r.hash == o.revision_hash {
+                            *r = entry;
+                        }
+                    }
+                    ("upgrade_to_full", None)
+                }
+                ImportDecision::Newer { parent, .. } => {
+                    store.as_mut().unwrap().revisions.push(entry);
+                    let p = match parent {
+                        ParentCheck::Matches => "matches",
+                        ParentCheck::MissedRevisions => "missed_revisions",
+                        ParentCheck::Mismatch => "mismatch",
+                    };
+                    ("newer", Some(p))
+                }
+                ImportDecision::AlreadyImported => ("already_imported", None),
+                d => panic!("unexpected {d:?}"),
+            };
+            let what = format!("{} / {name}", s(seq, "name"));
+            assert_eq!(got, s(step, "decision"), "{what}");
+            assert_eq!(parent, step["parentCheck"].as_str(), "{what}");
+            let after: Vec<_> = store
+                .as_ref()
+                .unwrap()
+                .revisions
+                .iter()
+                .map(|r| (u64::from(r.rev), b64u(&r.hash), r.stops_only))
+                .collect();
+            let want: Vec<_> = step["storedAfter"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .map(|r| {
+                    (
+                        r["rev"].as_u64().unwrap(),
+                        s(r, "revisionHashB64u").to_string(),
+                        r["stopsOnly"].as_bool().unwrap(),
+                    )
+                })
+                .collect();
+            assert_eq!(after, want, "{what}");
+        }
+    }
+    // Rev 2's parent is the full rev 1's hash, which is also the variant's fullHash.
+    let r2 = Event::from_bytes(s(&packs["rev2"], "eventJson").as_bytes()).unwrap();
+    assert_eq!(
+        r2.parent.as_deref(),
+        Some(s(&packs["variant"], "revisionHashB64u"))
+    );
 }

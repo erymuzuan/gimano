@@ -84,6 +84,10 @@ export interface Change { kind: "added" | "removed" | "changed"; what: "event" |
 export interface PublishPreview {
   ok: boolean; issues: Issue[]; event?: GuestEvent | null; rev: number; reused: boolean; changes: Change[];
   previousRev?: number | null; fragmentLen: number; fragmentMax: number; fileBytes: number;
+  /** Link lengths of the full event and of its stops-only variant (null without routes). */
+  fullFragmentLen: number; stopsOnlyFragmentLen?: number | null;
+  /** The preview (event, fragmentLen) is the stops-only variant (docs/events.md §5.5). */
+  stopsOnly: boolean;
 }
 
 /** The exact event JSON that goes into the pack (docs/events.md §4). */
@@ -95,13 +99,17 @@ export interface GuestEvent {
     arrive?: { from: string; to: string }; dwellMin?: number; notes?: string; audience?: string;
   }[];
   sessions?: { id: string; title: string; start: string; end: string; stopId?: string }[];
-  routes?: { id: string; title?: string; mode: TravelMode; day?: string; source: GeometrySource; distanceM: number; durationS?: number; ascentM?: number; descentM?: number; stopIds: string[] }[];
+  routes?: { id: string; title?: string; mode: TravelMode; day?: string; polyline?: string; source: GeometrySource; distanceM: number; durationS?: number; ascentM?: number; descentM?: number; stopIds: string[] }[];
+  variant?: { kind: string; fullHash: string };
 }
 
 export interface PublishResult { rev: number; copied: boolean; fragmentLen: number; fileName?: string | null }
 
 export interface ImportPreview {
-  decision: "new" | "already" | "older" | "fork" | "newer" | "different_organizer" | "expired";
+  /** `upgraded`: the full event replaced a stored stops-only variant (already saved, §7.4). */
+  decision: "new" | "already" | "upgraded" | "older" | "fork" | "newer" | "different_organizer" | "expired";
+  /** The pack is a stops-only variant: no route lines. */
+  stopsOnly: boolean;
   title: string; alias?: string | null; rev: number; safetyCode: string; parentCheck?: string | null;
   start: string; expiresAt: string; stops: number; routes: number; canImport: boolean;
 }

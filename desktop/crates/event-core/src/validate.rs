@@ -4,7 +4,7 @@ use chrono::{DateTime, Duration, FixedOffset, NaiveDate};
 use route_core::{LatLng, decode_polyline};
 
 use crate::encoding::b64u_decode;
-use crate::error::ValidationError;
+use crate::error::{Error, ValidationError};
 use crate::model::Event;
 
 /// Limits from docs/events.md §4. Text lengths count Unicode scalar values.
@@ -96,7 +96,35 @@ fn tz(s: &str) -> bool {
             .all(|b| b.is_ascii_alphanumeric() || matches!(b, b'/' | b'_' | b'-' | b'+'))
 }
 
+/// The variant rules (§5.5) with their own error codes, then every §4 rule.
+pub(crate) fn check(e: &Event) -> Result<(), Error> {
+    let stops_only = match &e.variant {
+        None => false,
+        Some(v) if v.is_stops_only() => true,
+        Some(v) => return Err(Error::UnsupportedVariant(v.kind.clone())),
+    };
+    for (i, r) in e.routes.iter().enumerate() {
+        match (stops_only, r.polyline.is_some()) {
+            (true, true) => return Err(Error::VariantHasPolyline { route: i }),
+            (false, false) => return Err(Error::MissingPolyline { route: i }),
+            _ => {}
+        }
+    }
+    validate(e)?;
+    Ok(())
+}
+
 pub(crate) fn validate(e: &Event) -> R {
+    let stops_only = match &e.variant {
+        None => false,
+        Some(v) if v.is_stops_only() => {
+            if v.full_hash_bytes().is_none() {
+                return err("variant.fullHash", "is not a SHA-256 hash");
+            }
+            true
+        }
+        Some(_) => return err("variant.kind", "is not supported"),
+    };
     id("id", &e.id, EVENT_ID_BYTES)?;
     if e.rev == 0 {
         return err("rev", "must be 1 or more");
@@ -193,15 +221,23 @@ pub(crate) fn validate(e: &Event) -> R {
         for (j, sid) in r.stop_ids.iter().enumerate() {
             known_stop(p(&format!("stopIds[{j}]")), sid)?;
         }
+        let polyline = match (&r.polyline, stops_only) {
+            (Some(_), true) => {
+                return err(p("polyline"), "must be absent on a stops-only variant");
+            }
+            (None, false) => return err(p("polyline"), "is required"),
+            (None, true) => "",
+            (Some(pl), false) => pl.as_str(),
+        };
         let budget = MAX_POLYLINE_POINTS - points;
-        let decoded = decode_polyline(&r.polyline, budget).map_err(|e| match e {
+        let decoded = decode_polyline(polyline, budget).map_err(|e| match e {
             route_core::PolylineError::TooManyPoints(_) => ValidationError::new(
                 p("polyline"),
                 "routes have more than 50 000 polyline points in total",
             ),
             _ => ValidationError::new(p("polyline"), "is not a valid precision-6 polyline"),
         })?;
-        if decoded.len() < 2 {
+        if !stops_only && decoded.len() < 2 {
             return err(p("polyline"), "needs at least 2 points");
         }
         points += decoded.len();

@@ -9,6 +9,7 @@ pub mod gpx;
 pub mod model;
 pub mod polyline;
 pub mod routing;
+pub mod simplify;
 
 pub use elevation::{AscentDescent, ELEVATION_HYSTERESIS_M, ascent_descent};
 pub use geo::{EARTH_RADIUS_M, LatLng, haversine_m, path_length_m};
@@ -22,6 +23,7 @@ pub use routing::{
     MatchRequest, MatchedPath, RouteRequest, RoutedLeg, RoutedPath, RoutingClient, RoutingError,
     UnmatchedRange,
 };
+pub use simplify::{EVENT_SIMPLIFY_TOLERANCE_M, simplify, simplify_polyline};
 
 #[cfg(feature = "http")]
 pub use routing::http::HttpRoutingClient;

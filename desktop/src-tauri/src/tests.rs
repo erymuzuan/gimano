@@ -946,3 +946,87 @@ fn template_events_are_valid_once_routed() {
     }
     let _ = publish::EventSecrets::generate().unwrap();
 }
+
+#[test]
+fn stops_only_link_is_the_same_revision_and_the_file_upgrades_it() {
+    let mut org = core_with_store();
+    let mut doc = templates::new_event(Template::Ride, KL, event_core::Lang::Ms, now());
+    route_all(&mut doc);
+    org.open_new(doc, now()).unwrap();
+
+    let full = org.publish_preview(false, now()).unwrap();
+    assert!(full.ok, "{:?}", full.issues);
+    assert!(!full.stops_only);
+    // With this short template route the `variant` field outweighs the polyline it removes;
+    // only the lengths' presence matters here.
+    let short = full.stops_only_fragment_len.expect("the ride has routes");
+    assert!(short > 50 && full.full_fragment_len > 50);
+    let preview = org.publish_preview(true, now()).unwrap();
+    assert!(preview.stops_only);
+    assert_eq!(preview.fragment_len, short);
+    assert_eq!(preview.full_fragment_len, full.full_fragment_len);
+    let shown = preview.event.unwrap();
+    assert_eq!(shown["variant"]["kind"], "stops-only");
+    assert!(shown["routes"][0].get("polyline").is_none());
+    assert!(shown["routes"][0]["distanceM"].as_u64().unwrap() > 0);
+
+    // The stops-only link carries rev 1; the draft records the full bytes as rev 1.
+    let Published::Link(link) = org
+        .publish(PublishTarget::Link { stops_only: true }, now())
+        .unwrap()
+    else {
+        panic!()
+    };
+    let variant = event_core::open_link(&link).unwrap();
+    assert!(variant.event.is_stops_only());
+    assert_eq!(variant.event.rev, 1);
+    let published = &org.ws.as_ref().unwrap().doc.published;
+    assert_eq!(published.len(), 1);
+    assert_eq!(
+        published[0].hash,
+        event_core::b64u(&variant.revision_hash),
+        "the variant's revision hash is the recorded full revision"
+    );
+    // The file of the same revision carries the full event.
+    let Published::File(file) = org.publish(PublishTarget::File, now()).unwrap() else {
+        panic!()
+    };
+    let code = org.secret_code(now()).unwrap();
+    let full_pack = event_core::open_file(&file, &code).unwrap();
+    assert!(!full_pack.event.is_stops_only());
+    assert_eq!(full_pack.event.rev, 1);
+    assert!(full_pack.event.routes.iter().all(|r| r.polyline.is_some()));
+    assert_eq!(full_pack.revision_hash, variant.revision_hash);
+    assert_eq!(org.ws.as_ref().unwrap().doc.published.len(), 1);
+
+    // A guest opens the short link first, then the file: the full route is added silently.
+    let mut guest = core_with_store();
+    let p = guest.import_preview(variant.clone(), now()).unwrap();
+    assert_eq!((p.decision, p.stops_only), ("new", true));
+    guest.import_confirm(now()).unwrap();
+    let id = variant.event.id.clone();
+    let v = guest.open(crate::core::KIND_IMPORTED, &id, now()).unwrap();
+    assert!(
+        v.doc.routes.iter().all(|r| r.legs.is_empty()),
+        "no geometry yet"
+    );
+    guest.close();
+
+    let p = guest.import_preview(full_pack.clone(), now()).unwrap();
+    assert_eq!(
+        (p.decision, p.can_import, p.stops_only),
+        ("upgraded", false, false)
+    );
+    let v = guest.open(crate::core::KIND_IMPORTED, &id, now()).unwrap();
+    assert!(
+        v.doc.routes.iter().all(|r| !r.legs.is_empty()),
+        "full route added"
+    );
+    guest.close();
+    // Either one again: already imported.
+    for again in [variant, full_pack] {
+        let p = guest.import_preview(again, now()).unwrap();
+        assert_eq!((p.decision, p.can_import), ("already", false));
+    }
+    assert_eq!(guest.library(now()).unwrap().len(), 1);
+}

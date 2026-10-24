@@ -7,13 +7,13 @@ import { readFileSync, readdirSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createHash } from "node:crypto";
-import { sha256, safetyCode, openLink, openFile, decide, b64uDecode, b64uEncode, decodePolyline, inflateRaw, PackError, parseLink } from "../pack.mjs";
+import { sha256, safetyCode, openLink, openFile, decide, decideImport, readEvent, b64uDecode, b64uEncode, decodePolyline, inflateRaw, PackError, parseLink } from "../pack.mjs";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const repo = resolve(here, "../../../..");
 const dir = process.argv[2] ? resolve(process.argv[2]) : join(repo, "desktop/crates/event-core/tests/vectors");
 const files = readdirSync(dir).filter(f => f.endsWith(".json")).sort();
-assert.ok(files.length >= 7, `expected the vectors in ${dir}`);
+assert.ok(files.length >= 12, `expected the vectors in ${dir}`);
 
 const code = async p => { try { await p; return "ok"; } catch (e) { if (e instanceof PackError) return e.code; throw e; } };
 let passed = 0, failed = 0;
@@ -33,6 +33,10 @@ for (const f of files) {
       assert.equal(o.organizerPubB64u, v.organizerPubB64u, `${how}: pub`);
       assert.equal(o.safetyCode, v.safetyCode, `${how}: safety code`);
       assert.equal(o.revisionHashB64u, v.revisionHashB64u, `${how}: revision hash`);
+      // §5.5: a stops-only variant's revision hash is fullHash; its own bytes hash differently.
+      assert.equal(o.stopsOnly, v.expected.stopsOnly ?? false, `${how}: stopsOnly`);
+      if (v.eventBytesHashB64u) assert.equal(o.eventBytesHashB64u, v.eventBytesHashB64u, `${how}: bytes hash`);
+      if (v.fullHashB64u) assert.equal(o.event.variant.fullHash, v.fullHashB64u, `${how}: fullHash`);
       const x = v.expected, e = o.event;
       assert.equal(e.id, x.id); assert.equal(e.rev, x.rev); assert.equal(e.title, x.title);
       assert.equal(e.stops.length, x.stops); assert.equal(e.sessions.length, x.sessions);
@@ -46,7 +50,10 @@ for (const f of files) {
         assert.deepEqual(e.stops[i].entrance, s.entrance);
         assert.equal(e.stops[i].notes, s.notes); assert.equal(e.stops[i].audience, s.audience);
       });
-      (raw.routes ?? []).forEach((r, i) => assert.equal(e.routes[i].points.length, decodePolyline(r.polyline).length));
+      (raw.routes ?? []).forEach((r, i) => {
+        assert.equal(e.routes[i].points.length, r.polyline === undefined ? 0 : decodePolyline(r.polyline).length);
+        assert.equal(e.routes[i].distanceM, r.distanceM); assert.equal(e.routes[i].durationS, r.durationS);
+      });
     };
     await check("link", async () => verify(await openLink(v.link), "link"));
     await check("fragment", async () => verify(await openLink(v.linkFragment), "fragment"));
@@ -60,8 +67,36 @@ for (const f of files) {
       assert.equal(b64uEncode(p.key), v.keyB64u); assert.equal(b64uEncode(p.nonce), v.nonceB64u);
       assert.equal(b64uEncode(p.ciphertext), v.ciphertextB64u);
     });
+    if (v.fullVector) await check(`fullHash = SHA-256 of ${v.fullVector} eventJson`, async () => {
+      const full = JSON.parse(readFileSync(join(dir, `${v.fullVector}.json`), "utf8"));
+      assert.equal(b64uEncode(sha256(new TextEncoder().encode(full.eventJson))), v.fullHashB64u);
+      assert.equal(v.revisionHashB64u, full.revisionHashB64u);
+    });
+  } else if (v.kind === "import-sequence") {
+    const now = new Date(v.now);
+    for (const seq of v.sequences) {
+      await check(seq.name, async () => {
+        let store = null;
+        for (const step of seq.steps) {
+          const o = await openLink(v.packs[step.import].linkFragment);
+          assert.equal(o.revisionHashB64u, v.packs[step.import].revisionHashB64u, `${step.import}: revision hash`);
+          assert.equal(o.stopsOnly, v.packs[step.import].stopsOnly);
+          const d = decideImport(o, store, now);
+          assert.equal(d.decision, step.decision, `${step.import}: decision`);
+          assert.equal(d.parentCheck ?? null, step.parentCheck, `${step.import}: parent check`);
+          const entry = { rev: o.event.rev, revisionHashB64u: o.revisionHashB64u, stopsOnly: o.stopsOnly };
+          if (d.decision === "new") store = { organizerPubB64u: o.organizerPubB64u, revisions: [entry] };
+          else if (d.decision === "upgrade_to_full")
+            store.revisions = store.revisions.map(r => r.rev === d.rev && r.revisionHashB64u === o.revisionHashB64u ? entry : r);
+          else if (d.decision === "newer" || d.decision === "fork") store.revisions.push(entry);
+          assert.deepEqual(store.revisions, step.storedAfter, `${step.import}: stored after`);
+        }
+      });
+    }
   } else {
     const want = v.expectedError;
+    if (v.eventJson && want !== "expired") await check(`eventJson → ${want}`, () =>
+      assert.equal((() => { try { readEvent(JSON.parse(v.eventJson)); return "ok"; } catch (e) { return e.code; } })(), want));
     if (want === "expired") {
       await check("verifies, then decision expired", async () => {
         const o = await openLink(v.linkFragment);

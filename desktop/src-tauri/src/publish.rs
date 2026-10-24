@@ -4,7 +4,7 @@
 use chrono::{DateTime, Utc};
 use event_core::{
     Error as PackError, Event, GeometrySource, OpenedPack, OrganizerKey, PackKey, b64u,
-    b64u_decode, encode_file, encode_link, link_fragment, revision_hash_b64u, seal,
+    b64u_decode, encode_file, encode_link, link_fragment, revision_hash_b64u, stops_only_variant,
 };
 use route_core::decode_polyline;
 use serde::{Deserialize, Serialize};
@@ -55,9 +55,11 @@ impl Drop for EventSecrets {
     }
 }
 
-/// The next revision to publish, or the last one again when nothing changed.
+/// The next revision to publish, or the last one again when nothing changed. Always the full
+/// event; a stops-only link is derived from `bytes` at sealing time (§5.5), same revision.
 pub struct Prepared {
     pub event: Event,
+    /// The full event bytes, route geometry simplified (§5.4). Recorded as the revision.
     pub bytes: Vec<u8>,
     pub previous: Option<Event>,
     /// Same content as the last published revision: its bytes are re-sealed unchanged.
@@ -65,7 +67,7 @@ pub struct Prepared {
     pub issues: Vec<Issue>,
 }
 
-pub fn prepare(doc: &Doc, stops_only: bool, now: DateTime<Utc>) -> Result<Prepared, Vec<Issue>> {
+pub fn prepare(doc: &Doc, now: DateTime<Utc>) -> Result<Prepared, Vec<Issue>> {
     let previous = doc.published.last().and_then(|p| {
         let bytes = b64u_decode(&p.event_bytes)?;
         Event::from_bytes(&bytes).ok().map(|e| (e, bytes))
@@ -75,12 +77,12 @@ pub fn prepare(doc: &Doc, stops_only: bool, now: DateTime<Utc>) -> Result<Prepar
         Some((e, _)) => (e.rev, e.parent.clone(), e.published_at),
     };
     let (event, issues) = build_event(doc, rev, parent, at);
-    let Some(mut event) = event else {
+    let Some(event) = event else {
         return Err(issues);
     };
-    if stops_only {
-        event = event.without_route_geometry();
-    }
+    // §5.4: simplify before comparing with (and signing after) the last published revision,
+    // which was simplified the same way.
+    let event = event.simplified();
     let (event, reused) = match &previous {
         None => (event, false),
         Some((prev, _)) if same_content(&event, prev) => (prev.clone(), true),
@@ -129,15 +131,23 @@ pub fn record(doc: &mut Doc, p: &Prepared) {
     });
 }
 
-/// Seals the exact bytes (`seal` validates, signs, encrypts and re-opens to verify).
+/// The exact bytes that go into the pack: the full event, or its stops-only variant (§5.5).
+pub fn pack_bytes(p: &Prepared, stops_only: bool) -> Result<Vec<u8>, PackError> {
+    if stops_only {
+        stops_only_variant(&p.bytes)
+    } else {
+        Ok(p.bytes.clone())
+    }
+}
+
+/// Seals the exact bytes (validates, signs, encrypts and re-opens to verify).
 pub fn seal_bytes(
-    p: &Prepared,
+    bytes: &[u8],
     secrets: &EventSecrets,
 ) -> Result<(event_core::SealedPack, PackKey), PackError> {
     let org = secrets.organizer().ok_or(PackError::Random)?;
     let key = secrets.pack_key().ok_or(PackError::Random)?;
-    let event = Event::from_bytes(&p.bytes)?;
-    let sealed = seal(&event, &org, &key)?;
+    let sealed = event_core::seal_bytes(bytes, &org, &key)?;
     Ok((sealed, key))
 }
 
@@ -166,8 +176,12 @@ pub fn file(sealed: &event_core::SealedPack) -> Result<Vec<u8>, PackError> {
 // Imported packs → read-only documents.
 
 fn route_from_event(r: &event_core::Route) -> RouteDraft {
-    let pts =
-        decode_polyline(&r.polyline, event_core::limits::MAX_POLYLINE_POINTS).unwrap_or_default();
+    // A stops-only variant has no geometry: the route keeps its title, but no line or legs.
+    let pts = r
+        .polyline
+        .as_deref()
+        .and_then(|p| decode_polyline(p, event_core::limits::MAX_POLYLINE_POINTS).ok())
+        .unwrap_or_default();
     let mut d = RouteDraft::new(r.mode);
     d.id = r.id.clone();
     d.title = r.title.clone().unwrap_or_default();
@@ -277,13 +291,34 @@ impl ImportRecord {
                 .revisions
                 .iter()
                 .filter_map(|r| {
+                    let bytes = b64u_decode(&r.event_bytes)?;
                     Some(event_core::StoredRevision {
                         rev: r.rev,
-                        hash: b64u_decode(&r.hash)?.try_into().ok()?,
+                        // Revision hash: `fullHash` for a stops-only variant (§7.4).
+                        hash: event_core::revision_hash(&bytes),
+                        stops_only: Event::from_bytes(&bytes).ok()?.is_stops_only(),
                     })
                 })
                 .collect(),
         })
+    }
+
+    /// §7.4: the full event of a stored stops-only variant arrived; it replaces the variant of
+    /// `rev` with the same revision hash, in place.
+    pub fn upgrade_to_full(&mut self, rev: u32, full: &OpenedPack) {
+        let hash = b64u(&full.revision_hash);
+        for r in &mut self.revisions {
+            let same = r.rev == rev
+                && b64u_decode(&r.event_bytes)
+                    .is_some_and(|b| b64u(&event_core::revision_hash(&b)) == hash);
+            if same {
+                *r = ImportedRev {
+                    rev,
+                    hash: hash.clone(),
+                    event_bytes: b64u(&full.event_bytes),
+                };
+            }
+        }
     }
 
     /// The newest revision (the first stored one when two share a rev after a fork).

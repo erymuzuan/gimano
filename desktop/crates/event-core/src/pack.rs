@@ -140,13 +140,32 @@ pub fn seal_parts(
     })
 }
 
-/// Validates, signs and encrypts an event with a fresh nonce, then opens the result again to
-/// prove it verifies before anything is offered to the user.
-pub fn seal(event: &Event, organizer: &OrganizerKey, key: &PackKey) -> Result<SealedPack, Error> {
-    let bytes = event.to_bytes()?;
-    let parts = seal_parts(&bytes, organizer, key, random_nonce()?)?;
+/// The writer path: simplifies route geometry (§5.4), validates, signs and encrypts with a fresh
+/// nonce. Returns the exact signed bytes (store these; their revision hash is the next `parent`)
+/// and the sealed pack.
+pub fn seal(
+    event: &Event,
+    organizer: &OrganizerKey,
+    key: &PackKey,
+) -> Result<(Vec<u8>, SealedPack), Error> {
+    let bytes = event.simplified().to_bytes()?;
+    let sealed = seal_bytes(&bytes, organizer, key)?;
+    Ok((bytes, sealed))
+}
+
+/// Signs and encrypts exactly these event bytes (a full event or a stops-only variant) with a
+/// fresh nonce, then opens the result again to prove it verifies before anything is offered to
+/// the user.
+pub fn seal_bytes(
+    event_bytes: &[u8],
+    organizer: &OrganizerKey,
+    key: &PackKey,
+) -> Result<SealedPack, Error> {
+    let parts = seal_parts(event_bytes, organizer, key, random_nonce()?)?;
     let check = open(key, &parts.sealed)?;
-    debug_assert_eq!(check.event_bytes, bytes);
+    if check.event_bytes != event_bytes {
+        return Err(Error::MalformedEnvelope);
+    }
     Ok(parts.sealed)
 }
 

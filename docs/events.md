@@ -162,8 +162,13 @@ A stops-only link carries the **same revision** with route geometry removed, so 
   still see the route list, distances and stops) and one extra top-level field
   `"variant": { "kind": "stops-only", "fullHash": "<b64u SHA-256 of the full event bytes>" }`.
 - It is signed with the same organiser key; `id`, `rev`, `parent`, `publishedAt` are those of the full event.
-- `polyline` is required on every route of a full event and must be absent on every route of a stops-only variant.
-  Unknown `variant.kind` is rejected.
+- `polyline` is required on every route of a full event and must be absent on every route of a stops-only variant
+  (errors `missing_polyline`, `variant_has_polyline`). `variant: null` or absent = full event. An unknown
+  `variant.kind` is rejected (`unsupported_variant`) on purpose: unlike other unknown fields, a future kind must not
+  be read as a full event by an older app. A malformed `fullHash` is `invalid_event`.
+- The reference writer puts `variant` last; other writers need not match its bytes, because the revision hash is
+  `fullHash`, not the variant's own hash.
+- Offer it only when the full link is too long and the stops-only link fits (for short routes it can be longer).
 - Its **revision hash** (§7, the value a later revision's `parent` refers to) is `variant.fullHash`, not the hash of
   its own bytes.
 - The file (§5.2) always carries the full event. Hosts send the stops-only link plus the file for those who want the
@@ -193,8 +198,8 @@ POST /routes/match
    (6 characters, e.g. `S8EVC7`: the first 30 bits of SHA-256(pub), most significant first, 5 bits per character
    from the alphabet `23456789ABCDEFGHJKLMNPQRSTUVWXYZ`, which leaves out the look-alikes 0/O and 1/I).
 4. Identical bytes already stored → "sudah diimport", nothing changes.
-   Stops-only variants (§5.5): same `id` and `rev`, where one side is a variant whose `fullHash` equals SHA-256 of the
-   other side's bytes, are **not** a fork. Incoming full event over a stored variant → replace it silently ("laluan
+   Stops-only variants (§5.5): compare **revision hashes** (`fullHash` for a variant). Same `id`, `rev` and revision
+   hash is never a fork, including two different variant byte strings of one revision. Incoming full event over a stored variant → replace it silently ("laluan
    penuh ditambah"); incoming variant over the stored full event → "sudah diimport". The `parent` check uses the
    stored side's revision hash (`fullHash` for a variant).
    Later revisions must have the same `pub` (else reject: "penganjur berbeza"). Lower `rev` than stored → keep the

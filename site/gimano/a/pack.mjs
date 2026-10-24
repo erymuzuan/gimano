@@ -247,11 +247,15 @@ export async function openSealed(key, nonce, ciphertext) {
   try { text = new TextDecoder("utf-8", { fatal: true }).decode(eventBytes); raw = JSON.parse(text); }
   catch (e) { throw new PackError("malformed_event", e.message); }
   const event = readEvent(raw);
+  const eventBytesHashB64u = b64uEncode(sha256(eventBytes));
   return {
     event, eventBytes, eventText: text, organizerPub: pub,
     organizerPubB64u: b64uEncode(pub),
     safetyCode: safetyCode(pub),
-    revisionHashB64u: b64uEncode(sha256(eventBytes)),
+    // §5.5: a stops-only variant's revision hash is its variant.fullHash, not the hash of its own bytes.
+    revisionHashB64u: event.stopsOnly ? event.variant.fullHash : eventBytesHashB64u,
+    eventBytesHashB64u,
+    stopsOnly: event.stopsOnly,
   };
 }
 
@@ -268,6 +272,37 @@ export async function openFile(bytes, secretCode) {
 /** Import decision for a viewer that stores nothing: `expired` at or after expiresAt (§7.5), else `new`. */
 export function decide(event, now = new Date()) {
   return now.getTime() >= event.expiresAt.ms ? "expired" : "new";
+}
+
+/** Full import decision (§7 steps 3–5), mirroring event_core::decide_import, for apps that keep a store. The viewer
+ *  itself stores nothing; this is the reference the phones can copy (test/vectors.mjs runs it on
+ *  import-stops-only-sequence.json). Hashes are revision hashes (`fullHash` for a stops-only variant), so a variant and
+ *  its full event are the same revision (§7.4).
+ *  @param {{event: object, organizerPubB64u: string, revisionHashB64u: string, stopsOnly: boolean}} opened
+ *  @param {{organizerPubB64u: string, revisions: {rev: number, revisionHashB64u: string, stopsOnly: boolean}[]} | null} stored
+ *  @returns {{decision: string, rev?: number, storedRev?: number, parentCheck?: string}} decision is one of
+ *  expired | new | different_organizer | already_imported | upgrade_to_full | older | fork | newer */
+export function decideImport(opened, stored, now = new Date()) {
+  const e = opened.event;
+  if (now.getTime() >= e.expiresAt.ms) return { decision: "expired" };
+  if (!stored) return { decision: "new" };
+  if (stored.organizerPubB64u !== opened.organizerPubB64u) return { decision: "different_organizer" };
+  const same = stored.revisions.filter(r => r.rev === e.rev && r.revisionHashB64u === opened.revisionHashB64u);
+  if (same.length) {
+    return !opened.stopsOnly && same.every(r => r.stopsOnly)
+      ? { decision: "upgrade_to_full", rev: e.rev } : { decision: "already_imported" };
+  }
+  const storedRev = stored.revisions.reduce((m, r) => Math.max(m, r.rev), 0);
+  if (e.rev < storedRev) return { decision: "older", storedRev };
+  if (e.rev === storedRev) return { decision: "fork", rev: storedRev };
+  let parentCheck;
+  if (e.rev === 1 && e.parent === null) parentCheck = "matches";
+  else {
+    const previous = stored.revisions.filter(r => r.rev === e.rev - 1);
+    parentCheck = !previous.length ? "missed_revisions"
+      : previous.some(r => r.revisionHashB64u === e.parent) ? "matches" : "mismatch";
+  }
+  return { decision: "newer", storedRev, parentCheck };
 }
 
 // ---- event JSON (§4) ------------------------------------------------------------------------------------------
@@ -376,7 +411,12 @@ export function readEvent(raw) {
     expiresAt: time(raw.expiresAt, "expiresAt"),
     organizer: undefined,
     stops: [], sessions: [], routes: [], polylinePoints: 0,
+    variant: undefined, stopsOnly: false,
   };
+  if (present(raw.variant)) {
+    if (!isObj(raw.variant)) malformed("variant");
+    e.variant = { kind: reqStr(raw.variant, "kind", "variant."), fullHash: reqStr(raw.variant, "fullHash", "variant.") };
+  }
   if (present(raw.organizer)) {
     if (!isObj(raw.organizer)) malformed("organizer");
     e.organizer = { alias: optStr(raw.organizer, "alias", "organizer.") };
@@ -413,7 +453,7 @@ export function readEvent(raw) {
       id: reqStr(r, "id", p), title: optStr(r, "title", p), mode: oneOf(r.mode, MODES, `${p}mode`),
       day: optStr(r, "day", p),
       stopIds: arr(r, "stopIds", p).map((x, j) => { if (typeof x !== "string") malformed(`${p}stopIds[${j}]`); return x; }),
-      polyline: reqStr(r, "polyline", p), source: oneOf(r.source, SOURCES, `${p}source`),
+      polyline: optStr(r, "polyline", p), source: oneOf(r.source, SOURCES, `${p}source`),
       distanceM: u32(r.distanceM, `${p}distanceM`), durationS: optU32(r, "durationS", p),
       ascentM: optU32(r, "ascentM", p), descentM: optU32(r, "descentM", p),
       legs: arr(r, "legs", p).map((l, j) => {
@@ -430,7 +470,20 @@ export function readEvent(raw) {
   return e;
 }
 
+export const VARIANT_STOPS_ONLY = "stops-only";
+
 function validate(e) {
+  // §5.5 variant rules first, with their own codes (event_core::validate::check).
+  if (e.variant && e.variant.kind !== VARIANT_STOPS_ONLY) throw new PackError("unsupported_variant", e.variant.kind);
+  e.stopsOnly = !!e.variant;
+  e.routes.forEach((r, i) => {
+    if (e.stopsOnly && r.polyline !== undefined) throw new PackError("variant_has_polyline", `routes[${i}]`);
+    if (!e.stopsOnly && r.polyline === undefined) throw new PackError("missing_polyline", `routes[${i}]`);
+  });
+  if (e.stopsOnly) {
+    const h = b64uDecode(e.variant.fullHash);
+    if (!h || h.length !== 32) invalid("variant.fullHash", "is not a SHA-256 hash");
+  }
   id("id", e.id, LIMITS.eventIdBytes);
   if (e.rev === 0) invalid("rev", "must be 1 or more");
   if (e.rev === 1 && e.parent !== null) invalid("parent", "must be null for rev 1");
@@ -489,12 +542,14 @@ function validate(e) {
       if (!t) invalid(p("day"), "is not a YYYY-MM-DD date");
     }
     r.stopIds.forEach((sid, j) => knownStop(p(`stopIds[${j}]`), sid));
-    try { r.points = decodePolyline(r.polyline, LIMITS.polylinePoints - points); }
-    catch (err) {
-      invalid(p("polyline"), err.tooMany ? "routes have more than 50 000 polyline points in total" : "is not a valid precision-6 polyline");
+    if (!e.stopsOnly) { // a stops-only variant has no geometry: points stay []
+      try { r.points = decodePolyline(r.polyline, LIMITS.polylinePoints - points); }
+      catch (err) {
+        invalid(p("polyline"), err.tooMany ? "routes have more than 50 000 polyline points in total" : "is not a valid precision-6 polyline");
+      }
+      if (r.points.length < 2) invalid(p("polyline"), "needs at least 2 points");
+      points += r.points.length;
     }
-    if (r.points.length < 2) invalid(p("polyline"), "needs at least 2 points");
-    points += r.points.length;
     r.legs.forEach((l, j) => {
       knownStop(p(`legs[${j}].fromStopId`), l.fromStopId);
       knownStop(p(`legs[${j}].toStopId`), l.toStopId);

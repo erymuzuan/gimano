@@ -264,7 +264,7 @@ fn build_route(i: usize, r: &RouteDraft, issues: &mut Vec<Issue>) -> Option<Rout
         mode: r.mode,
         day: opt(&r.day),
         stop_ids,
-        polyline,
+        polyline: Some(polyline),
         source,
         distance_m: summary.distance_m,
         duration_s: summary.duration_s,
@@ -369,6 +369,7 @@ pub fn build_event(
         stops,
         sessions: doc.sessions.clone(),
         routes,
+        variant: None,
     };
     if let Err(e) = event.validate() {
         // Route indexes in the event match the draft only if no route was skipped.

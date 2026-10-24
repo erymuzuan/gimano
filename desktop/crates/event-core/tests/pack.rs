@@ -18,19 +18,20 @@ fn seal_and_open_round_trip_with_random_keys() {
     let event = fixtures::ride();
     let organizer = OrganizerKey::generate().unwrap();
     let key = PackKey::generate().unwrap();
-    let sealed = seal(&event, &organizer, &key).unwrap();
+    let (_, sealed) = seal(&event, &organizer, &key).unwrap();
 
     let link = encode_link("https://www.bukitbunga.com/gimano/", &key, &sealed).unwrap();
     assert!(link.starts_with("https://www.bukitbunga.com/gimano/a/#1."));
     let opened = open_link(&link).unwrap();
-    assert_eq!(opened.event, event);
+    // `seal` signs the simplified event (§5.4).
+    assert_eq!(opened.event, event.simplified());
     assert_eq!(opened.organizer_pub, organizer.public_key());
 
     let file = encode_file(&sealed).unwrap();
     assert_eq!(&file[..6], b"MNTE\x01\x01");
     assert_eq!(open_file(&file, &key.to_secret_code()).unwrap(), opened);
 
-    let other = seal(&event, &organizer, &key).unwrap();
+    let (_, other) = seal(&event, &organizer, &key).unwrap();
     assert_ne!(other.nonce, sealed.nonce, "fresh nonce per seal");
 }
 
@@ -69,10 +70,10 @@ fn revisions_chain_and_decide() {
     let organizer = OrganizerKey::generate().unwrap();
     let key = PackKey::generate().unwrap();
     let r1 = fixtures::kenduri();
-    let o1 = open(&key, &seal(&r1, &organizer, &key).unwrap()).unwrap();
+    let o1 = open(&key, &seal(&r1, &organizer, &key).unwrap().1).unwrap();
     let mut r2 = r1.next_revision(&o1.event_bytes, "2026-11-02T00:00:00Z".parse().unwrap());
     r2.title = "Kenduri Aqil & Sofea (dikemas kini)".into();
-    let o2 = open(&key, &seal(&r2, &organizer, &key).unwrap()).unwrap();
+    let o2 = open(&key, &seal(&r2, &organizer, &key).unwrap().1).unwrap();
     assert_eq!(o2.event.rev, 2);
 
     let now = "2026-11-03T00:00:00Z".parse().unwrap();
@@ -81,6 +82,7 @@ fn revisions_chain_and_decide() {
         revisions: vec![StoredRevision {
             rev: 1,
             hash: o1.revision_hash,
+            stops_only: false,
         }],
     };
     assert_eq!(
@@ -98,17 +100,19 @@ fn revisions_chain_and_decide() {
     // A second device publishing rev 2 with the same organizer key forks.
     let mut fork = r2.clone();
     fork.title = "Kenduri (salinan lain)".into();
-    let of = open(&key, &seal(&fork, &organizer, &key).unwrap()).unwrap();
+    let of = open(&key, &seal(&fork, &organizer, &key).unwrap().1).unwrap();
     let stored2 = StoredEvent {
         organizer_pub: o1.organizer_pub,
         revisions: vec![
             StoredRevision {
                 rev: 1,
                 hash: o1.revision_hash,
+                stops_only: false,
             },
             StoredRevision {
                 rev: 2,
                 hash: o2.revision_hash,
+                stops_only: false,
             },
         ],
     };
@@ -119,26 +123,11 @@ fn revisions_chain_and_decide() {
 
     // Same event id signed by someone else.
     let impostor = OrganizerKey::generate().unwrap();
-    let oi = open(&key, &seal(&r2, &impostor, &key).unwrap()).unwrap();
+    let oi = open(&key, &seal(&r2, &impostor, &key).unwrap().1).unwrap();
     assert_eq!(
         decide_import(&ImportCandidate::from(&oi), Some(&stored), now),
         ImportDecision::DifferentOrganizer
     );
-}
-
-#[test]
-fn stops_only_fallback_fits_in_a_link() {
-    let long = fixtures::ride_long_route();
-    let organizer = OrganizerKey::generate().unwrap();
-    let key = PackKey::generate().unwrap();
-    let sealed = seal(&long, &organizer, &key).unwrap();
-    assert!(matches!(
-        encode_link("https://x.test", &key, &sealed),
-        Err(Error::FragmentTooLong { max: 16_000, .. })
-    ));
-    let short = seal(&long.without_route_geometry(), &organizer, &key).unwrap();
-    let link = encode_link("https://x.test", &key, &short).unwrap();
-    assert!(open_link(&link).unwrap().event.routes.is_empty());
 }
 
 #[test]
@@ -365,11 +354,11 @@ fn limit_total_polyline_points() {
     };
     let mut r2 = e.routes[0].clone();
     r2.id = fixed_id("route/second", 8);
-    e.routes[0].polyline = pts(30_000);
-    r2.polyline = pts(20_000);
+    e.routes[0].polyline = Some(pts(30_000));
+    r2.polyline = Some(pts(20_000));
     e.routes.push(r2);
     e.validate().unwrap();
-    e.routes[1].polyline = pts(20_001);
+    e.routes[1].polyline = Some(pts(20_001));
     assert_eq!(
         reason(&e),
         (
@@ -377,9 +366,9 @@ fn limit_total_polyline_points() {
             "routes have more than 50 000 polyline points in total"
         )
     );
-    e.routes[1].polyline = "!!".into();
+    e.routes[1].polyline = Some("!!".into());
     assert_eq!(reason(&e).1, "is not a valid precision-6 polyline");
-    e.routes[1].polyline = pts(1);
+    e.routes[1].polyline = Some(pts(1));
     assert_eq!(reason(&e).1, "needs at least 2 points");
 }
 

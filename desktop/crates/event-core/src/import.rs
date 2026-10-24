@@ -1,5 +1,9 @@
 //! Import decision (docs/events.md §7 steps 3–5) as a pure function of the opened pack, what is
 //! already stored for the same event id, and the current time.
+//!
+//! Hashes here are **revision hashes** ([`crate::revision_hash`]): SHA-256 of the signed bytes,
+//! or `variant.fullHash` for a stops-only variant (§5.5). A variant and the full event it was made
+//! from therefore share one revision hash, which is what makes them "not a fork" (§7.4).
 
 use chrono::{DateTime, Utc};
 
@@ -10,7 +14,10 @@ use crate::pack::OpenedPack;
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct StoredRevision {
     pub rev: u32,
+    /// Revision hash: SHA-256 of the stored bytes, or `fullHash` when they are a stops-only variant.
     pub hash: [u8; 32],
+    /// The stored bytes are a stops-only variant (no route geometry).
+    pub stops_only: bool,
 }
 
 /// The local record for one event id: the pinned organizer key and every revision kept
@@ -27,7 +34,9 @@ pub struct ImportCandidate {
     pub parent: Option<[u8; 32]>,
     pub expires_at: DateTime<Utc>,
     pub organizer_pub: [u8; 32],
+    /// Revision hash (`fullHash` for a stops-only variant).
     pub revision_hash: [u8; 32],
+    pub stops_only: bool,
 }
 
 impl From<&OpenedPack> for ImportCandidate {
@@ -38,17 +47,18 @@ impl From<&OpenedPack> for ImportCandidate {
             expires_at: p.event.expires_at,
             organizer_pub: p.organizer_pub,
             revision_hash: p.revision_hash,
+            stops_only: p.event.is_stops_only(),
         }
     }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ParentCheck {
-    /// `parent` is the hash of the stored rev − 1 (or rev 1 with no parent).
+    /// `parent` is the revision hash of the stored rev − 1 (or rev 1 with no parent).
     Matches,
     /// No stored rev − 1: revisions were missed. Allowed.
     MissedRevisions,
-    /// A stored rev − 1 exists with a different hash. Warn, still allowed.
+    /// A stored rev − 1 exists with a different revision hash. Warn, still allowed.
     Mismatch,
 }
 
@@ -60,8 +70,12 @@ pub enum ImportDecision {
     New { safety_code: String },
     /// "penganjur berbeza": reject.
     DifferentOrganizer,
-    /// Identical bytes already stored: nothing to do.
+    /// "sudah diimport": the same revision is already stored (identical bytes, the full event
+    /// when a stops-only variant arrives, or the same variant again). Nothing changes.
     AlreadyImported,
+    /// "laluan penuh ditambah": the full event of a stored stops-only variant arrived. Replace the
+    /// stored variant of `rev` with it silently (no prompt, not a fork).
+    UpgradeToFull { rev: u32 },
     /// "versi lebih lama": keep the stored revision.
     Older { stored_rev: u32 },
     /// Same rev, different bytes: warn, keep both, the user chooses.
@@ -95,12 +109,19 @@ pub fn decide_import(
     if stored.organizer_pub != candidate.organizer_pub {
         return ImportDecision::DifferentOrganizer;
     }
-    if stored
+    let same: Vec<_> = stored
         .revisions
         .iter()
-        .any(|r| r.hash == candidate.revision_hash)
-    {
-        return ImportDecision::AlreadyImported;
+        .filter(|r| r.rev == candidate.rev && r.hash == candidate.revision_hash)
+        .collect();
+    if !same.is_empty() {
+        // Full over variant upgrades; anything else (identical, variant over full, variant over
+        // the same variant) is already there.
+        return if !candidate.stops_only && same.iter().all(|r| r.stops_only) {
+            ImportDecision::UpgradeToFull { rev: candidate.rev }
+        } else {
+            ImportDecision::AlreadyImported
+        };
     }
     let stored_rev = stored.revisions.iter().map(|r| r.rev).max().unwrap_or(0);
     if candidate.rev < stored_rev {
@@ -147,6 +168,14 @@ mod tests {
             expires_at: "2026-11-16T08:00:00Z".parse().unwrap(),
             organizer_pub: PUB,
             revision_hash: [hash; 32],
+            stops_only: false,
+        }
+    }
+
+    fn variant(rev: u32, full_hash: u8, parent: Option<u8>) -> ImportCandidate {
+        ImportCandidate {
+            stops_only: true,
+            ..cand(rev, full_hash, parent)
         }
     }
 
@@ -155,9 +184,22 @@ mod tests {
             organizer_pub: PUB,
             revisions: revs
                 .iter()
-                .map(|&(rev, h)| StoredRevision { rev, hash: [h; 32] })
+                .map(|&(rev, h)| StoredRevision {
+                    rev,
+                    hash: [h; 32],
+                    stops_only: false,
+                })
                 .collect(),
         }
+    }
+
+    fn with_variant(mut s: StoredEvent, rev: u32) -> StoredEvent {
+        for r in &mut s.revisions {
+            if r.rev == rev {
+                r.stops_only = true;
+            }
+        }
+        s
     }
 
     #[test]
@@ -187,6 +229,11 @@ mod tests {
         s.organizer_pub = OTHER_PUB;
         assert_eq!(
             decide_import(&cand(2, 11, Some(10)), Some(&s), now()),
+            ImportDecision::DifferentOrganizer
+        );
+        // Also for a variant claiming the stored full event's hash.
+        assert_eq!(
+            decide_import(&variant(1, 10, None), Some(&s), now()),
             ImportDecision::DifferentOrganizer
         );
     }
@@ -283,6 +330,93 @@ mod tests {
                 stored_rev: 0,
                 parent: ParentCheck::Matches
             }
+        );
+    }
+
+    // §5.5 / §7.4 stops-only variants. Hash 11 is the full rev 2; a variant of it carries
+    // fullHash 11 as its revision hash.
+
+    #[test]
+    fn full_over_stored_variant_upgrades() {
+        let s = with_variant(stored(&[(1, 10), (2, 11)]), 2);
+        assert_eq!(
+            decide_import(&cand(2, 11, Some(10)), Some(&s), now()),
+            ImportDecision::UpgradeToFull { rev: 2 }
+        );
+    }
+
+    #[test]
+    fn variant_over_stored_full_is_already_imported() {
+        assert_eq!(
+            decide_import(
+                &variant(2, 11, Some(10)),
+                Some(&stored(&[(1, 10), (2, 11)])),
+                now()
+            ),
+            ImportDecision::AlreadyImported
+        );
+    }
+
+    #[test]
+    fn same_variant_again_is_already_imported() {
+        let s = with_variant(stored(&[(2, 11)]), 2);
+        assert_eq!(
+            decide_import(&variant(2, 11, Some(10)), Some(&s), now()),
+            ImportDecision::AlreadyImported
+        );
+    }
+
+    #[test]
+    fn variant_of_other_bytes_is_a_fork() {
+        // Same rev, but its fullHash is not the stored full event: a real fork.
+        assert_eq!(
+            decide_import(&variant(2, 12, Some(10)), Some(&stored(&[(2, 11)])), now()),
+            ImportDecision::Fork { rev: 2 }
+        );
+        let s = with_variant(stored(&[(2, 11)]), 2);
+        assert_eq!(
+            decide_import(&cand(2, 12, Some(10)), Some(&s), now()),
+            ImportDecision::Fork { rev: 2 }
+        );
+    }
+
+    #[test]
+    fn matching_hash_with_other_rev_is_not_an_upgrade() {
+        let s = with_variant(stored(&[(2, 11)]), 2);
+        assert_eq!(
+            decide_import(&cand(3, 11, Some(11)), Some(&s), now()),
+            ImportDecision::Newer {
+                stored_rev: 2,
+                parent: ParentCheck::Matches
+            }
+        );
+    }
+
+    #[test]
+    fn parent_check_uses_the_variants_full_hash() {
+        let s = with_variant(stored(&[(1, 10), (2, 11)]), 2);
+        assert_eq!(
+            decide_import(&cand(3, 12, Some(11)), Some(&s), now()),
+            ImportDecision::Newer {
+                stored_rev: 2,
+                parent: ParentCheck::Matches
+            }
+        );
+        // A rev-3 variant over a stored rev-2 variant, too.
+        assert_eq!(
+            decide_import(&variant(3, 12, Some(11)), Some(&s), now()),
+            ImportDecision::Newer {
+                stored_rev: 2,
+                parent: ParentCheck::Matches
+            }
+        );
+    }
+
+    #[test]
+    fn older_variant_keeps_stored() {
+        assert_eq!(
+            decide_import(&variant(1, 10, None), Some(&stored(&[(2, 11)])), now()),
+            ImportDecision::Older { stored_rev: 2 }
         );
     }
 }
