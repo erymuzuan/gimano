@@ -171,13 +171,14 @@ enum EventShareMessage {
         return "\(day.string(from: s)) · \(time.string(from: s)) – \(day.string(from: e)) · \(time.string(from: e))"
     }
 
-    /// §5.2.1 default share ("Hantar fail"): the text next to the suite-3 file. No code, no key, no link.
+    /// §5.2.1 default share, step 1 ("Hantar pesanan"): sent on its own before the file, because WhatsApp drops text
+    /// shared together with a document. No code, no key, no link.
     static func openFile(_ doc: EventDoc, downloadURL: String = AppConfig.downloadURL) -> String {
         switch doc.lang {
         case .ms:
-            "Jemputan: \(doc.title)\n\(shortDateLine(doc))\nKetik fail untuk buka di Manotu.\nBelum ada Manotu? \(downloadURL)"
+            "Jemputan: \(doc.title)\n\(shortDateLine(doc))\nSaya hantar fail jemputan Manotu selepas ini — ketik untuk buka.\nBelum ada Manotu? \(downloadURL)"
         case .en:
-            "Invitation: \(doc.title)\n\(shortDateLine(doc))\nTap the file to open it in Manotu.\nNo Manotu yet? \(downloadURL)"
+            "Invitation: \(doc.title)\n\(shortDateLine(doc))\nI'm sending the Manotu invitation file next — tap it to open.\nNo Manotu yet? \(downloadURL)"
         }
     }
 

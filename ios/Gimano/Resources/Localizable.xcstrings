@@ -8936,6 +8936,16 @@
         }
       }
     },
+    "Send message" : {
+      "localizations" : {
+        "ms" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hantar pesanan"
+          }
+        }
+      }
+    },
     "Send report" : {
       "localizations" : {
         "ms" : {
@@ -8982,6 +8992,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Acara sensitif"
+          }
+        }
+      }
+    },
+    "Sent" : {
+      "localizations" : {
+        "ms" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dihantar"
           }
         }
       }
@@ -9772,6 +9792,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Kekal di telefon ini. Ia tidak pernah dimasukkan ke dalam jemputan."
+          }
+        }
+      }
+    },
+    "Step %lld: %@" : {
+      "localizations" : {
+        "ms" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Langkah %1$lld: %2$@"
           }
         }
       }
@@ -11736,6 +11766,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "WhatsApp"
+          }
+        }
+      }
+    },
+    "WhatsApp doesn't send text with a file, so send twice to the same chat." : {
+      "localizations" : {
+        "ms" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "WhatsApp tidak hantar teks bersama fail, jadi hantar dua kali ke chat yang sama."
           }
         }
       }

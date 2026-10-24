@@ -240,7 +240,7 @@ struct EventInfoSuite3Tests {
         let lines = ms.split(separator: "\n").map(String.init)
         #expect(lines.count == 4)
         #expect(lines[0] == "Jemputan: Kenduri Aqil & Sofea")
-        #expect(lines[2] == "Ketik fail untuk buka di Manotu.")
+        #expect(lines[2] == "Saya hantar fail jemputan Manotu selepas ini — ketik untuk buka.")
         #expect(lines[3] == "Belum ada Manotu? \(AppConfig.downloadURL)")
         #expect(lines[1].hasSuffix(" · 11:00–16:00") && lines[1].hasPrefix("Isnin 2 Nov"), "\(lines[1])")
         let link = try #require(inv.link)
@@ -251,6 +251,7 @@ struct EventInfoSuite3Tests {
             Testing.Issue.record("publish en"); return
         }
         #expect(EventShareMessage.openFile(en.doc).hasPrefix("Invitation: Kenduri Aqil & Sofea\n"))
+        #expect(EventShareMessage.openFile(en.doc).contains("\nI'm sending the Manotu invitation file next — tap it to open.\n"))
         #expect(EventShareMessage.openFile(en.doc).hasSuffix("No Manotu yet? \(AppConfig.downloadURL)"))
     }
 

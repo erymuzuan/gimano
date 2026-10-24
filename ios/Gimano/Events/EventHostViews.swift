@@ -212,8 +212,12 @@ struct EventPlacePicker: View {
 /// System share sheet with several items (the file plus a message).
 struct ActivityView: UIViewControllerRepresentable {
     var items: [Any]
+    /// Called when the sheet closes: true when the user picked an app and the share went through.
+    var onComplete: ((Bool) -> Void)? = nil
     func makeUIViewController(context: Context) -> UIActivityViewController {
-        UIActivityViewController(activityItems: items, applicationActivities: nil)
+        let vc = UIActivityViewController(activityItems: items, applicationActivities: nil)
+        if let onComplete { vc.completionWithItemsHandler = { _, completed, _, _ in onComplete(completed) } }
+        return vc
     }
     func updateUIViewController(_ vc: UIActivityViewController, context: Context) {}
 }

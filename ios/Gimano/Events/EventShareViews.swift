@@ -2,8 +2,9 @@ import SwiftUI
 import UIKit
 import UniformTypeIdentifiers
 
-// "Kongsi jemputan" (board EwShare, docs/events.md §5.2.1): file first. The default "Hantar fail" sends the suite-3
-// `.manotu-event` file plus a short message; there is no code to send. "Acara sensitif" switches to the suite-2 file
+// "Kongsi jemputan" (board EwShare, docs/events.md §5.2.1): two steps to the same chat, because WhatsApp drops text
+// shared together with a document. 1 · "Hantar pesanan" sends the message alone; 2 · "Hantar fail" sends the suite-3
+// `.manotu-event` file alone. There is no code to send. "Acara sensitif" switches to the suite-2 file
 // and the 8-character code, sent separately. The web link stays available as "Salin pautan web".
 // Nothing here reaches Manotu's servers: the system share sheet hands the file to the app the host picks.
 
@@ -17,10 +18,13 @@ struct EventShareView: View {
     @State private var confirmStopsOnly = false
     @State private var showStopsOnly = false
     @State private var error: String?
+    /// Step 1 went through (the share sheet completed): step 2 becomes the primary action.
+    @State private var messageSent = false
 
     struct ShareItems: Identifiable {
         let id = UUID()
         var items: [Any]
+        var onComplete: ((Bool) -> Void)? = nil
     }
 
     var body: some View {
@@ -44,7 +48,7 @@ struct EventShareView: View {
         .safeAreaInset(edge: .bottom) {
             if let inv = center.invites[eventId] { bottomBar(inv) }
         }
-        .sheet(item: $sharing) { s in ActivityView(items: s.items) }
+        .sheet(item: $sharing) { s in ActivityView(items: s.items, onComplete: s.onComplete) }
         .alert("Can't share yet", isPresented: Binding(get: { error != nil }, set: { if !$0 { error = nil } })) {
             Button("OK", role: .cancel) {}
         } message: {
@@ -228,19 +232,62 @@ struct EventShareView: View {
 
     private func bottomBar(_ inv: PublishedInvite) -> some View {
         let waiting = sensitive && inv.codeFileBytes == nil
-        return HStack(spacing: Tokens.Space.m) {
-            Button { model.events.path = [] } label: { Text("Done") }
-                .buttonStyle(SecondaryButtonStyle())
-                .frame(width: 104)
-                .accessibilityIdentifier("eventShareDone")
-            Button { sendFile(inv) } label: { Label("Send file", systemImage: "square.and.arrow.up") }
-                .buttonStyle(PrimaryButtonStyle())
+        return VStack(spacing: Tokens.Space.s) {
+            stepButton(1, Text("Send message"), icon: "text.bubble", done: messageSent, primary: !messageSent,
+                       id: "eventShareMessageSend") { sendMessage(inv) }
+            stepButton(2, Text("Send file"), icon: "doc", done: false, primary: messageSent, id: "eventShareFile") { sendFile(inv) }
                 .disabled(waiting)
-                .accessibilityIdentifier("eventShareFile")
+            Text("WhatsApp doesn't send text with a file, so send twice to the same chat.")
+                .font(Tokens.Font.small).foregroundStyle(Color.textMuted)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .accessibilityIdentifier("eventShareTwoStepHint")
+            Button { model.events.path = [] } label: { Text("Done") }
+                .font(Tokens.Font.label).foregroundStyle(Color.brand)
+                .frame(minHeight: 36)
+                .accessibilityIdentifier("eventShareDone")
         }
         .padding(.horizontal, Tokens.Space.gutter)
         .padding(.vertical, Tokens.Space.s)
         .background(Color.surface.shadow(.drop(color: .black.opacity(0.06), radius: 8, y: -2)), ignoresSafeAreaEdges: .bottom)
+    }
+
+    @ViewBuilder
+    private func stepButton(_ n: Int, _ title: Text, icon: String, done: Bool, primary: Bool, id: String,
+                            action: @escaping () -> Void) -> some View {
+        let label = HStack(spacing: Tokens.Space.s) {
+            ZStack {
+                Circle().fill(primary ? Color.brandOn.opacity(0.25) : Color.brandMist).frame(width: 28, height: 28)
+                if done {
+                    Image(systemName: "checkmark").font(.system(size: 14, weight: .heavy))
+                } else {
+                    Text(verbatim: "\(n)").font(Tokens.Font.label)
+                }
+            }
+            .accessibilityHidden(true)
+            title
+            Spacer(minLength: 0)
+            Image(systemName: icon).accessibilityHidden(true)
+        }
+        .padding(.horizontal, Tokens.Space.l)
+        if primary {
+            Button(action: action) { label }
+                .buttonStyle(PrimaryButtonStyle())
+                .accessibilityLabel(Text("Step \(n): \(title)"))
+                .accessibilityValue(done ? Text("Sent") : Text(verbatim: ""))
+                .accessibilityIdentifier(id)
+        } else {
+            Button(action: action) { label }
+                .buttonStyle(SecondaryButtonStyle())
+                .accessibilityLabel(Text("Step \(n): \(title)"))
+                .accessibilityValue(done ? Text("Sent") : Text(verbatim: ""))
+                .accessibilityIdentifier(id)
+        }
+    }
+
+    /// Step 1: the message alone (the share sheet's completion ticks it).
+    private func sendMessage(_ inv: PublishedInvite) {
+        let text = sensitive ? EventShareMessage.file(inv.doc) : EventShareMessage.openFile(inv.doc)
+        sharing = ShareItems(items: [text]) { completed in if completed { messageSent = true } }
     }
 
     private func sendFile(_ inv: PublishedInvite) {
@@ -249,7 +296,7 @@ struct EventShareView: View {
             error = String(localized: "This event can't be published. Check its details.")
             return
         }
-        let text = code ? EventShareMessage.file(inv.doc) : EventShareMessage.openFile(inv.doc)
-        sharing = ShareItems(items: [text, url])
+        // Step 2: the file alone (WhatsApp drops text shared with a document; the message went in step 1).
+        sharing = ShareItems(items: [url])
     }
 }

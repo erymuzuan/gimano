@@ -72,6 +72,10 @@ final class EventHostUITests: XCTestCase {
         wait(app.buttons["eventSecretCodeShow"], 20).tap()
         XCTAssertFalse(app.staticTexts["eventSecretCodeValue"].label.contains("•"))
         shot(app, "event-share-sensitive")
+        // Two steps (message, then file) under the preview; the web link is further down.
+        XCTAssertTrue(app.buttons["eventShareMessageSend"].exists && app.staticTexts["eventShareTwoStepHint"].exists)
+        app.swipeUp()
+        app.swipeUp()
         wait(app.buttons["eventCopyLink"]).tap()
         wait(app.buttons["eventShareDone"]).tap()
 
