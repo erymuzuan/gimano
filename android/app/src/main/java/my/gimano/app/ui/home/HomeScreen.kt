@@ -79,11 +79,14 @@ fun MapTopControls(
     Box(modifier.fillMaxWidth().windowInsetsPadding(WindowInsets.statusBars).padding(16.dp)) {
         if (showMenu) MenuFab(stringResource(R.string.menu), Modifier.align(Alignment.TopStart), onClick = onMenu)
         if (demo) {
+            var demoInfo by remember { mutableStateOf(false) }
             Pill(
                 stringResource(R.string.demo_data), Modifier.align(Alignment.TopCenter).padding(top = 12.dp),
                 color = Gimano.colors.brand, textColor = Gimano.colors.brandOn, icon = Icons.Filled.Science,
-                onClick = { vm.openSettings() },
+                // Demo mode: what it is + one tap to turn it off. (Server fallback, not demo mode: Settings, with Retry.)
+                onClick = { if (settings.demoMode) demoInfo = true else vm.openSettings() },
             )
+            if (demoInfo) DemoInfoDialog(onDismiss = { demoInfo = false }, onTurnOff = { demoInfo = false; vm.setDemoMode(false) })
         }
         Column(Modifier.align(Alignment.TopEnd), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             SoundFab(settings.soundMode, settings.voiceVolume, onSelect = vm::selectSound, onLongPress = vm::toggleMute, onVolume = vm::setVoiceVolume)
@@ -98,6 +101,19 @@ fun MapTopControls(
             if (showRecenter && !ui.following) RoundFab(Icons.Filled.MyLocation, stringResource(R.string.recenter), onClick = vm::recenter)
         }
     }
+}
+
+/** "Demo mode": what it uses, that nothing is sent to Manotu's server, what still works for real, one tap to turn off. */
+@Composable
+fun DemoInfoDialog(onDismiss: () -> Unit, onTurnOff: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        icon = { Icon(Icons.Filled.Science, null, tint = Gimano.colors.brand) },
+        title = { Text(stringResource(R.string.demo_mode), style = GimanoType.title) },
+        text = { Text(stringResource(R.string.demo_info_body)) },
+        confirmButton = { Button(onClick = onTurnOff) { Text(stringResource(R.string.demo_turn_off), fontWeight = FontWeight.ExtraBold) } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.demo_keep)) } },
+    )
 }
 
 @Composable

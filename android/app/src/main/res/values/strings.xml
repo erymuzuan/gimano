@@ -125,7 +125,7 @@
     <string name="vehicle">Vehicle</string>
     <string name="clock_24h">24-hour clock</string>
     <string name="demo_mode">Demo mode</string>
-    <string name="demo_mode_desc">Use built-in sample data instead of the server</string>
+    <string name="demo_mode_desc">Try Manotu anywhere, no account: built-in sample data and a simulated drive. Nothing is sent to the server.</string>
     <string name="simulate_drive">Simulate drive</string>
     <string name="simulate_drive_desc">Drive along the route automatically (for testing)</string>
     <string name="server_url">Server URL</string>
@@ -735,4 +735,23 @@
     <string name="confirm_dismiss_in">Closes in %1$d seconds without an answer. Tap to close now.</string>
     <string name="planned_notify_open">Reach %2$s by %1$s. Open Manotu for the best time to leave.</string>
     <string name="planned_open_for_best">Open for the best time</string>
+    <string name="demo_badge">Demo</string>
+    <string name="demo_info_body">Demo mode uses built-in sample places, reports and routes around Kuala Lumpur, and drives along the route by itself (a simulated drive), so you can try everything from anywhere, without an account.\n\nNothing you do is sent to Manotu\'s server: searches, routes, reports, reviews, photos, complaints, feedback and crash reports stay on this phone (feedback is not delivered). Favourites, planned drives and backups work as usual. Map tiles still load from OpenFreeMap.</string>
+    <string name="demo_turn_off">Turn off demo mode</string>
+    <string name="demo_keep">Keep demo</string>
+    <string name="dest_drive_title">Google Drive (your own Google account)</string>
+    <string name="dest_drive_note">Needs your Google account; Manotu never sees it. Optional.</string>
+    <string name="dest_file_title">Save to a file (no account)</string>
+    <string name="dest_file_note">The full backup and restore, passphrase included. You choose where the file goes.</string>
+    <string name="dest_demo_title">Demo storage (on this phone)</string>
+    <string name="dest_demo_note">Demo, not Google Drive. Shown only in demo mode, to try backup and restore without any account. Kept inside this app and removed with it.</string>
+    <string name="demo_not_drive">Demo, not Google Drive</string>
+    <string name="backup_to_demo">Back up to demo storage</string>
+    <string name="restore_from_demo">Restore from demo storage</string>
+    <string name="backup_demo_done">Saved to demo storage on this phone (not Google Drive)</string>
+    <string name="demo_storage_off">Demo storage is only available in demo mode</string>
+    <string name="drive_cancelled">Google Drive sign-in was cancelled. Nothing was backed up to or restored from Drive.</string>
+    <string name="drive_offline">Couldn\'t reach Google Drive (no connection). Nothing was backed up to or restored from Drive.</string>
+    <string name="drive_unavailable">Google sign-in isn\'t available on this phone. Nothing was backed up to Drive; use Save to a file instead.</string>
+    <string name="drive_rejected">Google Drive didn\'t accept the request (%1$s). Nothing was backed up to or restored from Drive.</string>
 </resources>

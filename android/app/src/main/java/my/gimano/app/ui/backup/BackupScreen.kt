@@ -20,6 +20,7 @@ import androidx.compose.material.icons.filled.CloudUpload
 import androidx.compose.material.icons.filled.FileDownload
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Restore
+import androidx.compose.material.icons.filled.Science
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -77,7 +78,12 @@ fun BackupScreen(vm: BackupViewModel, onBack: () -> Unit) {
             val last = s.lastBackupAt
             Text(
                 if (last != null) stringResource(R.string.last_backup, my.gimano.app.core.format.Formatters.localStamp(last), "%.1f KB".format(s.lastBackupBytes / 1024.0),
-                    when (s.lastBackupDest) { "drive" -> "Google Drive"; "file" -> stringResource(R.string.backup_dest_file); else -> s.lastBackupDest ?: "" })
+                    when (s.lastBackupDest) {
+                        "drive" -> "Google Drive"
+                        "file" -> stringResource(R.string.backup_dest_file)
+                        "demo" -> stringResource(R.string.dest_demo_title) + " · " + stringResource(R.string.demo_not_drive)
+                        else -> s.lastBackupDest ?: ""
+                    })
                 else stringResource(R.string.no_backup_yet),
                 color = c.textMuted, fontSize = 14.sp,
             )
@@ -89,19 +95,28 @@ fun BackupScreen(vm: BackupViewModel, onBack: () -> Unit) {
                 Modifier.fillMaxWidth().padding(vertical = 6.dp).clip(RoundedCornerShape(14.dp)).background(Color(0xFFFFF1CC)).padding(12.dp),
                 color = Color(0xFF7A5200), fontSize = 13.sp, fontWeight = FontWeight.ExtraBold,
             )
-            Spacer(Modifier.height(8.dp))
+            // 1 · Google Drive: the real integration, in the user's own account (optional).
+            DestHeader(stringResource(R.string.dest_drive_title), stringResource(R.string.dest_drive_note))
             BigAction(Icons.Filled.CloudUpload, if (vm.driveConfigured) stringResource(R.string.backup_to_drive) else stringResource(R.string.drive_not_configured), enabled = vm.driveConfigured && !ui.busy) { vm.backup(PassphrasePurpose.BACKUP_DRIVE) }
-            BigAction(Icons.Filled.FileDownload, stringResource(R.string.backup_save_file), enabled = !ui.busy) { vm.backup(PassphrasePurpose.BACKUP_FILE) }
-            BigAction(Icons.Filled.Share, stringResource(R.string.backup_share), enabled = !ui.busy) { vm.backup(PassphrasePurpose.BACKUP_SHARE) }
-            Spacer(Modifier.height(8.dp))
-            BigAction(Icons.Filled.Restore, stringResource(R.string.restore_from_file), enabled = !ui.busy) { openDoc.launch(arrayOf("*/*")) }
             if (vm.driveConfigured) BigAction(Icons.Filled.Restore, stringResource(R.string.restore_from_drive), enabled = !ui.busy) { vm.listDrive() }
-            Spacer(Modifier.height(8.dp))
             SwitchLine(
                 Icons.Filled.CloudUpload, stringResource(R.string.auto_backup),
                 stringResource(if (!vm.driveConfigured) R.string.auto_backup_needs_drive else R.string.auto_backup_desc),
                 s.autoBackup && vm.driveConfigured, vm::setAutoBackup, enabled = vm.driveConfigured,
             )
+
+            // 2 · A file: full backup + restore (passphrase included), no account at all.
+            DestHeader(stringResource(R.string.dest_file_title), stringResource(R.string.dest_file_note))
+            BigAction(Icons.Filled.FileDownload, stringResource(R.string.backup_save_file), enabled = !ui.busy) { vm.backup(PassphrasePurpose.BACKUP_FILE) }
+            BigAction(Icons.Filled.Share, stringResource(R.string.backup_share), enabled = !ui.busy) { vm.backup(PassphrasePurpose.BACKUP_SHARE) }
+            BigAction(Icons.Filled.Restore, stringResource(R.string.restore_from_file), enabled = !ui.busy) { openDoc.launch(arrayOf("*/*")) }
+
+            // 3 · Demo mode only: try backup → restore without any account. Never Google Drive.
+            if (s.demoMode) {
+                DestHeader(stringResource(R.string.dest_demo_title), stringResource(R.string.dest_demo_note), demo = true)
+                BigAction(Icons.Filled.Science, stringResource(R.string.backup_to_demo), enabled = !ui.busy, sub = stringResource(R.string.demo_not_drive)) { vm.backup(PassphrasePurpose.BACKUP_DEMO) }
+                BigAction(Icons.Filled.Restore, stringResource(R.string.restore_from_demo), enabled = !ui.busy, sub = stringResource(R.string.demo_not_drive)) { vm.listDemo() }
+            }
             Text(stringResource(R.string.android_auto_backup_note), fontSize = 13.sp, color = c.textMuted, modifier = Modifier.padding(top = 12.dp))
         }
     }
@@ -131,6 +146,41 @@ fun BackupScreen(vm: BackupViewModel, onBack: () -> Unit) {
             confirmButton = { TextButton(onClick = vm::cancelRestore) { Text(stringResource(R.string.cancel)) } },
         )
     }
+    ui.demoFiles?.let { files ->
+        AlertDialog(
+            onDismissRequest = vm::cancelRestore,
+            title = { Text(stringResource(R.string.restore_from_demo)) },
+            text = {
+                Column {
+                    Text(stringResource(R.string.demo_not_drive), fontSize = 13.sp, fontWeight = FontWeight.ExtraBold, color = Gimano.colors.textMuted)
+                    if (files.isEmpty()) Text(stringResource(R.string.no_backup_yet), Modifier.padding(top = 8.dp))
+                    files.forEach { f ->
+                        Text(java.text.DateFormat.getDateTimeInstance(java.text.DateFormat.MEDIUM, java.text.DateFormat.SHORT).format(java.util.Date(f.createdAtMs)) +
+                            "  ·  %.1f KB".format(f.sizeBytes / 1024.0),
+                            Modifier.fillMaxWidth().clickable { vm.restoreFromDemo(f) }.padding(vertical = 12.dp))
+                    }
+                }
+            },
+            confirmButton = { TextButton(onClick = vm::cancelRestore) { Text(stringResource(R.string.cancel)) } },
+        )
+    }
+}
+
+/** A backup destination: what it is and what it needs (Drive: your own Google account; file: none; demo: not Drive). */
+@Composable
+private fun DestHeader(title: String, note: String, demo: Boolean = false) {
+    val c = Gimano.colors
+    Column(Modifier.fillMaxWidth().padding(top = 18.dp, bottom = 4.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(title, fontSize = 15.sp, fontWeight = FontWeight.Black, color = c.text)
+            if (demo) {
+                Spacer(Modifier.width(8.dp))
+                Text(stringResource(R.string.demo_badge), Modifier.clip(RoundedCornerShape(999.dp)).background(c.brand).padding(horizontal = 8.dp, vertical = 2.dp),
+                    color = c.brandOn, fontSize = 12.sp, fontWeight = FontWeight.Black)
+            }
+        }
+        Text(note, fontSize = 13.sp, color = c.textMuted, modifier = Modifier.padding(top = 2.dp))
+    }
 }
 
 @Composable
@@ -157,7 +207,7 @@ private fun PassphraseDialog(p: PassphrasePrompt, vm: BackupViewModel) {
 }
 
 @Composable
-private fun BigAction(icon: ImageVector, label: String, enabled: Boolean = true, onClick: () -> Unit) {
+private fun BigAction(icon: ImageVector, label: String, enabled: Boolean = true, sub: String? = null, onClick: () -> Unit) {
     val c = Gimano.colors
     Row(
         Modifier.fillMaxWidth().padding(vertical = 5.dp).clip(RoundedCornerShape(Radius.md)).background(c.surface).clickable(enabled = enabled, onClick = onClick).padding(14.dp),
@@ -167,7 +217,10 @@ private fun BigAction(icon: ImageVector, label: String, enabled: Boolean = true,
             Icon(icon, null, tint = if (enabled) c.brand else c.textMuted, modifier = Modifier.size(28.dp))
         }
         Spacer(Modifier.width(14.dp))
-        Text(label, fontSize = 17.sp, fontWeight = FontWeight.ExtraBold, color = if (enabled) c.text else c.textMuted)
+        Column {
+            Text(label, fontSize = 17.sp, fontWeight = FontWeight.ExtraBold, color = if (enabled) c.text else c.textMuted)
+            if (sub != null) Text(sub, fontSize = 13.sp, fontWeight = FontWeight.Bold, color = c.textMuted)
+        }
     }
 }
 
