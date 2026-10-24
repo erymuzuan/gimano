@@ -47,6 +47,8 @@ fun SettingsScreen(s: AppSettings, vm: MainViewModel, fallback: Boolean, display
                 }
             }
             my.gimano.app.ui.common.PrivacyCard(onBackup = onBackup, modifier = Modifier.padding(vertical = 8.dp))
+            // Demo mode, near the top for everyone (try Manotu anywhere, no account, nothing sent to the server).
+            SwitchRow(stringResource(R.string.demo_mode), stringResource(R.string.demo_mode_desc), s.demoMode, vm::setDemoMode)
             NavRow(stringResource(R.string.account), onAccount)
             NavRow(stringResource(R.string.backup_restore), onBackup)
             NavRow(stringResource(R.string.my_feedback), onMyFeedback)
@@ -75,7 +77,6 @@ fun SettingsScreen(s: AppSettings, vm: MainViewModel, fallback: Boolean, display
             Spacer(Modifier.height(8.dp))
             SwitchRow(stringResource(R.string.clock_24h), null, s.use24h, vm::setUse24h)
             SwitchRow(stringResource(R.string.auto_start_nav), stringResource(R.string.auto_start_nav_desc), s.autoStartNav, vm::setAutoStartNav)
-            SwitchRow(stringResource(R.string.demo_mode), stringResource(R.string.demo_mode_desc), s.demoMode, vm::setDemoMode)
             // Developer settings: debug builds only.
             if (BuildConfig.DEBUG) {
                 SwitchRow(stringResource(R.string.simulate_drive), stringResource(R.string.simulate_drive_desc), s.simulateDrive, vm::setSimulate)

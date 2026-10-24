@@ -124,7 +124,7 @@
     <string name="vehicle">Kenderaan</string>
     <string name="clock_24h">Jam 24 jam</string>
     <string name="demo_mode">Mod demo</string>
-    <string name="demo_mode_desc">Guna data contoh terbina dalam, bukan pelayan</string>
+    <string name="demo_mode_desc">Cuba Manotu di mana-mana, tanpa akaun: data contoh terbina dalam dan pemanduan simulasi. Tiada apa-apa dihantar ke pelayan.</string>
     <string name="simulate_drive">Simulasi pemanduan</string>
     <string name="simulate_drive_desc">Pandu sepanjang laluan secara automatik (untuk ujian)</string>
     <string name="server_url">URL pelayan</string>
@@ -734,4 +734,23 @@
     <string name="confirm_dismiss_in">Ditutup dalam %1$d saat tanpa jawapan. Ketik untuk tutup sekarang.</string>
     <string name="planned_notify_open">Tiba di %2$s sebelum %1$s. Buka Manotu untuk masa terbaik bertolak.</string>
     <string name="planned_open_for_best">Buka untuk masa terbaik</string>
+    <string name="demo_badge">Demo</string>
+    <string name="demo_info_body">Mod demo menggunakan contoh tempat, laporan dan laluan terbina dalam di sekitar Kuala Lumpur, dan memandu sendiri di sepanjang laluan (pemanduan simulasi), supaya anda boleh mencuba semuanya dari mana-mana, tanpa akaun.\n\nTiada apa yang anda lakukan dihantar ke pelayan Manotu: carian, laluan, laporan, ulasan, gambar, aduan, maklum balas dan laporan ranap kekal dalam telefon ini (maklum balas tidak dihantar). Kegemaran, pemanduan dirancang dan sandaran berfungsi seperti biasa. Jubin peta masih dimuatkan dari OpenFreeMap.</string>
+    <string name="demo_turn_off">Matikan mod demo</string>
+    <string name="demo_keep">Kekalkan demo</string>
+    <string name="dest_drive_title">Google Drive (akaun Google anda sendiri)</string>
+    <string name="dest_drive_note">Memerlukan akaun Google anda; Manotu tidak pernah melihatnya. Pilihan.</string>
+    <string name="dest_file_title">Simpan ke fail (tanpa akaun)</string>
+    <string name="dest_file_note">Sandaran dan pemulihan penuh, termasuk frasa laluan. Anda pilih di mana fail disimpan.</string>
+    <string name="dest_demo_title">Storan demo (dalam telefon ini)</string>
+    <string name="dest_demo_note">Demo, bukan Google Drive. Hanya dalam mod demo, untuk mencuba sandaran dan pemulihan tanpa akaun. Disimpan dalam aplikasi ini dan dibuang bersamanya.</string>
+    <string name="demo_not_drive">Demo, bukan Google Drive</string>
+    <string name="backup_to_demo">Sandar ke storan demo</string>
+    <string name="restore_from_demo">Pulihkan dari storan demo</string>
+    <string name="backup_demo_done">Disimpan ke storan demo dalam telefon ini (bukan Google Drive)</string>
+    <string name="demo_storage_off">Storan demo hanya tersedia dalam mod demo</string>
+    <string name="drive_cancelled">Log masuk Google Drive dibatalkan. Tiada apa-apa disandarkan ke atau dipulihkan dari Drive.</string>
+    <string name="drive_offline">Tidak dapat menghubungi Google Drive (tiada sambungan). Tiada apa-apa disandarkan ke atau dipulihkan dari Drive.</string>
+    <string name="drive_unavailable">Log masuk Google tidak tersedia pada telefon ini. Tiada apa-apa disandarkan ke Drive; gunakan Simpan ke fail.</string>
+    <string name="drive_rejected">Google Drive tidak menerima permintaan (%1$s). Tiada apa-apa disandarkan ke atau dipulihkan dari Drive.</string>
 </resources>
