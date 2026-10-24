@@ -1,6 +1,7 @@
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 import java.net.URI
 import java.util.Properties
+import java.util.zip.ZipFile
 
 // AGP 9 has built-in Kotlin support: no org.jetbrains.kotlin.android plugin.
 plugins {
@@ -101,6 +102,8 @@ android {
         // Website APKs update themselves from manotu.app; the Google Play build (buildType "play") must not.
         buildConfigField("boolean", "SELF_UPDATE", "true")
         buildConfigField("String", "DISTRIBUTION", "\"web\"")
+        // Google Drive backup (sign-in, auto-backup, restore). Off in the Play build: see create("play").
+        buildConfigField("boolean", "DRIVE_BACKUP", "true")
     }
 
     // One tree, two apps: "gimano" = my.gimano.app (0.2.x, its farewell updates), "manotu" = my.manotu.app (0.3.0+).
@@ -161,6 +164,10 @@ android {
             matchingFallbacks += listOf("release")
             buildConfigField("boolean", "SELF_UPDATE", "false")
             buildConfigField("String", "DISTRIBUTION", "\"play\"")
+            // Owner decision 2026-10-24: no Google Drive backup in the Play build (no Drive destination, Google
+            // sign-in/authorisation, auto-backup or restore). File backup/restore and demo storage stay.
+            // BackupDestinations.drive() returns no Drive client, and the OAuth client id is left blank below.
+            buildConfigField("boolean", "DRIVE_BACKUP", "false")
         }
     }
 
@@ -200,13 +207,25 @@ androidComponents {
         val name = v.name.replaceFirstChar { it.uppercase() }
         val guard = tasks.register<CheckPlayManifest>("verify${name}PlayPolicy") {
             mergedManifest.set(v.artifacts.get(com.android.build.api.artifact.SingleArtifact.MERGED_MANIFEST))
+            // No Drive in Play: the BuildConfig flag must be false and the Drive OAuth client id empty (value never logged).
+            driveBackup.set(v.buildConfigFields!!.getting("DRIVE_BACKUP").map { it.value.toString() })
+            oauthClientIdEmpty.set(v.buildConfigFields!!.getting("GOOGLE_OAUTH_CLIENT_ID").map { it.value.toString() == "\"\"" })
         }
         tasks.matching { it.name == "bundle$name" || it.name == "assemble$name" || it.name == "check" }.configureEach { dependsOn(guard) }
+        // And the built AAB itself: no Drive scope, Drive endpoint or Google authorisation / sign-in UI in its dex
+        // (R8 drops the unreachable Drive code). Runs right after every bundleManotuPlay.
+        val bundleGuard = tasks.register<CheckPlayBundle>("verify${name}BundleNoDrive") {
+            bundle.set(v.artifacts.get(com.android.build.api.artifact.SingleArtifact.BUNDLE))
+        }
+        tasks.matching { it.name == "bundle$name" }.configureEach { finalizedBy(bundleGuard) }
+        tasks.matching { it.name == "check" }.configureEach { dependsOn(bundleGuard) }
     }
     onVariants { v ->
         val flavor = v.flavorName ?: "gimano"
         val release = v.buildType == "release" || v.buildType == "play"
-        v.buildConfigFields?.put("GOOGLE_OAUTH_CLIENT_ID", com.android.build.api.variant.BuildConfigField("String", "\"${oauthClient(flavor, release)}\"", "Drive backup OAuth client"))
+        // The Play build has no Drive backup, so it carries no Drive OAuth client id either.
+        val clientId = if (v.buildType == "play") "" else oauthClient(flavor, release)
+        v.buildConfigFields?.put("GOOGLE_OAUTH_CLIENT_ID", com.android.build.api.variant.BuildConfigField("String", "\"$clientId\"", "Drive backup OAuth client"))
         v.buildConfigFields?.put("CLOUD_PROJECT_NUMBER", com.android.build.api.variant.BuildConfigField("long", "${cloudProject(flavor, release)}L", "Play Integrity project"))
     }
 }
@@ -294,6 +313,8 @@ listOf("gimano", "manotu").forEach { flavor ->
 /** Fails the build if the Google Play variant's merged manifest still has the sideload self-updater. */
 abstract class CheckPlayManifest : DefaultTask() {
     @get:InputFile abstract val mergedManifest: RegularFileProperty
+    @get:Input abstract val driveBackup: Property<String>
+    @get:Input abstract val oauthClientIdEmpty: Property<Boolean>
 
     @TaskAction fun verify() {
         val xml = mergedManifest.get().asFile.readText()
@@ -301,8 +322,39 @@ abstract class CheckPlayManifest : DefaultTask() {
             "android.permission.REQUEST_INSTALL_PACKAGES",   // restricted on Play; only the website APK updates itself
             "data.update.InstallResultReceiver",
             "data.update.PackageReplacedReceiver",
+            // No Google Drive backup in the Play build (owner decision 2026-10-24): no Google sign-in components,
+            // and no Drive scope anywhere in the manifest.
+            "com.google.android.gms.auth.api.signin.internal.SignInHubActivity",
+            "com.google.android.gms.auth.api.signin.RevocationBoundService",
+            "auth.api.signin.permission.REVOCATION_NOTIFICATION",
+            "googleapis.com/auth/drive",
         ).filter { it in xml }
         check(forbidden.isEmpty()) { "Play variant manifest must not contain: $forbidden" }
-        logger.lifecycle("Play manifest OK: no REQUEST_INSTALL_PACKAGES, no self-updater receivers")
+        check(driveBackup.get() == "false") { "Play variant must have BuildConfig.DRIVE_BACKUP=false (no Google Drive backup)" }
+        check(oauthClientIdEmpty.get()) { "Play variant must not carry a Drive OAuth client id (GOOGLE_OAUTH_CLIENT_ID must be empty)" }
+        logger.lifecycle("Play manifest OK: no REQUEST_INSTALL_PACKAGES, no self-updater receivers, no Google sign-in / Drive components; DRIVE_BACKUP=false, no Drive OAuth client id")
+    }
+}
+
+/** Play AAB guard (owner decision 2026-10-24): the bundle's dex must not contain Google Drive backup code. */
+abstract class CheckPlayBundle : DefaultTask() {
+    @get:InputFile abstract val bundle: RegularFileProperty
+
+    @TaskAction fun verify() {
+        val markers = listOf(
+            "drive.appdata",                                                     // the Drive scope
+            "googleapis.com/upload/drive",                                       // the Drive upload endpoint
+            "Lcom/google/android/gms/auth/api/identity/AuthorizationRequest;",   // Google authorisation (Drive consent)
+            "Lcom/google/android/gms/auth/api/signin/internal/SignInHubActivity;",
+        )
+        val found = mutableSetOf<String>()
+        ZipFile(bundle.get().asFile).use { z ->
+            z.entries().asSequence().filter { it.name.endsWith(".dex") }.forEach { e ->
+                val text = z.getInputStream(e).use { String(it.readBytes(), Charsets.ISO_8859_1) }
+                markers.filterTo(found) { it in text }
+            }
+        }
+        check(found.isEmpty()) { "Play bundle must not contain Google Drive backup code, found: $found" }
+        logger.lifecycle("Play bundle OK: no Drive scope, Drive endpoint, Google authorisation or sign-in activity in its dex")
     }
 }

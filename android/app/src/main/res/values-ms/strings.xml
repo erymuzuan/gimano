@@ -753,6 +753,14 @@
     <string name="drive_offline">Tidak dapat menghubungi Google Drive (tiada sambungan). Tiada apa-apa disandarkan ke atau dipulihkan dari Drive.</string>
     <string name="drive_unavailable">Log masuk Google tidak tersedia pada telefon ini. Tiada apa-apa disandarkan ke Drive; gunakan Simpan ke fail.</string>
     <string name="drive_rejected">Google Drive tidak menerima permintaan (%1$s). Tiada apa-apa disandarkan ke atau dipulihkan dari Drive.</string>
+    <!-- Binaan Google Play (BuildConfig.DRIVE_BACKUP=false): tiada sandaran Google Drive dalam versi itu. -->
+    <string name="drive_not_in_this_version">Sandaran Google Drive tidak tersedia dalam versi Manotu ini. Sandarkan ke fail: sandaran dan pemulihan penuh, termasuk frasa laluan, tanpa perlu akaun.</string>
+    <string name="privacy_body_no_drive">Rumah, tempat kerja, kampung, rumah mertua: semua tempat kegemaran anda disimpan dalam telefon anda sahaja. Manotu tidak menyimpan data peribadi anda di pelayan kami. Sandaran pergi ke fail yang anda pilih, dan boleh dikunci dengan frasa laluan yang hanya anda tahu.</string>
+    <string name="closed_intro_no_drive">Manotu menggunakan dua perkhidmatan Google pada Android. Kedua-duanya tidak menerima kegemaran, tempat atau perjalanan anda.</string>
+    <string name="closed_drive_not_used">Log masuk Google dan kebenaran Drive: tidak digunakan dalam versi ini. Sandaran Google Drive tidak tersedia di sini; sandarkan ke fail.</string>
+    <string name="demo_on_this_phone">Demo, kekal dalam telefon ini</string>
+    <string name="dest_demo_note_no_drive">Hanya dalam mod demo, untuk mencuba sandaran dan pemulihan tanpa akaun. Disimpan dalam aplikasi ini dan dibuang bersamanya.</string>
+    <string name="backup_demo_done_no_drive">Disimpan ke storan demo dalam telefon ini</string>
     <string name="privacy">Privasi</string>
     <string name="block_user">Sekat pengguna ini</string>
     <string name="block_user_short">Sekat</string>

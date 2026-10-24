@@ -107,13 +107,17 @@ a temp copy, then copying rows over.
 
 | Destination | Android | iOS | Notes |
 |---|---|---|---|
-| **Google Drive, app-private folder** (`appDataFolder`, scope `drive.appdata`) | ✅ | ✅ | Hidden folder in the user's own Drive that only Manotu can see. Cross-platform. Keeps the last 5 backups. |
+| **Google Drive, app-private folder** (`appDataFolder`, scope `drive.appdata`) | ✅ website APK (not in the Google Play build) | ✅ | Hidden folder in the user's own Drive that only Manotu can see. Cross-platform. Keeps the last 5 backups. |
 | **iCloud** (CloudKit private database, record holding the backup file as a `CKAsset`) | — | ✅ | No sign-in needed; in the user's own iCloud quota. |
 | **Android Auto Backup** (`dataExtractionRules`, the DB + photos only) | ✅ automatic | — | Free, zero-config, end-to-end encrypted by Android using the screen lock. Baseline safety net. |
 | **Export / Import file** (share sheet / file picker) | ✅ | ✅ | Works with WhatsApp, email, USB, any cloud app. |
 
 **Automatic backup:** optional daily backup to the chosen cloud, on Wi-Fi and while charging
 (WorkManager / BGProcessingTask), only when data changed since the last backup.
+
+**Google Play build (Android):** no Google Drive backup (owner decision 2026-10-24, `BuildConfig.DRIVE_BACKUP=false`):
+no Drive destination, Google sign-in, Drive auto-backup or Drive restore. Backup and restore go through a file (and
+demo storage in demo mode). The app says so on the Backup screen. The website APK keeps Drive.
 
 **Settings → Backup & restore** screen: destination, last backup time and size, "Back up now",
 "Restore…", auto-backup toggle, passphrase on/off.

@@ -755,6 +755,14 @@
     <string name="drive_offline">Couldn\'t reach Google Drive (no connection). Nothing was backed up to or restored from Drive.</string>
     <string name="drive_unavailable">Google sign-in isn\'t available on this phone. Nothing was backed up to Drive; use Save to a file instead.</string>
     <string name="drive_rejected">Google Drive didn\'t accept the request (%1$s). Nothing was backed up to or restored from Drive.</string>
+    <!-- Google Play build (BuildConfig.DRIVE_BACKUP=false): no Google Drive backup in that version. -->
+    <string name="drive_not_in_this_version">Google Drive backup is not available in this version of Manotu. Back up to a file instead: it is the full backup and restore, passphrase included, and needs no account.</string>
+    <string name="privacy_body_no_drive">Home, work, kampung, your in-laws\' house: your places live on your phone, not on our servers. Manotu never stores your personal data. Backups go to a file you choose, optionally locked with a passphrase only you know.</string>
+    <string name="closed_intro_no_drive">Manotu uses two Google services on Android. Neither receives your favourites, places or trips.</string>
+    <string name="closed_drive_not_used">Google sign-in and Drive authorisation: not used in this version. Google Drive backup is not available here; back up to a file instead.</string>
+    <string name="demo_on_this_phone">Demo, stays on this phone</string>
+    <string name="dest_demo_note_no_drive">Shown only in demo mode, to try backup and restore without any account. Kept inside this app and removed with it.</string>
+    <string name="backup_demo_done_no_drive">Saved to demo storage on this phone</string>
     <string name="privacy">Privacy</string>
     <string name="block_user">Block this user</string>
     <string name="block_user_short">Block</string>

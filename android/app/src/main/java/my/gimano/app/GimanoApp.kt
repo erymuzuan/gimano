@@ -119,7 +119,8 @@ class AppContainer(val app: Application) {
             },
         )
     }
-    val drive by lazy { DriveBackup(app) }
+    /** Null in the Play build (BuildConfig.DRIVE_BACKUP=false): no Drive client exists there at all. */
+    val drive: DriveBackup? by lazy { my.gimano.app.data.backup.BackupDestinations.drive(BuildConfig.DRIVE_BACKUP) { DriveBackup(app) } }
     val integrity by lazy { my.gimano.app.data.vetting.Integrity(app, BuildConfig.CLOUD_PROJECT_NUMBER) }
     val vetting = my.gimano.app.data.vetting.VettingMemory(db.settings())
     /** Complaints v1 (hidden until the server has /issues). */
@@ -167,5 +168,7 @@ class GimanoApp : Application() {
             }
         })
         my.gimano.app.data.places.PhotoPrep.sweepCameraTemps(this)
+        // Play build: never leave a Drive auto-backup job scheduled (e.g. a restored "auto backup on" setting).
+        if (!BuildConfig.DRIVE_BACKUP) my.gimano.app.data.backup.BackupWorker.schedule(this, false)
     }
 }

@@ -67,3 +67,5 @@ gambar dan maklum balas.*
 - Store listings: keep the Google Play Data safety form and Apple's privacy nutrition label consistent with
   this page (data not collected: location history, contacts, search history; data shared
   voluntarily: user content).
+- The Google Play build has **no Google Drive backup** (owner decision 2026-10-24): on the Play listing say
+  "back up to a file", never Google Drive. Drive backup stays in the website APK (manotu.app).

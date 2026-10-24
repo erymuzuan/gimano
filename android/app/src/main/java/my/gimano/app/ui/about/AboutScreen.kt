@@ -138,8 +138,10 @@ fun LicencesScreen(onBack: () -> Unit) {
                 Column(Modifier.fillMaxWidth().padding(top = 12.dp).clip(RoundedCornerShape(16.dp)).background(androidx.compose.ui.graphics.Color(0xFFFFF1CC)).padding(14.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text(stringResource(R.string.closed_title), fontSize = 17.sp, fontWeight = FontWeight.Black, color = androidx.compose.ui.graphics.Color(0xFF5C3D00))
-                    Text(stringResource(R.string.closed_intro), fontSize = 14.sp, fontWeight = FontWeight.Bold, color = androidx.compose.ui.graphics.Color(0xFF5C3D00))
-                    listOf(R.string.closed_location, R.string.closed_drive, R.string.closed_integrity).forEach {
+                    // Play build: no Drive backup, so Google sign-in / Drive authorisation is never used there.
+                    val drive = my.gimano.app.BuildConfig.DRIVE_BACKUP
+                    Text(stringResource(if (drive) R.string.closed_intro else R.string.closed_intro_no_drive), fontSize = 14.sp, fontWeight = FontWeight.Bold, color = androidx.compose.ui.graphics.Color(0xFF5C3D00))
+                    listOf(R.string.closed_location, if (drive) R.string.closed_drive else R.string.closed_drive_not_used, R.string.closed_integrity).forEach {
                         Text("• " + stringResource(it), fontSize = 14.sp, color = androidx.compose.ui.graphics.Color(0xFF3D2900))
                     }
                 }

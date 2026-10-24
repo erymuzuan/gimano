@@ -30,6 +30,18 @@ key and version, minus the self-updater (`BuildConfig.SELF_UPDATE=false`, `DISTR
 updating outside Play. `verifyManotuPlayPlayPolicy` runs before every Play bundle and fails the build if the merged
 manifest still has the updater; `testManotuPlayUnitTest` runs `src/testPlay`.
 
+**No Google Drive backup in the Play AAB** (owner decision 2026-10-24). `BuildConfig.DRIVE_BACKUP` is `false` in the
+`play` build type and `true` everywhere else. With it off, `BackupDestinations.drive()` returns no Drive client, so
+the Play build has no Drive destination or buttons, no Google sign-in / Drive authorisation, no Drive auto-backup
+and no Drive restore. The Backup screen says plainly that Google Drive backup is not available in this version and
+offers file backup/restore (and demo storage in demo mode). The Play build also has an empty
+`GOOGLE_OAUTH_CLIENT_ID`, and `src/play/AndroidManifest.xml` removes the Google sign-in activity and service.
+`verifyManotuPlayPlayPolicy` checks the merged manifest and those two BuildConfig values;
+`verifyManotuPlayBundleNoDrive` runs after every `bundleManotuPlay` and fails if the AAB's dex contains the Drive
+scope, the Drive upload endpoint or the Google authorisation / sign-in classes. `play-services-auth` is still a
+dependency of every variant, but R8 strips the unreachable Drive code from the Play AAB (a few classes kept by the
+library's own ProGuard rules remain, unused). The website APK (`assembleManotuRelease`) keeps Drive unchanged.
+
 ## Demo mode
 
 If the backend can't be reached, the app falls back to demo data by itself and shows a "Demo data"
