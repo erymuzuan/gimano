@@ -116,8 +116,9 @@ https://<site>/a/#1.<b64u(key)>.<b64u(nonce ‖ ciphertext)>
 
 - `<site>` is configurable (`https://www.bukitbunga.com/gimano` today; the Manotu domain later). The page is
   static (`site/manotu/a/`): browsers never send the fragment, and the page never transmits it or calls our API.
-- If the fragment would exceed 16 000 characters (usually long routes), the app offers the file instead, or a
-  link without route geometry (stops only) after asking.
+- Writers **simplify route geometry before signing** (§5.4), so most multi-day rides still fit in a link.
+- If the fragment still exceeds 16 000 characters, the app offers the file instead, or a **stops-only link**
+  ("Pautan tanpa laluan") after asking (§5.5).
 - Phones register `/a/` as an app link (Android App Links / iOS Universal Links) so it opens in Manotu when
   installed; otherwise the page shows the plan with "Buka di Manotu / Google Maps / apl lain".
 
@@ -145,6 +146,29 @@ manotu://event?stop=<stopId>#1.<b64u(key)>.<b64u(nonce ‖ ciphertext)>   // per
 - The custom-scheme URL is only handed to the app on the device; it is never sent to a server.
 - App Links / Universal Links on `/a/` (§5.1) remain the primary path; the scheme is the in-page fallback.
 
+### 5.4 Route simplification (writers)
+
+Before an event is signed, each route's `polyline` is simplified with Douglas–Peucker at a tolerance of **5 m**
+(perpendicular distance on a local equirectangular projection of the decoded precision-6 points; the first and last
+points are always kept). `distanceM`/`durationS` keep the routing values, not the simplified length. The output need
+not be byte-identical across implementations; readers never re-simplify. A route the host imported from GPX is
+simplified the same way.
+
+### 5.5 Stops-only variant
+
+A stops-only link carries the **same revision** with route geometry removed, so it stays short:
+
+- The event JSON is the full event with every route's `polyline` removed (all other route fields kept, so guests
+  still see the route list, distances and stops) and one extra top-level field
+  `"variant": { "kind": "stops-only", "fullHash": "<b64u SHA-256 of the full event bytes>" }`.
+- It is signed with the same organiser key; `id`, `rev`, `parent`, `publishedAt` are those of the full event.
+- `polyline` is required on every route of a full event and must be absent on every route of a stops-only variant.
+  Unknown `variant.kind` is rejected.
+- Its **revision hash** (§7, the value a later revision's `parent` refers to) is `variant.fullHash`, not the hash of
+  its own bytes.
+- The file (§5.2) always carries the full event. Hosts send the stops-only link plus the file for those who want the
+  map lines.
+
 ## 6. Routing API additions (stateless; see docs/api.md)
 
 - `POST /routes` gains `"store": false`. Then nothing is cached (no reroute: `/routes/{id}/reroute` → 404),
@@ -169,6 +193,10 @@ POST /routes/match
    (6 characters, e.g. `S8EVC7`: the first 30 bits of SHA-256(pub), most significant first, 5 bits per character
    from the alphabet `23456789ABCDEFGHJKLMNPQRSTUVWXYZ`, which leaves out the look-alikes 0/O and 1/I).
 4. Identical bytes already stored → "sudah diimport", nothing changes.
+   Stops-only variants (§5.5): same `id` and `rev`, where one side is a variant whose `fullHash` equals SHA-256 of the
+   other side's bytes, are **not** a fork. Incoming full event over a stored variant → replace it silently ("laluan
+   penuh ditambah"); incoming variant over the stored full event → "sudah diimport". The `parent` check uses the
+   stored side's revision hash (`fullHash` for a variant).
    Later revisions must have the same `pub` (else reject: "penganjur berbeza"). Lower `rev` than stored → keep the
    stored one ("versi lebih lama"). Same `rev`, different bytes → fork warning, keep both, user chooses.
    `parent` mismatch with the stored previous revision → warn, still allowed (missed revisions).
