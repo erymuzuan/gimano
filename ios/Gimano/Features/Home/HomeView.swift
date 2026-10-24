@@ -178,29 +178,32 @@ struct HomeSheet: View {
                 .shadow(color: Color(red: 11 / 255, green: 27 / 255, blue: 58 / 255).opacity(0.14), radius: 9, y: -4)
         )
         .contentShape(Rectangle())
-        .gesture(
-            DragGesture(minimumDistance: 8)
-                .updating($drag) { v, s, _ in s = v.translation.height }
-                .onEnded { v in
-                    detent = HomePanelMetrics.snap(from: detent, predictedTranslation: v.predictedEndTranslation.height,
-                                                   available: maxHeight, accessibilitySize: ax)
-                }
-        )
+        .gesture(panelDrag)
+    }
+
+    private var panelDrag: some Gesture {
+        DragGesture(minimumDistance: 8, coordinateSpace: .global)
+            .updating($drag) { v, s, _ in s = v.translation.height }
+            .onEnded { v in
+                detent = HomePanelMetrics.snap(from: detent, predictedTranslation: v.predictedEndTranslation.height,
+                                               available: maxHeight, accessibilitySize: ax)
+            }
     }
 
     /// Grab handle: tap cycles Peek → Half → Full → Peek; VoiceOver swipes up/down to expand/collapse.
     private var handle: some View {
-        Button {
-            detent = detent.next
-        } label: {
-            GrabHandle()
-                .frame(maxWidth: .infinity, minHeight: HomePanelMetrics.handleHeight)
-                .padding(.vertical, 6)
-                .contentShape(Rectangle())
-                .padding(.vertical, -6)
-        }
-        .buttonStyle(.plain)
-        .accessibilityLabel(Text(handleLabel))
+        // Not a Button: on a real device a button swallows the drag that starts on the handle.
+        GrabHandle()
+            .frame(maxWidth: .infinity, minHeight: HomePanelMetrics.handleHeight)
+            .padding(.vertical, 10)
+            .contentShape(Rectangle())
+            .onTapGesture { detent = detent.next }
+            .gesture(panelDrag)
+            .padding(.vertical, -10)
+            .accessibilityElement()
+            .accessibilityAddTraits(.isButton)
+            .accessibilityAction { detent = detent.next }
+            .accessibilityLabel(Text(handleLabel))
         .accessibilityAdjustableAction { direction in
             switch direction {
             case .increment: detent = detent.expanded

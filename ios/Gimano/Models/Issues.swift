@@ -61,7 +61,26 @@ struct Issue: Codable, Sendable, Hashable, Identifiable {
     var lastEvidenceAt: Date?
     /// place_closed_temp: closed until this day.
     var until: Date?
+    /// The server sends a temporary closure's day in `payload.until` (yyyy-MM-dd); other payload keys are ignored here.
+    var payload: IssuePayload?
     var location: LatLng { LatLng(lat: lat, lng: lng) }
+
+    /// "Closed until" for a place_closed_temp badge: `until`, else the payload's Malaysian day.
+    var closedUntil: Date? { until ?? payload?.until.flatMap(IssuePayload.day) }
+}
+
+struct IssuePayload: Codable, Sendable, Hashable {
+    var until: String?
+
+    /// Noon of a yyyy-MM-dd day in Malaysia, so formatting never shifts it to the day before.
+    static func day(_ s: String) -> Date? {
+        let f = DateFormatter()
+        f.calendar = Calendar(identifier: .gregorian)
+        f.locale = Locale(identifier: "en_US_POSIX")
+        f.timeZone = TimeZone(identifier: "Asia/Kuala_Lumpur")
+        f.dateFormat = "yyyy-MM-dd HH:mm"
+        return f.date(from: s + " 12:00")
+    }
 }
 
 struct NewIssue: Codable, Sendable, Hashable {

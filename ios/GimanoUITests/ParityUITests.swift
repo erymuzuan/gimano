@@ -43,7 +43,7 @@ final class ParityUITests: XCTestCase {
         return e
     }
 
-    func any(_ id: String) -> XCUIElement { app.descendants(matching: .any)[id] }
+    func any(_ id: String) -> XCUIElement { app.descendants(matching: .any).matching(identifier: id).firstMatch }
 
     func search(_ q: String) {
         wait(app.buttons["whereTo"]).tap()
@@ -102,7 +102,11 @@ final class ParityUITests: XCTestCase {
         sleep(1)
     }
 
-    func label(_ id: String) -> String { any(id).exists ? any(id).label : "-" }
+    /// Every label under an identifier (SwiftUI copies a container's identifier to its children).
+    func label(_ id: String) -> String {
+        let all = app.descendants(matching: .any).matching(identifier: id).allElementsBoundByIndex.map { $0.label }.filter { !$0.isEmpty }
+        return all.isEmpty ? "-" : all.joined(separator: " | ")
+    }
 
     // MARK: 1. Home panel (247e52f)
 
@@ -157,8 +161,9 @@ final class ParityUITests: XCTestCase {
         }
         note("02-search-results", lines.joined(separator: "\n"))
         // Choose on map from search.
-        search("x")
-        clearSearch()
+        // "Choose on map" shows under the results once a query has been searched.
+        search("Jalan Ampang")
+        _ = app.buttons.matching(identifier: "searchResult").firstMatch.waitForExistence(timeout: 25)
         let choose = app.buttons["chooseOnMap"]
         if choose.waitForExistence(timeout: 10) {
             choose.tap()
@@ -359,6 +364,10 @@ final class ParityUITests: XCTestCase {
         app.buttons["sendPlaceIssue"].tap()
         sleep(4)
         shot("07-temporarily-closed-sent")
+        let sent = !app.buttons["sendPlaceIssue"].exists
+        note("07-temp-closed", "sheet closed after Send: \(sent); error: \(label("placeIssueError"))")
+        if !sent { app.buttons["Cancel"].firstMatch.tap(); sleep(1) }
+        XCTAssertTrue(sent, "temporarily closed report accepted by the dev server")
         // Name / type / phone (suggest edit) with an obvious test comment.
         wait(app.buttons["placeMore"]).tap()
         wait(app.buttons["suggestEditMenu"], 5).tap()
@@ -501,8 +510,12 @@ final class ParityUITests: XCTestCase {
         wait(app.buttons["Settings"]).tap()
         sleep(1)
         shot("14-settings-top")
-        note("14-settings", "server '\(label("serverHost"))'; auto-start toggle \(app.switches["autoStartNav"].exists) value \(String(describing: app.switches["autoStartNav"].value))")
+        let auto = app.switches["autoStartNav"]
+        for _ in 0..<4 where !auto.exists || !auto.isHittable { app.swipeUp() }
+        note("14-settings-auto-start", "auto-start toggle \(auto.exists) value \(auto.exists ? String(describing: auto.value) : "-")")
+        shot("14-settings-auto-start")
         for _ in 0..<3 { app.swipeUp() }
+        note("14-settings", "server '\(label("serverHost"))'")
         shot("14-settings-bottom")
         wait(app.buttons["settingsAbout"]).tap()
         sleep(2)
@@ -537,8 +550,10 @@ final class ParityUITests: XCTestCase {
 
     func test_15_Onboarding() {
         app = XCUIApplication()
+        // Onboarding shows while location permission is undecided (only this test build's permission is reset).
+        app.resetAuthorizationStatus(for: .location)
         app.launchArguments = ["-GimanoDataMode", mode, "-GimanoFreshDevice", "YES", "-GimanoFakeLocation", klStart,
-                               "-AppleLanguages", "(\(lang))", "onboarding.done", "NO"]
+                               "-AppleLanguages", "(\(lang))", "-onboarding.done", "NO"]
         app.launch()
         sleep(6)
         shot("15-onboarding-1")

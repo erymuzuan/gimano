@@ -252,7 +252,8 @@ actor DemoRepository: GimanoRepository {
         }
         let issue = Issue(id: "demo-issue-\(issues.count + 1)", kind: n.kind, subtype: n.subtype, state: .suspected, lat: n.lat, lng: n.lng,
                           placeId: n.placeId, roadName: n.payload?["roadName"], summary: nil, confirmations: 1, required: 2,
-                          createdAt: .now, expiresAt: nil, lastEvidenceAt: .now, until: nil)
+                          createdAt: .now, expiresAt: nil, lastEvidenceAt: .now, until: nil,
+                          payload: n.payload?["until"].map { IssuePayload(until: $0) })
         issues.append(issue)
         return issue
     }

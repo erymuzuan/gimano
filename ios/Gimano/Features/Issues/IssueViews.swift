@@ -296,7 +296,7 @@ struct PlaceIssueBadges: View {
                     .background(Color.amberMist, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
                     .accessibilityIdentifier("badgeReportedClosed")
                 case .placeClosedTemp:
-                    Label(i.until.map { String(localized: "Temporarily closed until \($0.formatted(date: .abbreviated, time: .omitted))") }
+                    Label(i.closedUntil.map { String(localized: "Temporarily closed until \($0.formatted(date: .abbreviated, time: .omitted))") }
                           ?? String(localized: "Temporarily closed"), systemImage: "clock.badge.xmark")
                         .font(Tokens.Font.bodyBold).foregroundStyle(Color.amberInk)
                         .accessibilityIdentifier("badgeClosedTemp")
@@ -330,6 +330,7 @@ struct PlaceIssueSheet: View {
     @State private var until = Date().addingTimeInterval(7 * 86400)
     @State private var hours = OpeningHours()
     @State private var sending = false
+    @State private var error: String?
 
     var body: some View {
         NavigationStack {
@@ -349,21 +350,37 @@ struct PlaceIssueSheet: View {
                         sending = true
                         Task {
                             var payload: [String: String] = [:]
-                            if kind == .placeClosedTemp { payload["until"] = LocalStore.timestamp(until) }
+                            // The API takes a Malaysian calendar day (yyyy-MM-dd), not a timestamp (400 otherwise).
+                            if kind == .placeClosedTemp { payload["until"] = PlaceIssuePayload.untilDay(until) }
                             if kind == .placeHoursWrong { payload["openingHours"] = hours.osm }
                             let ok = await model.reportIssue(kind, placeId: placeId, at: location, source: .placeEdit,
                                                              payload: payload.isEmpty ? nil : payload)
                             sending = false
-                            if ok { dismiss() }
+                            // The toast sits behind this sheet: show a failure here too.
+                            if ok { dismiss() } else { error = model.toast ?? String(localized: "Couldn't send. Try again.") }
                         }
                     }
                     .disabled(sending)
                     .accessibilityIdentifier("sendPlaceIssue")
+                    if let error {
+                        Text(error).font(Tokens.Font.caption).foregroundStyle(Color(uiColor: Tokens.Palette.speeding))
+                            .accessibilityIdentifier("placeIssueError")
+                    }
                 }
             }
             .navigationTitle(Text(kind.title))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar { ToolbarItem(placement: .topBarLeading) { Button("Cancel") { dismiss() } } }
         }
+    }
+}
+
+enum PlaceIssuePayload {
+    /// "Closed until" as the API wants it: the chosen day in Malaysia (yyyy-MM-dd).
+    static func untilDay(_ date: Date) -> String {
+        var cal = Calendar(identifier: .gregorian)
+        cal.timeZone = TimeZone(identifier: "Asia/Kuala_Lumpur") ?? .current
+        let c = cal.dateComponents([.year, .month, .day], from: date)
+        return String(format: "%04d-%02d-%02d", c.year ?? 0, c.month ?? 0, c.day ?? 0)
     }
 }

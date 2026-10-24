@@ -1577,6 +1577,16 @@
         }
       }
     },
+    "Couldn't send. Try again.": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tidak dapat dihantar. Cuba lagi."
+          }
+        }
+      }
+    },
     "Crash": {
       "localizations": {
         "ms": {
