@@ -2,10 +2,16 @@ import Foundation
 
 // Import decision (docs/events.md §7 steps 3–5) as a pure function of the opened pack, what is already stored
 // for the same event id, and the current time. Mirrors `event_core::import::decide_import`.
+//
+// Hashes are **revision hashes**: SHA-256 of the signed bytes, or `variant.fullHash` for a stops-only variant (§5.5).
+// A variant and the full event it was made from share one revision hash, so they are never a fork (§7.4).
 
 struct StoredEventRevision: Equatable, Sendable {
     var rev: UInt32
+    /// Revision hash (`fullHash` when the stored bytes are a stops-only variant).
     var hash: [UInt8]
+    /// The stored bytes are a stops-only variant (no route geometry).
+    var stopsOnly = false
 }
 
 /// The local record for one event id: the pinned organizer key and every revision kept
@@ -20,19 +26,23 @@ struct EventImportCandidate: Equatable, Sendable {
     var parent: [UInt8]?
     var expiresAt: Date
     var organizerPub: [UInt8]
+    /// Revision hash (`fullHash` for a stops-only variant).
     var revisionHash: [UInt8]
+    var stopsOnly: Bool
 
-    init(rev: UInt32, parent: [UInt8]?, expiresAt: Date, organizerPub: [UInt8], revisionHash: [UInt8]) {
+    init(rev: UInt32, parent: [UInt8]?, expiresAt: Date, organizerPub: [UInt8], revisionHash: [UInt8], stopsOnly: Bool = false) {
         self.rev = rev
         self.parent = parent
         self.expiresAt = expiresAt
         self.organizerPub = organizerPub
         self.revisionHash = revisionHash
+        self.stopsOnly = stopsOnly
     }
 
     init(_ p: OpenedEventPack) {
         self.init(rev: p.event.rev, parent: p.event.parent.flatMap { B64u.decode($0) }.flatMap { $0.count == 32 ? $0 : nil },
-                  expiresAt: p.event.expiresAt.date, organizerPub: p.organizerPub, revisionHash: p.revisionHash)
+                  expiresAt: p.event.expiresAt.date, organizerPub: p.organizerPub, revisionHash: p.revisionHash,
+                  stopsOnly: p.isStopsOnly)
     }
 }
 
@@ -52,8 +62,12 @@ enum EventImportDecision: Equatable, Sendable {
     case new(safetyCode: String)
     /// "penganjur berbeza": reject.
     case differentOrganizer
-    /// Identical bytes already stored: nothing to do.
+    /// "sudah diimport": the same revision is already stored (identical bytes, the full event when a stops-only
+    /// variant arrives, or the same variant again). Nothing changes.
     case alreadyImported
+    /// "Laluan penuh ditambah": the full event of a stored stops-only variant arrived. Replace the stored variant of
+    /// `rev` with it silently (no prompt, not a fork).
+    case upgradeToFull(rev: UInt32)
     /// "versi lebih lama": keep the stored revision.
     case older(storedRev: UInt32)
     /// Same rev, different bytes: warn, keep both, the user chooses.
@@ -68,16 +82,17 @@ enum EventImportDecision: Equatable, Sendable {
         case .new: "new"
         case .differentOrganizer: "different_organizer"
         case .alreadyImported: "already_imported"
+        case .upgradeToFull: "upgrade_to_full"
         case .older: "older"
         case .fork: "fork"
         case .newer: "newer"
         }
     }
 
-    /// The pack may be stored (after the user confirms).
+    /// The pack may be stored (after the user confirms; an upgrade to the full route without asking).
     var canImport: Bool {
         switch self {
-        case .new, .fork, .newer: true
+        case .new, .fork, .newer, .upgradeToFull: true
         default: false
         }
     }
@@ -92,7 +107,11 @@ enum EventImport {
         if isExpired(c.expiresAt, now: now) { return .expired }
         guard let stored else { return .new(safetyCode: EventCodes.safetyCode(c.organizerPub)) }
         if stored.organizerPub != c.organizerPub { return .differentOrganizer }
-        if stored.revisions.contains(where: { $0.hash == c.revisionHash }) { return .alreadyImported }
+        let same = stored.revisions.filter { $0.rev == c.rev && $0.hash == c.revisionHash }
+        if !same.isEmpty {
+            // Full over variant upgrades; anything else (identical, variant over full, the same variant) is already there.
+            return !c.stopsOnly && same.allSatisfy(\.stopsOnly) ? .upgradeToFull(rev: c.rev) : .alreadyImported
+        }
         let storedRev = stored.revisions.map(\.rev).max() ?? 0
         if c.rev < storedRev { return .older(storedRev: storedRev) }
         if c.rev == storedRev { return .fork(rev: storedRev) }

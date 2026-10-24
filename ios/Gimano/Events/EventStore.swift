@@ -124,6 +124,11 @@ final class EventStore: Sendable {
                   updated_at TEXT NOT NULL);
                 """)
         }
+        // Stops-only variants (§5.5): `hash` is the revision hash (`fullHash` for a variant); this marks rows whose
+        // bytes are a variant, so the full event of the same revision replaces them ("Laluan penuh ditambah").
+        m.registerMigration("v4-stops-only") { db in
+            try db.execute(sql: "ALTER TABLE event_revisions ADD COLUMN stops_only INTEGER NOT NULL DEFAULT 0")
+        }
         return m
     }
 
@@ -134,8 +139,8 @@ final class EventStore: Sendable {
             guard let pub = try Data.fetchOne(db, sql: "SELECT organizer_pub FROM event_organizers WHERE event_id = ?", arguments: [eventId]) else {
                 return nil
             }
-            let revs = try Row.fetchAll(db, sql: "SELECT rev, hash FROM event_revisions WHERE event_id = ?", arguments: [eventId]).map {
-                StoredEventRevision(rev: UInt32($0["rev"] as Int64), hash: [UInt8]($0["hash"] as Data))
+            let revs = try Row.fetchAll(db, sql: "SELECT rev, hash, stops_only FROM event_revisions WHERE event_id = ?", arguments: [eventId]).map {
+                StoredEventRevision(rev: UInt32($0["rev"] as Int64), hash: [UInt8]($0["hash"] as Data), stopsOnly: $0["stops_only"] as Bool)
             }
             return StoredEventRecord(organizerPub: [UInt8](pub), revisions: revs)
         }
@@ -191,7 +196,8 @@ final class EventStore: Sendable {
 
     // MARK: write
 
-    /// Stores an opened pack per its decision (only `.new`, `.newer`, `.fork` store anything). Returns whether it stored.
+    /// Stores an opened pack per its decision (only `.new`, `.newer`, `.fork`, `.upgradeToFull` store anything).
+    /// Returns whether it stored.
     @discardableResult
     func save(_ pack: OpenedEventPack, decision: EventImportDecision, now: Date = .now) throws -> Bool {
         guard decision.canImport, !EventImport.isExpired(pack.event.expiresAt.date, now: now) else { return false }
@@ -200,10 +206,10 @@ final class EventStore: Sendable {
         try dbQueue.write { db in
             func insert(current: Bool, parentCheck: String?) throws {
                 try db.execute(sql: """
-                    INSERT INTO event_revisions (event_id, rev, hash, payload, expires_at, imported_at, is_current, parent_check)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                    INSERT INTO event_revisions (event_id, rev, hash, payload, expires_at, imported_at, is_current, parent_check, stops_only)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """, arguments: [id, Int64(pack.event.rev), Data(pack.revisionHash), Data(pack.eventBytes),
-                                     pack.event.expiresAt.date.timeIntervalSince1970, ts, current ? 1 : 0, parentCheck])
+                                     pack.event.expiresAt.date.timeIntervalSince1970, ts, current ? 1 : 0, parentCheck, pack.isStopsOnly])
             }
             switch decision {
             case .new:
@@ -216,6 +222,14 @@ final class EventStore: Sendable {
                 try insert(current: true, parentCheck: parent == .mismatch ? "mismatch" : parent == .missedRevisions ? "missed" : nil)
             case .fork:
                 try insert(current: false, parentCheck: nil)
+            case .upgradeToFull(let rev):
+                // Same revision (same revision hash): the full bytes replace the variant's. A revision whose contents
+                // were already dropped (an older one) only stops being marked stops-only.
+                try db.execute(sql: """
+                    UPDATE event_revisions SET stops_only = 0,
+                      payload = CASE WHEN payload IS NULL THEN NULL ELSE ? END
+                    WHERE event_id = ? AND rev = ? AND hash = ? AND stops_only = 1
+                    """, arguments: [Data(pack.eventBytes), id, Int64(rev), Data(pack.revisionHash)])
             default:
                 break
             }

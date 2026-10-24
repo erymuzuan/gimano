@@ -490,6 +490,8 @@ struct EventShareView: View {
     let eventId: String
     @State private var showCode = false
     @State private var fileShare: ShareItems?
+    @State private var confirmStopsOnly = false
+    @State private var showStopsOnly = false
 
     struct ShareItems: Identifiable {
         let id = UUID()
@@ -574,7 +576,34 @@ struct EventShareView: View {
             } else {
                 Label("This plan is too long for a link. Share the file instead.", systemImage: "exclamationmark.triangle.fill")
                     .font(Tokens.Font.caption).foregroundStyle(Color.amberInk)
+                if let stopsOnly = inv.stopsOnlyLink {
+                    // §5.5: offered only when the full link is too long and this one fits; after a confirm.
+                    if showStopsOnly {
+                        Text("Link without routes: guests see the places, times and route distances, but no lines on the map.")
+                            .font(Tokens.Font.caption).foregroundStyle(Color.textMuted)
+                        HStack(spacing: Tokens.Space.s) {
+                            Button {
+                                UIPasteboard.general.string = stopsOnly
+                                model.showToast(String(localized: "Link copied"))
+                            } label: { Label("Copy link", systemImage: "doc.on.doc") }
+                                .buttonStyle(SecondaryButtonStyle())
+                                .accessibilityIdentifier("eventCopyStopsOnlyLink")
+                            ShareLink(item: EventShareMessage.link(inv.doc, link: stopsOnly)) { Label("Share…", systemImage: "square.and.arrow.up") }
+                                .buttonStyle(PrimaryButtonStyle())
+                                .accessibilityIdentifier("eventShareStopsOnlyLink")
+                        }
+                    } else {
+                        Button { confirmStopsOnly = true } label: { Label("Link without routes", systemImage: "link.badge.plus") }
+                            .buttonStyle(SecondaryButtonStyle())
+                            .accessibilityIdentifier("eventStopsOnlyLink")
+                    }
+                }
             }
+        }
+        .confirmationDialog("Share a link without routes?", isPresented: $confirmStopsOnly, titleVisibility: .visible) {
+            Button("Use the link without routes") { showStopsOnly = true }
+        } message: {
+            Text("Guests see the places, times and route distances, but not the route lines. Send the event file too for those who want the full route.")
         }
     }
 

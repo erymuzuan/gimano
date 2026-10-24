@@ -28,6 +28,14 @@ enum EventPackError: Error, Equatable, Sendable {
     case malformedEnvelope
     case unsupportedEnvelopeVersion(UInt64)
     case badSignature
+    /// `variant.kind` is not `stops-only` (§5.5): a future kind must not be read as a full event.
+    case unsupportedVariant(String)
+    /// A stops-only variant still carries `routes[route].polyline` (§5.5).
+    case variantHasPolyline(route: Int)
+    /// A full event lacks `routes[route].polyline` (§5.5).
+    case missingPolyline(route: Int)
+    /// A stops-only variant can only be made from a full event.
+    case notFullEvent
 
     var code: String {
         switch self {
@@ -47,6 +55,10 @@ enum EventPackError: Error, Equatable, Sendable {
         case .malformedEnvelope: "malformed_envelope"
         case .unsupportedEnvelopeVersion: "unsupported_envelope_version"
         case .badSignature: "signature"
+        case .unsupportedVariant: "unsupported_variant"
+        case .variantHasPolyline: "variant_has_polyline"
+        case .missingPolyline: "missing_polyline"
+        case .notFullEvent: "not_full_event"
         }
     }
 
@@ -211,9 +223,20 @@ enum EventCodes {
         return String((0..<6).map { safetyAlphabet[Int((v >> (27 - 5 * UInt32($0))) & 31)] })
     }
 
-    /// SHA-256 of the exact signed event bytes; the next revision's `parent`.
+    /// SHA-256 of the exact bytes.
+    static func bytesHash(_ bytes: [UInt8]) -> [UInt8] {
+        Array(SHA256.hash(data: Data(bytes)))
+    }
+
+    /// The revision hash (§7, what the next revision's `parent` refers to): SHA-256 of the exact signed event bytes,
+    /// except for a stops-only variant (§5.5), whose revision hash is its `variant.fullHash`. Meant for bytes that
+    /// already passed `EventDoc.parse` (`event_core::revision_hash`).
     static func revisionHash(_ eventBytes: [UInt8]) -> [UInt8] {
-        Array(SHA256.hash(data: Data(eventBytes)))
+        struct Probe: Decodable { var variant: EventVariant? }
+        if let v = (try? JSONDecoder().decode(Probe.self, from: Data(eventBytes)))?.variant, v.isStopsOnly, let h = v.fullHashBytes {
+            return h
+        }
+        return bytesHash(eventBytes)
     }
 }
 
@@ -232,9 +255,11 @@ struct OpenedEventPack: Equatable, Sendable {
     /// The exact signed bytes: store these, never a re-serialization.
     var eventBytes: [UInt8]
     var organizerPub: [UInt8]
+    /// Revision hash: SHA-256 of `eventBytes`, or `variant.fullHash` for a stops-only variant (§5.5).
     var revisionHash: [UInt8]
 
     var safetyCode: String { EventCodes.safetyCode(organizerPub) }
+    var isStopsOnly: Bool { event.isStopsOnly }
 }
 
 enum EventPack {
@@ -383,6 +408,7 @@ enum EventPack {
               let eventBytes = B64u.decode(env.event) else { throw .malformedEnvelope }
         guard Sodium().sign.verify(message: signaturePrefix + eventBytes, publicKey: pub, signature: sig) else { throw .badSignature }
         let event = try EventDoc.parse(eventBytes)
-        return OpenedEventPack(event: event, eventBytes: eventBytes, organizerPub: pub, revisionHash: EventCodes.revisionHash(eventBytes))
+        let revisionHash = event.variant?.fullHashBytes ?? EventCodes.bytesHash(eventBytes)
+        return OpenedEventPack(event: event, eventBytes: eventBytes, organizerPub: pub, revisionHash: revisionHash)
     }
 }

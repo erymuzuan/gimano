@@ -395,7 +395,14 @@ struct PersonalRouteEventTests {
     }
 }
 
-@Suite("Lukis: one finger draws, a second finger cancels the stroke")
+private extension DrawStroke.Step {
+    var isUnchanged: Bool { if case .unchanged = self { true } else { false } }
+    var isExtended: Bool { if case .extended = self { true } else { false } }
+    /// nil when not `.ended`; `.some(nil)` when ended and dropped.
+    var ended: [Coordinate]?? { if case .ended(let l) = self { .some(l) } else { nil } }
+}
+
+@Suite("Lukis: one finger draws, a second finger ends the stroke")
 struct DrawStrokeTests {
     @Test("One finger: points at least 4 pt apart make the line")
     func oneFinger() {
@@ -404,27 +411,41 @@ struct DrawStrokeTests {
         let tooClose = s.move(to: CGPoint(x: 2, y: 0), 1, touches: 1)
         let first = s.move(to: CGPoint(x: 10, y: 0), 2, touches: 1)
         let second = s.move(to: CGPoint(x: 20, y: 0), 3, touches: 1)
-        #expect(!tooClose && first && second)
+        #expect(tooClose.isUnchanged && first.isExtended && second.isExtended)
         let line = s.finish()
         #expect(line == [0, 2, 3])
     }
 
-    @Test("A second finger mid-stroke cancels it: no line, no zig-zag, even if the first finger keeps moving")
-    func secondFinger() {
+    @Test("A second finger ends a stroke of 3+ points and keeps it, without the centroid jump (no zig-zag)")
+    func secondFingerKeeps() {
         var s = DrawStroke<Int>()
         s.begin(at: .zero, 0, touches: 1)
         _ = s.move(to: CGPoint(x: 10, y: 0), 1, touches: 1)
-        let cancelled = s.move(to: CGPoint(x: 200, y: 300), 99, touches: 2)   // centroid jump: dropped
-        #expect(cancelled && !s.isActive && s.line.isEmpty)
+        _ = s.move(to: CGPoint(x: 20, y: 0), 2, touches: 1)
+        let step = s.move(to: CGPoint(x: 200, y: 300), 99, touches: 2)   // centroid jump: never added
+        #expect(step.ended == .some([0, 1, 2]))
+        #expect(!s.isActive && s.line.isEmpty)
+        // The first finger keeps moving, then everything lifts: nothing more is added.
         let after = s.move(to: CGPoint(x: 30, y: 0), 3, touches: 1)
-        #expect(!after && s.line.isEmpty)
-        let none = s.finish()
-        #expect(none == nil)
+        #expect(after.isUnchanged)
+        let rest = s.finish()
+        #expect(rest == nil)
         // The next stroke starts clean.
         s.begin(at: .zero, 10, touches: 1)
         _ = s.move(to: CGPoint(x: 10, y: 0), 11, touches: 1)
         let next = s.finish()
         #expect(next == [10, 11])
+    }
+
+    @Test("A second finger drops a stroke of fewer than 3 points")
+    func secondFingerDrops() {
+        var s = DrawStroke<Int>()
+        s.begin(at: .zero, 0, touches: 1)
+        _ = s.move(to: CGPoint(x: 10, y: 0), 1, touches: 1)
+        let step = s.move(to: CGPoint(x: 200, y: 300), 99, touches: 2)
+        #expect(step.ended == .some(nil))
+        let rest = s.finish()
+        #expect(rest == nil)
     }
 
     @Test("Two fingers from the start never draw (the map pans/zooms)")
@@ -433,6 +454,6 @@ struct DrawStrokeTests {
         s.begin(at: .zero, 0, touches: 2)
         let moved = s.move(to: CGPoint(x: 50, y: 0), 1, touches: 2)
         let line = s.finish()
-        #expect(!moved && line == nil)
+        #expect(moved.isUnchanged && line == nil)
     }
 }

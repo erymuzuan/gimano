@@ -63,6 +63,8 @@ final class EventCenter {
     var errorMessage: String?
     /// The stop a per-stop "Buka di Manotu" link asked for; the event screen highlights it.
     var focusStopId: String?
+    /// The event whose stops-only copy was just replaced by the full event ("Laluan penuh ditambah", §7.4).
+    var fullRouteAdded: String?
 
     @ObservationIgnored var now: () -> Date = { .now }
 
@@ -294,6 +296,17 @@ final class EventCenter {
         }
         let stored = try? store.record(eventId: pack.event.id)
         let decision = EventImport.decide(EventImportCandidate(pack), stored: stored, now: now())
+        // §7.4: the full event of a stored stops-only link replaces it silently ("Laluan penuh ditambah").
+        if case .upgradeToFull = decision {
+            let id = pack.event.id
+            if (try? store.save(pack, decision: decision, now: now())) == true { fullRouteAdded = id }
+            pending = nil
+            errorMessage = nil
+            refresh()
+            path.removeAll { $0 == .confirm || $0 == .detail(id) }
+            if event(id) != nil { path.append(.detail(id)) }
+            return
+        }
         let current = (try? store.events(now: now()))?.first { $0.eventId == pack.event.id }
         var changes: [EventChange] = []
         if case .newer = decision, let current { changes = EventChange.between(current.doc, pack.event) }

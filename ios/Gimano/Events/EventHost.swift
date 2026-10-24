@@ -142,7 +142,11 @@ struct HostedEventDraft: Codable, Hashable, Sendable, Identifiable {
         var eventRoutes: [EventRoute] = []
         for r in routes {
             switch r.eventRoute(knownStops: stopIds) {
-            case .success(let er): eventRoutes.append(er)
+            case .success(var er):
+                // §5.4: simplified with Douglas–Peucker at 5 m before signing (GPX-imported routes too); distance and
+                // time keep the routing values.
+                if let p = er.polyline, let s = RouteSimplify.polyline(p) { er.polyline = s }
+                eventRoutes.append(er)
             case .failure(.tooFewPoints): continue
             case .failure(.unresolved): issues.append(.routeIncomplete(r.id))
             case .failure(.unmatched): issues.append(.routeUnmatched(r.id))
@@ -394,9 +398,13 @@ struct PublishedInvite: Equatable, Sendable {
     var eventBytes: [UInt8]
     /// Same content as the last published revision: its bytes were re-sealed unchanged (no new `rev`).
     var reused: Bool
-    /// nil when the fragment would be over 16 000 characters: share the file instead.
+    /// nil when the fragment would be over 16 000 characters: share the file instead, or the stops-only link.
     var link: String?
     var fragmentLength: Int
+    /// "Pautan tanpa laluan" (§5.5): the same revision without route lines, signed with the same key. Only when the
+    /// full link is too long and this one fits.
+    var stopsOnlyLink: String?
+    /// The file always carries the full event.
     var fileBytes: [UInt8]
     var secretCode: String
     var changes: [EventChange]
@@ -476,13 +484,37 @@ enum EventPublisher {
             let fragment = EventPack.fragment(key: s.packKey, sealed: sealed)
             let link = try? EventPack.link(site: site, key: s.packKey, sealed: sealed)
             let file = try EventPack.fileBytes(sealed)
+            let stopsOnly = link == nil ? stopsOnlyLink(fullBytes: prepared.bytes, organizer: organizer, key: s.packKey, site: site) : nil
             if !prepared.reused { try? store.recordHostedRevision(eventId: eventId, doc: prepared.doc, bytes: prepared.bytes) }
             return .success(PublishedInvite(doc: prepared.doc, eventBytes: prepared.bytes, reused: prepared.reused, link: link,
-                                            fragmentLength: fragment.count, fileBytes: file, secretCode: SecretCode.encode(s.packKey),
+                                            fragmentLength: fragment.count, stopsOnlyLink: stopsOnly, fileBytes: file,
+                                            secretCode: SecretCode.encode(s.packKey),
                                             changes: prepared.previous.map { EventChange.between($0, prepared.doc) } ?? []))
         } catch {
             return .failure(.pack(error))
         }
+    }
+
+    /// The stops-only link of a full revision (§5.5): same rev, same organizer key, same pack key, fresh nonce. nil when
+    /// the event has no routes (nothing to drop) or it still doesn't fit in a link.
+    static func stopsOnlyLink(fullBytes: [UInt8], organizer: EventOrganizerKey, key: [UInt8], site: String) -> String? {
+        guard let doc = try? EventDoc.parse(fullBytes), !doc.routes.isEmpty,
+              let variant = try? EventDoc.stopsOnlyVariant(fullEventBytes: fullBytes),
+              let sealed = try? EventPack.seal(eventBytes: variant, organizer: organizer, key: key) else { return nil }
+        return try? EventPack.link(site: site, key: key, sealed: sealed)
+    }
+
+    /// What the share screen offers (§5.1, §5.5): the full link when it fits; otherwise the file, plus a stops-only link
+    /// (after a confirm) when that one fits.
+    enum ShareChoice: Equatable {
+        case link
+        case fileOrStopsOnly
+        case fileOnly
+    }
+
+    static func shareChoice(_ invite: PublishedInvite) -> ShareChoice {
+        if invite.link != nil { return .link }
+        return invite.stopsOnlyLink != nil ? .fileOrStopsOnly : .fileOnly
     }
 
     /// Is a pack the host's own event? (Same id as a hosted event and signed with its key.)

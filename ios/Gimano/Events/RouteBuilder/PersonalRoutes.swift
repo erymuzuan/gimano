@@ -44,19 +44,23 @@ enum PersonalRouteJSON {
 
     static func whole(_ v: Double) -> Int { v.isFinite && v > 0 ? Int(min(v.rounded(), Double(Int32.max))) : 0 }
 
-    /// The builder route as `route_json`. Legs not calculated yet (or that failed) are `pending` with no geometry; a
-    /// drawing matched to roads is `matched` (the finger stroke itself is not kept).
+    /// The builder route as `route_json` (writer rules, docs/privacy-and-backup.md). Legs not calculated yet, or that
+    /// failed (offline, no route), are `pending` with no geometry; a drawing matched to roads is `matched` (the finger
+    /// stroke itself is not kept), or `sketch` when parts of it matched no road.
     static func encode(_ r: RouteDraft) throws -> String {
         let doc = Doc(
             v: version,
             points: r.points.map { Point(lat: RouteGeo.round6($0.lat), lng: RouteGeo.round6($0.lng)) },
             legs: r.legs.map { l in
+                let line = Polyline.encode(l.geometry.map(RouteGeo.round6))
                 switch l.state {
-                case .routed, .matched, .sketch:
-                    Leg(source: l.state.rawValue, polyline: Polyline.encode(l.geometry.map(RouteGeo.round6)),
-                        distanceM: l.distanceM, durationS: l.durationS)
+                case .matched where !l.unmatched.isEmpty, .sketch:
+                    // Not a road all the way: a sketch, with no duration.
+                    return Leg(source: "sketch", polyline: line, distanceM: l.distanceM, durationS: nil)
+                case .routed, .matched:
+                    return Leg(source: l.state.rawValue, polyline: line, distanceM: l.distanceM, durationS: l.durationS)
                 case .pending, .unresolved:
-                    Leg(source: "pending", polyline: "", distanceM: nil, durationS: nil)
+                    return Leg(source: "pending", polyline: "", distanceM: nil, durationS: nil)
                 }
             })
         let e = JSONEncoder()
@@ -88,6 +92,8 @@ enum PersonalRouteJSON {
                               durationS: state == .sketch ? nil : l.durationS.flatMap { $0 > 0 ? $0 : nil },
                               drawn: state == .sketch && geometry.count > 2 ? geometry : nil)
         }
+        // Reader rule: "Ikut jalan" opens off only when every leg is a sketch.
+        r.followRoads = !(!r.legs.isEmpty && r.legs.allSatisfy { $0.state == .sketch })
         return r
     }
 }

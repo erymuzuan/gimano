@@ -2,50 +2,67 @@ import MapLibre
 import SwiftUI
 import UIKit
 
-/// One "Lukis" stroke. One finger draws; when a second finger lands the stroke is cancelled (nothing is added, the
-/// map pans and zooms with the two fingers instead) and stays cancelled until every finger lifts, so the jump to the
-/// two fingers' centre never becomes a zig-zag in the line.
+/// One "Lukis" stroke. One finger draws. When a second finger lands the stroke **ends** there (as on Android): it is
+/// kept when it has at least 3 sampled points, otherwise dropped, and the two fingers then pan and zoom the map. The
+/// stroke stays closed until every finger lifts, so the jump to the two fingers' centre never becomes a zig-zag.
 struct DrawStroke<Coordinate> {
     /// A point is kept at least this far (pt) from the previous one (desktop map.ts).
     static var minSpacing: CGFloat { 4 }
+    /// A stroke ended by a second finger is kept from this many sampled points.
+    static var minPointsWhenInterrupted: Int { 3 }
+
+    enum Step {
+        /// Nothing to redraw.
+        case unchanged
+        /// The live line grew.
+        case extended
+        /// A second finger landed: the stroke is over. `line` is what to add (nil = dropped, too short).
+        case ended(line: [Coordinate]?)
+    }
 
     private(set) var screen: [CGPoint] = []
     private(set) var line: [Coordinate] = []
-    private(set) var isCancelled = false
+    /// Ended (second finger) or never started (two fingers at once): ignore the rest of this gesture.
+    private(set) var isClosed = false
 
-    var isActive: Bool { !line.isEmpty && !isCancelled }
+    var isActive: Bool { !line.isEmpty && !isClosed }
 
     /// A new stroke: only with exactly one finger.
     mutating func begin(at p: CGPoint, _ c: Coordinate, touches: Int) {
         screen = []
         line = []
-        isCancelled = touches != 1
-        if !isCancelled { screen = [p]; line = [c] }
+        isClosed = touches != 1
+        if !isClosed { screen = [p]; line = [c] }
     }
 
-    /// Returns true when the live line changed.
-    mutating func move(to p: CGPoint, _ c: @autoclosure () -> Coordinate, touches: Int) -> Bool {
-        guard !isCancelled, !line.isEmpty else { return false }
+    mutating func move(to p: CGPoint, _ c: @autoclosure () -> Coordinate, touches: Int) -> Step {
+        guard !isClosed, !line.isEmpty else { return .unchanged }
         if touches != 1 {
-            cancel()
-            return true
+            // The second finger's position (the centroid jump) is never added.
+            let kept = line.count >= Self.minPointsWhenInterrupted ? line : nil
+            isClosed = true
+            screen = []
+            line = []
+            return .ended(line: kept)
         }
-        if let last = screen.last, hypot(p.x - last.x, p.y - last.y) < Self.minSpacing { return false }
+        if let last = screen.last, hypot(p.x - last.x, p.y - last.y) < Self.minSpacing { return .unchanged }
         screen.append(p)
         line.append(c())
-        return true
+        return .extended
     }
 
+    /// The gesture was cancelled by the system: nothing is added.
     mutating func cancel() {
-        isCancelled = true
+        isClosed = true
         screen = []
         line = []
     }
 
-    /// The finished line (at least 2 points), or nil when cancelled or too short. Resets the stroke.
+    /// All fingers lifted: the line (at least 2 points), or nil when it ended earlier, was cancelled or is too short.
+    /// Resets the stroke.
     mutating func finish() -> [Coordinate]? {
-        defer { screen = []; line = []; isCancelled = false }
-        return !isCancelled && line.count >= 2 ? line : nil
+        defer { screen = []; line = []; isClosed = false }
+        return !isClosed && line.count >= 2 ? line : nil
     }
 }
 
@@ -113,7 +130,7 @@ struct RouteBuilderMapView: UIViewRepresentable {
             map.addGestureRecognizer(pointPan)
 
             drawPan = UIPanGestureRecognizer(target: self, action: #selector(handleDraw(_:)))
-            // Two, so a second finger landing mid-stroke is seen (and cancels the stroke) instead of being ignored.
+            // Two, so a second finger landing mid-stroke is seen (and ends the stroke) instead of being ignored.
             drawPan.maximumNumberOfTouches = 2
             drawPan.delegate = self
             map.addGestureRecognizer(drawPan)
@@ -303,7 +320,7 @@ struct RouteBuilderMapView: UIViewRepresentable {
         }
 
         /// While a stroke is under way, the map's two-finger pan and pinch may still start: the second finger then
-        /// cancels the stroke and moves the map.
+        /// ends the stroke and moves the map.
         func gestureRecognizer(_ g: UIGestureRecognizer, shouldRecognizeSimultaneouslyWith other: UIGestureRecognizer) -> Bool {
             guard g === drawPan || other === drawPan else { return false }
             let mapGesture = g === drawPan ? other : g
@@ -351,8 +368,16 @@ struct RouteBuilderMapView: UIViewRepresentable {
             case .began:
                 stroke.begin(at: pt, LatLng(map.convert(pt, toCoordinateFrom: map)), touches: g.numberOfTouches)
             case .changed:
-                guard stroke.move(to: pt, LatLng(map.convert(pt, toCoordinateFrom: map)), touches: g.numberOfTouches) else { return }
-                source("rb-live")?.shape = stroke.isActive ? polyline(stroke.line) : nil
+                switch stroke.move(to: pt, LatLng(map.convert(pt, toCoordinateFrom: map)), touches: g.numberOfTouches) {
+                case .unchanged:
+                    break
+                case .extended:
+                    source("rb-live")?.shape = polyline(stroke.line)
+                case .ended(let line):
+                    // Second finger: the stroke ends here and the map pans/zooms.
+                    source("rb-live")?.shape = nil
+                    if let line { model.draw(line) }
+                }
             case .ended:
                 let line = stroke.finish()
                 source("rb-live")?.shape = nil

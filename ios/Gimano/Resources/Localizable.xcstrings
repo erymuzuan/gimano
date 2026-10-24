@@ -193,6 +193,46 @@
         }
       }
     },
+    "Full route added": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Laluan penuh ditambah"
+          }
+        }
+      }
+    },
+    "Guests see the places, times and route distances, but not the route lines. Send the event file too for those who want the full route.": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tetamu nampak tempat, masa dan jarak laluan, tetapi bukan garisan laluan. Hantar juga fail acara untuk sesiapa yang mahukan laluan penuh."
+          }
+        }
+      }
+    },
+    "Link without routes": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pautan tanpa laluan"
+          }
+        }
+      }
+    },
+    "Link without routes: guests see the places, times and route distances, but no lines on the map.": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pautan tanpa laluan: tetamu nampak tempat, masa dan jarak laluan, tetapi tiada garisan di peta."
+          }
+        }
+      }
+    },
     "Places: %lld · access ends %@": {
       "localizations": {
         "ms": {
@@ -6588,6 +6628,16 @@
         }
       }
     },
+    "Share a link without routes?": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kongsi pautan tanpa laluan?"
+          }
+        }
+      }
+    },
     "Share file…": {
       "localizations": {
         "ms": {
@@ -8104,6 +8154,16 @@
         }
       }
     },
+    "The full route is in the event file.": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Laluan penuh ada dalam fail acara."
+          }
+        }
+      }
+    },
     "The name is too long (120 characters at most).": {
       "localizations": {
         "ms": {
@@ -8160,6 +8220,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Pelan telah berubah"
+          }
+        }
+      }
+    },
+    "The route lines of this event were added from the event file.": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Garisan laluan acara ini ditambah daripada fail acara."
           }
         }
       }
@@ -8818,6 +8888,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Guna pelan baharu"
+          }
+        }
+      }
+    },
+    "Use the link without routes": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Guna pautan tanpa laluan"
           }
         }
       }

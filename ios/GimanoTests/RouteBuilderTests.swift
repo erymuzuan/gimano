@@ -259,7 +259,9 @@ struct RouteAssemblyTests {
         let er = try #require(parsed.routes.first)
         #expect(er.stopIds == [s1.id, s2.id] && er.title == "Hari 1")
         #expect(er.legs.count == 1 && er.legs[0].distanceM == 2001 && er.legs[0].durationS == 121 && er.legs[0].source == .routed)
-        #expect(er.points.count == 5)  // 3 + 3 points, the joint once
+        #expect(r.joinedGeometry.count == 5)  // 3 + 3 points, the joint once
+        // Published simplified at 5 m (§5.4): the legs' straight midpoints go, the shaping point stays.
+        #expect(er.points == RouteSimplify.simplify(r.joinedGeometry) && er.points == [RB.a, RB.b, RB.c])
 
         // One sketch leg: route and that leg are sketches; no total time.
         r.setFollowRoads(false)

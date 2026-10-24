@@ -12,8 +12,12 @@ private final class VectorBundleToken {}
 
 private enum Vectors {
     static let names = ["kenduri-one-day", "ride-two-day", "negative-tampered-ciphertext", "negative-bad-signature",
-                        "negative-wrong-key", "negative-expired", "negative-oversized-fragment"]
-    static let positive = ["kenduri-one-day", "ride-two-day"]
+                        "negative-wrong-key", "negative-expired", "negative-oversized-fragment",
+                        "ride-two-day-stops-only", "negative-variant-with-polyline", "negative-missing-polyline",
+                        "negative-unknown-variant", "import-stops-only-sequence"]
+    static let positive = ["kenduri-one-day", "ride-two-day", "ride-two-day-stops-only"]
+    /// Correctly signed events that break a §5.5 variant rule, with the error each must give.
+    static let variantNegatives = ["negative-variant-with-polyline", "negative-missing-polyline", "negative-unknown-variant"]
 
     static func url(_ name: String) -> URL? {
         Bundle(for: VectorBundleToken.self).url(forResource: name, withExtension: "json")
@@ -82,6 +86,7 @@ struct EventVectorTests {
             #expect(p.event.sessions.count == expected["sessions"] as? Int)
             #expect(p.event.routes.count == expected["routes"] as? Int)
             #expect(p.event.polylinePointCount == expected["polylinePoints"] as? Int)
+            #expect(p.isStopsOnly == (expected["stopsOnly"] as? Bool ?? false))
             let decision = EventImport.decide(EventImportCandidate(p), stored: nil, now: try Vectors.date(v))
             #expect(decision.code == expected["decision"] as? String)
             #expect(decision == .new(safetyCode: try #require(v["safetyCode"] as? String)))
@@ -121,6 +126,93 @@ struct EventVectorTests {
         #expect(try SecretCode.decode(try #require(v["secretCode"] as? String)) == key)
         #expect(EventCodes.safetyCode(kp.publicKey) == v["safetyCode"] as? String)
         #expect(B64u.encode(EventCodes.revisionHash(eventBytes)) == v["revisionHashB64u"] as? String)
+    }
+
+    @Test("Stops-only variant: no polylines, revision hash = fullHash = the full event's, rebuilt byte for byte from it")
+    func stopsOnlyVector() throws {
+        let v = try Vectors.load("ride-two-day-stops-only")
+        let full = try Vectors.load(try #require(v["fullVector"] as? String))
+        let p = try EventPack.openLink(try #require(v["linkFragment"] as? String))
+        #expect(p.isStopsOnly && p.event.routes.allSatisfy { $0.polyline == nil && $0.points.isEmpty })
+        #expect(p.event.variant?.fullHash == v["fullHashB64u"] as? String)
+        #expect(B64u.encode(p.revisionHash) == v["fullHashB64u"] as? String)
+        #expect(B64u.encode(p.revisionHash) == full["revisionHashB64u"] as? String)
+        #expect(B64u.encode(EventCodes.bytesHash(p.eventBytes)) == v["eventBytesHashB64u"] as? String)
+        #expect(B64u.encode(p.revisionHash) != v["eventBytesHashB64u"] as? String)
+        // Distances, times and stops of the routes are kept.
+        let fullPack = try EventPack.openLink(try #require(full["linkFragment"] as? String))
+        #expect(p.event.routes.map(\.distanceM) == fullPack.event.routes.map(\.distanceM))
+        #expect(p.event.routes.map(\.stopIds) == fullPack.event.routes.map(\.stopIds))
+        #expect(p.organizerPub == fullPack.organizerPub && p.event.rev == fullPack.event.rev)
+        // Our writer makes the same variant bytes from the full bytes (not required, but it does).
+        let fullBytes = Array(try #require(full["eventJson"] as? String).utf8)
+        #expect(try EventDoc.stopsOnlyVariant(fullEventBytes: fullBytes) == p.eventBytes)
+        #expect(Vectors.code { _ = try EventDoc.stopsOnlyVariant(fullEventBytes: p.eventBytes) } == "not_full_event")
+    }
+
+    @Test("Variant rules: signed events that break them are rejected with their own codes", arguments: Vectors.variantNegatives)
+    func variantNegative(_ name: String) throws {
+        let v = try Vectors.load(name)
+        let code = try #require(v["expectedError"] as? String)
+        let fragment = try #require(v["linkFragment"] as? String)
+        #expect(Vectors.code { _ = try EventPack.openLink(fragment) } == code)
+        // The parser alone gives the same code.
+        let json = try #require(v["eventJson"] as? String)
+        #expect(Vectors.code { _ = try EventDoc.parse(Array(json.utf8)) } == code)
+    }
+
+    @Test("Variant edge cases: null variant is a full event; a malformed fullHash is invalid_event")
+    func variantEdges() throws {
+        let full = try #require(try Vectors.load("ride-two-day")["eventJson"] as? String)
+        let variant = try #require(try Vectors.load("ride-two-day-stops-only")["eventJson"] as? String)
+        func parse(_ s: String) -> String? { Vectors.code { _ = try EventDoc.parse(Array(s.utf8)) } }
+        #expect(parse(String(full.dropLast()) + #","variant":null}"#) == nil)
+        let hash = try #require(try Vectors.load("ride-two-day-stops-only")["fullHashB64u"] as? String)
+        #expect(parse(variant.replacingOccurrences(of: hash, with: "AAAA")) == "invalid_event")
+        // Revision hash from bytes: fullHash for a variant, SHA-256 otherwise.
+        #expect(EventCodes.revisionHash(Array(variant.utf8)) == B64u.decode(hash))
+        #expect(EventCodes.revisionHash(Array(full.utf8)) == EventCodes.bytesHash(Array(full.utf8)))
+    }
+
+    @Test("Import sequence: variant and full event are one revision (upgrade, already imported, parent via fullHash)")
+    func importSequence() throws {
+        let v = try Vectors.load("import-stops-only-sequence")
+        let now = try Vectors.date(v)
+        let packs = try #require(v["packs"] as? [String: [String: Any]])
+        var opened: [String: OpenedEventPack] = [:]
+        for (name, p) in packs {
+            let pack = try EventPack.openLink(try #require(p["linkFragment"] as? String))
+            #expect(B64u.encode(pack.revisionHash) == p["revisionHashB64u"] as? String, "\(name)")
+            #expect(Int(pack.event.rev) == p["rev"] as? Int && pack.isStopsOnly == p["stopsOnly"] as? Bool, "\(name)")
+            opened[name] = pack
+        }
+        #expect(opened["rev2"]?.event.parent == packs["variant"]?["revisionHashB64u"] as? String)
+        let sequences = try #require(v["sequences"] as? [[String: Any]])
+        #expect(sequences.count == 4)
+        for seq in sequences {
+            let name = seq["name"] as? String ?? "?"
+            let store = try EventStore(directory: nil)
+            for step in try #require(seq["steps"] as? [[String: Any]]) {
+                let packName = try #require(step["import"] as? String)
+                let pack = try #require(opened[packName])
+                let decision = EventImport.decide(EventImportCandidate(pack), stored: try store.record(eventId: pack.event.id), now: now)
+                #expect(decision.code == step["decision"] as? String, "\(name)")
+                let parent: String? = if case .newer(_, let p) = decision {
+                    switch p { case .matches: "matches"; case .missedRevisions: "missed_revisions"; case .mismatch: "mismatch" }
+                } else { nil }
+                #expect(parent == step["parentCheck"] as? String, "\(name)")
+                try store.save(pack, decision: decision, now: now)
+                let after = try #require(try store.record(eventId: pack.event.id)).revisions.sorted { $0.rev < $1.rev }
+                let expected = try #require(step["storedAfter"] as? [[String: Any]])
+                #expect(after.map { Int($0.rev) } == expected.map { $0["rev"] as? Int ?? -1 }, "\(name)")
+                #expect(after.map { B64u.encode($0.hash) } == expected.map { $0["revisionHashB64u"] as? String ?? "" }, "\(name)")
+                #expect(after.map(\.stopsOnly) == expected.map { $0["stopsOnly"] as? Bool ?? false }, "\(name)")
+            }
+            // What the guest sees at the end: the current revision is full unless only the variant ever arrived.
+            let current = try #require(try store.events(now: now).first)
+            let last = try #require((seq["steps"] as? [[String: Any]])?.last?["storedAfter"] as? [[String: Any]])
+            #expect(current.doc.isStopsOnly == (last.last?["stopsOnly"] as? Bool ?? false), "\(name)")
+        }
     }
 
     @Test("Tampered ciphertext fails with decrypt")

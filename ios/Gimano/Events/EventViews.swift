@@ -277,6 +277,10 @@ struct EventImportConfirmView: View {
             Label { Text("\(e.stops.count) stops") } icon: { Image(systemName: "mappin.and.ellipse") }
             if !e.routes.isEmpty {
                 Label { Text("\(e.routes.count) routes") } icon: { Image(systemName: "point.topleft.down.to.point.bottomright.curvepath") }
+                if e.isStopsOnly {
+                    Label { Text("The full route is in the event file.") } icon: { Image(systemName: "lock.doc") }
+                        .foregroundStyle(Color.textMuted)
+                }
             }
             Label { Text("Access ends \(EventFormat.expiry(e))") } icon: { Image(systemName: "hourglass") }
                 .foregroundStyle(Color.textMuted)
@@ -310,6 +314,9 @@ struct EventImportConfirmView: View {
             banner("Event has ended", "The event has ended. Copies outside Manotu may still exist.", tint: .coralMist, icon: "hourglass.bottomhalf.filled")
         case .alreadyImported:
             banner("Already imported", "This invitation is already on this phone. Nothing changed.", tint: .tealMist, icon: "checkmark.circle.fill")
+        case .upgradeToFull:
+            // Applied without asking (EventCenter); shown only if this screen is ever reached.
+            banner("Full route added", "The route lines of this event were added from the event file.", tint: .tealMist, icon: "map.fill")
         case .differentOrganizer:
             banner("Different organizer",
                    "This update is signed by a different organizer than the one you trusted. It was not imported.",
@@ -501,6 +508,11 @@ struct EventDetailView: View {
                 Text("Safety code").font(Tokens.Font.small).foregroundStyle(Color.textMuted)
                 Text(verbatim: e.safetyCode).font(.system(.footnote, design: .monospaced).weight(.semibold))
             }
+            if model.events.fullRouteAdded == e.eventId, !doc.isStopsOnly {
+                Label("Full route added", systemImage: "checkmark.circle.fill")
+                    .font(Tokens.Font.label).foregroundStyle(Color.brand)
+                    .accessibilityIdentifier("eventFullRouteAdded")
+            }
             if let w = e.parentWarning {
                 Label(w == .mismatch ? "This version doesn't follow the one on this phone. Check with the organizer."
                                      : "Some updates in between were missed.", systemImage: "exclamationmark.triangle.fill")
@@ -564,31 +576,45 @@ struct EventDetailView: View {
     private func routesSection(_ doc: EventDoc) -> some View {
         Section {
             ForEach(doc.routes) { r in
-                Button {
-                    if let e = model.events.event(eventId) { model.events.detent = .medium; model.showEventOnMap(e, routeId: r.id) }
-                } label: {
-                    HStack(spacing: Tokens.Space.m) {
-                        GimanoIcon(icon: r.mode.vehicle.gIcon, size: 24).frame(width: 28)
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(verbatim: r.title ?? doc.title).font(Tokens.Font.bodyBold)
-                            // Distance and time only: climb/descent from other writers are read but not shown.
-                            let extra = [r.durationS.map { ETAFormatter.duration(Double($0)) }, r.day].compactMap { $0 }
-                            Text(verbatim: ([EventFormat.distance(r.distanceM)] + extra).joined(separator: " · "))
-                                .font(Tokens.Font.caption).foregroundStyle(Color.textMuted)
-                            if r.source != .routed {
-                                Text("Sketch: not for turn-by-turn navigation").font(Tokens.Font.small).foregroundStyle(Color.amberInk)
-                            }
-                        }
-                        Spacer(minLength: 0)
-                        Image(systemName: "map").foregroundStyle(Color.brand)
-                    }
+                if doc.isStopsOnly {
+                    // A stops-only link (§5.5): the list with distance and time, no line to show.
+                    routeRow(r, doc: doc, hasLine: false)
+                        .accessibilityIdentifier("eventRouteRow.\(r.id)")
+                } else {
+                    Button {
+                        if let e = model.events.event(eventId) { model.events.detent = .medium; model.showEventOnMap(e, routeId: r.id) }
+                    } label: { routeRow(r, doc: doc, hasLine: true) }
+                        .buttonStyle(.plain)
+                        .accessibilityHint(Text("Show on map"))
+                        .accessibilityIdentifier("eventRouteShow.\(r.id)")
                 }
-                .buttonStyle(.plain)
-                .accessibilityHint(Text("Show on map"))
-                .accessibilityIdentifier("eventRouteShow.\(r.id)")
             }
         } header: { Text("Routes").font(Tokens.Font.label) } footer: {
-            Text("“Navigate” takes you to a stop. Following the route turn by turn isn't available yet.")
+            VStack(alignment: .leading, spacing: 4) {
+                if doc.isStopsOnly {
+                    Label("The full route is in the event file.", systemImage: "lock.doc")
+                        .accessibilityIdentifier("eventStopsOnlyNote")
+                }
+                Text("“Navigate” takes you to a stop. Following the route turn by turn isn't available yet.")
+            }
+        }
+    }
+
+    private func routeRow(_ r: EventRoute, doc: EventDoc, hasLine: Bool) -> some View {
+        HStack(spacing: Tokens.Space.m) {
+            GimanoIcon(icon: r.mode.vehicle.gIcon, size: 24).frame(width: 28)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(verbatim: r.title ?? doc.title).font(Tokens.Font.bodyBold)
+                // Distance and time only: climb/descent from other writers are read but not shown.
+                let extra = [r.durationS.map { ETAFormatter.duration(Double($0)) }, r.day].compactMap { $0 }
+                Text(verbatim: ([EventFormat.distance(r.distanceM)] + extra).joined(separator: " · "))
+                    .font(Tokens.Font.caption).foregroundStyle(Color.textMuted)
+                if r.source != .routed {
+                    Text("Sketch: not for turn-by-turn navigation").font(Tokens.Font.small).foregroundStyle(Color.amberInk)
+                }
+            }
+            Spacer(minLength: 0)
+            if hasLine { Image(systemName: "map").foregroundStyle(Color.brand) }
         }
     }
 }

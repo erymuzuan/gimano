@@ -164,7 +164,8 @@ struct EventRoute: Decodable, Hashable, Sendable, Identifiable {
     var mode: EventTravelMode
     var day: String?
     var stopIds: [String]
-    var polyline: String
+    /// Precision-6 polyline. Required on a full event; absent on every route of a stops-only variant (§5.5).
+    var polyline: String?
     var source: EventGeometrySource
     var distanceM: UInt32
     var durationS: UInt32?
@@ -183,7 +184,7 @@ struct EventRoute: Decodable, Hashable, Sendable, Identifiable {
         mode = try c.decode(EventTravelMode.self, forKey: .mode)
         day = try c.decodeIfPresent(String.self, forKey: .day)
         stopIds = try c.decodeIfPresent([String].self, forKey: .stopIds) ?? []
-        polyline = try c.decode(String.self, forKey: .polyline)
+        polyline = try c.decodeIfPresent(String.self, forKey: .polyline)
         source = try c.decode(EventGeometrySource.self, forKey: .source)
         distanceM = try c.decode(UInt32.self, forKey: .distanceM)
         durationS = try c.decodeIfPresent(UInt32.self, forKey: .durationS)
@@ -192,8 +193,23 @@ struct EventRoute: Decodable, Hashable, Sendable, Identifiable {
         legs = try c.decodeIfPresent([EventRouteLeg].self, forKey: .legs) ?? []
     }
 
-    /// Decoded geometry (validated on import, so this does not fail for stored events).
-    var points: [LatLng] { (try? EventPolyline.decode(polyline, maxPoints: EventLimits.maxPolylinePoints)) ?? [] }
+    /// Decoded geometry (validated on import, so this does not fail for stored events); empty in a stops-only variant.
+    var points: [LatLng] { polyline.flatMap { try? EventPolyline.decode($0, maxPoints: EventLimits.maxPolylinePoints) } ?? [] }
+}
+
+/// `"variant": {"kind": "stops-only", "fullHash": "<b64u SHA-256 of the full event bytes>"}` (§5.5). `kind` stays a
+/// string so an unknown kind is reported as `unsupported_variant` rather than as malformed JSON.
+struct EventVariant: Codable, Hashable, Sendable {
+    static let stopsOnlyKind = "stops-only"
+
+    var kind: String
+    var fullHash: String
+
+    static func stopsOnly(fullHash: [UInt8]) -> EventVariant { EventVariant(kind: stopsOnlyKind, fullHash: B64u.encode(fullHash)) }
+
+    var isStopsOnly: Bool { kind == Self.stopsOnlyKind }
+    /// The decoded `fullHash`, when it is a valid SHA-256 value.
+    var fullHashBytes: [UInt8]? { B64u.decode(fullHash).flatMap { $0.count == 32 ? $0 : nil } }
 }
 
 /// The signed event document.
@@ -214,9 +230,12 @@ struct EventDoc: Decodable, Hashable, Sendable, Identifiable {
     var stops: [EventStop]
     var sessions: [EventSession]
     var routes: [EventRoute]
+    /// Present only on a stops-only variant (§5.5); `null` or absent = the full event.
+    var variant: EventVariant?
 
     enum CodingKeys: String, CodingKey {
         case id, rev, parent, publishedAt, template, title, description, lang, tz, start, end, expiresAt, organizer, stops, sessions, routes
+        case variant
     }
 
     init(from decoder: any Decoder) throws {
@@ -237,7 +256,11 @@ struct EventDoc: Decodable, Hashable, Sendable, Identifiable {
         stops = try c.decodeIfPresent([EventStop].self, forKey: .stops) ?? []
         sessions = try c.decodeIfPresent([EventSession].self, forKey: .sessions) ?? []
         routes = try c.decodeIfPresent([EventRoute].self, forKey: .routes) ?? []
+        variant = try c.decodeIfPresent(EventVariant.self, forKey: .variant)
     }
+
+    /// A stops-only variant (§5.5): the same revision without route lines.
+    var isStopsOnly: Bool { variant?.isStopsOnly ?? false }
 
     var alias: String? { organizer?.alias.flatMap { $0.isEmpty ? nil : $0 } }
     var timeZone: TimeZone { TimeZone(identifier: tz) ?? TimeZone(secondsFromGMT: start.offsetSeconds) ?? .current }
@@ -245,7 +268,7 @@ struct EventDoc: Decodable, Hashable, Sendable, Identifiable {
 
     func stop(_ id: String) -> EventStop? { stops.first { $0.id == id } }
 
-    /// Parses and validates signed event bytes.
+    /// Parses and validates signed event bytes (a full event or a stops-only variant).
     static func parse(_ bytes: [UInt8]) throws(EventPackError) -> EventDoc {
         let event: EventDoc
         do {
@@ -253,7 +276,7 @@ struct EventDoc: Decodable, Hashable, Sendable, Identifiable {
         } catch {
             throw .malformedEvent(String(describing: error))
         }
-        try EventValidation.validate(event)
+        try EventValidation.check(event)
         return event
     }
 }
@@ -346,7 +369,30 @@ enum EventValidation {
         return t.raw.hasPrefix(s)
     }
 
+    /// The variant rules (§5.5) with their own error codes, then every §4 rule (`validate.rs` `check`).
+    static func check(_ e: EventDoc) throws(EventPackError) {
+        let stopsOnly: Bool
+        switch e.variant {
+        case nil: stopsOnly = false
+        case .some(let v) where v.isStopsOnly: stopsOnly = true
+        case .some(let v): throw .unsupportedVariant(v.kind)
+        }
+        for (i, r) in e.routes.enumerated() {
+            if stopsOnly && r.polyline != nil { throw .variantHasPolyline(route: i) }
+            if !stopsOnly && r.polyline == nil { throw .missingPolyline(route: i) }
+        }
+        try validate(e)
+    }
+
     static func validate(_ e: EventDoc) throws(EventPackError) {
+        let stopsOnly: Bool
+        switch e.variant {
+        case nil: stopsOnly = false
+        case .some(let v) where v.isStopsOnly:
+            if v.fullHashBytes == nil { throw fail("variant.fullHash", "is not a SHA-256 hash") }
+            stopsOnly = true
+        case .some: throw fail("variant.kind", "is not supported")
+        }
         try id("id", e.id, bytes: EventLimits.eventIdBytes)
         if e.rev == 0 { throw fail("rev", "must be 1 or more") }
         switch (e.parent, e.rev) {
@@ -404,15 +450,22 @@ enum EventValidation {
             try optText(p("title"), r.title, max: EventLimits.routeTitleChars)
             if let day = r.day, !validDay(day) { throw fail(p("day"), "is not a YYYY-MM-DD date") }
             for (j, sid) in r.stopIds.enumerated() { try knownStop(p("stopIds[\(j)]"), sid) }
+            let polyline: String
+            switch (r.polyline, stopsOnly) {
+            case (.some, true): throw fail(p("polyline"), "must be absent on a stops-only variant")
+            case (nil, false): throw fail(p("polyline"), "is required")
+            case (nil, true): polyline = ""
+            case (.some(let pl), false): polyline = pl
+            }
             let decoded: [LatLng]
             do {
-                decoded = try EventPolyline.decode(r.polyline, maxPoints: EventLimits.maxPolylinePoints - points)
+                decoded = try EventPolyline.decode(polyline, maxPoints: EventLimits.maxPolylinePoints - points)
             } catch EventPolyline.Failure.tooManyPoints {
                 throw fail(p("polyline"), "routes have more than 50 000 polyline points in total")
             } catch {
                 throw fail(p("polyline"), "is not a valid precision-6 polyline")
             }
-            if decoded.count < 2 { throw fail(p("polyline"), "needs at least 2 points") }
+            if !stopsOnly && decoded.count < 2 { throw fail(p("polyline"), "needs at least 2 points") }
             points += decoded.count
             for (j, l) in r.legs.enumerated() {
                 try knownStop(p("legs[\(j)].fromStopId"), l.fromStopId)
