@@ -107,10 +107,11 @@ fun GimanoRoot(vm: MainViewModel, onMic: () -> Unit, onExit: () -> Unit, onReque
     }
 
     // A banned account's contribution was refused (403): one plain message, not a generic error.
+    val bannedMsg = stringResource(R.string.banned_message, my.gimano.app.ui.about.CONTACT_EMAIL)
     LaunchedEffect(Unit) {
         my.gimano.app.data.repo.Moderation.banned.collect {
             snackbar.currentSnackbarData?.dismiss()
-            snackbar.showSnackbar(context.getString(R.string.banned_message, my.gimano.app.ui.about.CONTACT_EMAIL), duration = SnackbarDuration.Long)
+            snackbar.showSnackbar(bannedMsg, duration = SnackbarDuration.Long)
         }
     }
     LaunchedEffect(Unit) {

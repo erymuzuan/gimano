@@ -133,6 +133,9 @@ private fun DeleteAccountDialog(c: AppContainer, onClose: () -> Unit, onDeleted:
     var alsoClear by remember { mutableStateOf(false) }
     var busy by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
+    val doneMsg = stringResource(R.string.delete_account_done)
+    val offlineMsg = stringResource(R.string.delete_account_offline)
+    val failedMsg = stringResource(R.string.delete_account_failed)
     AlertDialog(
         onDismissRequest = { if (!busy) onClose() },
         title = { Text(stringResource(R.string.delete_account_title), fontWeight = FontWeight.Black) },
@@ -154,11 +157,11 @@ private fun DeleteAccountDialog(c: AppContainer, onClose: () -> Unit, onDeleted:
                 scope.launch {
                     when (c.accountDeletion.run(alsoClear)) {
                         my.gimano.app.data.account.AccountDeletion.Outcome.DELETED -> {
-                            android.widget.Toast.makeText(ctx, ctx.getString(R.string.delete_account_done), android.widget.Toast.LENGTH_LONG).show()
+                            android.widget.Toast.makeText(ctx, doneMsg, android.widget.Toast.LENGTH_LONG).show()
                             onDeleted()
                         }
-                        my.gimano.app.data.account.AccountDeletion.Outcome.OFFLINE -> { error = ctx.getString(R.string.delete_account_offline); busy = false }
-                        my.gimano.app.data.account.AccountDeletion.Outcome.FAILED -> { error = ctx.getString(R.string.delete_account_failed); busy = false }
+                        my.gimano.app.data.account.AccountDeletion.Outcome.OFFLINE -> { error = offlineMsg; busy = false }
+                        my.gimano.app.data.account.AccountDeletion.Outcome.FAILED -> { error = failedMsg; busy = false }
                     }
                 }
             }, colors = ButtonDefaults.buttonColors(containerColor = Gimano.colors.report)) {
