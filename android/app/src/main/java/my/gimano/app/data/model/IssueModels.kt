@@ -73,6 +73,8 @@ data class Issue(
     val createdAt: String = "",
     val expiresAt: String? = null,
     val lastEvidenceAt: String? = null,
+    /** docs/api.md: the reporter, with `authorRef` (blocking on this phone). */
+    val reportedBy: Author? = null,
     /** place_closed_temp: closed until (ISO date); also read from payload.until. */
     val until: String? = null,
     val payload: JsonObject? = null,

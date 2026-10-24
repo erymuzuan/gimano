@@ -780,8 +780,13 @@
     <string name="rules_1">No abusive, hateful, sexual, violent or otherwise objectionable content, and no personal information about others.</string>
     <string name="rules_2">Content that breaks these rules is removed, and users who post it can be suspended.</string>
     <string name="rules_3">You can block any user: their reviews and photos are hidden on your phone.</string>
-    <string name="rules_4">See something wrong? Tap Report on the review, or Report photo. Moderators check reports.</string>
+    <string name="rules_4">See something wrong? Tap Report on the review, or Report photo / Report place. Moderators check reports.</string>
     <string name="rules_full_terms">Full terms: %1$s</string>
     <string name="rules_agree">I agree</string>
     <string name="rules_not_now">Not now</string>
+    <string name="report_place">Report place</string>
+    <string name="banned_message">Your account can\'t post right now: a moderator stopped new contributions from it after reports about its content. Contact %1$s if you think this is a mistake.</string>
+    <string name="fb_unlinked_note">Sent with your contact, so it isn\'t linked to your account and has no status here. We reply by the email or WhatsApp you gave.</string>
+    <string name="fb_status_sent">Sent</string>
+    <string name="fb_crash_entry">Crash report: %1$s</string>
 </resources>

@@ -18,6 +18,11 @@ class DemoRepository(
     /** Saves demo photo bytes somewhere loadable and returns its URL (file:// in the app). */
     private val photoSink: (id: String, bytes: ByteArray) -> String = { id, _ -> "demo://photos/$id.webp" },
 ) : GimanoRepository {
+    companion object {
+        /** Contact tokens issued by demo mode: a withdrawal with one goes to demo data, never the server. */
+        const val DEMO_CONTACT_TOKEN = "demo-ct-"
+    }
+
 
     /** Real OSM road geometry (assets/demo-routes), loaded on first use. */
     val canned: CannedRoutes by lazy { CannedRoutes.parse(cannedDocs()) }
@@ -300,15 +305,21 @@ class DemoRepository(
     override suspend fun sendFeedback(body: FeedbackRequest): FeedbackCreated {
         latency()
         val f = FeedbackSummary(UUID.randomUUID().toString(), body.category, body.message, "received", Instant.now().toString(), hasContact = body.contact != null)
-        feedbackStore.add(0, f)
-        return FeedbackCreated(f.id, f.createdAt)
+        // As on the server: a report with a contact is not linked to the account (not in /me/feedback) and gets a token.
+        if (body.contact == null) feedbackStore.add(0, f)
+        return FeedbackCreated(f.id, f.createdAt, contactToken = if (body.contact != null) DEMO_CONTACT_TOKEN + UUID.randomUUID().toString().take(12) else null)
     }
 
     override suspend fun myFeedback(): List<FeedbackSummary> = feedbackStore.toList()
-    override suspend fun deleteFeedbackContact(id: String) {
+    override suspend fun deleteFeedbackContact(id: String, token: String?) {
         feedbackStore.replaceAll { if (it.id == id) it.copy(hasContact = false) else it }
     }
-    override suspend fun sendCrashReport(body: CrashReportRequest): CrashCreated { latency(); return CrashCreated("demo-crash-" + UUID.randomUUID().toString().take(8)) }
+    override suspend fun deleteCrashContact(id: String, token: String) {}
+    override suspend fun flagPlace(placeId: String, reason: String) {}
+    override suspend fun sendCrashReport(body: CrashReportRequest): CrashCreated {
+        latency()
+        return CrashCreated("demo-crash-" + UUID.randomUUID().toString().take(8), contactToken = body.contact?.let { DEMO_CONTACT_TOKEN + UUID.randomUUID().toString().take(12) })
+    }
 
     override suspend fun inbox(): List<InboxItem> {
         val now = Instant.now()

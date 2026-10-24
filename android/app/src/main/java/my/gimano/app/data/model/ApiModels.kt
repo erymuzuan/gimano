@@ -203,10 +203,11 @@ data class Place(
 data class Author(
     val displayName: String = "", val level: Int? = null, val reviewCount: Int? = null,
     /**
-     * Opaque, stable per-author handle from the server (not the pseudonym key, not the user id), used only to block an
-     * author on this phone. Field name per docs/api.md once the backend lands; the alternatives keep older/newer names.
+     * docs/api.md `authorRef`: opaque, stable per-contributor id (16 chars, an HMAC; not the user id or the pseudonym
+     * key), the same on reviews, photos, community places and issues. Used only to block an author on this phone.
+     * Absent when the author deleted their account.
      */
-    @kotlinx.serialization.json.JsonNames("authorHandle", "handle", "ref") val authorRef: String? = null,
+    val authorRef: String? = null,
 )
 
 @Serializable
@@ -364,15 +365,18 @@ data class CrashReportRequest(
     val threads: String? = null,
     val screen: String? = null,
     val uptimeS: Long? = null,
-    val device: DeviceInfo,
+    /** Opt-in (docs/api.md: default OFF, shown in the preview); null when not ticked. */
+    val device: DeviceInfo? = null,
     val contact: ContactDetails? = null,
 )
 
 @Serializable
-data class CrashCreated(val id: String = "", val signature: String? = null)
+/** [contactToken]: only when the report carries a volunteered contact (it is then stored without the user id). */
+data class CrashCreated(val id: String = "", val signature: String? = null, val contactToken: String? = null)
 
 @Serializable
-data class FeedbackCreated(val id: String, val createdAt: String = "")
+/** [contactToken]: returned once when the feedback carries a contact; kept on the phone to withdraw it later. */
+data class FeedbackCreated(val id: String, val createdAt: String = "", val contactToken: String? = null)
 
 @Serializable
 data class FeedbackSummary(val id: String, val category: String, val message: String, val status: String = "received", val createdAt: String = "", val hasContact: Boolean = false)

@@ -778,8 +778,13 @@
     <string name="rules_1">Tiada kandungan kesat, kebencian, seksual, ganas atau yang tidak wajar, dan tiada maklumat peribadi orang lain.</string>
     <string name="rules_2">Kandungan yang melanggar peraturan ini dibuang, dan pengguna yang menghantarnya boleh digantung.</string>
     <string name="rules_3">Anda boleh menyekat mana-mana pengguna: ulasan dan gambar mereka disembunyikan dalam telefon anda.</string>
-    <string name="rules_4">Nampak sesuatu yang salah? Ketik Lapor pada ulasan, atau Laporkan gambar. Moderator menyemak laporan.</string>
+    <string name="rules_4">Nampak sesuatu yang salah? Ketik Lapor pada ulasan, atau Laporkan gambar / Laporkan tempat. Moderator menyemak laporan.</string>
     <string name="rules_full_terms">Terma penuh: %1$s</string>
     <string name="rules_agree">Setuju</string>
     <string name="rules_not_now">Bukan sekarang</string>
+    <string name="report_place">Laporkan tempat</string>
+    <string name="banned_message">Akaun anda tidak boleh menghantar sekarang: moderator menghentikan sumbangan baharu daripadanya selepas laporan tentang kandungannya. Hubungi %1$s jika anda rasa ini satu kesilapan.</string>
+    <string name="fb_unlinked_note">Dihantar bersama butiran hubungan anda, jadi ia tidak dikaitkan dengan akaun anda dan tiada status di sini. Kami membalas melalui e-mel atau WhatsApp yang anda berikan.</string>
+    <string name="fb_status_sent">Dihantar</string>
+    <string name="fb_crash_entry">Laporan ranap: %1$s</string>
 </resources>

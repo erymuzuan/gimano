@@ -300,6 +300,11 @@ class ContributeViewModel(private val c: AppContainer) : ViewModel() {
         runCatching { c.repo.flagPhoto(p.id, reason) }.onSuccess { _events.tryEmit(ContribEvent.Message(R.string.thanks_flag)) }
     }
 
+    /** "Report place" (community places only; POST /places/{id}/flag). */
+    fun flagPlace(p: Place, reason: String) = viewModelScope.launch {
+        runCatching { c.repo.flagPlace(p.id, reason) }.onSuccess { _events.tryEmit(ContribEvent.Message(R.string.thanks_flag)) }
+    }
+
     /** "Block this user": on this phone only (never sent); their reviews and photos disappear everywhere. */
     fun blockAuthor(a: my.gimano.app.data.model.Author) = viewModelScope.launch {
         if (a.authorRef == null) return@launch

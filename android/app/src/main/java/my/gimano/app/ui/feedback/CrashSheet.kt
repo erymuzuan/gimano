@@ -32,6 +32,8 @@ fun CrashSheet(crashes: CrashReporter, records: List<CrashRecord>) {
     var consent by remember { mutableStateOf(false) }
     var mode by remember { mutableStateOf(crashes.mode) }
     var details by remember { mutableStateOf<String?>(null) }
+    // Device info is opt-in for crash reports too (starts unticked; shown in "See details").
+    var includeDevice by remember { mutableStateOf(FeedbackConsent.DEFAULT_DEVICE) }
     val r = records.last()
     val contactState = ContactRules.state(email, wa, consent)
     val contact = (contactState as? ContactRules.State.Ok)?.let { ContactDetails(it.email, it.whatsapp, true) }
@@ -39,14 +41,18 @@ fun CrashSheet(crashes: CrashReporter, records: List<CrashRecord>) {
 
     fun finish(send: Boolean) = scope.launch {
         crashes.mode = mode
-        records.forEach { if (send) crashes.send(it, contact) else crashes.discard(it) }
+        records.forEach { if (send) crashes.send(it, contact, includeDevice) else crashes.discard(it) }
     }
 
     ModalBottomSheet(onDismissRequest = { finish(send = false) }, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true), containerColor = c.surface) {
         Column(Modifier.verticalScroll(rememberScrollState()).padding(start = 16.dp, end = 16.dp, bottom = 26.dp).imePadding(), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Text(stringResource(R.string.crash_title), fontSize = 22.sp, fontWeight = FontWeight.Black, color = c.text)
             Text(stringResource(R.string.crash_body), fontSize = 15.sp, color = c.textMuted, fontWeight = FontWeight.Bold)
-            TextButton(onClick = { details = crashes.previewJson(r, contact) }) { Text(stringResource(R.string.crash_details), fontWeight = FontWeight.ExtraBold, color = c.brandInk) }
+            TextButton(onClick = { details = crashes.previewJson(r, contact, includeDevice) }) { Text(stringResource(R.string.crash_details), fontWeight = FontWeight.ExtraBold, color = c.brandInk) }
+            Row(Modifier.fillMaxWidth().clickable { includeDevice = !includeDevice }, verticalAlignment = Alignment.CenterVertically) {
+                Checkbox(includeDevice, { includeDevice = it })
+                Text(stringResource(R.string.fb_include_device), fontSize = 15.sp, fontWeight = FontWeight.Bold, color = c.text)
+            }
             ContactSection(email, wa, consent) { e, w, k -> email = e; wa = w; consent = k }
             Text(stringResource(R.string.crash_remember), fontSize = 14.sp, fontWeight = FontWeight.Black, color = c.text)
             CrashModeChoice(mode) { mode = it }

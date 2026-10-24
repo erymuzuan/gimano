@@ -52,9 +52,10 @@ class StoreReadinessTest {
         val r = GimanoJson.decodeFromString(Review.serializer(),
             """{"id":"r","placeId":"p","rating":5,"author":{"displayName":"Badak 5880","authorRef":"h-badak"}}""")
         assertEquals("h-badak", r.author.authorRef)
-        // An older/newer field name still works (the backend name lands in docs/api.md).
-        val p = GimanoJson.decodeFromString(Photo.serializer(), """{"id":"x","uploadedBy":{"displayName":"K","handle":"h-k"}}""")
+        // docs/api.md names it `authorRef` on photos too (no other names are accepted).
+        val p = GimanoJson.decodeFromString(Photo.serializer(), """{"id":"x","uploadedBy":{"displayName":"K","authorRef":"h-k"}}""")
         assertEquals("h-k", p.uploadedBy?.authorRef)
+        assertNull(GimanoJson.decodeFromString(Photo.serializer(), """{"id":"x","uploadedBy":{"displayName":"K","handle":"h-k"}}""").uploadedBy?.authorRef)
         // No handle: nothing to block by.
         assertNull(GimanoJson.decodeFromString(Author.serializer(), """{"displayName":"Old"}""").authorRef)
     }

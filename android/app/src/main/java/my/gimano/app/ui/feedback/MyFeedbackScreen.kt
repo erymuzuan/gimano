@@ -44,7 +44,9 @@ fun MyFeedbackScreen(vm: FeedbackViewModel, onBack: () -> Unit, onNew: () -> Uni
                     IconTile { FeedbackCategoryIcon(f.category, 26.dp) }
                     Spacer(Modifier.width(12.dp))
                     Column(Modifier.weight(1f)) {
-                        Text(f.message, fontSize = 16.sp, fontWeight = FontWeight.Bold, color = c.text, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                        Text(if (f.crash) stringResource(R.string.fb_crash_entry, f.message) else f.message, fontSize = 16.sp, fontWeight = FontWeight.Bold, color = c.text, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                        // Sent with a contact: stored without your account, so no status here; we reply by that contact.
+                        if (f.unlinked) Text(stringResource(R.string.fb_unlinked_note), fontSize = 12.sp, fontWeight = FontWeight.Bold, color = c.brandInk)
                         Text(my.gimano.app.core.format.Formatters.localStamp(f.createdAt), fontSize = 12.sp, color = c.textMuted)
                         if (!f.queued && (f.hasContact || f.id in serverContacts)) Row(verticalAlignment = Alignment.CenterVertically) {
                             Text(stringResource(R.string.fb_contact_kept), fontSize = 12.sp, fontWeight = FontWeight.Bold, color = c.textMuted)
@@ -54,7 +56,7 @@ fun MyFeedbackScreen(vm: FeedbackViewModel, onBack: () -> Unit, onNew: () -> Uni
                         }
                     }
                     Spacer(Modifier.width(8.dp))
-                    StatusChip(f.status)
+                    StatusChip(if (f.unlinked && !f.queued) "sent" else f.status)
                 }
             }
         }
@@ -70,6 +72,7 @@ fun StatusChip(status: String) {
         "planned" -> R.string.fb_status_planned to c.brandMist
         "done" -> R.string.fb_status_done to c.brandTint
         "wont_fix" -> R.string.fb_status_wont_fix to c.surfaceAlt
+        "sent" -> R.string.fb_status_sent to c.brandMist
         else -> R.string.fb_status_received to c.brandMist
     }
     Text(stringResource(label), Modifier.clip(RoundedCornerShape(999.dp)).background(bg).padding(horizontal = 10.dp, vertical = 5.dp), fontSize = 12.sp, fontWeight = FontWeight.ExtraBold, color = c.text)

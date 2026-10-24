@@ -119,6 +119,7 @@ fun PlaceCard(sel: PlaceSel, vm: MainViewModel, cvm: ContributeViewModel, apiBas
     val reviews by cvm.reviews.collectAsStateWithLifecycle()
     val uiState by vm.ui.collectAsState()
     var viewer by remember { mutableStateOf<ViewerState?>(null) }
+    var reportPlace by remember { mutableStateOf(false) }
     // Blocked authors (this phone only): their reviews and photos are hidden everywhere.
     val blockedList by vm.container.blocks.blocked.collectAsStateWithLifecycle()
     val blocked = remember(blockedList) { blockedList.mapTo(HashSet()) { it.ref } }
@@ -252,7 +253,8 @@ fun PlaceCard(sel: PlaceSel, vm: MainViewModel, cvm: ContributeViewModel, apiBas
                                 },
                             contentAlignment = Alignment.TopCenter,
                         ) { GrabHandle(Modifier.padding(top = 8.dp)) }
-                        PeekHeader(sel, vm, reviews, onSuggest = { suggest = true })
+                        PeekHeader(sel, vm, reviews, onSuggest = { suggest = true },
+                            onReportPlace = if (d?.isCommunity == true) ({ reportPlace = true }) else null)
                         if (p.id.startsWith("pin:")) {
                             OutlinedButton(onClick = { cvm.startAdd(my.gimano.app.core.geo.GeoPoint(p.lat, p.lng), ""); vm.startAddPlace(my.gimano.app.core.geo.GeoPoint(p.lat, p.lng), "") },
                                 Modifier.fillMaxWidth().padding(top = 10.dp).heightIn(min = 52.dp), shape = RoundedCornerShape(Radius.md)) {
@@ -325,6 +327,18 @@ fun PlaceCard(sel: PlaceSel, vm: MainViewModel, cvm: ContributeViewModel, apiBas
         }
     }
 
+    if (reportPlace && d != null) AlertDialog(
+        onDismissRequest = { reportPlace = false },
+        title = { Text(stringResource(R.string.report_place), style = GimanoType.title) },
+        text = {
+            Column {
+                FlagReasons.forEach { (k, l) ->
+                    Text(stringResource(l), Modifier.fillMaxWidth().clickable { reportPlace = false; cvm.flagPlace(d, k) }.padding(vertical = 12.dp), fontSize = 16.sp)
+                }
+            }
+        },
+        confirmButton = { TextButton(onClick = { reportPlace = false }) { Text(stringResource(R.string.cancel)) } },
+    )
     viewer?.let { v ->
         PhotoViewer(v, onClose = { viewer = null },
             onReport = { p, reason -> cvm.flagPhoto(p, reason) },
@@ -350,7 +364,7 @@ fun PlaceCard(sel: PlaceSel, vm: MainViewModel, cvm: ContributeViewModel, apiBas
 
 /** Icon tile, name, the one rating line, badges, and "category · address · open". */
 @Composable
-private fun PeekHeader(sel: PlaceSel, vm: MainViewModel, reviews: my.gimano.app.ui.contribute.ReviewsState, onSuggest: () -> Unit) {
+private fun PeekHeader(sel: PlaceSel, vm: MainViewModel, reviews: my.gimano.app.ui.contribute.ReviewsState, onSuggest: () -> Unit, onReportPlace: (() -> Unit)? = null) {
     val c = Gimano.colors
     val p = sel.summary
     val d = sel.detail
@@ -379,7 +393,7 @@ private fun PeekHeader(sel: PlaceSel, vm: MainViewModel, reviews: my.gimano.app.
                 }
             }
         }
-        PlaceOverflow(vm, canSuggest = d != null, onSuggest = onSuggest)
+        PlaceOverflow(vm, canSuggest = d != null, onSuggest = onSuggest, onReportPlace = onReportPlace)
         IconButton(onClick = vm::back) { Icon(Icons.Filled.Close, stringResource(R.string.close), tint = c.textMuted) }
     }
     if (d?.isCommunity == true || d?.isUnverified == true || d?.isGold == true) {
@@ -739,7 +753,7 @@ private val FlagReasons = listOf(
 )
 
 @Composable
-private fun PlaceOverflow(vm: MainViewModel, canSuggest: Boolean, onSuggest: () -> Unit) {
+private fun PlaceOverflow(vm: MainViewModel, canSuggest: Boolean, onSuggest: () -> Unit, onReportPlace: (() -> Unit)? = null) {
     var open by remember { mutableStateOf(false) }
     Box {
         IconButton(onClick = { open = true }) { Icon(Icons.Filled.MoreVert, stringResource(R.string.more), tint = Gimano.colors.textMuted) }
@@ -748,6 +762,12 @@ private fun PlaceOverflow(vm: MainViewModel, canSuggest: Boolean, onSuggest: () 
                 text = { Text(stringResource(R.string.suggest_edit), fontWeight = FontWeight.Bold) },
                 leadingIcon = { Icon(Icons.Filled.EditNote, null) },
                 onClick = { open = false; onSuggest() },
+            )
+            // Community places only: "Report place" (abusive or fake listing; 3 reports hide it until reviewed).
+            if (onReportPlace != null) DropdownMenuItem(
+                text = { Text(stringResource(R.string.report_place), fontWeight = FontWeight.Bold) },
+                leadingIcon = { Icon(Icons.Filled.Flag, null) },
+                onClick = { open = false; onReportPlace() },
             )
             DropdownMenuItem(
                 text = { Text(stringResource(R.string.add_feedback), fontWeight = FontWeight.Bold) },

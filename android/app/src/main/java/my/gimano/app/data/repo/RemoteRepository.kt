@@ -177,7 +177,19 @@ class RemoteRepository(
     override suspend fun inbox(): List<InboxItem> = try { authed { inbox() } } catch (e: HttpException) { if (e.code() in setOf(404, 405, 501)) emptyList() else throw e }
     override suspend fun sendFeedback(body: FeedbackRequest) = authed { feedback(body) }
     override suspend fun myFeedback() = authed { myFeedback() }
-    override suspend fun deleteFeedbackContact(id: String) { authed { deleteFeedbackContact(id) }.let { if (!it.isSuccessful && it.code() != 404) throw HttpException(it) } }
+    /**
+     * With the report's contactToken: no sign-in needed (the report isn't linked to the account), so withdrawing never
+     * registers anything. Without one (older feedback): as its author. 404 = already gone.
+     */
+    override suspend fun deleteFeedbackContact(id: String, token: String?) {
+        val r = if (token != null) api.deleteFeedbackContact(id, token) else authed { deleteFeedbackContact(id, null) }
+        if (!r.isSuccessful && r.code() != 404) throw HttpException(r)
+    }
+    override suspend fun deleteCrashContact(id: String, token: String) {
+        val r = api.deleteCrashContact(id, token)
+        if (!r.isSuccessful && r.code() != 404) throw HttpException(r)
+    }
+    override suspend fun flagPlace(placeId: String, reason: String) { authed { flagPlace(placeId, FlagRequest(reason)) }.orThrow() }
     override suspend fun sendCrashReport(body: CrashReportRequest) = authed { crashReport(body) }
 
     override suspend fun createPlace(body: CreatePlaceRequest) = authed { createPlace(body) }
