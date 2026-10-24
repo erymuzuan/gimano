@@ -1164,6 +1164,9 @@
     <string name="ew_share_sensitive_sub">File + secret code, sent separately</string>
     <string name="ew_share_save">Save</string>
     <string name="ew_share_send_file">Send file</string>
+    <string name="ew_share_send_message">Send message</string>
+    <string name="ew_share_step_done">Done</string>
+    <string name="ew_share_two_steps_hint">WhatsApp doesn\'t send text together with a file, so send twice to the same chat.</string>
     <string name="ew_share_copy_web_link">Copy web link</string>
     <string name="ew_share_copy_stops_only">Copy web link without route lines</string>
     <string name="ew_share_link_too_long">The full web link would be too long; the file carries everything.</string>

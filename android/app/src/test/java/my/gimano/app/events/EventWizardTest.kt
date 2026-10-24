@@ -117,9 +117,9 @@ class EventWizardTest {
         assertTrue(ed.draft.value!!.sensitive)
         // The default message carries neither key, link nor code.
         val msg = InviteMessages.openFileMessage(p.plan, "https://manotu.app/download/")
-        assertEquals("Jemputan: Kenduri Aqil & Sofea\nAhd, 15 Nov · 11:00–16:00\nKetik fail untuk buka di Manotu.\nBelum ada Manotu? https://manotu.app/download/", msg)
+        assertEquals("Jemputan: Kenduri Aqil & Sofea\nAhd, 15 Nov · 11:00–16:00\nSaya hantar fail jemputan Manotu selepas ini — ketik untuk buka.\nBelum ada Manotu? https://manotu.app/download/", msg)
         for (secret in listOf(p.secretCode, p.link(EventLinks.DEFAULT_SITE)!!, B64u.encode(p.key))) assertFalse(msg.contains(secret))
-        assertTrue(InviteMessages.openFileMessage(p.plan.copy(lang = "en"), "u").startsWith("Invitation: Kenduri Aqil & Sofea\nSun, 15 Nov · 11:00–16:00\nTap the file"))
+        assertTrue(InviteMessages.openFileMessage(p.plan.copy(lang = "en"), "u").startsWith("Invitation: Kenduri Aqil & Sofea\nSun, 15 Nov · 11:00–16:00\nI'm sending the Manotu invitation file next"))
     }
 
     // --- Info blocks and templates --------------------------------------------------------------------------

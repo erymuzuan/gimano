@@ -18,6 +18,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.*
@@ -74,19 +75,41 @@ private fun shareText(context: Context, text: String) {
     runCatching { context.startActivity(Intent.createChooser(i, null)) }
 }
 
-/** The file through the share sheet (FileProvider, MIME application/vnd.manotu.event) with [message] as EXTRA_TEXT. */
-private fun shareFile(context: Context, plan: EventPlan, bytes: ByteArray, message: String): Boolean = runCatching {
+/**
+ * Step 2: the file alone through the share sheet (FileProvider, MIME application/vnd.manotu.event). No EXTRA_TEXT: the
+ * message went in step 1, and apps that do keep a document's text would show it twice.
+ */
+private fun shareFile(context: Context, plan: EventPlan, bytes: ByteArray): Boolean = runCatching {
     val dir = File(context.cacheDir, SHARED_DIR).apply { mkdirs() }
     dir.listFiles { f -> f.name.endsWith("." + EventTransport.FILE_EXTENSION) }?.forEach { it.delete() }
     val f = File(dir, InviteMessages.fileName(plan))
     f.writeBytes(bytes)
     val uri = FileProvider.getUriForFile(context, "${context.packageName}.files", f)
     val i = Intent(Intent.ACTION_SEND).setType(EventTransport.FILE_MIME)
-        .putExtra(Intent.EXTRA_STREAM, uri).putExtra(Intent.EXTRA_TEXT, message)
+        .putExtra(Intent.EXTRA_STREAM, uri)
         .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
     i.clipData = ClipData.newRawUri("", uri)
     context.startActivity(Intent.createChooser(i, null).addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION))
 }.isSuccess
+
+/** A numbered share step: filled when it is the next thing to do, a tick once done. */
+@Composable
+private fun ShareStepButton(n: Int, text: String, done: Boolean, primary: Boolean, enabled: Boolean, busy: Boolean, modifier: Modifier, onClick: () -> Unit) {
+    val c = Gimano.colors
+    val content: @Composable RowScope.() -> Unit = {
+        if (busy) CircularProgressIndicator(Modifier.size(20.dp), color = if (primary) c.brandOn else c.brand, strokeWidth = 2.dp)
+        else {
+            if (done) Icon(Icons.Filled.Check, stringResource(R.string.ew_share_step_done), modifier = Modifier.size(20.dp))
+            else Text("$n ·", fontWeight = FontWeight.Black, fontSize = 16.sp)
+            Spacer(Modifier.width(6.dp))
+            Text(text, fontWeight = FontWeight.ExtraBold, fontSize = 16.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        }
+    }
+    if (primary) Button(onClick = onClick, enabled = enabled, modifier = modifier.height(56.dp), shape = RoundedCornerShape(Radius.md),
+        colors = ButtonDefaults.buttonColors(containerColor = c.brand, contentColor = c.brandOn), content = content)
+    else OutlinedButton(onClick = onClick, enabled = enabled, modifier = modifier.height(56.dp), shape = RoundedCornerShape(Radius.md),
+        colors = ButtonDefaults.outlinedButtonColors(contentColor = c.brand), content = content)
+}
 
 private fun sizeText(n: Int): String = if (n < 1024) "$n B" else if (n < 1024 * 1024) "${(n + 1023) / 1024} KB" else "%.1f MB".format(n / 1048576.0)
 
@@ -105,6 +128,9 @@ fun EventShareScreen(editor: HostEditor, use24h: Boolean, onBack: () -> Unit) {
     val message = if (sensitive) InviteMessages.fileMessage(plan, BuildConfig.DOWNLOAD_URL) else InviteMessages.openFileMessage(plan, BuildConfig.DOWNLOAD_URL)
     val link = remember(p) { p.link(EventLinks.DEFAULT_SITE) }
     var copied by remember { mutableStateOf<Int?>(null) }
+    // Step 1 is done once the share sheet for the message returns (the message changes with "Acara sensitif").
+    var messageSent by remember(p, sensitive) { mutableStateOf(false) }
+    val sendMessage = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { messageSent = true }
     val saveFile = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument(EventTransport.FILE_MIME)) { uri ->
         val bytes = file
         if (uri != null && bytes != null) runCatching { context.contentResolver.openOutputStream(uri)?.use { it.write(bytes) } }
@@ -195,15 +221,24 @@ fun EventShareScreen(editor: HostEditor, use24h: Boolean, onBack: () -> Unit) {
                 modifier = Modifier.padding(top = 10.dp))
             Spacer(Modifier.height(16.dp))
         }
-        Row(Modifier.fillMaxWidth().background(c.surface).padding(16.dp).navigationBarsPadding(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            OutlinedButton(onClick = { saveFile.launch(InviteMessages.fileName(plan)) }, enabled = file != null, modifier = Modifier.height(56.dp),
-                shape = RoundedCornerShape(Radius.md)) {
-                Text(stringResource(R.string.ew_share_save), fontWeight = FontWeight.ExtraBold, color = c.brand)
+        // Two sends to the same chat (WhatsApp drops the text of a shared document): 1 · the message, 2 · the file.
+        Column(Modifier.fillMaxWidth().background(c.surface).padding(16.dp).navigationBarsPadding()) {
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                ShareStepButton(1, stringResource(R.string.ew_share_send_message), done = messageSent, primary = !messageSent, enabled = true,
+                    busy = false, modifier = Modifier.weight(1f)) {
+                    val i = Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT, message)
+                    runCatching { sendMessage.launch(Intent.createChooser(i, null)) }
+                }
+                ShareStepButton(2, stringResource(R.string.ew_share_send_file), done = false, primary = messageSent, enabled = file != null,
+                    busy = file == null && sealing, modifier = Modifier.weight(1f)) {
+                    file?.let { shareFile(context, plan, it) }
+                }
             }
-            Button(onClick = { file?.let { shareFile(context, plan, it, message) } }, enabled = file != null, modifier = Modifier.weight(1f).height(56.dp),
-                shape = RoundedCornerShape(Radius.md), colors = ButtonDefaults.buttonColors(containerColor = c.brand, contentColor = c.brandOn)) {
-                if (file == null && sealing) CircularProgressIndicator(Modifier.size(22.dp), color = c.brandOn, strokeWidth = 2.dp)
-                else { Icon(Icons.Filled.Share, null); Spacer(Modifier.width(8.dp)); Text(stringResource(R.string.ew_share_send_file), fontWeight = FontWeight.ExtraBold, fontSize = 17.sp) }
+            Row(Modifier.padding(top = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                Text(stringResource(R.string.ew_share_two_steps_hint), Modifier.weight(1f), fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = c.textMuted)
+                TextButton(onClick = { saveFile.launch(InviteMessages.fileName(plan)) }, enabled = file != null) {
+                    Text(stringResource(R.string.ew_share_save), fontWeight = FontWeight.ExtraBold, color = c.brand)
+                }
             }
         }
     }

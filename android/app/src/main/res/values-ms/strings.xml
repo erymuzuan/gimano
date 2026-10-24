@@ -1160,6 +1160,9 @@
     <string name="ew_share_sensitive_sub">Fail + kod rahsia, hantar berasingan</string>
     <string name="ew_share_save">Simpan</string>
     <string name="ew_share_send_file">Hantar fail</string>
+    <string name="ew_share_send_message">Hantar pesanan</string>
+    <string name="ew_share_step_done">Selesai</string>
+    <string name="ew_share_two_steps_hint">WhatsApp tidak hantar teks bersama fail, jadi hantar dua kali ke chat yang sama.</string>
     <string name="ew_share_copy_web_link">Salin pautan web</string>
     <string name="ew_share_copy_stops_only">Salin pautan web tanpa laluan</string>
     <string name="ew_share_link_too_long">Pautan web penuh terlalu panjang; fail membawa semuanya.</string>

@@ -44,11 +44,11 @@ object InviteMessages {
         return "${s.format(DateTimeFormatter.ofPattern("EEE, d MMM", locale(p.lang)))} · ${s.format(hm)}–${e.format(hm)}"
     }
 
-    /** §5.2.1 default share: the text sent with the open (suite-3) file. No code, no key, no link. */
+    /** §5.2.1 default share, step 1: the text sent on its own before the file (WhatsApp drops text sent with a document). No code, key or link. */
     fun openFileMessage(p: EventPlan, downloadUrl: String): String = if (p.lang == "en")
-        "Invitation: ${p.title}\n${whenShort(p)}\nTap the file to open it in Manotu.\nNo Manotu yet? $downloadUrl"
+        "Invitation: ${p.title}\n${whenShort(p)}\nI'm sending the Manotu invitation file next — tap it to open.\nNo Manotu yet? $downloadUrl"
     else
-        "Jemputan: ${p.title}\n${whenShort(p)}\nKetik fail untuk buka di Manotu.\nBelum ada Manotu? $downloadUrl"
+        "Jemputan: ${p.title}\n${whenShort(p)}\nSaya hantar fail jemputan Manotu selepas ini — ketik untuk buka.\nBelum ada Manotu? $downloadUrl"
 
     /** "Acara sensitif": the text sent with the suite-2 file; the code goes separately ([codeMessage]). */
     fun fileMessage(p: EventPlan, downloadUrl: String): String = if (p.lang == "en")
