@@ -102,6 +102,35 @@ struct DemoAndReviewTests {
         #expect(m.offeredDestinations == [.file, .demo])
     }
 
+    /// Records schedule/cancel calls instead of touching BGTaskScheduler.
+    final class RecordingScheduler: AutoBackupScheduling, @unchecked Sendable {
+        var calls: [String] = []
+        func schedule() { calls.append("schedule") }
+        func cancel() { calls.append("cancel") }
+    }
+
+    @Test("Auto-backup schedule follows the build: never rescheduled without a cloud destination, a pending request is cancelled")
+    @MainActor
+    func autoBackupScheduleFollowsBuild() async throws {
+        let (store, dir) = try tempStore()
+        defer { try? FileManager.default.removeItem(at: dir) }
+        // Left by an earlier build with Drive: destination Drive, auto-backup on, a BGTask pending.
+        try store.setSetting("backup.destination", BackupDestinationKind.googleDrive.rawValue)
+        try store.setSetting("backup.auto", "1")
+        let m = BackupManager(store: store)
+        let rec = RecordingScheduler()
+        m.scheduler = rec
+        m.syncAutoBackupSchedule()   // app start
+        _ = await m.runAutoBackup()   // the pending BGTask fires
+        let expected = Self.driveBuild ? "schedule" : "cancel"
+        #expect(rec.calls == [expected, expected])
+        if !Self.driveBuild { #expect(!rec.calls.contains("schedule")) }
+        // Turning auto-backup off always cancels.
+        rec.calls = []
+        m.autoBackup = false
+        #expect(rec.calls == ["cancel"])
+    }
+
     @Test("Dev/sideload build (GIMANO_DRIVE=YES): Google Drive is offered",
           .enabled(if: DemoAndReviewTests.driveBuild, "runs only when Drive is built in"))
     @MainActor

@@ -3,6 +3,18 @@ import Foundation
 import Observation
 import os
 
+/// Submits / cancels the daily auto-backup BGTask request. A seam so tests can check what would be scheduled.
+protocol AutoBackupScheduling: Sendable {
+    func schedule()
+    func cancel()
+}
+
+/// The real one: `BGTaskScheduler`.
+struct SystemAutoBackupScheduler: AutoBackupScheduling {
+    func schedule() { BackupManager.schedule() }
+    func cancel() { BGTaskScheduler.shared.cancel(taskRequestWithIdentifier: BackupManager.taskIdentifier) }
+}
+
 /// Settings → Backup & restore: destination, last backup, "Back up now", "Restore…", auto-backup, passphrase.
 @MainActor
 @Observable
@@ -23,9 +35,11 @@ final class BackupManager {
     var autoBackup: Bool {
         didSet {
             try? store.setSetting("backup.auto", autoBackup ? "1" : "0")
-            if autoBackup { Self.schedule() } else { BGTaskScheduler.shared.cancel(taskRequestWithIdentifier: Self.taskIdentifier) }
+            syncAutoBackupSchedule()
         }
     }
+
+    @ObservationIgnored var scheduler: any AutoBackupScheduling = SystemAutoBackupScheduler()
 
     @ObservationIgnored private let log = Logger(subsystem: "my.gimano.app", category: "backup")
 
@@ -176,10 +190,17 @@ final class BackupManager {
         try? BGTaskScheduler.shared.submit(req)
     }
 
+    /// Keeps the pending BGTask request in line with what this build can do: scheduled only while auto-backup is on and
+    /// a cloud destination exists (iCloud or Drive), otherwise cancelled. E.g. a request left by an earlier build with
+    /// Drive is cancelled in a `GIMANO_DRIVE = NO` build instead of rescheduling itself every day.
+    func syncAutoBackupSchedule() {
+        if autoBackup && canAutoBackup { scheduler.schedule() } else { scheduler.cancel() }
+    }
+
     /// Runs an automatic backup only when data changed since the last one. Encrypted backups need the passphrase,
     /// which is never stored, so auto-backup is unencrypted (the UI says so).
     func runAutoBackup() async -> Bool {
-        defer { if autoBackup { Self.schedule() } }
+        defer { syncAutoBackupSchedule() }
         // Automatic backups go to the user's own cloud only (never a file or the demo storage).
         guard autoBackup, canAutoBackup else { return true }
         let changed = (try? store.lastChangeAt()) ?? nil

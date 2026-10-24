@@ -45,7 +45,7 @@ struct GimanoApp: App {
             }
             task.expirationHandler = { work.cancel() }
         }
-        if model.backup.autoBackup && model.backup.canAutoBackup { BackupManager.schedule() }
+        model.backup.syncAutoBackupSchedule()
     }
 
     @Environment(\.scenePhase) private var scenePhase
