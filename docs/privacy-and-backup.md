@@ -83,6 +83,9 @@ CREATE TABLE outbox (id TEXT PRIMARY KEY, kind TEXT NOT NULL, payload_json TEXT 
 
 `matched` = a drawn line snapped to roads (`/routes/match`); the original finger stroke is not kept. `pending` = a
 leg that still needs routing (offline); the app recalculates it when the route is opened. Unknown fields are ignored.
+Writer rules: a matched leg with unmatched parts is stored as `sketch`; a failed leg (offline, no route) as `pending`.
+Reader rules: "Ikut jalan" opens off only when every leg is `sketch`; a `route_json` with `v` > 1 is kept but not
+shown; legs that don't fit the points become `pending`. Point ids and event-stop links are not stored.
 
 Schema 3 adds only `personal_routes`; a schema-2 backup restores into it with no routes. Apps that kept personal
 routes in the events database (`manotu-events.db` / events store, never backed up) move them here once on upgrade.

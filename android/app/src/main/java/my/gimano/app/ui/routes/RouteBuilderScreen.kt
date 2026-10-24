@@ -4,6 +4,7 @@ import android.content.ClipData
 import android.content.Context
 import android.content.Intent
 import android.view.MotionEvent
+import android.view.View
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -19,8 +20,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Redo
 import androidx.compose.material.icons.automirrored.filled.Undo
-import androidx.compose.material.icons.automirrored.filled.TrendingDown
-import androidx.compose.material.icons.automirrored.filled.TrendingUp
 import androidx.compose.material.icons.filled.AddLocationAlt
 import androidx.compose.material.icons.filled.Celebration
 import androidx.compose.material.icons.filled.Delete
@@ -74,6 +73,7 @@ import my.gimano.app.core.format.Formatters
 import my.gimano.app.core.geo.GeoPoint
 import my.gimano.app.core.routes.BuilderRoute
 import my.gimano.app.core.routes.GpxWriter
+import my.gimano.app.core.routes.DrawGesture
 import my.gimano.app.core.routes.LegState
 import my.gimano.app.core.routes.Pos
 import my.gimano.app.core.routes.RouteAssembly
@@ -115,7 +115,7 @@ class BuilderTouch(private val builder: RouteBuilder, private val handle: MapHan
     private var lastX = 0f
     private var lastY = 0f
     private var moved = false
-    private var drawingNow = false
+    private val draw = DrawGesture(stepPx)
 
     private fun hit(u: BuilderUi, x: Float, y: Float): Int? {
         var best: Int? = null
@@ -129,45 +129,71 @@ class BuilderTouch(private val builder: RouteBuilder, private val handle: MapHan
         return best
     }
 
+    private fun finish(end: DrawGesture.End?) {
+        drawing = emptyList()
+        val line = end?.points?.mapNotNull { handle.unproject(it.x, it.y) }.orEmpty()
+        if (line.size >= 2) builder.drawn(line.map(Pos::of))
+    }
+
+    /**
+     * "Lukis": one finger draws, two fingers move and zoom the map ([DrawGesture]). When the second finger lands, the
+     * map has not seen this gesture's first finger (it was consumed for drawing), so it gets a synthetic ACTION_DOWN for
+     * it first and then every event of the gesture.
+     */
+    private fun onDrawTouch(v: View, ev: MotionEvent): Boolean {
+        when (ev.actionMasked) {
+            MotionEvent.ACTION_DOWN -> {
+                draw.down(ev.x, ev.y)
+                drawing = listOfNotNull(handle.unproject(ev.x, ev.y))
+                return true
+            }
+            MotionEvent.ACTION_POINTER_DOWN -> {
+                if (draw.phase != DrawGesture.Phase.DRAWING) return draw.phase != DrawGesture.Phase.MAP
+                finish(draw.secondFinger())
+                val first = MotionEvent.obtain(ev.downTime, ev.eventTime, MotionEvent.ACTION_DOWN, ev.getX(0), ev.getY(0), ev.metaState)
+                try { v.onTouchEvent(first) } finally { first.recycle() }
+                return false
+            }
+            MotionEvent.ACTION_MOVE -> {
+                if (draw.phase == DrawGesture.Phase.MAP) return false
+                if (draw.move(ev.x, ev.y, ev.pointerCount)) handle.unproject(ev.x, ev.y)?.let { drawing = drawing + it }
+                return draw.phase == DrawGesture.Phase.DRAWING
+            }
+            MotionEvent.ACTION_UP -> {
+                val toMap = draw.phase == DrawGesture.Phase.MAP
+                finish(draw.up(ev.x, ev.y))
+                return !toMap
+            }
+            MotionEvent.ACTION_CANCEL -> {
+                val toMap = draw.phase == DrawGesture.Phase.MAP
+                draw.cancel(); drawing = emptyList()
+                return !toMap
+            }
+            else -> return draw.phase != DrawGesture.Phase.MAP
+        }
+    }
+
     /** True = consumed (the map does not pan or click). */
-    fun onTouch(ev: MotionEvent): Boolean {
+    fun onTouch(v: View, ev: MotionEvent): Boolean {
         val u = builder.ui.value ?: return false
+        // A drawing gesture stays one even if the tool changes mid-gesture.
+        if (draw.phase != DrawGesture.Phase.IDLE || (u.tool == BuilderTool.DRAW && ev.actionMasked == MotionEvent.ACTION_DOWN)) return onDrawTouch(v, ev)
         val x = ev.x
         val y = ev.y
         when (ev.actionMasked) {
             MotionEvent.ACTION_DOWN -> {
                 moved = false
                 downX = x; downY = y; lastX = x; lastY = y
-                if (u.tool == BuilderTool.DRAW) {
-                    drawingNow = true
-                    drawing = listOfNotNull(handle.unproject(x, y))
-                    return true
-                }
                 dragIndex = hit(u, x, y)
                 return dragIndex != null
             }
             MotionEvent.ACTION_MOVE -> {
-                if (drawingNow) {
-                    if ((x - lastX) * (x - lastX) + (y - lastY) * (y - lastY) >= stepPx * stepPx) {
-                        handle.unproject(x, y)?.let { drawing = drawing + it }
-                        lastX = x; lastY = y
-                    }
-                    return true
-                }
                 val i = dragIndex ?: return false
                 if (!moved && (x - downX) * (x - downX) + (y - downY) * (y - downY) > slopPx * slopPx) moved = true
                 if (moved) handle.unproject(x, y)?.let { drag = i to it }
                 return true
             }
             MotionEvent.ACTION_UP -> {
-                if (drawingNow) {
-                    drawingNow = false
-                    handle.unproject(x, y)?.let { if (drawing.lastOrNull() != it) drawing = drawing + it }
-                    val line = drawing
-                    drawing = emptyList()
-                    if (line.size >= 2) builder.drawn(line.map(Pos::of))
-                    return true
-                }
                 val i = dragIndex ?: return false
                 dragIndex = null
                 val d = drag
@@ -176,12 +202,12 @@ class BuilderTouch(private val builder: RouteBuilder, private val handle: MapHan
                 return true
             }
             MotionEvent.ACTION_CANCEL -> {
-                val was = drawingNow || dragIndex != null
-                drawingNow = false; drawing = emptyList(); dragIndex = null; drag = null
+                val was = dragIndex != null
+                dragIndex = null; drag = null
                 return was
             }
-            // A second finger while drawing or dragging is ignored (the map stays still).
-            else -> return drawingNow || dragIndex != null
+            // A second finger while dragging a point is ignored (the map stays still).
+            else -> return dragIndex != null
         }
     }
 }
@@ -406,8 +432,6 @@ private fun BuilderSheet(u: BuilderUi, sum: my.gimano.app.core.routes.RouteSumma
             Spacer(Modifier.width(16.dp))
             Stat(Icons.Filled.Schedule, stringResource(R.string.rb_time), sum.durationS?.let { Formatters.duration(it.toDouble(), lang) } ?: "–",
                 spoken = if (sum.durationS == null) unavailable else null)
-            Spacer(Modifier.width(16.dp))
-            UpDown(sum)
             Spacer(Modifier.weight(1f))
             if (sum.source != null && sum.source != GeometrySource.ROUTED) Badge(stringResource(R.string.rb_sketch))
         }
@@ -469,15 +493,6 @@ private fun Stat(icon: ImageVector, label: String, value: String, spoken: String
         Spacer(Modifier.width(4.dp))
         Text(value, fontSize = if (muted) 13.sp else 17.sp, fontWeight = if (muted) FontWeight.Bold else FontWeight.Black, color = if (muted) c.textMuted else c.text)
     }
-}
-
-/** Ascent / descent: "–" when unknown (never 0); TalkBack says "Tidak tersedia". */
-@Composable
-private fun UpDown(sum: my.gimano.app.core.routes.RouteSummary) {
-    val unavailable = stringResource(R.string.rb_unavailable)
-    Stat(Icons.AutoMirrored.Filled.TrendingUp, stringResource(R.string.rb_ascent), sum.ascentM?.let { "$it m" } ?: "–", spoken = if (sum.ascentM == null) unavailable else null)
-    Spacer(Modifier.width(12.dp))
-    Stat(Icons.AutoMirrored.Filled.TrendingDown, stringResource(R.string.rb_descent), sum.descentM?.let { "$it m" } ?: "–", spoken = if (sum.descentM == null) unavailable else null)
 }
 
 @Composable

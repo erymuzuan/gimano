@@ -85,6 +85,7 @@ class AppContainer(val app: Application) {
             app, db, crypto, exportSettings = { settings.current.toBackupMap() }, importSettings = { settings.applyBackupMap(it) },
             seedToPlain = { s -> if (seedWrapper.isWrapped(s)) java.util.Base64.getEncoder().encodeToString(seedWrapper.unwrap(s)) else s },
             afterRestore = {
+                personalRoutes.invalidate()
                 kotlinx.coroutines.withContext(Dispatchers.IO) { identity.reload() }
                 remote.adoptRestoredIdentity()
             },
@@ -115,8 +116,13 @@ class AppContainer(val app: Application) {
         my.gimano.app.data.events.EventImporter(scope, my.gimano.app.core.events.EventPackReader(eventSodium), eventStore,
             isOwn = { id, pub -> hostStore.isOwn(id, pub) })
     }
-    /** "Laluan saya": personal routes, same DB file (no backups) and vault. */
-    val personalRoutes by lazy { my.gimano.app.data.routes.PersonalRouteStore(eventsDb.personalRoutes(), my.gimano.app.data.events.KeystoreEventVault()) }
+    /** "Laluan saya": personal routes in the main DB (`personal_routes`), so they are in the user's own backups. */
+    val personalRoutes by lazy { my.gimano.app.data.routes.PersonalRouteStore({ my.gimano.app.data.backup.AndroidSqlPort(db.openHelper.writableDatabase) }) }
+    /** Once on upgrade: personal routes kept in manotu-events.db before schema 3 move to the main DB. */
+    suspend fun movePersonalRoutes() {
+        val n = my.gimano.app.data.routes.PersonalRouteMove(eventsDb.personalRoutes(), my.gimano.app.data.events.KeystoreEventVault(), personalRoutes).run()
+        if (n > 0) my.gimano.app.core.GLog.i("Routes", "moved $n personal routes to the main DB")
+    }
     /**
      * Route builder legs: anonymous client (no account token, no request signing), coordinates + mode only, `store: false`.
      * In demo mode (no server) legs stay "perlu dikira".
@@ -182,5 +188,6 @@ class GimanoApp : Application() {
         my.gimano.app.data.places.PhotoPrep.sweepCameraTemps(this)
         // Events past their expiresAt are deleted on every start (also by EventExpiryWorker at the time itself).
         container.scope.launch(Dispatchers.IO) { runCatching { container.eventStore.purgeExpired() }; runCatching { container.hostStore.purgeExpired() } }
+        container.scope.launch(Dispatchers.IO) { runCatching { container.movePersonalRoutes() } }
     }
 }

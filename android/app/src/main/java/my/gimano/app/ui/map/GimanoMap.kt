@@ -151,9 +151,10 @@ fun GimanoMap(
     focus: GeoPoint? = null,
     /**
      * Raw touches before the map's own gestures (route builder: drag a point, draw with a finger). Return true to
-     * consume the event (the map then neither pans nor clicks).
+     * consume the event (the map then neither pans nor clicks). The view is the map's, so an interceptor can hand the
+     * rest of a gesture to the map (`view.onTouchEvent`).
      */
-    touchInterceptor: ((android.view.MotionEvent) -> Boolean)? = null,
+    touchInterceptor: ((android.view.View, android.view.MotionEvent) -> Boolean)? = null,
 ) {
     val context = LocalContext.current
     val density = LocalDensity.current
@@ -177,7 +178,7 @@ fun GimanoMap(
     val privateCb by rememberUpdatedState(onPrivateClick)
     val touchCb by rememberUpdatedState(touchInterceptor)
     DisposableEffect(mapView) {
-        mapView.setOnTouchListener { _, ev -> touchCb?.invoke(ev) ?: false }
+        mapView.setOnTouchListener { v, ev -> touchCb?.invoke(v, ev) ?: false }
         onDispose { mapView.setOnTouchListener(null) }
     }
 

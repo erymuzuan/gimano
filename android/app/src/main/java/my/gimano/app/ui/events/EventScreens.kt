@@ -358,7 +358,6 @@ fun EventDetailOverlay(
                             Text(listOfNotNull(r.title, r.day).joinToString(" · ").ifBlank { r.mode.wire }, fontSize = 16.sp, fontWeight = FontWeight.ExtraBold, color = c.text)
                             Text(listOfNotNull(Formatters.distance(r.distanceM.toDouble()), r.durationS?.let { Formatters.duration(it.toDouble(), lang) }).joinToString(" · "),
                                 fontSize = 14.sp, color = c.textMuted)
-                            if (r.ascentM != null && r.descentM != null) Text(stringResource(R.string.event_ascent, r.ascentM.toInt(), r.descentM.toInt()), fontSize = 13.sp, color = c.textMuted)
                             if (!r.source.navigable) Text(stringResource(R.string.event_route_sketch), fontSize = 13.sp, fontWeight = FontWeight.Bold, color = c.report)
                         }
                     }

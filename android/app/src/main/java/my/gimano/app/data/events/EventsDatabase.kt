@@ -129,8 +129,10 @@ interface HostEventDao {
 }
 
 /**
- * A personal route ("Laluan saya") from the route builder, not tied to an event. [payload] is the name and the route
- * sealed with the events vault; it stays on this phone (this file is excluded from backups) and is never sent anywhere.
+ * LEGACY (v3): where personal routes ("Laluan saya") lived before they moved to the main, backed-up DB
+ * (`personal_routes`, schema 3). [payload] is the name and the route sealed with the events vault. The table stays in
+ * the schema but is emptied once on upgrade by [my.gimano.app.data.routes.PersonalRouteMove]; nothing writes to it.
+ * (Not dropped in a v4 migration: Room would run it on open, before the move could read the rows.)
  */
 @Entity(tableName = "personal_route")
 data class PersonalRouteEntity(
@@ -141,11 +143,8 @@ data class PersonalRouteEntity(
 
 @Dao
 interface PersonalRouteDao {
-    @Query("SELECT * FROM personal_route ORDER BY updated_at DESC")
-    fun allFlow(): Flow<List<PersonalRouteEntity>>
-
-    @Query("SELECT * FROM personal_route WHERE id = :id")
-    suspend fun get(id: String): PersonalRouteEntity?
+    @Query("SELECT * FROM personal_route")
+    suspend fun all(): List<PersonalRouteEntity>
 
     @Insert(onConflict = androidx.room.OnConflictStrategy.REPLACE)
     suspend fun upsert(e: PersonalRouteEntity)

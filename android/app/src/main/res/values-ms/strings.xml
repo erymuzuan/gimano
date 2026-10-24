@@ -274,7 +274,7 @@
     <string name="restore_done">Dipulihkan (%1$s)</string>
     <string name="restore_too_new">Sandaran ini daripada Manotu yang lebih baharu. Sila kemas kini aplikasi.</string>
     <string name="restore_title">Pulihkan sandaran ini?</string>
-    <string name="restore_body">Dibuat %1$s pada %2$s: %3$d tempat disimpan, %4$d terkini, %5$d tempat peribadi.\n\nGabung mengekalkan tempat semasa dan menambah dari sandaran. Ganti memadam tempat dalam telefon ini dahulu.</string>
+    <string name="restore_body">Dibuat %1$s pada %2$s: %3$d tempat disimpan, %4$d terkini, %5$d tempat peribadi, %6$d laluan saya.\n\nGabung mengekalkan tempat semasa dan menambah dari sandaran. Ganti memadam tempat dalam telefon ini dahulu.</string>
     <string name="restore_merge">Gabung</string>
     <string name="restore_replace">Ganti</string>
     <string name="drive_denied">Akses Google Drive tidak diberi</string>
@@ -774,7 +774,6 @@
     <string name="event_route_sketch">Lakaran: bukan untuk navigasi belokan</string>
     <string name="event_other_version">Ada versi lain bagi semakan ini</string>
     <string name="event_use_version">Tukar versi</string>
-    <string name="event_ascent">Naik %1$d m · turun %2$d m</string>
     <string name="event_gone">Acara ini tiada lagi.</string>
     <!-- Events, host side (organiser) and plan updates -->
     <string name="event_own">Ini acara anda sendiri. Buka untuk ubah atau kongsi semula.</string>
@@ -901,12 +900,12 @@
     <string name="host_kind_other">Lain-lain</string>
     <!-- Route builder (Bina laluan) and Laluan saya -->
     <string name="my_routes">Laluan saya</string>
-    <string name="my_routes_none">Belum ada laluan. Bina di peta: disimpan dalam telefon ini sahaja.</string>
-    <string name="my_routes_privacy">Laluan anda kekal dalam telefon ini. Kongsi sebagai GPX jika mahu.</string>
+    <string name="my_routes_none">Belum ada laluan. Bina di peta: disimpan dalam telefon ini dan dalam sandaran anda sendiri.</string>
+    <string name="my_routes_privacy">Laluan anda kekal dalam telefon ini dan dalam sandaran anda sendiri. Kongsi sebagai GPX jika mahu.</string>
     <string name="rb_new">Laluan baharu</string>
     <string name="rb_hint_start">Ketik untuk mula</string>
     <string name="rb_hint_next">Ketik untuk tambah titik</string>
-    <string name="rb_hint_draw">Lukis dengan jari</string>
+    <string name="rb_hint_draw">Lukis dengan satu jari · dua jari gerakkan peta</string>
     <string name="rb_hint_drawing">Angkat jari untuk padan jalan</string>
     <string name="rb_tool_points">Titik ke titik</string>
     <string name="rb_tool_draw">Lukis</string>
@@ -917,7 +916,6 @@
     <string name="rb_mode_walk">Jalan kaki</string>
     <string name="rb_distance">Jarak</string>
     <string name="rb_time">Masa bergerak</string>
-    <string name="rb_ascent">Naik</string>
     <string name="rb_unavailable">Tidak tersedia</string>
     <string name="rb_undo">Buat asal</string>
     <string name="rb_redo">Buat semula</string>
@@ -935,7 +933,7 @@
     <string name="rb_untitled">Laluan tanpa nama</string>
     <string name="rb_in_event">Dalam acara: %1$s</string>
     <string name="rb_in_event_note">Dikongsi bersama jemputan bila anda terbitkan versi baharu.</string>
-    <string name="rb_personal_note">Telefon ini sahaja. Boleh kongsi sebagai GPX.</string>
+    <string name="rb_personal_note">Dalam telefon ini dan dalam sandaran anda sendiri. Boleh kongsi sebagai GPX.</string>
     <string name="rb_sketch_note">Sebahagian laluan ini ialah lakaran, bukan jalan. Tetamu nampak label \"lakaran\", tiada arahan belok.</string>
     <string name="rb_share_gpx">Kongsi GPX</string>
     <string name="rb_gpx_confirm">Fail GPX tidak disulitkan dan tidak tamat tempoh. Sesiapa yang menerimanya boleh menyimpannya.</string>
@@ -981,12 +979,11 @@
     <string name="host_err_route_unmatched">Laluan %1$d ada lukisan tanpa jalan: betulkan atau simpan sebagai lakaran</string>
     <string name="host_err_too_many_routes">Paling banyak %1$d laluan</string>
     <string name="host_err_route_points">Laluan terlalu terperinci (lebih %1$d titik semuanya)</string>
-    <string name="rb_descent">Turun</string>
     <string name="rb_modes">Mod perjalanan</string>
     <string name="rb_tools">Cara bina</string>
     <string name="rb_save_to">Simpan ke</string>
     <string name="rb_in_event_short">Dalam acara</string>
-    <string name="rb_this_phone">telefon ini sahaja</string>
+    <string name="rb_this_phone">telefon + sandaran anda</string>
     <string name="rb_sketch_parts">%1$d bahagian lakaran</string>
     <string name="rb_route_mode">Mod: %1$s</string>
 </resources>

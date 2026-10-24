@@ -11,7 +11,8 @@ import java.util.concurrent.atomic.AtomicLong
 /*
  * The route builder's editable route ("Bina laluan"), a port of the desktop draft model
  * (desktop/src-tauri/src/doc.rs `RouteDraft`, `RoutePoint`, `Leg`). It lives only on this phone: inside an event's
- * HostDraft (sealed in manotu-events.db) or as a personal route in the same file. Nothing here touches the network.
+ * HostDraft (sealed in manotu-events.db) or as a personal route in the main DB (`personal_routes`, as route_json v1:
+ * PersonalRouteJson). Nothing here touches the network.
  */
 
 /** A WGS84 position, serializable (GeoPoint stays a plain core type). */

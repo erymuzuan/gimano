@@ -36,7 +36,7 @@ object RoutePolyline {
     }
 }
 
-/** Totals for the builder's sheet. Ascent/descent stay null: no elevation source yet ("Tidak tersedia", never 0). */
+/** Totals for the builder's sheet: distance and time only (no elevation on the phone: never shown, never written). */
 data class RouteSummary(
     val distanceM: Long,
     /** Movement time; null unless every leg has an estimate (sketches have none). */
@@ -45,8 +45,6 @@ data class RouteSummary(
     val unresolvedLegs: Int,
     val unmatchedLegs: Int,
     val source: GeometrySource?,
-    val ascentM: Long? = null,
-    val descentM: Long? = null,
 ) {
     val navigable: Boolean get() = source == GeometrySource.ROUTED
     /** Legs still without geometry ("perlu dikira"). */
@@ -147,6 +145,7 @@ object RouteAssembly {
         return Assembled.Ok(EventRoute(
             id = r.id, title = title, mode = r.travelMode, day = r.day?.takeIf { it.isNotBlank() }, stopIds = stopIds,
             polyline = RoutePolyline.encode(pts), points = pts, source = s.source ?: GeometrySource.SKETCH,
+            // No elevation from the phone: ascentM/descentM are never written (readers still accept them).
             distanceM = s.distanceM, durationS = s.durationS, ascentM = null, descentM = null, legs = legs,
         ))
     }

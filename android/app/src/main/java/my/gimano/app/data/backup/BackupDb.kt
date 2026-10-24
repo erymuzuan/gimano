@@ -44,6 +44,7 @@ object BackupDb {
         private_places = db.queryLong("SELECT COUNT(*) FROM $schema.private_places").toInt(),
         photos = db.queryLong("SELECT COUNT(*) FROM $schema.private_place_photos").toInt(),
         planned_drives = db.queryLong("SELECT COUNT(*) FROM $schema.planned_drives").toInt(),
+        personal_routes = db.queryLong("SELECT COUNT(*) FROM $schema.personal_routes").toInt(),
     )
 
     /**
@@ -56,7 +57,9 @@ object BackupDb {
         try {
             val version = db.queryLong("PRAGMA bk.user_version").toInt()
             if (version > GimanoSchema.VERSION) throw BackupTooNewException(version)
-            // (Older schemas would be migrated here on a temp copy before copying rows; v1 is the first.)
+            // Older schemas: the normal migrations run on the backup copy (a temp file extracted for this restore),
+            // so schema 1 gains an empty `identity` and schema 2 an empty `personal_routes`.
+            if (version < GimanoSchema.VERSION) GimanoSchema.migrateAttached("bk") { db.exec(it) }
             val tables = db.queryStrings("SELECT name FROM bk.sqlite_master WHERE type = 'table'").toSet()
             val missing = GimanoSchema.REQUIRED_TABLES - tables
             if (missing.isNotEmpty()) throw BackupFormatException("Backup is missing tables: $missing")
@@ -108,6 +111,11 @@ object BackupDb {
         )
         db.exec("INSERT OR IGNORE INTO main.private_place_photos SELECT b.* FROM bk.private_place_photos b WHERE b.place_id IN (SELECT id FROM main.private_places)")
         db.exec("INSERT OR IGNORE INTO main.planned_drives SELECT * FROM bk.planned_drives")
+        // Personal routes ("Laluan saya"): newer `updated_at` wins; missing ones are added.
+        db.exec(
+            "INSERT OR REPLACE INTO main.personal_routes SELECT b.* FROM bk.personal_routes b LEFT JOIN main.personal_routes m ON m.id = b.id " +
+                "WHERE m.id IS NULL OR b.updated_at > m.updated_at",
+        )
         // Settings: the device's own choices win in a merge.
         db.exec("INSERT OR IGNORE INTO main.settings SELECT * FROM bk.settings")
     }
@@ -134,6 +142,7 @@ object BackupDb {
         "SELECT COUNT(*) || ':' || COALESCE(MAX(updated_at), '') FROM private_places",
         "SELECT COUNT(*) || '' FROM private_place_photos",
         "SELECT COUNT(*) || ':' || COALESCE(MAX(created_at), '') FROM planned_drives",
+        "SELECT COUNT(*) || ':' || COALESCE(MAX(updated_at), '') FROM personal_routes",
         "SELECT COUNT(*) || ':' || COALESCE(group_concat(key || '=' || value), '') FROM settings",
         "SELECT COUNT(*) || ':' || COALESCE(MAX(user_id), '') FROM identity",
     ).joinToString("|") { db.queryStrings(it).firstOrNull().orEmpty() }

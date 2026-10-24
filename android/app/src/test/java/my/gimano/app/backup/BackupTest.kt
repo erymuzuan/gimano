@@ -45,11 +45,24 @@ class BackupTest {
         exec("INSERT INTO private_places VALUES ('p1','Gerai Pak Abu','restaurant',3.12,101.62,NULL,'nasi lemak',NULL,NULL,'Mo-Sa 07:00-11:00',NULL,?,?)", now, now)
         exec("INSERT INTO private_place_photos VALUES ('ph1','p1','ph1.webp',?)", now)
         exec("INSERT INTO planned_drives VALUES ('d1','Balik kampung',NULL,'{\"lat\":2.2,\"lng\":102.2}',NULL,'car',NULL,?)", now)
+        exec("INSERT INTO personal_routes VALUES ('pr1','Ke kampung','car',?,1000,60,?,?)", ROUTE_JSON, now, now)
         exec("INSERT INTO settings VALUES ('voice_lang','ms')")
         exec("INSERT INTO outbox VALUES ('o1','feedback','{}',0,?)", now)
     }
 
     private fun rows(db: SqlPort, sql: String) = db.queryStrings(sql)
+
+    private companion object {
+        const val ROUTE_JSON = """{"v":1,"points":[{"lat":3.1,"lng":101.6},{"lat":3.2,"lng":101.7}],"legs":[{"source":"sketch","polyline":"_mpzD_w~|Q_pR_pR","distanceM":1000}]}"""
+    }
+
+    /** A schema-2 DB (before `personal_routes`), as an older Manotu or iOS build has it. */
+    private fun newSchema2Db(name: String): JdbcSqlPort {
+        val p = JdbcSqlPort(DriverManager.getConnection("jdbc:sqlite:" + File(dir, name).path))
+        GimanoSchema.DDL.filter { it != GimanoSchema.PERSONAL_ROUTES_DDL }.forEach { p.exec(it) }
+        p.exec("PRAGMA user_version = 2")
+        return p
+    }
 
     /** Makes a .gimano from [src] and returns its bytes. */
     private fun backupOf(src: JdbcSqlPort, pass: String?): ByteArray {
@@ -94,7 +107,9 @@ class BackupTest {
         val bytes = backupOf(src, null)
         val m = BackupArchive.readManifest(bytes.inputStream())
         assertEquals(BackupManifest.ENCRYPTION_NONE, m.encryption)
-        assertEquals(BackupCounts(4, 1, 1, 1, 1), m.counts)
+        assertEquals(BackupCounts(4, 1, 1, 1, 1, 1), m.counts)
+        val manifestJson = String(java.util.zip.ZipInputStream(bytes.inputStream()).use { z -> z.nextEntry; z.readBytes() })
+        assertTrue(manifestJson, manifestJson.contains("\"personal_routes\":1"))
 
         val ex = BackupArchive.extract(bytes.inputStream(), File(dir, "x1"), null, crypto)
         assertEquals(listOf("ph1.webp"), ex.photos.map { it.name })
@@ -111,6 +126,8 @@ class BackupTest {
             assertEquals(t, rows(src, "SELECT * FROM $t ORDER BY 1").size, rows(dst, "SELECT * FROM $t ORDER BY 1").size)
         }
         assertEquals(listOf("Kampung", "Pejabat", "Rumah", "Rumah Mertua"), rows(dst, "SELECT name FROM saved_places ORDER BY name"))
+        assertEquals(rows(src, "SELECT * FROM personal_routes"), rows(dst, "SELECT * FROM personal_routes"))
+        assertEquals(listOf("pr1|Ke kampung|car|1000|60|$ROUTE_JSON"), rows(dst, "SELECT id||'|'||name||'|'||mode||'|'||distance_m||'|'||duration_s||'|'||route_json FROM personal_routes"))
         assertEquals(0L, dst.queryLong("SELECT COUNT(*) FROM outbox"))
     }
 
@@ -155,6 +172,10 @@ class BackupTest {
         // Backup is newer for Kampung, has a recent the phone doesn't, and its own Home.
         src.exec("UPDATE saved_places SET name = 'Kampung Halaman', updated_at = ? WHERE id = 'f1'", later)
         src.exec("INSERT INTO recents VALUES ('r2','KLIA','Sepang',2.74,101.70,'klia',?,1)", later)
+        // Personal routes: backup newer for pr1, phone newer for pr2, backup-only pr3, phone-only pr9.
+        src.exec("UPDATE personal_routes SET name = 'Ke kampung (baru)', updated_at = ? WHERE id = 'pr1'", later)
+        src.exec("INSERT INTO personal_routes VALUES ('pr2','Lama dalam sandaran','walk',?,NULL,NULL,?,?)", ROUTE_JSON, now, now)
+        src.exec("INSERT INTO personal_routes VALUES ('pr3','Hanya sandaran','bicycle',?,NULL,NULL,?,?)", ROUTE_JSON, now, now)
         val ex = BackupArchive.extract(backupOf(src, null).inputStream(), File(dir, "m"), null, crypto)
 
         val dst = newDb("m-dst.db")
@@ -162,8 +183,13 @@ class BackupTest {
         dst.exec("INSERT INTO saved_places VALUES ('f2','favorite','Mertua (edited)','mertua',3.0,101.5,'Klang',NULL,1,?,?)", later, later)   // phone newer
         dst.exec("INSERT INTO saved_places VALUES ('f9','favorite','Gym','gym',3.0,101.0,NULL,NULL,2,?,?)", now, now)                       // phone only
         dst.exec("INSERT INTO settings VALUES ('voice_lang','en')")
+        dst.exec("INSERT INTO personal_routes VALUES ('pr1','Ke kampung','car',?,1000,60,?,?)", ROUTE_JSON, now, now)
+        dst.exec("INSERT INTO personal_routes VALUES ('pr2','Disunting di telefon','walk',?,NULL,NULL,?,?)", ROUTE_JSON, now, later)
+        dst.exec("INSERT INTO personal_routes VALUES ('pr9','Telefon sahaja','car',?,NULL,NULL,?,?)", ROUTE_JSON, now, now)
 
         BackupDb.restore(dst, ex.dbFile, RestoreMode.MERGE)
+        assertEquals(listOf("pr1:Ke kampung (baru)", "pr2:Disunting di telefon", "pr3:Hanya sandaran", "pr9:Telefon sahaja"),
+            rows(dst, "SELECT id || ':' || name FROM personal_routes ORDER BY id"))
         assertEquals("backup's Home wins", listOf("h:Rumah"), rows(dst, "SELECT id || ':' || name FROM saved_places WHERE kind = 'home'"))
         assertEquals("newer backup row wins", "Kampung Halaman", rows(dst, "SELECT name FROM saved_places WHERE id = 'f1'").single())
         assertEquals("newer phone row kept", "Mertua (edited)", rows(dst, "SELECT name FROM saved_places WHERE id = 'f2'").single())
@@ -173,9 +199,33 @@ class BackupTest {
         assertEquals(1L, dst.queryLong("SELECT COUNT(*) FROM private_place_photos"))
 
         // Merging the same backup twice changes nothing.
-        val before = rows(dst, "SELECT id || updated_at FROM saved_places ORDER BY id")
+        val before = rows(dst, "SELECT id || updated_at FROM saved_places ORDER BY id") + rows(dst, "SELECT id || updated_at FROM personal_routes ORDER BY id")
         BackupDb.restore(dst, ex.dbFile, RestoreMode.MERGE)
-        assertEquals(before, rows(dst, "SELECT id || updated_at FROM saved_places ORDER BY id"))
+        assertEquals(before, rows(dst, "SELECT id || updated_at FROM saved_places ORDER BY id") + rows(dst, "SELECT id || updated_at FROM personal_routes ORDER BY id"))
+
+        // Replace: the phone's routes are gone, the backup's are there.
+        BackupDb.restore(dst, ex.dbFile, RestoreMode.REPLACE)
+        assertEquals(listOf("pr1", "pr2", "pr3"), rows(dst, "SELECT id FROM personal_routes ORDER BY id"))
+    }
+
+    @Test fun schema2BackupRestoresWithNoRoutes() {
+        val old = newSchema2Db("v2-src.db").apply {
+            exec("INSERT INTO saved_places VALUES ('f1','favorite','Kampung','kampung',2.2,102.2,'Melaka',NULL,0,?,?)", now, now)
+            exec("INSERT INTO identity VALUES ('u-old',NULL,'c2VlZA==',?)", now)
+        }
+        val snap = File(dir, "v2-snap.sqlite")
+        BackupDb.snapshot(old, snap)
+        JdbcSqlPort(DriverManager.getConnection("jdbc:sqlite:${snap.path}")).let { s -> s.exec("PRAGMA user_version = 2"); s.conn.close() }
+        // Merge: this phone's routes stay.
+        val dst = newDb("v2-dst.db").apply { seed() }
+        BackupDb.restore(dst, snap, RestoreMode.MERGE)
+        assertEquals(listOf("pr1"), rows(dst, "SELECT id FROM personal_routes"))
+        assertEquals(1L, dst.queryLong("SELECT COUNT(*) FROM saved_places WHERE id = 'f1'"))
+        // Replace: everything comes from the backup, which has no routes.
+        BackupDb.restore(dst, snap, RestoreMode.REPLACE)
+        assertEquals(0L, dst.queryLong("SELECT COUNT(*) FROM personal_routes"))
+        assertEquals(listOf("Kampung"), rows(dst, "SELECT name FROM saved_places"))
+        assertEquals(listOf("u-old"), rows(dst, "SELECT user_id FROM identity"))
     }
 
     @Test fun backupFromNewerSchemaIsRefused() {
@@ -196,6 +246,9 @@ class BackupTest {
         db.exec("INSERT INTO outbox VALUES ('o2','feedback','{}',0,?)", now)
         assertEquals("outbox is not backed up", a, BackupDb.fingerprint(db))
         db.exec("UPDATE saved_places SET name = 'X', updated_at = ? WHERE id = 'f1'", later)
-        assertNotEquals(a, BackupDb.fingerprint(db))
+        val b = BackupDb.fingerprint(db)
+        assertNotEquals(a, b)
+        db.exec("UPDATE personal_routes SET name = 'Y', updated_at = ? WHERE id = 'pr1'", "2026-10-24T00:00:00Z")
+        assertNotEquals("a personal route edit is a change", b, BackupDb.fingerprint(db))
     }
 }

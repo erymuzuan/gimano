@@ -16,7 +16,7 @@ import my.gimano.app.core.routes.Pos
 import my.gimano.app.core.routes.RouteEdit
 import my.gimano.app.core.routes.RouteProblem
 
-/** "Titik ke titik" (tap to add points) or "Lukis" (draw with a finger; the map does not pan meanwhile). */
+/** "Titik ke titik" (tap to add points) or "Lukis" (draw with one finger; two fingers move and zoom the map). */
 enum class BuilderTool { POINTS, DRAW }
 
 /** An event stop a point can snap to (event context only). */

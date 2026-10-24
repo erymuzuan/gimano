@@ -18,6 +18,8 @@ data class BackupCounts(
     val private_places: Int = 0,
     val photos: Int = 0,
     val planned_drives: Int = 0,
+    /** Schema 3; absent (0) in older manifests. */
+    val personal_routes: Int = 0,
 )
 
 @Serializable

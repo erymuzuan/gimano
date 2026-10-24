@@ -276,7 +276,7 @@
     <string name="restore_done">Restored (%1$s)</string>
     <string name="restore_too_new">This backup is from a newer Manotu. Please update the app.</string>
     <string name="restore_title">Restore this backup?</string>
-    <string name="restore_body">Made %1$s on %2$s: %3$d saved places, %4$d recents, %5$d private places.\n\nMerge keeps your current places and adds the backup\'s. Replace wipes this phone\'s places first.</string>
+    <string name="restore_body">Made %1$s on %2$s: %3$d saved places, %4$d recents, %5$d private places, %6$d of my routes.\n\nMerge keeps your current places and adds the backup\'s. Replace wipes this phone\'s places first.</string>
     <string name="restore_merge">Merge</string>
     <string name="restore_replace">Replace</string>
     <string name="drive_denied">Google Drive access was not granted</string>
@@ -776,7 +776,6 @@
     <string name="event_route_sketch">Sketch: not for turn-by-turn</string>
     <string name="event_other_version">Another version of this revision exists</string>
     <string name="event_use_version">Switch version</string>
-    <string name="event_ascent">Up %1$d m · down %2$d m</string>
     <string name="event_gone">This event is no longer available.</string>
     <!-- Events, host side (organiser) and plan updates -->
     <string name="event_own">This is your own event. Open it to edit or share it again.</string>
@@ -903,12 +902,12 @@
     <string name="host_kind_other">Other</string>
     <!-- Route builder (Bina laluan) and Laluan saya -->
     <string name="my_routes">My routes</string>
-    <string name="my_routes_none">No routes yet. Build one on the map: it stays on this phone.</string>
-    <string name="my_routes_privacy">Your routes stay on this phone. Share one as GPX if you want.</string>
+    <string name="my_routes_none">No routes yet. Build one on the map: it stays on this phone and in your own backup.</string>
+    <string name="my_routes_privacy">Your routes stay on this phone and in your own backup. Share one as GPX if you want.</string>
     <string name="rb_new">New route</string>
     <string name="rb_hint_start">Tap to start</string>
     <string name="rb_hint_next">Tap to add a point</string>
-    <string name="rb_hint_draw">Draw with a finger</string>
+    <string name="rb_hint_draw">Draw with one finger · two fingers move the map</string>
     <string name="rb_hint_drawing">Lift to match roads</string>
     <string name="rb_tool_points">Point to point</string>
     <string name="rb_tool_draw">Draw</string>
@@ -919,7 +918,6 @@
     <string name="rb_mode_walk">Walk</string>
     <string name="rb_distance">Distance</string>
     <string name="rb_time">Moving time</string>
-    <string name="rb_ascent">Ascent</string>
     <string name="rb_unavailable">Not available</string>
     <string name="rb_undo">Undo</string>
     <string name="rb_redo">Redo</string>
@@ -937,7 +935,7 @@
     <string name="rb_untitled">Untitled route</string>
     <string name="rb_in_event">In event: %1$s</string>
     <string name="rb_in_event_note">Shared with the invitation when you publish a new version.</string>
-    <string name="rb_personal_note">This phone only. You can share it as GPX.</string>
+    <string name="rb_personal_note">On this phone and in your own backup. You can share it as GPX.</string>
     <string name="rb_sketch_note">Part of this route is a sketch, not a road. Guests see \"sketch\" and get no turn instructions.</string>
     <string name="rb_share_gpx">Share GPX</string>
     <string name="rb_gpx_confirm">A GPX file is not encrypted and never expires. Anyone you send it to can keep it.</string>
@@ -983,12 +981,11 @@
     <string name="host_err_route_unmatched">Route %1$d has a drawn part with no road: fix it or keep it as a sketch</string>
     <string name="host_err_too_many_routes">At most %1$d routes</string>
     <string name="host_err_route_points">Routes are too detailed (more than %1$d points in total)</string>
-    <string name="rb_descent">Descent</string>
     <string name="rb_modes">Travel mode</string>
     <string name="rb_tools">How to build</string>
     <string name="rb_save_to">Save to</string>
     <string name="rb_in_event_short">In event</string>
-    <string name="rb_this_phone">this phone only</string>
+    <string name="rb_this_phone">phone + your backup</string>
     <string name="rb_sketch_parts">%1$d part sketch</string>
     <string name="rb_route_mode">Mode: %1$s</string>
 </resources>
