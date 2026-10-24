@@ -8,9 +8,9 @@ use std::path::PathBuf;
 use event_core::{
     Envelope, Event, FILE_KDF_MEMLIMIT_KIB, FILE_KDF_OPSLIMIT, ImportCandidate, ImportDecision,
     LEGACY_SITE, OpenedPack, PackKey, ParentCheck, SealedPack, StoredEvent, StoredRevision, b64u,
-    bytes_hash, decide_import, deflate_raw, derive_file_key, encode_file, encrypt, link_fragment,
-    open, open_file, open_link, parse_secret_code_v2, revision_hash_b64u, safety_code, seal_parts,
-    stops_only_variant,
+    bytes_hash, decide_import, deflate_raw, derive_file_key, encode_file, encode_open_file,
+    encrypt, file_needs_code, link_fragment, open, open_file, open_file_without_code, open_link,
+    parse_secret_code_v2, revision_hash_b64u, safety_code, seal_parts, stops_only_variant,
 };
 use fixtures::{FileMaterial, Material, file_material, material};
 use serde_json::{Value, json};
@@ -117,7 +117,15 @@ fn positive_bytes(name: &str, description: &str, m: &Material, bytes: &[u8], now
     })
 }
 
-/// Adds the suite-2 file fields (§5.2) after `secretCode`; every other field is unchanged.
+/// The suite-3 file (§5.2) of a link fragment: `MNTE 01 03 key nonce ciphertext`, the link's
+/// own bytes.
+fn file_v3_of_fragment(fragment: &str) -> Vec<u8> {
+    let (key, sealed) = event_core::parse_link(fragment).unwrap();
+    encode_open_file(&key, &sealed).unwrap()
+}
+
+/// Adds the suite-2 file fields (§5.2) after `secretCode`, then the suite-3 file after
+/// `fileV2B64u`; every other field is unchanged.
 fn with_file_v2(name: &str, v: Value) -> Value {
     let m = material(name);
     let f = file_material(name);
@@ -125,6 +133,9 @@ fn with_file_v2(name: &str, v: Value) -> Value {
     let (key, file) = file_v2(&bytes, &m, &f);
     let opened = open_file(&file, &f.code).unwrap();
     assert_eq!(opened.event_bytes, bytes);
+    let file_v3 = file_v3_of_fragment(v["linkFragment"].as_str().unwrap());
+    assert!(!file_needs_code(&file_v3).unwrap());
+    assert_eq!(open_file_without_code(&file_v3).unwrap().event_bytes, bytes);
     let mut out = serde_json::Map::new();
     for (k, val) in v.as_object().unwrap() {
         out.insert(k.clone(), val.clone());
@@ -134,6 +145,7 @@ fn with_file_v2(name: &str, v: Value) -> Value {
             out.insert("fileNonceV2B64u".into(), json!(b64u(&f.nonce)));
             out.insert("fileKeyV2B64u".into(), json!(b64u(key.as_bytes())));
             out.insert("fileV2B64u".into(), json!(b64u(&file)));
+            out.insert("fileV3B64u".into(), json!(b64u(&file_v3)));
         }
     }
     Value::Object(out)
@@ -174,7 +186,7 @@ fn main() {
         "kenduri-one-day",
         positive(
             "kenduri-one-day",
-            "One-day kenduri: 3 stops (parking with vehicle entrance and arrival window, drop-off, venue), 2 sessions, no route.",
+            "One-day kenduri: 3 stops (parking with vehicle entrance and arrival window, drop-off, venue), 2 sessions, 2 info blocks (dress, bring), no route.",
             &kenduri,
             NOW,
         ),
@@ -291,7 +303,126 @@ fn main() {
     );
 
     file_code_vectors(&write, &kenduri_v);
+    info_vectors(&write, &kenduri, &kenduri_v);
     stops_only_vectors(&write);
+}
+
+/// §4.1 info blocks and templates, and §5.2 suite-3 framing errors.
+fn info_vectors(write: &dyn Fn(&str, &Value), kenduri: &Event, kenduri_v: &Value) {
+    // Invalid events, signed and sealed as a link and as a suite-3 file.
+    let neg = |name: &str, desc: &str, path: &str, e: &Event| {
+        let bytes = serde_json::to_vec(e).unwrap();
+        match Event::from_bytes(&bytes).unwrap_err() {
+            event_core::Error::Invalid(v) => assert_eq!(v.path, path, "{name}"),
+            other => panic!("{name}: {other:?}"),
+        }
+        let m = material(name);
+        let sealed = seal_raw(&bytes, &m);
+        let fragment = fragment_unchecked(&m.key, &sealed);
+        write(
+            &format!("{name}.json"),
+            &negative(
+                name,
+                desc,
+                "invalid_event",
+                json!({
+                    "now": NOW,
+                    "expectedPath": path,
+                    "eventJson": String::from_utf8(bytes).unwrap(),
+                    "linkFragment": fragment,
+                    "fileV3B64u": b64u(&file_v3_of_fragment(&fragment)),
+                }),
+            ),
+        );
+    };
+    let mut e = kenduri.clone();
+    e.info[1].text = "Bawa payung. ".repeat(77) + "Ya";
+    assert_eq!(e.info[1].text.chars().count(), 1003);
+    neg(
+        "negative-info-text-too-long",
+        "kenduri-one-day with info[1].text of 1003 code points (limit 1000), correctly signed: the event must be rejected as invalid_event at info[1].text.",
+        "info[1].text",
+        &e,
+    );
+    let mut e = kenduri.clone();
+    e.info = (0..13)
+        .map(|i| event_core::InfoBlock {
+            kind: event_core::InfoKind::Other,
+            text: format!("Nota {}", i + 1),
+        })
+        .collect();
+    neg(
+        "negative-too-many-info",
+        "kenduri-one-day with 13 info blocks (limit 12), correctly signed: the event must be rejected as invalid_event at info.",
+        "info",
+        &e,
+    );
+
+    // Truncated suite-3 files.
+    let file = event_core::b64u_decode(kenduri_v["fileV3B64u"].as_str().unwrap()).unwrap();
+    let cuts = [6usize, 6 + 31, 6 + 32 + 23, 6 + 32 + 24 + 15];
+    let truncated: Vec<String> = cuts
+        .iter()
+        .map(|&n| {
+            let f = &file[..n];
+            assert_eq!(
+                event_core::parse_file(f).unwrap_err().code(),
+                "malformed_file"
+            );
+            assert_eq!(file_needs_code(f).unwrap_err().code(), "malformed_file");
+            b64u(f)
+        })
+        .collect();
+    write(
+        "negative-file-v3-truncated.json",
+        &negative(
+            "negative-file-v3-truncated",
+            "kenduri-one-day fileV3B64u cut to 6 bytes (header only), 37 (key incomplete), 61 (nonce incomplete) and 77 bytes (ciphertext shorter than the 16-byte tag): each must fail with malformed_file before any decryption.",
+            "malformed_file",
+            json!({ "filesB64u": truncated, "lengths": cuts }),
+        ),
+    );
+
+    // Unknown template and info kind read as `other`; signed bytes kept exactly as written.
+    let name = "unknown-template-and-info-kind";
+    let json = String::from_utf8(kenduri.to_bytes().unwrap()).unwrap();
+    let json = json
+        .replacen("\"template\":\"kenduri\"", "\"template\":\"gala\"", 1)
+        .replacen("\"kind\":\"bring\"", "\"kind\":\"weather\"", 1);
+    assert!(json.contains("\"gala\"") && json.contains("\"weather\""));
+    let parsed = Event::from_bytes(json.as_bytes()).unwrap();
+    assert_eq!(parsed.template, event_core::Template::Other);
+    let kinds: Vec<Value> = parsed
+        .info
+        .iter()
+        .map(|b| serde_json::to_value(b.kind).unwrap())
+        .collect();
+    assert_eq!(kinds, vec![json!("dress"), json!("other")]);
+    let m = material(name);
+    let parts = seal_parts(json.as_bytes(), &m.organizer(), &m.pack_key(), m.nonce).unwrap();
+    let fragment = link_fragment(&m.pack_key(), &parts.sealed).unwrap();
+    let file = encode_open_file(&m.pack_key(), &parts.sealed).unwrap();
+    let opened = open_file(&file, "").unwrap();
+    assert_eq!(opened.event, parsed);
+    assert_eq!(opened.revision_hash, bytes_hash(json.as_bytes()));
+    write(
+        &format!("{name}.json"),
+        &json!({
+            "name": name,
+            "kind": "parse",
+            "description": "kenduri-one-day with template \"gala\" and info[1].kind \"weather\" (both unknown to this version), correctly signed: the event opens, template reads as other and info[1].kind as other; the signed bytes (and the revision hash) are kept exactly as received.",
+            "now": NOW,
+            "eventJson": json,
+            "linkFragment": fragment,
+            "fileV3B64u": b64u(&file),
+            "revisionHashB64u": revision_hash_b64u(json.as_bytes()),
+            "expected": {
+                "template": "other",
+                "infoKinds": kinds,
+                "infoTexts": parsed.info.iter().map(|b| b.text.clone()).collect::<Vec<_>>(),
+            },
+        }),
+    );
 }
 
 /// §5.2 suite 2: wrong / malformed codes for the kenduri file, and Argon2id known answers.

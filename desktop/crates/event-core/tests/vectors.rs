@@ -9,9 +9,10 @@ use common::fixtures;
 use event_core::{
     Envelope, Error, Event, FileSuite, ImportCandidate, ImportDecision, OrganizerKey, PackKey,
     ParentCheck, SealedPack, StoredEvent, StoredRevision, b64u, b64u_decode, bytes_hash,
-    decide_import, decrypt, derive_file_key, encode_file, encode_link, encrypt, inflate_raw, open,
-    open_file, open_link, parse_file, parse_link, parse_secret_code_v2, revision_hash_b64u,
-    safety_code, seal_file_parts, seal_parts, stops_only_variant,
+    decide_import, decrypt, derive_file_key, encode_file, encode_link, encode_open_file, encrypt,
+    file_needs_code, inflate_raw, open, open_file, open_file_without_code, open_link, parse_file,
+    parse_link, parse_secret_code_v2, revision_hash_b64u, safety_code, seal_file_parts, seal_parts,
+    stops_only_variant,
 };
 use serde_json::Value;
 
@@ -120,6 +121,40 @@ fn check_positive(name: &str, fixture: Event) {
     if v.get("fileV2B64u").is_some() {
         check_file_v2(&v, &fixture, &organizer, &opened);
     }
+    if v.get("fileV3B64u").is_some() {
+        check_file_v3(&v, &key, &sealed, &opened);
+    }
+}
+
+/// Suite-3 file (§5.2): `MNTE 01 03` ‖ the link's key ‖ the link's nonce ‖ ciphertext.
+fn check_file_v3(v: &Value, key: &PackKey, sealed: &SealedPack, opened: &event_core::OpenedPack) {
+    let file = bytes(v, "fileV3B64u");
+    assert_eq!(&file[..6], b"MNTE\x01\x03");
+    assert_eq!(file[6..38], bytes(v, "keyB64u"));
+    assert_eq!(file[38..62], bytes(v, "nonceB64u"));
+    assert_eq!(file[62..], bytes(v, "ciphertextB64u"));
+    assert_eq!(file.len(), 6 + 32 + 24 + sealed.ciphertext.len());
+    // Same bytes as the link after `#1.`.
+    let frag = s(v, "linkFragment");
+    let (_, rest) = frag.split_once('.').unwrap();
+    let (k, data) = rest.split_once('.').unwrap();
+    assert_eq!(b64u_decode(k).unwrap(), file[6..38]);
+    assert_eq!(b64u_decode(data).unwrap(), file[38..]);
+
+    assert!(!file_needs_code(&file).unwrap());
+    assert!(file_needs_code(&bytes(v, "fileV2B64u")).unwrap());
+    assert!(file_needs_code(&bytes(v, "fileB64u")).unwrap());
+    assert_eq!(open_file_without_code(&file).unwrap(), *opened);
+    // The code is ignored for suite 3.
+    assert_eq!(open_file(&file, "").unwrap(), *opened);
+    assert_eq!(open_file(&file, "ZZZZ-ZZZZ").unwrap(), *opened);
+    let parsed = parse_file(&file).unwrap();
+    assert_eq!(parsed.suite, FileSuite::Open { key: key.clone() });
+    assert_eq!(parsed.sealed, *sealed);
+    assert_eq!(encode_open_file(key, sealed).unwrap(), file);
+    // Suites 1 and 2 cannot be opened without a code.
+    let err = open_file_without_code(&bytes(v, "fileV2B64u")).unwrap_err();
+    assert_eq!(err.code(), "invalid_secret_code");
 }
 
 /// Suite-2 file (§5.2): Argon2id key from the 8-character code and salt, own nonce.
@@ -306,6 +341,98 @@ fn negative_oversized_fragment() {
     let key = PackKey::from_secret_code(s(&v, "secretCode")).unwrap();
     let err = encode_link("https://x.test", &key, &parse_file(&file).unwrap().sealed).unwrap_err();
     assert!(matches!(err, Error::FragmentTooLong { .. }));
+}
+
+// ---- §4.1 info blocks, templates; §5.2 suite 3 ----
+
+#[test]
+fn kenduri_has_info_blocks() {
+    let v = load("kenduri-one-day.json");
+    let e = Event::from_bytes(s(&v, "eventJson").as_bytes()).unwrap();
+    let kinds: Vec<_> = e.info.iter().map(|b| b.kind).collect();
+    assert_eq!(
+        kinds,
+        [event_core::InfoKind::Dress, event_core::InfoKind::Bring]
+    );
+    // Written after `sessions`, before `routes` (absent here).
+    let j = s(&v, "eventJson");
+    assert!(j.find("\"sessions\"").unwrap() < j.find("\"info\"").unwrap());
+    // The ride has none, and omits the field.
+    assert!(!s(&load("ride-two-day.json"), "eventJson").contains("\"info\""));
+}
+
+#[test]
+fn negative_info_limits() {
+    for name in ["negative-info-text-too-long", "negative-too-many-info"] {
+        let v = negative(name);
+        assert_eq!(s(&v, "expectedError"), "invalid_event");
+        for err in [
+            open_link(s(&v, "linkFragment")).unwrap_err(),
+            open_file_without_code(&bytes(&v, "fileV3B64u")).unwrap_err(),
+            Event::from_bytes(s(&v, "eventJson").as_bytes()).unwrap_err(),
+        ] {
+            assert_eq!(err.code(), "invalid_event", "{name}");
+            match err {
+                Error::Invalid(e) => assert_eq!(e.path, s(&v, "expectedPath"), "{name}"),
+                e => panic!("{name}: {e:?}"),
+            }
+        }
+    }
+}
+
+#[test]
+fn negative_file_v3_truncated() {
+    let v = negative("negative-file-v3-truncated");
+    let files = v["filesB64u"].as_array().unwrap();
+    assert_eq!(files.len(), 4);
+    for f in files {
+        let f = b64u_decode(f.as_str().unwrap()).unwrap();
+        assert_eq!(&f[..6], b"MNTE\x01\x03");
+        for err in [
+            parse_file(&f).unwrap_err(),
+            open_file_without_code(&f).unwrap_err(),
+            open_file(&f, "").unwrap_err(),
+            file_needs_code(&f).unwrap_err(),
+        ] {
+            assert_eq!(err, Error::MalformedFile);
+            assert_eq!(err.code(), s(&v, "expectedError"));
+        }
+    }
+}
+
+#[test]
+fn unknown_template_and_info_kind() {
+    let v = load("unknown-template-and-info-kind.json");
+    assert_eq!(s(&v, "kind"), "parse");
+    let json = s(&v, "eventJson");
+    assert!(json.contains("\"template\":\"gala\""));
+    assert!(json.contains("\"kind\":\"weather\""));
+    let exp = &v["expected"];
+    for o in [
+        open_link(s(&v, "linkFragment")).unwrap(),
+        open_file_without_code(&bytes(&v, "fileV3B64u")).unwrap(),
+    ] {
+        assert_eq!(o.event_bytes, json.as_bytes());
+        assert_eq!(b64u(&o.revision_hash), s(&v, "revisionHashB64u"));
+        assert_eq!(
+            serde_json::to_value(o.event.template).unwrap(),
+            exp["template"]
+        );
+        let kinds: Vec<Value> = o
+            .event
+            .info
+            .iter()
+            .map(|b| serde_json::to_value(b.kind).unwrap())
+            .collect();
+        assert_eq!(Value::Array(kinds), exp["infoKinds"]);
+        let texts: Vec<Value> = o
+            .event
+            .info
+            .iter()
+            .map(|b| Value::from(b.text.clone()))
+            .collect();
+        assert_eq!(Value::Array(texts), exp["infoTexts"]);
+    }
 }
 
 // ---- §5.5 / §7.4 stops-only variant ----

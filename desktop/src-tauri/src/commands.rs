@@ -522,6 +522,8 @@ pub fn import_link_preview(state: State<'_, AppState>, link: String) -> CmdResul
 pub struct PickedFile {
     file_name: String,
     size: usize,
+    /// False for suite-3 files (§5.2), which carry their key: the UI then asks for no code.
+    needs_code: bool,
 }
 
 #[tauri::command]
@@ -533,17 +535,19 @@ pub async fn import_file_pick(
         return Ok(None);
     };
     let bytes = read_bounded(&path, event_core::limits::MAX_FILE_BYTES as u64)?;
-    event_core::parse_file(&bytes)?;
+    let needs_code = event_core::file_needs_code(&bytes)?;
     let size = bytes.len();
     lock(&state)?.pending_file = Some(bytes);
     Ok(Some(PickedFile {
         file_name: file_name(&path),
         size,
+        needs_code,
     }))
 }
 
 /// Accepts both code kinds: the 8-character code of suite-2 files and the 52-character code of
-/// older suite-1 files (§5.2). Suite 2 runs Argon2id, so the file is opened off the UI thread.
+/// older suite-1 files (§5.2). Suite-3 files carry their key and ignore `secret_code` (send "").
+/// Suite 2 runs Argon2id, so the file is opened off the UI thread.
 #[tauri::command]
 pub async fn import_file_preview(
     state: State<'_, AppState>,

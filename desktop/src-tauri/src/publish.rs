@@ -300,6 +300,7 @@ pub fn doc_from_pack(opened: &OpenedPack, now: DateTime<Utc>) -> Doc {
             })
             .collect(),
         sessions: e.sessions.clone(),
+        info: e.info.clone(),
         routes: e.routes.iter().map(route_from_event).collect(),
         published: Vec::new(),
         imported: Some(ImportedInfo {

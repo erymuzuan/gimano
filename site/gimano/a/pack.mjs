@@ -14,12 +14,14 @@ const TAG_LEN = 16;
 const INFLATE_INPUT_CHUNK = 1024; // feed the inflater in small pieces so the output cap is enforced early
 
 export const LIMITS = {
-  eventDays: 14, stops: 200, sessions: 50, routes: 20, polylinePoints: 50_000,
-  title: 120, description: 2000, stopLabel: 80, stopNotes: 500, audience: 40, routeTitle: 80,
+  eventDays: 14, stops: 200, sessions: 50, infoBlocks: 12, routes: 20, polylinePoints: 50_000,
+  title: 120, description: 2000, stopLabel: 80, stopNotes: 500, audience: 40, routeTitle: 80, infoText: 1000,
   sessionTitle: 120, alias: 80, tz: 64, dwellMin: 14 * 24 * 60, eventIdBytes: 16, itemIdBytes: 8,
 };
 
-export const TEMPLATES = ["kenduri", "dinner", "company", "ride", "convoy", "trip", "other"];
+export const TEMPLATES = ["kenduri", "dinner", "company", "ride", "convoy", "trip", "meeting", "seminar", "picnic", "hike", "other"];
+/** Guest info block kinds (§4.1); unknown kinds read as "other". */
+export const INFO_KINDS = ["dress", "safety", "documents", "bring", "contact", "other"];
 export const STOP_KINDS = ["parking", "dropoff", "entrance", "venue", "meal", "checkpoint", "fuel", "water", "rest",
   "prayer", "accommodation", "start", "finish", "other"];
 export const LANGS = ["ms", "en"];
@@ -167,14 +169,25 @@ export function parseLink(link) {
   return { key, nonce: data.slice(0, NONCE_LEN), ciphertext: data.slice(NONCE_LEN) };
 }
 
-/** `.manotu-event` bytes → { nonce, ciphertext } (§5.2). */
+/** `.manotu-event` bytes → { suite, key?, nonce, ciphertext } (§5.2). Suite 1 (raw key, code) and suite 3 (open:
+ *  `MNTE 01 03 key(32) nonce ciphertext`, the link's own bytes) are read here; suite 2 needs Argon2id, which the
+ *  vendored (non-sumo) libsodium lacks, so it is `unsupported_suite`. The page itself still opens links only. */
 export function parseFile(bytes) {
   if (bytes.length > MAX_FILE_BYTES) throw new PackError("file_too_large");
   if (bytes.length < 6 + NONCE_LEN + TAG_LEN || bytes[0] !== 0x4d || bytes[1] !== 0x4e || bytes[2] !== 0x54 || bytes[3] !== 0x45)
     throw new PackError("malformed_file");
   if (bytes[4] !== 0x01) throw new PackError("unsupported_file_format", String(bytes[4]));
-  if (bytes[5] !== 0x01) throw new PackError("unsupported_suite", String(bytes[5]));
-  return { nonce: bytes.slice(6, 6 + NONCE_LEN), ciphertext: bytes.slice(6 + NONCE_LEN) };
+  if (bytes[5] === 0x01) return { suite: 1, nonce: bytes.slice(6, 6 + NONCE_LEN), ciphertext: bytes.slice(6 + NONCE_LEN) };
+  if (bytes[5] === 0x03) {
+    if (bytes.length < 6 + 32 + NONCE_LEN + TAG_LEN) throw new PackError("malformed_file");
+    return { suite: 3, key: bytes.slice(6, 38), nonce: bytes.slice(38, 38 + NONCE_LEN), ciphertext: bytes.slice(38 + NONCE_LEN) };
+  }
+  throw new PackError("unsupported_suite", String(bytes[5]));
+}
+
+/** Whether a file needs a code to open: false for suite 3 (§5.2). */
+export function fileNeedsCode(bytes) {
+  return parseFile(bytes).suite !== 3;
 }
 
 // ---- layers ---------------------------------------------------------------------------------------------------
@@ -264,9 +277,10 @@ export async function openLink(link) {
   return openSealed(key, nonce, ciphertext);
 }
 
+/** Suite 3 carries its key and ignores `secretCode`; suite 1 needs the 52-character code. */
 export async function openFile(bytes, secretCode) {
-  const { nonce, ciphertext } = parseFile(bytes);
-  return openSealed(decodeSecretCode(secretCode), nonce, ciphertext);
+  const { suite, key, nonce, ciphertext } = parseFile(bytes);
+  return openSealed(suite === 3 ? key : decodeSecretCode(secretCode), nonce, ciphertext);
 }
 
 /** Import decision for a viewer that stores nothing: `expired` at or after expiresAt (§7.5), else `new`. */
@@ -410,7 +424,7 @@ export function readEvent(raw) {
     end: time(raw.end, "end"),
     expiresAt: time(raw.expiresAt, "expiresAt"),
     organizer: undefined,
-    stops: [], sessions: [], routes: [], polylinePoints: 0,
+    stops: [], sessions: [], info: [], routes: [], polylinePoints: 0,
     variant: undefined, stopsOnly: false,
   };
   if (present(raw.variant)) {
@@ -445,6 +459,11 @@ export function readEvent(raw) {
     if (!isObj(s)) malformed(p);
     return { id: reqStr(s, "id", p), title: reqStr(s, "title", p), start: time(s.start, `${p}start`),
       end: time(s.end, `${p}end`), stopId: optStr(s, "stopId", p) };
+  });
+  e.info = arr(raw, "info", "").map((b, i) => {
+    const p = `info[${i}].`;
+    if (!isObj(b)) malformed(p);
+    return { kind: lenient(b.kind, INFO_KINDS, `${p}kind`), text: reqStr(b, "text", p) };
   });
   e.routes = arr(raw, "routes", "").map((r, i) => {
     const p = `routes[${i}].`;
@@ -527,6 +546,9 @@ function validate(e) {
     if (s.end.ms < s.start.ms) invalid(p("end"), "ends before it starts");
     if (s.stopId !== undefined) knownStop(p("stopId"), s.stopId);
   });
+
+  if (e.info.length > LIMITS.infoBlocks) invalid("info", "has more than 12 info blocks");
+  e.info.forEach((b, i) => text(`info[${i}].text`, b.text, 1, LIMITS.infoText));
 
   if (e.routes.length > LIMITS.routes) invalid("routes", "has more than 20 routes");
   const routeIds = new Set();

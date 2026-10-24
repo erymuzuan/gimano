@@ -117,6 +117,18 @@ pub fn new_event(template: Template, center: LatLng, lang: Lang, now: DateTime<U
             at(14, 8, 0, now),
             at(15, 18, 0, now),
         ),
+        Template::Meeting => (
+            t("Mesyuarat", "Meeting"),
+            at(14, 9, 0, now),
+            at(14, 12, 0, now),
+        ),
+        Template::Seminar => (
+            t("Seminar", "Seminar"),
+            at(14, 9, 0, now),
+            at(14, 17, 0, now),
+        ),
+        Template::Picnic => (t("Piknik", "Picnic"), at(14, 9, 0, now), at(14, 14, 0, now)),
+        Template::Hike => (t("Hiking", "Hike"), at(14, 7, 0, now), at(14, 12, 0, now)),
         Template::Other => (
             t("Acara baharu", "New event"),
             at(14, 10, 0, now),
@@ -131,7 +143,11 @@ pub fn new_event(template: Template, center: LatLng, lang: Lang, now: DateTime<U
     let mut sessions = Vec::new();
     let mut routes = Vec::new();
     match template {
-        Template::Kenduri | Template::Dinner | Template::Company => {
+        Template::Kenduri
+        | Template::Dinner
+        | Template::Company
+        | Template::Meeting
+        | Template::Seminar => {
             let venue = stop(StopKind::Venue, t("Dewan", "Hall"), c);
             let parking = stop(
                 StopKind::Parking,
@@ -139,7 +155,9 @@ pub fn new_event(template: Template, center: LatLng, lang: Lang, now: DateTime<U
                 near(-180.0, -120.0),
             );
             let meal_title = match template {
-                Template::Company => t("Sesi utama", "Main session"),
+                Template::Company | Template::Meeting | Template::Seminar => {
+                    t("Sesi utama", "Main session")
+                }
                 _ => t("Jamuan", "Meal"),
             };
             sessions.push(session(
@@ -209,7 +227,10 @@ pub fn new_event(template: Template, center: LatLng, lang: Lang, now: DateTime<U
             ));
             stops.extend([a, h, z]);
         }
-        Template::Other => {
+        Template::Hike => {
+            stops.push(stop(StopKind::Start, t("Titik mula", "Start"), c));
+        }
+        Template::Picnic | Template::Other => {
             stops.push(stop(StopKind::Venue, t("Lokasi", "Venue"), c));
         }
     }
@@ -230,6 +251,7 @@ pub fn new_event(template: Template, center: LatLng, lang: Lang, now: DateTime<U
         },
         stops,
         sessions,
+        info: Vec::new(),
         routes,
         published: Vec::new(),
         imported: None,
@@ -264,6 +286,7 @@ pub fn new_route(mode: TravelMode, lang: Lang, now: DateTime<Utc>) -> Doc {
         },
         stops: Vec::new(),
         sessions: Vec::new(),
+        info: Vec::new(),
         routes: vec![r],
         published: Vec::new(),
         imported: None,

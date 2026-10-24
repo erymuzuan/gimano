@@ -280,7 +280,7 @@ fn unknown_fields_are_ignored_and_null_optionals_accepted() {
     v["futureField"] = serde_json::json!({"x": 1});
     v["stops"][0]["futureField"] = serde_json::json!(true);
     v["description"] = serde_json::Value::Null;
-    v["template"] = serde_json::json!("picnic");
+    v["template"] = serde_json::json!("gala");
     let e = Event::from_bytes(v.to_string().as_bytes()).unwrap();
     assert_eq!(e.description, None);
     assert_eq!(e.template, event_core::Template::Other);
@@ -502,4 +502,70 @@ fn time_formats_on_the_wire() {
     assert!(json.contains(r#""start":"2026-11-15T11:00:00+08:00""#));
     assert!(json.contains(r#""parent":null"#));
     assert!(!json.contains(r#""routes""#));
+}
+
+#[test]
+fn open_file_round_trip_matches_the_link() {
+    let organizer = OrganizerKey::generate().unwrap();
+    let bytes = fixtures::ride().simplified().to_bytes().unwrap();
+    let (key, sealed, file) = event_core::seal_open_file(&bytes, &organizer).unwrap();
+    assert_eq!(&file[..6], b"MNTE\x01\x03");
+    assert_eq!(
+        file.len(),
+        event_core::FILE_V3_OVERHEAD + sealed.ciphertext.len()
+    );
+    assert!(!event_core::file_needs_code(&file).unwrap());
+    let opened = event_core::open_file_without_code(&file).unwrap();
+    assert_eq!(opened.event_bytes, bytes);
+    // The same publication as a link.
+    let link = encode_link("https://manotu.app", &key, &sealed).unwrap();
+    assert_eq!(open_link(&link).unwrap(), opened);
+    assert_eq!(open_file(&file, "anything").unwrap(), opened);
+    // Suite 3 is always the full event.
+    let variant = event_core::stops_only_variant(&bytes).unwrap();
+    assert_eq!(
+        event_core::seal_open_file(&variant, &organizer).unwrap_err(),
+        Error::NotFullEvent
+    );
+}
+
+#[test]
+fn limit_info_blocks() {
+    let base = fixtures::kenduri();
+    let mut e = base.clone();
+    e.info = (0..12)
+        .map(|_| event_core::InfoBlock {
+            kind: event_core::InfoKind::Contact,
+            text: "Hubungi Aqil".into(),
+        })
+        .collect();
+    e.validate().unwrap();
+    e.info.push(e.info[0].clone());
+    assert_eq!(reason(&e), ("info".into(), "has more than 12 info blocks"));
+
+    let mut e = base.clone();
+    e.info[0].text = "é".repeat(limits::INFO_TEXT_CHARS);
+    e.validate().unwrap();
+    e.info[0].text.push('x');
+    assert_eq!(reason(&e), ("info[0].text".into(), "is too long"));
+    e.info[0].text = "  \n".into();
+    assert_eq!(reason(&e), ("info[0].text".into(), "is required"));
+    e.info[0].text = "Baris 1\nBaris 2".into();
+    e.validate().unwrap();
+}
+
+#[test]
+fn new_templates_round_trip() {
+    for (t, name) in [
+        (event_core::Template::Meeting, "meeting"),
+        (event_core::Template::Seminar, "seminar"),
+        (event_core::Template::Picnic, "picnic"),
+        (event_core::Template::Hike, "hike"),
+    ] {
+        let mut e = fixtures::kenduri();
+        e.template = t;
+        let bytes = e.to_bytes().unwrap();
+        assert!(String::from_utf8_lossy(&bytes).contains(&format!("\"template\":\"{name}\"")));
+        assert_eq!(Event::from_bytes(&bytes).unwrap().template, t);
+    }
 }

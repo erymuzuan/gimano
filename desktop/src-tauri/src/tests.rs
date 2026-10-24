@@ -889,6 +889,40 @@ fn import_link_then_newer_revision() {
 }
 
 #[test]
+fn suite_three_file_with_info_imports_without_code_and_keeps_info() {
+    // A phone's default share: a suite-3 file carrying info blocks.
+    let mut doc = templates::new_event(Template::Picnic, KL, event_core::Lang::Ms, now());
+    route_all(&mut doc);
+    let (ev, issues) = build_event(&doc, 1, None, now());
+    let mut ev = ev.unwrap_or_else(|| panic!("{issues:?}"));
+    ev.info = vec![event_core::InfoBlock {
+        kind: event_core::InfoKind::Bring,
+        text: "Tikar dan topi.\nAir minuman.".into(),
+    }];
+    let organizer = event_core::OrganizerKey::generate().unwrap();
+    let bytes = ev.to_bytes().unwrap();
+    let (_, _, file) = event_core::seal_open_file(&bytes, &organizer).unwrap();
+    assert!(!event_core::file_needs_code(&file).unwrap());
+    // The import command passes "" for suite 3.
+    let opened = event_core::open_file(&file, "").unwrap();
+
+    let mut guest = core_with_store();
+    let p = guest.import_preview(opened.clone(), now()).unwrap();
+    assert_eq!(p.decision, "new");
+    guest.import_confirm(now()).unwrap();
+    let lib = guest.library(now()).unwrap();
+    let v = guest
+        .open(crate::core::KIND_IMPORTED, &lib[0].id, now())
+        .unwrap();
+    assert_eq!(v.doc.info, ev.info);
+    assert_eq!(v.doc.meta.template, Template::Picnic);
+    // The draft rebuilt from the import carries the same info into a pack.
+    let doc = publish::doc_from_pack(&opened, now());
+    let (again, _) = build_event(&doc, 1, None, now());
+    assert_eq!(again.unwrap().info, ev.info);
+}
+
+#[test]
 fn recovery_payload_restores_drafts_and_keys() {
     let mut a = core_with_store();
     a.open_new(
@@ -1017,6 +1051,10 @@ fn template_events_are_valid_once_routed() {
         Template::Ride,
         Template::Convoy,
         Template::Trip,
+        Template::Meeting,
+        Template::Seminar,
+        Template::Picnic,
+        Template::Hike,
         Template::Other,
     ] {
         let mut doc = templates::new_event(t, KL, event_core::Lang::Ms, now());

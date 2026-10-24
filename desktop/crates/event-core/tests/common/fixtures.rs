@@ -3,8 +3,8 @@
 #![allow(dead_code)]
 
 use event_core::{
-    Event, GeometrySource, Lang, LatLng, OrganizerKey, PackKey, Route, RouteLeg, Session, Stop,
-    StopKind, Template, TimeWindow, TravelMode, b64u, default_expiry,
+    Event, GeometrySource, InfoBlock, InfoKind, Lang, LatLng, OrganizerKey, PackKey, Route,
+    RouteLeg, Session, Stop, StopKind, Template, TimeWindow, TravelMode, b64u, default_expiry,
 };
 use route_core::encode_polyline;
 use sha2::{Digest, Sha256};
@@ -89,7 +89,7 @@ fn stop(label_id: &str, kind: StopKind, label: &str, lat: f64, lng: f64) -> Stop
     }
 }
 
-/// One-day kenduri: 3 stops (parking with a vehicle entrance), 2 sessions, no route.
+/// One-day kenduri: 3 stops (parking with a vehicle entrance), 2 sessions, 2 info blocks, no route.
 pub fn kenduri() -> Event {
     let mut parking = stop(
         "kenduri/parking",
@@ -156,6 +156,16 @@ pub fn kenduri() -> Event {
                 start: t("2026-11-15T12:30:00+08:00"),
                 end: t("2026-11-15T13:00:00+08:00"),
                 stop_id: Some(venue.id.clone()),
+            },
+        ],
+        info: vec![
+            InfoBlock {
+                kind: InfoKind::Dress,
+                text: "Tema pastel. Baju Melayu / baju kurung digalakkan.".into(),
+            },
+            InfoBlock {
+                kind: InfoKind::Bring,
+                text: "Bawa payung jika hujan.\nHadiah tidak diwajibkan.".into(),
             },
         ],
         stops: vec![parking, dropoff, venue],
@@ -303,6 +313,7 @@ pub fn ride() -> Event {
                 stop_id: Some(stay.id.clone()),
             },
         ],
+        info: vec![],
         stops: vec![start_stop, cp, lunch, stay, finish],
         routes: vec![route],
         variant: None,

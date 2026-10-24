@@ -368,6 +368,7 @@ pub fn build_event(
         organizer: opt(&m.alias).map(|a| Organizer { alias: Some(a) }),
         stops,
         sessions: doc.sessions.clone(),
+        info: doc.info.clone(),
         routes,
         variant: None,
     };

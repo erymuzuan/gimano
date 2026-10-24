@@ -41,7 +41,7 @@ export const api = {
   secretCodeReveal: () => invoke<string>("secret_code_reveal"),
 
   importLinkPreview: (link: string) => invoke<ImportPreview>("import_link_preview", { link }),
-  importFilePick: () => invoke<{ fileName: string; size: number } | null>("import_file_pick"),
+  importFilePick: () => invoke<{ fileName: string; size: number; needsCode: boolean } | null>("import_file_pick"),
   importFilePreview: (secretCode: string) => invoke<ImportPreview>("import_file_preview", { secretCode }),
   importConfirm: () => invoke<DocSummary>("import_confirm"),
 

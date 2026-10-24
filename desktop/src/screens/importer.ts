@@ -62,19 +62,27 @@ export function openImportDialog(onImported: () => void): void {
   // 8-character codes (XXXX-XXXX) and the 52-character codes of older files both work (§5.2).
   const codeInput = h("input", { class: "input mono", type: "text", spellcheck: "false", autocomplete: "off", autocapitalize: "characters", placeholder: "XXXX-XXXX" });
   const fileLabel = h("span", { class: "muted" });
+  const codeField = field(t("secretCodeInput"), codeInput);
+  let needsCode = true;
   const filePanel = h("section", { class: "stack" },
     h("div", { class: "row" },
       button(t("pickFile"), async () => {
         try {
           const f = await api.importFilePick();
-          if (f) fileLabel.textContent = `${f.fileName} · ${Math.ceil(f.size / 1024)} KB`;
+          if (f) {
+            fileLabel.textContent = `${f.fileName} · ${Math.ceil(f.size / 1024)} KB`;
+            // Suite-3 files carry their key (§5.2): no code to ask for.
+            needsCode = f.needsCode;
+            codeField.hidden = !needsCode;
+            if (!needsCode) out.replaceChildren(previewBox(await api.importFilePreview(""), onImported, m.close));
+          }
         } catch (e) { showError(e); }
       }),
       fileLabel,
     ),
-    field(t("secretCodeInput"), codeInput),
+    codeField,
     button(t("check"), async () => {
-      try { out.replaceChildren(previewBox(await api.importFilePreview(codeInput.value), onImported, m.close)); }
+      try { out.replaceChildren(previewBox(await api.importFilePreview(needsCode ? codeInput.value : ""), onImported, m.close)); }
       catch (e) { showError(e); }
     }, "primary"),
   );

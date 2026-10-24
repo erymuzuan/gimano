@@ -3,7 +3,8 @@
 //! ```text
 //! event JSON bytes ─sign(Ed25519, per-event key)─► envelope JSON ─raw DEFLATE─►
 //! XChaCha20-Poly1305(AD "manotu-event-v1") ─► invitation link (§5.1, random key) or
-//! .manotu-event file (§5.2, key = Argon2id(8-character code, salt))
+//! .manotu-event file (§5.2: suite 3 carries the link's key, suite 2 key = Argon2id(8-character
+//! code, salt))
 //! ```
 //!
 //! Privacy: a pack carries only guest-visible data. Organizer-only working notes deliberately have
@@ -32,9 +33,10 @@ pub use encoding::{b64u, b64u_decode};
 pub use error::{Error, ValidationError};
 pub use file::{
     FILE_EXTENSION, FILE_FORMAT_V1, FILE_KDF_MEMLIMIT_KIB, FILE_KDF_OPSLIMIT, FILE_MAGIC,
-    FILE_MIME, FILE_SALT_LEN, FILE_SUITE_CODE, FILE_SUITE_RAW_KEY, FILE_V2_OVERHEAD, FileSuite,
-    ParsedFile, derive_file_key, encode_file, file_key, open_file, parse_file, random_salt,
-    seal_file, seal_file_parts,
+    FILE_MIME, FILE_SALT_LEN, FILE_SUITE_CODE, FILE_SUITE_OPEN, FILE_SUITE_RAW_KEY,
+    FILE_V2_OVERHEAD, FILE_V3_OVERHEAD, FileSuite, ParsedFile, derive_file_key, encode_file,
+    encode_open_file, file_key, file_needs_code, open_file, open_file_without_code, parse_file,
+    random_salt, seal_file, seal_file_parts, seal_open_file,
 };
 pub use import::{
     ImportCandidate, ImportDecision, ParentCheck, StoredEvent, StoredRevision, decide_import,
@@ -46,8 +48,8 @@ pub use link::{
     open_link, parse_link,
 };
 pub use model::{
-    Event, Lang, Organizer, Session, Stop, StopKind, Template, TimeWindow, VARIANT_STOPS_ONLY,
-    Variant, default_expiry, stops_only_variant,
+    Event, InfoBlock, InfoKind, Lang, Organizer, Session, Stop, StopKind, Template, TimeWindow,
+    VARIANT_STOPS_ONLY, Variant, default_expiry, stops_only_variant,
 };
 pub use pack::{
     AEAD_AD, Envelope, MAX_INFLATED_BYTES, OpenedPack, SIGNATURE_PREFIX, SealedPack, SealedParts,

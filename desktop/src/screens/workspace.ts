@@ -5,7 +5,7 @@ import { api } from "../api";
 import { fail, go, mod, modLabel, register, state, watchOnline } from "../app";
 import { field, h, svg, uid } from "../dom";
 import { coordText, daysBetween, distance, duration, fromLocalInput, offsetOf, parsePath, toLocalInput, when } from "../format";
-import { kindName, legName, modeName, reasonText, t, templateName } from "../i18n";
+import { infoKindName, kindName, legName, modeName, reasonText, t, templateName } from "../i18n";
 import { MapView, type MapMode } from "../map";
 import { button, confirmDialog, coordsDialog, replace, toast } from "../ui";
 import type { DocView, EditOp, EventMeta, Issue, LatLng, RouteDraft, Selection, Session, StopDraft, StopKind, Template, TravelMode } from "../types";
@@ -13,7 +13,7 @@ import { openGpxDialog, openGpxExport, tabList } from "./importer";
 import { openPublishDialog } from "./publish";
 
 const KINDS: StopKind[] = ["parking", "dropoff", "entrance", "venue", "meal", "checkpoint", "fuel", "water", "rest", "prayer", "accommodation", "start", "finish", "other"];
-const TEMPLATES: Template[] = ["kenduri", "dinner", "company", "ride", "convoy", "trip", "other"];
+const TEMPLATES: Template[] = ["kenduri", "dinner", "company", "meeting", "seminar", "ride", "convoy", "trip", "picnic", "hike", "other"];
 const MODES: TravelMode[] = ["bicycle", "motorcycle", "car", "walk"];
 
 register("workspace", (root, arg) => {
@@ -344,6 +344,11 @@ register("workspace", (root, arg) => {
       field(t("end"), dt(m.end, offsetOf(m.end, off), (v) => set({ end: v }), "ev-end"), { error: errText("end") }),
       field(t("expiresAt"), input(m.expiresAt, (v) => set({ expiresAt: v.trim() }), { "data-fkey": "ev-exp", placeholder: "2026-11-16T08:00:00Z" }), { error: errText("expiresAt") }),
       field(t("alias"), input(m.alias, (v) => set({ alias: v }), { "data-fkey": "ev-alias", maxlength: 80 }), { error: errText("organizer.alias") }),
+      view.doc.info?.length ? h("section", { class: "info-blocks" },
+        h("h3", {}, t("infoH")),
+        h("p", { class: "hint" }, t("infoReadOnly")),
+        h("dl", {}, ...view.doc.info.map((b) => [h("dt", {}, infoKindName(b.kind)), h("dd", { class: "info-text" }, b.text)])),
+      ) : null,
     );
   }
 
