@@ -78,4 +78,80 @@ struct CommunityTests {
         let msg = APIError.http(status: 403, problem: nil).errorDescription ?? ""
         #expect(msg.contains("suspended"))
     }
+
+    // MARK: shared settings keys in backups (docs/privacy-and-backup.md "Shared settings keys")
+
+    @Test("blocked_authors written by Android decodes; entries without a ref are skipped, not the whole list")
+    func tolerantDecode() {
+        let android = #"[{"ref":"aR1","name":"Rusa 1","blockedAt":"2026-10-24T03:04:05Z"},{"name":"no ref"},{"ref":"","name":"empty"},{"ref":"aR2"},{"ref":"aR1","name":"dup"}]"#
+        let list = BlockList.decode(android)
+        #expect(list.map(\.ref) == ["aR1", "aR2"])
+        #expect(list[0].name == "Rusa 1")
+        #expect(BlockList.dateString(list[0].blockedAt) == "2026-10-24T03:04:05Z")
+        #expect(BlockList.decode("not json").isEmpty)
+    }
+
+    @Test("blocked_authors is written as {ref, name, blockedAt} with ISO-8601 UTC and no fractional seconds")
+    func encodeFormat() throws {
+        let raw = try #require(BlockList.encode([BlockedAuthor(ref: "x", name: "Kancil", blockedAt: Date(timeIntervalSince1970: 1_793_000_000.789))]))
+        #expect(raw.range(of: #""blockedAt":"2026-10-2\dT\d\d:\d\d:\d\dZ""#, options: .regularExpression) != nil, "\(raw)")
+        #expect(!raw.contains("."), "no fractional seconds: \(raw)")
+        #expect(raw.contains(#""ref":"x""#) && raw.contains(#""name":"Kancil""#))
+    }
+
+    @Test("Merge: blocked_authors is the union by ref, this phone's entry wins")
+    func mergeBlocked() {
+        let mine = #"[{"ref":"a","name":"Mine A","blockedAt":"2026-10-01T00:00:00Z"}]"#
+        let theirs = #"[{"ref":"a","name":"Theirs A","blockedAt":"2026-09-01T00:00:00Z"},{"ref":"b","name":"B","blockedAt":"2026-09-02T00:00:00Z"}]"#
+        let m = BlockList.decode(BlockList.merged(local: mine, backup: theirs))
+        #expect(m.map(\.ref) == ["a", "b"])
+        #expect(m.first?.name == "Mine A")
+        #expect(BlockList.decode(BlockList.merged(local: nil, backup: theirs)).count == 2)
+    }
+
+    @Test("Merge: community rules keep whichever side accepted the later version, with its date")
+    func mergeRules() {
+        let old = (version: Optional("2026-01-01"), acceptedAt: Optional("2026-01-02T00:00:00.000Z"))
+        let new = (version: Optional("2026-10-24"), acceptedAt: Optional("2026-10-24T05:00:00.000Z"))
+        #expect(CommunityRules.merged(local: old, backup: new) == new)
+        #expect(CommunityRules.merged(local: new, backup: old) == new)
+        #expect(CommunityRules.merged(local: (nil, nil), backup: old) == old)
+        #expect(CommunityRules.merged(local: old, backup: (nil, nil)) == old)
+    }
+
+    func store() throws -> (LocalStore, URL) {
+        let dir = FileManager.default.temporaryDirectory.appendingPathComponent("mrg-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        return (try LocalStore(path: dir.appendingPathComponent("db.sqlite").path, photosDirectory: dir.appendingPathComponent("p")), dir)
+    }
+
+    @Test("Restore: Merge applies the shared-key rules; Replace takes the backup as-is")
+    func restoreMergeAndReplace() throws {
+        let (src, d1) = try store(); defer { try? FileManager.default.removeItem(at: d1) }
+        // The backup (as Android would write it): two blocks, newer rules, another setting.
+        try src.setSetting(BlockList.settingsKey, #"[{"ref":"a","name":"Theirs A","blockedAt":"2026-09-01T00:00:00Z"},{"ref":"b","name":"B","blockedAt":"2026-09-02T00:00:00Z"},{"name":"broken"}]"#)
+        try src.setSetting(CommunityRules.versionKey, "2026-10-24")
+        try src.setSetting(CommunityRules.acceptedAtKey, "2026-10-24T05:00:00Z")
+        try src.setSetting("theme", "dark")
+        let file = try BackupService(store: src, kdfLimits: .interactive).makeBackup()
+
+        let (dst, d2) = try store(); defer { try? FileManager.default.removeItem(at: d2) }
+        try dst.setSetting(BlockList.settingsKey, #"[{"ref":"a","name":"Mine A","blockedAt":"2026-10-01T00:00:00Z"},{"ref":"c","name":"C","blockedAt":"2026-10-02T00:00:00Z"}]"#)
+        try dst.setSetting(CommunityRules.versionKey, "2026-01-01")
+        try dst.setSetting(CommunityRules.acceptedAtKey, "2026-01-02T00:00:00Z")
+        try dst.setSetting("theme", "light")
+        _ = try BackupService(store: dst).restore(file, mode: .merge)
+        let merged = dst.blockedAuthors()
+        #expect(Set(merged.map(\.ref)) == ["a", "b", "c"])
+        #expect(merged.first { $0.ref == "a" }?.name == "Mine A")
+        #expect(try dst.setting(CommunityRules.versionKey) == "2026-10-24")
+        #expect(try dst.setting(CommunityRules.acceptedAtKey) == "2026-10-24T05:00:00Z")
+        #expect(try dst.setting("theme") == "light", "other keys keep this phone's value")
+
+        let (dst2, d3) = try store(); defer { try? FileManager.default.removeItem(at: d3) }
+        try dst2.setSetting(BlockList.settingsKey, #"[{"ref":"z","name":"Z","blockedAt":"2026-10-01T00:00:00Z"}]"#)
+        _ = try BackupService(store: dst2).restore(file, mode: .replace)
+        #expect(Set(dst2.blockedAuthors().map(\.ref)) == ["a", "b"], "Replace takes the backup as-is")
+        #expect(try dst2.setting("theme") == "dark")
+    }
 }

@@ -12,17 +12,46 @@ struct BlockedAuthor: Codable, Hashable, Sendable, Identifiable {
     var id: String { ref }
 }
 
+/// Shared settings format (docs/privacy-and-backup.md "Shared settings keys", same as Android):
+/// `blocked_authors` = `[{"ref": "...", "name": "...", "blockedAt": "2026-10-24T03:04:05Z"}]` (ISO-8601 UTC, no fractions).
 enum BlockList {
     static let settingsKey = "blocked_authors"
 
+    /// One entry as written by either app; anything missing is tolerated except `ref`.
+    private struct LooseEntry: Decodable {
+        var ref: String?
+        var name: String?
+        var blockedAt: String?
+    }
+
+    /// Tolerant: entries without a `ref` are skipped (never the whole list); a bad or missing date becomes "now".
     static func decode(_ raw: String?) -> [BlockedAuthor] {
-        guard let raw, let data = raw.data(using: .utf8) else { return [] }
-        return (try? JSON.makeDecoder().decode([BlockedAuthor].self, from: data)) ?? []
+        guard let raw, let data = raw.data(using: .utf8),
+              let loose = try? JSONDecoder().decode([LooseEntry?].self, from: data) else { return [] }
+        var seen = Set<String>()
+        return loose.compactMap { e -> BlockedAuthor? in
+            guard let e, let ref = e.ref?.trimmingCharacters(in: .whitespaces), !ref.isEmpty, seen.insert(ref).inserted else { return nil }
+            return BlockedAuthor(ref: ref, name: e.name ?? "", blockedAt: e.blockedAt.flatMap(JSON.parseDate) ?? .now)
+        }
     }
 
     static func encode(_ list: [BlockedAuthor]) -> String? {
-        guard !list.isEmpty, let data = try? JSON.makeEncoder().encode(list) else { return nil }
+        guard !list.isEmpty else { return nil }
+        let rows = list.map { ["ref": $0.ref, "name": $0.name, "blockedAt": dateString($0.blockedAt)] }
+        guard let data = try? JSONSerialization.data(withJSONObject: rows, options: [.sortedKeys]) else { return nil }
         return String(decoding: data, as: UTF8.self)
+    }
+
+    /// ISO-8601 UTC without fractional seconds, e.g. 2026-10-24T03:04:05Z.
+    static func dateString(_ d: Date) -> String {
+        d.formatted(Date.ISO8601FormatStyle(includingFractionalSeconds: false, timeZone: TimeZone(identifier: "UTC")!))
+    }
+
+    /// Merge restore: union by `ref`; this phone's entry wins for a ref on both sides.
+    static func merged(local: String?, backup: String?) -> String? {
+        let mine = decode(local)
+        let mineRefs = Set(mine.map(\.ref))
+        return encode(mine + decode(backup).filter { !mineRefs.contains($0.ref) })
     }
 
     /// Reviews whose author is blocked are hidden everywhere (place card, all reviews).
@@ -54,6 +83,15 @@ enum CommunityRules {
     static let termsURL = URL(string: "https://manotu.app/terms/")!
 
     static func isAccepted(storedVersion: String?) -> Bool { storedVersion == version }
+
+    /// Merge restore: keep whichever side accepted the later terms version, with its date (versions are dates, so
+    /// they compare as text). Nothing on either side → nil.
+    static func merged(local: (version: String?, acceptedAt: String?), backup: (version: String?, acceptedAt: String?))
+        -> (version: String?, acceptedAt: String?) {
+        guard let b = backup.version, !b.isEmpty else { return local }
+        guard let l = local.version, !l.isEmpty else { return backup }
+        return b > l ? backup : local
+    }
 }
 
 struct CommunityRulesSheet: View {
