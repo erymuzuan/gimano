@@ -1,0 +1,19 @@
+{
+  "blobsB64u": [
+    "",
+    "uf3Yss_slu_E_n17m-Oity_UzUEqx9I",
+    "uf3Yss_slu_E_n17m-Oity_UzUEqx9Lm",
+    "uf3Yss_slu_E_n17m-Oity_UzUEqx9Lmpfv5RJHNLF1y6S6iGFqT"
+  ],
+  "description": "kenduri-one-day dropBlobB64u cut to 0, 23, 24 and 39 bytes (shorter than the 24-byte nonce plus the 16-byte tag): each must fail with malformed_drop before any decryption.",
+  "expectedError": "malformed_drop",
+  "kind": "negative",
+  "lengths": [
+    0,
+    23,
+    24,
+    39
+  ],
+  "name": "negative-drop-blob-truncated",
+  "secretB64u": "pYWCGJTPdGKzy5IgdWuP8w"
+}

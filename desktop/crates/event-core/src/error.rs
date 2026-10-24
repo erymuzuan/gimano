@@ -76,6 +76,15 @@ pub enum Error {
     /// A stops-only variant can only be made from a full event.
     #[error("not a full event")]
     NotFullEvent,
+    /// A short link (§5.6) whose dropId is not 10 base58 characters or whose secret is not
+    /// 16 bytes of b64u.
+    #[error("short link is malformed")]
+    MalformedDropLink,
+    /// A drop blob shorter than nonce + tag (§5.6).
+    #[error("drop blob is malformed")]
+    MalformedDrop,
+    #[error("drop blob is larger than {max} bytes")]
+    DropTooLarge { max: usize },
 }
 
 impl Error {
@@ -104,6 +113,9 @@ impl Error {
             Error::VariantHasPolyline { .. } => "variant_has_polyline",
             Error::MissingPolyline { .. } => "missing_polyline",
             Error::NotFullEvent => "not_full_event",
+            Error::MalformedDropLink => "malformed_drop_link",
+            Error::MalformedDrop => "malformed_drop",
+            Error::DropTooLarge { .. } => "drop_too_large",
         }
     }
 }

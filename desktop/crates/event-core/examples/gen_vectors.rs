@@ -6,6 +6,10 @@ mod fixtures;
 use std::path::PathBuf;
 
 use event_core::{
+    DEFAULT_SITE, DROP_ID_ALPHABET, DropSecret, drop_link, open_drop, parse_drop_link,
+    seal_drop_parts,
+};
+use event_core::{
     Envelope, Event, FILE_KDF_MEMLIMIT_KIB, FILE_KDF_OPSLIMIT, ImportCandidate, ImportDecision,
     LEGACY_SITE, OpenedPack, PackKey, ParentCheck, SealedPack, StoredEvent, StoredRevision, b64u,
     bytes_hash, decide_import, deflate_raw, derive_file_key, encode_file, encode_open_file,
@@ -151,6 +155,156 @@ fn with_file_v2(name: &str, v: Value) -> Value {
     Value::Object(out)
 }
 
+/// Fixed short-link inputs (§5.6): a 10-character base58 dropId (normally chosen by the server),
+/// the 16-byte secret and the blob's nonce.
+fn drop_material(name: &str) -> (String, DropSecret, [u8; 24]) {
+    let alphabet = DROP_ID_ALPHABET.as_bytes();
+    let id: String = fixtures::fixed32(&format!("manotu-vector:{name}:drop-id"))[..10]
+        .iter()
+        .map(|b| alphabet[usize::from(*b) % alphabet.len()] as char)
+        .collect();
+    let secret = DropSecret::from_bytes(
+        fixtures::fixed32(&format!("manotu-vector:{name}:drop-secret"))[..16]
+            .try_into()
+            .unwrap(),
+    );
+    let nonce = fixtures::fixed32(&format!("manotu-vector:{name}:drop-nonce"))[..24]
+        .try_into()
+        .unwrap();
+    (id, secret, nonce)
+}
+
+/// Adds the short-link fields (§5.6) after `fileV3B64u`; every other field is unchanged.
+fn with_drop(name: &str, v: Value) -> Value {
+    let m = material(name);
+    let (id, secret, nonce) = drop_material(name);
+    let bytes = event_core::b64u_decode(v["eventB64u"].as_str().unwrap()).unwrap();
+    let (parts, blob) = seal_drop_parts(&bytes, &m.organizer(), &secret, nonce).unwrap();
+    // The blob carries the same deflated envelope as the link, under the derived key.
+    assert_eq!(b64u(&parts.deflated), v["deflatedB64u"].as_str().unwrap());
+    assert_eq!(open_drop(&blob, &secret).unwrap().event_bytes, bytes);
+    let link = drop_link(&id, secret.clone()).unwrap();
+    assert_eq!(parse_drop_link(&link.to_link(DEFAULT_SITE)).unwrap(), link);
+    assert_eq!(parse_drop_link(&link.to_app_link()).unwrap(), link);
+    let mut out = serde_json::Map::new();
+    for (k, val) in v.as_object().unwrap() {
+        out.insert(k.clone(), val.clone());
+        if k == "fileV3B64u" {
+            out.insert("dropId".into(), json!(id));
+            out.insert("secretB64u".into(), json!(secret.to_b64u()));
+            out.insert("dropKeyB64u".into(), json!(b64u(secret.key().as_bytes())));
+            out.insert("dropNonceB64u".into(), json!(b64u(&nonce)));
+            out.insert("dropBlobB64u".into(), json!(b64u(&blob)));
+            out.insert("dropFragment".into(), json!(link.fragment()));
+            out.insert("dropLink".into(), json!(link.to_link(DEFAULT_SITE)));
+            out.insert("dropAppLink".into(), json!(link.to_app_link()));
+        }
+    }
+    Value::Object(out)
+}
+
+/// §5.6 short links: malformed links, truncated blobs and a wrong secret, all on the kenduri drop.
+fn drop_vectors(write: &dyn Fn(&str, &Value), kenduri_v: &Value) {
+    let id = kenduri_v["dropId"].as_str().unwrap();
+    let secret = kenduri_v["secretB64u"].as_str().unwrap();
+    let blob = event_core::b64u_decode(kenduri_v["dropBlobB64u"].as_str().unwrap()).unwrap();
+    let id9 = &id[..9];
+    let mut cases: Vec<(String, &str)> = vec![
+        (format!("{id9}0.{secret}"), "dropId has 0 (not base58)"),
+        (format!("{id9}O.{secret}"), "dropId has O (not base58)"),
+        (format!("{id9}I.{secret}"), "dropId has I (not base58)"),
+        (format!("{id9}l.{secret}"), "dropId has l (not base58)"),
+        (format!("{id9}-.{secret}"), "dropId has -"),
+        (format!("{id9}.{secret}"), "dropId has 9 characters"),
+        (format!("{id}2.{secret}"), "dropId has 11 characters"),
+        (format!("{id}.{}", b64u(&[7u8; 15])), "secret is 15 bytes"),
+        (format!("{id}.{}", b64u(&[7u8; 17])), "secret is 17 bytes"),
+        (format!("{id}.{secret}=="), "secret has padding"),
+        (
+            format!("{id}.{}+", &secret[..21]),
+            "secret has a character outside base64url",
+        ),
+        (format!("{id}."), "secret missing"),
+        (id.to_string(), "no secret and no separator"),
+        (
+            format!("https://manotu.app/a/#{id}.{secret}"),
+            "short-link fragment under /a/",
+        ),
+        (format!("manotu://event#{secret}"), "app link without drop="),
+    ];
+    // Non-canonical trailing bits: 16 bytes leave 4 unused bits in the 22nd character.
+    let last = secret.as_bytes()[21];
+    let alphabet = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
+    let pos = alphabet.iter().position(|c| *c == last).unwrap();
+    let noncanon = alphabet[pos ^ 1] as char;
+    let noncanon_link = format!("{id}.{}{noncanon}", &secret[..21]);
+    cases.push((noncanon_link, "secret has non-zero trailing bits"));
+    for (l, why) in &cases {
+        assert_eq!(
+            parse_drop_link(l).unwrap_err().code(),
+            "malformed_drop_link",
+            "{why}: {l}"
+        );
+    }
+    write(
+        "negative-drop-link.json",
+        &negative(
+            "negative-drop-link",
+            "Short links (§5.6) with a dropId that is not exactly 10 base58 characters, or a secret that is not exactly 16 bytes of strict base64url: each must fail with malformed_drop_link before any request is made.",
+            "malformed_drop_link",
+            json!({
+                "links": cases.iter().map(|(l, _)| l).collect::<Vec<_>>(),
+                "reasons": cases.iter().map(|(_, r)| r).collect::<Vec<_>>(),
+            }),
+        ),
+    );
+
+    let lengths = [0usize, 23, 24, 39];
+    let secret_v = DropSecret::from_b64u(secret).unwrap();
+    for n in lengths {
+        assert_eq!(
+            open_drop(&blob[..n], &secret_v).unwrap_err().code(),
+            "malformed_drop"
+        );
+    }
+    write(
+        "negative-drop-blob-truncated.json",
+        &negative(
+            "negative-drop-blob-truncated",
+            "kenduri-one-day dropBlobB64u cut to 0, 23, 24 and 39 bytes (shorter than the 24-byte nonce plus the 16-byte tag): each must fail with malformed_drop before any decryption.",
+            "malformed_drop",
+            json!({
+                "secretB64u": secret,
+                "blobsB64u": lengths.iter().map(|n| b64u(&blob[..*n])).collect::<Vec<_>>(),
+                "lengths": lengths,
+            }),
+        ),
+    );
+
+    let wrong = DropSecret::from_bytes(
+        fixtures::fixed32("manotu-vector:negative-drop-wrong-secret:drop-secret")[..16]
+            .try_into()
+            .unwrap(),
+    );
+    assert_eq!(open_drop(&blob, &wrong).unwrap_err().code(), "decrypt");
+    let wrong_link = drop_link(id, wrong.clone()).unwrap();
+    write(
+        "negative-drop-wrong-secret.json",
+        &negative(
+            "negative-drop-wrong-secret",
+            "kenduri-one-day dropBlobB64u with a well-formed but different secret: derive the key with HKDF, then decryption must fail.",
+            "decrypt",
+            json!({
+                "dropId": id,
+                "secretB64u": wrong.to_b64u(),
+                "dropKeyB64u": b64u(wrong.key().as_bytes()),
+                "dropLink": wrong_link.to_link(DEFAULT_SITE),
+                "dropBlobB64u": b64u(&blob),
+            }),
+        ),
+    );
+}
+
 fn negative(name: &str, description: &str, expected: &str, fields: Value) -> Value {
     let mut v = json!({
         "name": name,
@@ -182,13 +336,16 @@ fn main() {
     };
 
     let kenduri = fixtures::kenduri();
-    let kenduri_v = with_file_v2(
+    let kenduri_v = with_drop(
         "kenduri-one-day",
-        positive(
+        with_file_v2(
             "kenduri-one-day",
-            "One-day kenduri: 3 stops (parking with vehicle entrance and arrival window, drop-off, venue), 2 sessions, 2 info blocks (dress, bring), no route.",
-            &kenduri,
-            NOW,
+            positive(
+                "kenduri-one-day",
+                "One-day kenduri: 3 stops (parking with vehicle entrance and arrival window, drop-off, venue), 2 sessions, 2 info blocks (dress, bring), no route.",
+                &kenduri,
+                NOW,
+            ),
         ),
     );
     write("kenduri-one-day.json", &kenduri_v);
@@ -303,6 +460,7 @@ fn main() {
     );
 
     file_code_vectors(&write, &kenduri_v);
+    drop_vectors(&write, &kenduri_v);
     info_vectors(&write, &kenduri, &kenduri_v);
     stops_only_vectors(&write);
 }

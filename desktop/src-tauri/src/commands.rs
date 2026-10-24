@@ -509,12 +509,54 @@ pub fn secret_code_reveal(state: State<'_, AppState>) -> CmdResult<String> {
 
 // -- import -------------------------------------------------------------------------------------
 
+const CANNOT_OPEN: &str = "Jemputan ini tidak dapat dibuka / disahkan";
+
+/// Accepts an `/a/` link (the plan is in the fragment) and a `/j/` short link (§5.6): the blob is
+/// fetched from `<api>/drops/<dropId>` (only the dropId is sent; the secret after `#` never
+/// leaves this process) and opened like a link.
 #[tauri::command]
-pub fn import_link_preview(state: State<'_, AppState>, link: String) -> CmdResult<ImportPreview> {
+pub async fn import_link_preview(
+    state: State<'_, AppState>,
+    link: String,
+) -> CmdResult<ImportPreview> {
     let link = Zeroizing::new(link);
-    let opened = event_core::open_link(&link)
-        .map_err(|e| CmdError::new(e.code(), "Jemputan ini tidak dapat dibuka / disahkan"))?;
+    let opened = match event_core::parse_drop_link(&link) {
+        Ok(drop) => {
+            let base = lock(&state)?.settings.api_base_url.clone();
+            let blob = fetch_drop(&base, &drop.drop_id).await?;
+            event_core::open_drop(&blob, &drop.secret)
+        }
+        Err(_) => event_core::open_link(&link),
+    }
+    .map_err(|e| CmdError::new(e.code(), CANNOT_OPEN))?;
     lock(&state)?.import_preview(opened, Utc::now())
+}
+
+/// `GET <api>/drops/{dropId}`, bounded to 256 KiB. 404 and 410 are `drop_gone`; anything that
+/// does not reach the server is `offline` (the UI offers a retry).
+async fn fetch_drop(api_base: &str, drop_id: &str) -> CmdResult<Vec<u8>> {
+    let gone = || CmdError::new("drop_gone", "Jemputan ini telah tamat atau dipadam");
+    let offline = |e: reqwest::Error| CmdError::new("offline", e.to_string());
+    let client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(20))
+        .build()
+        .map_err(|e| CmdError::new("internal", e.to_string()))?;
+    let url = format!("{}/drops/{drop_id}", api_base.trim_end_matches('/'));
+    let mut resp = client.get(url).send().await.map_err(offline)?;
+    match resp.status().as_u16() {
+        200 => {}
+        404 | 410 => return Err(gone()),
+        s => return Err(CmdError::new("server", format!("HTTP {s}"))),
+    }
+    let max = event_core::MAX_DROP_BYTES;
+    let mut blob = Vec::new();
+    while let Some(chunk) = resp.chunk().await.map_err(offline)? {
+        if blob.len() + chunk.len() > max {
+            return Err(CmdError::new("drop_too_large", CANNOT_OPEN));
+        }
+        blob.extend_from_slice(&chunk);
+    }
+    Ok(blob)
 }
 
 #[derive(Serialize)]

@@ -8,6 +8,14 @@ Every implementation (desktop Rust core, web viewer, Android, iOS) must produce 
 results for the test vectors in `desktop/crates/event-core/tests/vectors/`. Change this file deliberately and
 update the vectors in the same change.
 
+Short links (§5.6) are in the vectors too: `kenduri-one-day.json` carries `dropId`, `secretB64u`, `dropKeyB64u`
+(the HKDF output, to check the derivation alone), `dropNonceB64u`, `dropBlobB64u` (the bytes `GET /drops/{dropId}`
+returns) and the link forms `dropFragment`, `dropLink` (`/j/`) and `dropAppLink` (`manotu://event?drop=…`).
+Negatives: `negative-drop-link.json` (`malformed_drop_link`: dropId not 10 base58 characters, secret not 16 bytes
+of strict b64u), `negative-drop-blob-truncated.json` (`malformed_drop`: blob shorter than nonce + tag) and
+`negative-drop-wrong-secret.json` (`decrypt`). A blob over 256 KiB is `drop_too_large`. Field details:
+the vectors' `README.md`.
+
 ## 1. Privacy rule (AGENTS.md, unchanged)
 
 - An event, its stops, routes, guest-visible notes, organizer alias and keys **never reach a Manotu server in

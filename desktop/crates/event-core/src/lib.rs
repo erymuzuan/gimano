@@ -4,7 +4,7 @@
 //! event JSON bytes ─sign(Ed25519, per-event key)─► envelope JSON ─raw DEFLATE─►
 //! XChaCha20-Poly1305(AD "manotu-event-v1") ─► invitation link (§5.1, random key) or
 //! .manotu-event file (§5.2: suite 3 carries the link's key, suite 2 key = Argon2id(8-character
-//! code, salt))
+//! code, salt)) or a short link (§5.6: blob on the relay, key = HKDF(secret after `#`))
 //! ```
 //!
 //! Privacy: a pack carries only guest-visible data. Organizer-only working notes deliberately have
@@ -13,6 +13,7 @@
 //! fields are ignored on read and never re-emitted, because readers keep the signed bytes as-is.
 
 mod codes;
+mod drop;
 mod encoding;
 mod error;
 mod file;
@@ -28,6 +29,11 @@ pub use codes::{
     SAFETY_ALPHABET, SECRET_CODE_V2_BYTES, SECRET_CODE_V2_CHARS, decode_secret_code,
     encode_secret_code, encode_secret_code_v2, generate_secret_code_v2, parse_secret_code_v2,
     safety_code,
+};
+pub use drop::{
+    DROP_HKDF_INFO, DROP_ID_ALPHABET, DROP_ID_LEN, DROP_PATH, DROP_SECRET_LEN, DropLink,
+    DropSecret, MAX_DROP_BYTES, drop_link, encode_drop_blob, is_drop_link, is_valid_drop_id,
+    open_drop, parse_drop_blob, parse_drop_link, seal_drop, seal_drop_parts,
 };
 pub use encoding::{b64u, b64u_decode};
 pub use error::{Error, ValidationError};
