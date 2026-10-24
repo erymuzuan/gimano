@@ -62,6 +62,22 @@ CREATE TABLE outbox (id TEXT PRIMARY KEY, kind TEXT NOT NULL, payload_json TEXT 
   attempts INTEGER NOT NULL DEFAULT 0, next_attempt_at TEXT NOT NULL);   -- feedback, reports, uploads
 ```
 
+### Shared `settings` keys
+
+Rows both apps read and write, so a backup made on one platform restores on the other. Values are text; dates are
+ISO-8601 UTC. A **Merge** restore keeps this phone's value for a key that exists on both sides, except where noted.
+
+| Key | Value | Merge restore |
+|---|---|---|
+| `sound_mode` | full / alerts only / mute | this phone wins |
+| `voice_lang`, `vehicle`, `use_24h`, `show_traffic`, `show_alerts`, `show_drivers`, `theme` | Android's other choices (copied in just before a backup; iOS ignores them today) | this phone wins |
+| `planned_drive:<id>` | the drive's schedule (JSON) | this phone wins |
+| `blocked_authors` | **one JSON array** `[{"ref": "<authorRef>", "name": "<display name>", "blockedAt": "2026-10-24T03:00:00Z"}]`: contributors the user chose to hide (docs/api.md `authorRef`). On the device only, never sent. No row when nobody is blocked. Readers skip entries without a `ref` (never the whole list). | **union by `ref`** (this phone's entry wins for a ref on both sides) |
+| `community_rules_version` | the community rules version the user accepted (an ISO date, e.g. `2026-10-24`); asked again when the app's version differs | the **later** version wins, together with its date |
+| `community_rules_accepted_at` | when it was accepted (ISO-8601, fractional seconds allowed) | goes with `community_rules_version` |
+
+"Delete my Manotu account" with "also clear data on this phone" removes these rows with the rest of the local data.
+
 Search merges server results with local `saved_places` and `private_places` matches
 **on the device** (local hits first, marked with their icon). Private places are drawn on the map from the local DB only.
 

@@ -39,13 +39,14 @@ class StoreReadinessTest {
         assertSame(reviews, Blocking.reviews(reviews, emptySet()))
     }
 
-    @Test fun blockRowsAreOnePerAuthorSoARestoreMergesThem() {
-        val b = BlockedAuthor("h-badak", "Badak 5880", "2026-10-24T03:00:00Z")
-        val key = Blocking.key(b.ref)
-        assertEquals("blocked_author:h-badak", key)
-        assertEquals(b, Blocking.decode(key, Blocking.encode(b)))
-        assertNull(Blocking.decode("planned_drive:x", Blocking.encode(b)))   // other settings rows are ignored
-        assertNull(Blocking.decode(key, "not json"))
+    @Test fun theBlockListIsOneJsonArrayLikeIos() {
+        val b = BlockedAuthor("h-badak", "Badak 5880", Blocking.timestamp(java.time.Instant.parse("2026-10-24T03:00:00.123Z")))
+        assertEquals("2026-10-24T03:00:00Z", b.blockedAt)   // no fractional seconds, like iOS JSONEncoder .iso8601
+        assertEquals("blocked_authors", Blocking.SETTINGS_KEY)
+        val raw = Blocking.encode(listOf(b))!!
+        assertEquals(listOf(b), Blocking.decode(raw))
+        assertNull("no row for an empty list", Blocking.encode(emptyList()))
+        assertTrue(Blocking.decode("not json").isEmpty())
     }
 
     @Test fun theAuthorHandleIsParsedFromTheApi() {

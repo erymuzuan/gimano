@@ -15,6 +15,31 @@ object UgcTerms {
     const val URL = "https://manotu.app/terms/"
 
     fun needsAcceptance(acceptedVersion: String?): Boolean = acceptedVersion != VERSION
+
+    /** Shared `settings` keys (same as iOS, docs/privacy-and-backup.md), so acceptance travels in a backup. */
+    const val VERSION_KEY = "community_rules_version"
+    const val ACCEPTED_AT_KEY = "community_rules_accepted_at"
+
+    /** Merge restore: keep whichever side accepted the later version (versions are ISO dates); ties keep this phone's. */
+    fun newer(local: Pair<String?, String?>, backup: Pair<String?, String?>): Pair<String?, String?> =
+        if ((backup.first ?: "") > (local.first ?: "")) backup else local
+}
+
+/**
+ * The accepted version and date, in the local `settings` table (on this phone and in the user's own backup only),
+ * mirrored in memory so the gate can ask synchronously. Reload after a restore or a local wipe.
+ */
+class CommunityRulesStore(private val dao: my.gimano.app.data.local.SettingDao) {
+    @Volatile var acceptedVersion: String? = null
+        private set
+
+    suspend fun reload() { acceptedVersion = dao.get(UgcTerms.VERSION_KEY) }
+
+    suspend fun accept(version: String, at: String) {
+        dao.put(my.gimano.app.data.local.SettingEntity(UgcTerms.VERSION_KEY, version))
+        dao.put(my.gimano.app.data.local.SettingEntity(UgcTerms.ACCEPTED_AT_KEY, at))
+        acceptedVersion = version
+    }
 }
 
 /**

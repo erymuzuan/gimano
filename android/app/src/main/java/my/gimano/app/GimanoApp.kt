@@ -61,13 +61,16 @@ class AppContainer(val app: Application) {
             },
         ),
     )
-    /** Blocked authors: on this phone only (settings table rows), hides their reviews and photos everywhere. */
+    /** Blocked authors: on this phone only (settings `blocked_authors`, as on iOS), hides their reviews and photos everywhere. */
     val blocks = my.gimano.app.data.ugc.BlockList(db.settings()).also { b -> scope.launch(Dispatchers.IO) { b.reload() } }
+
+    /** Community rules acceptance (settings `community_rules_version` / `_accepted_at`, as on iOS; in backups). */
+    val rules = my.gimano.app.data.ugc.CommunityRulesStore(db.settings()).also { r -> scope.launch(Dispatchers.IO) { r.reload() } }
 
     /** Community rules before the first public contribution (accepted on this phone, with date and version). */
     val terms = my.gimano.app.data.ugc.TermsGate(
-        acceptedVersion = { settings.current.ugcTermsVersion },
-        persistAcceptance = { v -> scope.launch { settings.acceptUgcTerms(v, java.time.Instant.now().toString()) } },
+        acceptedVersion = { rules.acceptedVersion },
+        persistAcceptance = { v -> scope.launch(Dispatchers.IO) { rules.accept(v, java.time.Instant.now().toString()) } },
     )
 
     /** "Delete my Manotu account": DELETE /me first; only then forget the key/token; local data only if asked. */
@@ -83,8 +86,8 @@ class AppContainer(val app: Application) {
             kotlinx.coroutines.withContext(Dispatchers.IO) {
                 db.clearAllTables()
                 listOf("photos", "demo-photos").forEach { File(app.filesDir, it).deleteRecursively() }
+                blocks.reload(); rules.reload()   // the block list and rules acceptance went with the settings table
             }
-            blocks.reload()
         },
     )
 
@@ -111,7 +114,7 @@ class AppContainer(val app: Application) {
             app, db, crypto, exportSettings = { settings.current.toBackupMap() }, importSettings = { settings.applyBackupMap(it) },
             seedToPlain = { s -> if (seedWrapper.isWrapped(s)) java.util.Base64.getEncoder().encodeToString(seedWrapper.unwrap(s)) else s },
             afterRestore = {
-                kotlinx.coroutines.withContext(Dispatchers.IO) { identity.reload(); blocks.reload() }   // restored block list too
+                kotlinx.coroutines.withContext(Dispatchers.IO) { identity.reload(); blocks.reload(); rules.reload() }   // restored block list + rules too
                 remote.adoptRestoredIdentity()
             },
         )

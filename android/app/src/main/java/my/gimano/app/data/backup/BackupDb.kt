@@ -108,8 +108,26 @@ object BackupDb {
         )
         db.exec("INSERT OR IGNORE INTO main.private_place_photos SELECT b.* FROM bk.private_place_photos b WHERE b.place_id IN (SELECT id FROM main.private_places)")
         db.exec("INSERT OR IGNORE INTO main.planned_drives SELECT * FROM bk.planned_drives")
+        // Shared keys that merge rather than "device wins" (docs/privacy-and-backup.md), read before the generic copy:
+        // the block list is the union by ref; rules acceptance keeps the later version.
+        fun setting(schema: String, key: String) =
+            db.queryStrings("SELECT value FROM $schema.settings WHERE `key` = ?", key).firstOrNull()
+        val blocked = my.gimano.app.data.ugc.Blocking.union(
+            setting("main", my.gimano.app.data.ugc.Blocking.SETTINGS_KEY), setting("bk", my.gimano.app.data.ugc.Blocking.SETTINGS_KEY))
+        val rules = my.gimano.app.data.ugc.UgcTerms.newer(
+            setting("main", my.gimano.app.data.ugc.UgcTerms.VERSION_KEY) to setting("main", my.gimano.app.data.ugc.UgcTerms.ACCEPTED_AT_KEY),
+            setting("bk", my.gimano.app.data.ugc.UgcTerms.VERSION_KEY) to setting("bk", my.gimano.app.data.ugc.UgcTerms.ACCEPTED_AT_KEY))
         // Settings: the device's own choices win in a merge.
         db.exec("INSERT OR IGNORE INTO main.settings SELECT * FROM bk.settings")
+        fun put(key: String, value: String?) {
+            if (value == null) db.exec("DELETE FROM main.settings WHERE `key` = ?", key)
+            else db.exec("INSERT OR REPLACE INTO main.settings (`key`, value) VALUES (?, ?)", key, value)
+        }
+        put(my.gimano.app.data.ugc.Blocking.SETTINGS_KEY, blocked)
+        if (rules.first != null) {
+            put(my.gimano.app.data.ugc.UgcTerms.VERSION_KEY, rules.first)
+            put(my.gimano.app.data.ugc.UgcTerms.ACCEPTED_AT_KEY, rules.second)
+        }
     }
 
     private const val SEP = "\u001f"
