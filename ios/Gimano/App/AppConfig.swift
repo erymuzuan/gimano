@@ -53,13 +53,23 @@ final class AppConfig {
         simulationSpeedup = defaults.object(forKey: Keys.speedup) as? Double ?? 3
         applyLaunchArguments()
         #else
-        // Release: no developer overrides; production server, demo data only when it's unreachable / 5xx.
+        // Release: no developer overrides; production server, demo data only when it's unreachable / 5xx, or when the
+        // user turned on Demo mode (Settings, the public "try anywhere" mode).
         apiBaseURLOverride = ""
         styleURLOverride = ""
-        dataMode = .auto
+        dataMode = defaults.bool(forKey: Keys.publicDemo) ? .demo : .auto
         simulateDrive = false
         simulationSpeedup = 1
         #endif
+    }
+
+    /// Demo mode as the user sees it (Settings → Demo mode; the Demo badge turns it off): sample data on the phone,
+    /// simulated drives, nothing sent. The same switch for everyone; there is no reviewer-only behaviour.
+    var isDemoMode: Bool { dataMode == .demo }
+
+    func setDemoMode(_ on: Bool) {
+        defaults.set(on, forKey: Keys.publicDemo)
+        dataMode = on ? .demo : .auto
     }
 
     /// Launch-argument server (tests); not persisted.
@@ -126,6 +136,7 @@ final class AppConfig {
         static let api = "debug.apiBaseURL"
         static let style = "debug.styleURL"
         static let mode = "debug.dataMode"
+        static let publicDemo = "settings.demoMode"
         static let simulate = "debug.simulateDrive"
         static let speedup = "debug.simulationSpeedup"
     }

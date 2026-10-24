@@ -29,10 +29,24 @@ final class BackupManager {
 
     @ObservationIgnored private let log = Logger(subsystem: "my.gimano.app", category: "backup")
 
+    /// Demo mode is on: "Demo storage (on this phone)" is offered (set by the app model).
+    var demoMode = false { didSet { normalizeDestination() } }
+
+    /// Destinations this build and mode offer, in screen order.
+    var offeredDestinations: [BackupDestinationKind] {
+        BackupDestinationKind.offered(iCloudEnabled: ICloudBackupDestination.isEnabled, demoMode: demoMode)
+    }
+
     init(store: LocalStore) {
         self.store = store
-        destination = (try? store.setting("backup.destination")).flatMap(BackupDestinationKind.init(rawValue:)) ?? .icloud
+        let saved = (try? store.setting("backup.destination")).flatMap(BackupDestinationKind.init(rawValue:))
+        destination = BackupDestinationKind.normalized(saved ?? .file, iCloudEnabled: ICloudBackupDestination.isEnabled, demoMode: false)
         autoBackup = (try? store.setting("backup.auto")) == "1"
+    }
+
+    private func normalizeDestination() {
+        let n = BackupDestinationKind.normalized(destination, iCloudEnabled: ICloudBackupDestination.isEnabled, demoMode: demoMode)
+        if n != destination { destination = n; remoteBackups = [] }
     }
 
     var lastBackupAt: Date? { LocalStore.date(try? store.setting("backup.lastAt")) }
@@ -40,9 +54,10 @@ final class BackupManager {
 
     func destinationImpl(_ kind: BackupDestinationKind) -> (any BackupDestination)? {
         switch kind {
-        case .icloud: ICloudBackupDestination()
+        case .icloud: ICloudBackupDestination.isEnabled ? ICloudBackupDestination() : nil
         case .googleDrive: GoogleDriveBackupDestination()
         case .file: nil
+        case .demo: demoMode ? DemoBackupDestination() : nil
         }
     }
 
@@ -68,7 +83,7 @@ final class BackupManager {
             try? store.setSetting("backup.lastAt", LocalStore.timestamp(now))
             try? store.setSetting("backup.lastSize", String(size))
             try? store.setSetting("backup.lastChange", try? store.lastChangeAt())
-            status = String(localized: "Backed up")
+            status = destination == .demo ? String(localized: "Saved to demo storage on this phone (not Google Drive)") : String(localized: "Backed up")
             try? FileManager.default.removeItem(at: file.deletingLastPathComponent())
         } catch {
             lastError = error.localizedDescription
@@ -147,7 +162,8 @@ final class BackupManager {
     /// which is never stored, so auto-backup is unencrypted (the UI says so).
     func runAutoBackup() async -> Bool {
         defer { if autoBackup { Self.schedule() } }
-        guard autoBackup, destination != .file else { return true }
+        // Automatic backups go to the user's own cloud only (never a file or the demo storage).
+        guard autoBackup, destination != .file, destination != .demo else { return true }
         let changed = (try? store.lastChangeAt()) ?? nil
         guard changed != nil, changed != (try? store.setting("backup.lastChange")) ?? nil else { return true }
         await backUpNow(passphrase: nil)

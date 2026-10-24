@@ -32,6 +32,12 @@ struct OutboxItem: Codable, Identifiable, Hashable, Sendable {
     var nextAttemptAt = Date.distantPast
     /// Last status reported by `GET /me/feedback`.
     var serverStatus: FeedbackStatus?
+    /// Feedback sent with a volunteered contact is stored without the user id: this token withdraws the contact.
+    var contactToken: String?
+    var contactWithdrawn: Bool? = nil
+
+    /// Sent with a contact: not in `GET /me/feedback`; replies come by the email/WhatsApp given.
+    var sentWithContact: Bool { request.contact != nil && serverId != nil }
 }
 
 /// Where the outbox persists: the shared `outbox` table (device-local, never backed up), or a file in tests.
@@ -111,6 +117,7 @@ final class FeedbackOutbox {
                 guard let j = items.firstIndex(where: { $0.id == id }) else { continue }
                 items[j].state = .sent
                 items[j].serverId = created.id
+                items[j].contactToken = created.contactToken
                 items[j].serverStatus = .received
                 items[j].lastError = nil
                 sent += 1
@@ -131,6 +138,13 @@ final class FeedbackOutbox {
     }
 
     /// Retry now (user tapped "Retry").
+    func markContactWithdrawn(_ id: UUID) {
+        guard let i = items.firstIndex(where: { $0.id == id }) else { return }
+        items[i].contactWithdrawn = true
+        items[i].contactToken = nil
+        save()
+    }
+
     func retry(_ id: UUID) {
         guard let i = items.firstIndex(where: { $0.id == id }) else { return }
         items[i].state = .queued

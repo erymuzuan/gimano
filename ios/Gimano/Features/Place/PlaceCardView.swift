@@ -22,6 +22,7 @@ struct PlaceCardView: View {
     @State private var verifyResult: VerifyResult?
     @State private var viewer: PhotoViewerItem?
     @State private var confirmDelete = false
+    @State private var confirmBlockAuthor = false
     @State private var detent: PlaceDetent = .peek
     @State private var reviews: [Review] = []
     @State private var reviewsLoaded = false
@@ -92,7 +93,15 @@ struct PlaceCardView: View {
             AddPlacePhotosSheet(placeId: summary.id, placeName: summary.name)
         }
         .sheet(isPresented: $showAllReviews) { AllReviewsSheet(placeId: summary.id) }
-        .fullScreenCover(item: $viewer) { v in PhotoViewer(urls: v.urls, index: v.index) }
+        .fullScreenCover(item: $viewer) { v in PhotoViewer(urls: v.urls, index: v.index, photos: v.photos) }
+        .confirmationDialog("Block this user?", isPresented: $confirmBlockAuthor, titleVisibility: .visible) {
+            Button("Block", role: .destructive) {
+                if let by = place?.addedBy, let ref = by.authorRef { model.blockAuthor(ref: ref, name: by.displayName) }
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("Their reviews and photos will be hidden on this phone. You can unblock them in Settings.")
+        }
         .confirmationDialog("Delete this place from your phone?", isPresented: $confirmDelete, titleVisibility: .visible) {
             Button("Delete", role: .destructive) {
                 if let id = privatePlace?.id {
@@ -350,6 +359,15 @@ struct PlaceCardView: View {
     }
 
     @ViewBuilder private var peekBadges: some View {
+        if let ref = place?.addedBy?.authorRef, model.blockedRefs.contains(ref) {
+            HStack {
+                Label("You blocked the person who added this place", systemImage: "person.crop.circle.badge.xmark")
+                    .font(Tokens.Font.caption).foregroundStyle(Color.textMuted)
+                Spacer()
+                Button("Unblock") { model.unblockAuthor(ref) }.font(Tokens.Font.label)
+            }
+            .accessibilityIdentifier("placeAuthorBlocked")
+        }
         if !isPrivate && !isPin && !summary.isSearchOnly {
             PlaceIssueBadges(placeId: summary.id, location: summary.location)
         }
@@ -363,6 +381,27 @@ struct PlaceCardView: View {
             if canSuggest {
                 Menu { suggestOptions } label: { Label("Suggest an edit", systemImage: "pencil") }
                     .accessibilityIdentifier("suggestEditMenu")
+            }
+            if isCommunity, !isPrivate {
+                Menu {
+                    ForEach(FlagReason.allCases) { r in
+                        Button(r.title) {
+                            Task {
+                                do {
+                                    try await model.repo.flagPlace(id: summary.id, reason: r)
+                                    model.showToast(String(localized: "Thanks, we'll take a look"))
+                                } catch { model.showToast(error.localizedDescription) }
+                            }
+                        }
+                    }
+                } label: { Label("Report place", systemImage: "flag") }
+                    .accessibilityIdentifier("reportPlace")
+                if place?.addedBy?.authorRef != nil {
+                    Button(role: .destructive) { confirmBlockAuthor = true } label: {
+                        Label("Block this user", systemImage: "person.crop.circle.badge.xmark")
+                    }
+                    .accessibilityIdentifier("blockPlaceAuthor")
+                }
             }
             if isPrivate {
                 Button(role: .destructive) { confirmDelete = true } label: { Label("Delete", systemImage: "trash") }
@@ -517,11 +556,12 @@ struct PlaceCardView: View {
                     Text("No reviews yet. Be the first!").font(Tokens.Font.caption).foregroundStyle(Color.textMuted)
                 }
             }
-            if let latest = reviews.first {
+            let shown = BlockList.visible(reviews, blocked: model.blockedRefs)
+            if let latest = shown.first {
                 ReviewRow(review: latest) { await reloadReviews() }
             }
-            if reviews.count > 1 {
-                Button("All reviews (\(reviews.count))") { showAllReviews = true }
+            if shown.count > 1 {
+                Button("All reviews (\(shown.count))") { showAllReviews = true }
                     .font(Tokens.Font.bodyBold)
                     .accessibilityIdentifier("allReviews")
             }
@@ -543,17 +583,19 @@ struct PlaceCardView: View {
 
     /// Photos: the strip, then "Add photo" (camera or library; metadata stripped on the phone) at the end.
     @ViewBuilder private var photosSection: some View {
+        // Public photos with a URL, minus those from blocked contributors (same order for thumbs, viewer and menu).
+        let publicPhotos = BlockList.visible((place?.photos ?? []).filter { $0.url != nil }, blocked: model.blockedRefs)
         let urls: [URL] = privatePlace.map { p in p.photoFiles.map { model.store.photoURL($0) } }
-            ?? (place?.photos ?? []).compactMap { MediaURL.resolve($0.url) }
+            ?? publicPhotos.compactMap { MediaURL.resolve($0.url) }
         let thumbs: [URL] = privatePlace.map { _ in urls }
-            ?? (place?.photos ?? []).filter { $0.url != nil }.compactMap { MediaURL.resolve($0.thumbUrl ?? $0.url) }
+            ?? publicPhotos.compactMap { MediaURL.resolve($0.thumbUrl ?? $0.url) }
         if !thumbs.isEmpty || canReview {
             VStack(alignment: .leading, spacing: 10) {
                 sectionLabel("Photos")
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 8) {
                         ForEach(Array(thumbs.enumerated()), id: \.offset) { i, u in
-                            Button { viewer = PhotoViewerItem(urls: urls, index: i) } label: {
+                            Button { viewer = PhotoViewerItem(urls: urls, index: i, photos: privatePlace == nil ? publicPhotos : nil) } label: {
                                 RemoteImage(url: u)
                                     .frame(width: 96, height: 96)
                                     .background(Color.surfaceAlt)
@@ -658,6 +700,8 @@ struct PlaceCardView: View {
                 let target = place ?? Place(summary: summary)
                 verifyResult = try await model.vote(on: target, answer: answer, nameCorrect: answer == .yes ? true : nil, locationCorrect: location)
                 verifyDone = true
+            } catch is CancellationError {
+                // The community rules were declined: nothing sent.
             } catch {
                 model.showToast(error.localizedDescription)
             }
@@ -846,6 +890,7 @@ struct SuggestEditSheet: View {
     }
 
     private func send() async {
+        guard await model.ensureRulesAccepted() else { return }
         sending = true
         defer { sending = false }
         func changed(_ new: String, _ old: String?) -> String? {

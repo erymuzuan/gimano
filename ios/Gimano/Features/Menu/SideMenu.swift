@@ -133,6 +133,7 @@ struct SideMenu: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        .accessibilityIdentifier("menu.\(dest.rawValue)")
     }
 }
 
@@ -228,6 +229,12 @@ struct SettingsView: View {
                 }
             }
             Section {
+                Toggle("Demo mode", isOn: Binding(get: { model.config.isDemoMode }, set: { model.setDemoMode($0) }))
+                    .accessibilityIdentifier("demoModeToggle")
+            } footer: {
+                Text("Try Manotu anywhere, no account: built-in sample data and a simulated drive. Nothing is sent to the server.")
+            }
+            Section {
                 Toggle("Start navigation automatically", isOn: $model.autoStartNav)
                     .accessibilityIdentifier("autoStartNav")
             } footer: {
@@ -250,6 +257,8 @@ struct SettingsView: View {
             Section {
                 NavigationLink { AccountView() } label: { Label("Account", systemImage: "person.crop.circle") }
                     .accessibilityIdentifier("settingsAccount")
+                NavigationLink { BlockedUsersView() } label: { Label("Blocked users", systemImage: "person.crop.circle.badge.xmark") }
+                    .accessibilityIdentifier("settingsBlocked")
                 NavigationLink { AboutView() } label: { Label("About Gimano", systemImage: "info.circle") }
                     .accessibilityIdentifier("settingsAbout")
                 LabeledContent("Version", value: AppInfo.versionString)
@@ -528,7 +537,9 @@ enum AppInfo {
     /// Platform dependencies to disclose (docs/supply-chain.md).
     static var platformComponents: [(String, LocalizedStringKey)] { [
         ("Core Location", "Your position, on the phone. Sent only as anonymous pings while navigating."),
+    ] + (ICloudBackupDestination.isEnabled ? [
         ("CloudKit (iCloud)", "Only if you choose iCloud backup: your backup goes to your own iCloud."),
+    ] : []) + [
         ("MetricKit", "Crash and hang diagnostics delivered to the app; sent only if you agree."),
         ("App Attest (DeviceCheck)", "Proves a vote comes from a genuine iPhone. No device ID is stored."),
         ("AVFoundation speech", "Spoken directions, generated on the phone."),
@@ -580,7 +591,11 @@ struct AboutView: View {
             Section {
                 Link(destination: AppInfo.privacyURL) { Label("Privacy", systemImage: "lock.shield") }
                 Link(destination: AppInfo.termsURL) { Label("Terms", systemImage: "doc.text") }
-                Link(destination: AppInfo.sourceURL) { Label("Gimano code is open source (MIT)", systemImage: "chevron.left.forwardslash.chevron.right") }
+                Link(destination: URL(string: "mailto:privacy@bukitbunga.com")!) {
+                    Label { Text(verbatim: "privacy@bukitbunga.com") } icon: { Image(systemName: "envelope") }
+                }
+                .accessibilityIdentifier("aboutContact")
+                Link(destination: AppInfo.sourceURL) { Label("Manotu code is open source (MIT)", systemImage: "chevron.left.forwardslash.chevron.right") }
                 NavigationLink { LicencesView() } label: { Label("Licences", systemImage: "text.book.closed") }
             }
             Section {
@@ -593,7 +608,9 @@ struct AboutView: View {
             } header: {
                 Text("Platform components")
             } footer: {
-                Text("Apple frameworks that are part of iOS, and Google Sign-In only if you choose Google Drive backup. None of them receives your favourites, places or trips, except your own iCloud backup.")
+                Text(ICloudBackupDestination.isEnabled
+                     ? "Apple frameworks that are part of iOS, and Google Sign-In only if you choose Google Drive backup. None of them receives your favourites, places or trips, except your own iCloud backup."
+                     : "Apple frameworks that are part of iOS, and Google Sign-In only if you choose Google Drive backup. None of them receives your favourites, places or trips.")
             }
             .accessibilityIdentifier("platformComponents")
             Section {

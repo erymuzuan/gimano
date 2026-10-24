@@ -18,6 +18,8 @@ enum APIError: Error, LocalizedError, Sendable {
     var errorDescription: String? {
         switch self {
         case .transport(let e): e.localizedDescription
+        // 403 on a contribution: a moderator suspended this account (docs/api.md "Reporting and moderation").
+        case .http(403, _): String(localized: "Your account can't post right now: it was suspended for breaking the community rules.")
         case .http(let status, let p): p?.detail ?? p?.title ?? String(localized: "Something went wrong on the server (\(status)).")
         case .conflict: String(localized: "This place may already exist.")
         case .decoding: String(localized: "The server sent something unexpected. Try again later.")
@@ -146,9 +148,10 @@ actor APIClient {
         return try decode(data)
     }
 
-    func sendNoContent(_ method: String, _ path: String, body: (some Encodable & Sendable)?, authorization: String? = nil) async throws {
+    func sendNoContent(_ method: String, _ path: String, body: (some Encodable & Sendable)?, authorization: String? = nil,
+                       headers: [String: String] = [:]) async throws {
         let payload = try body.map { try encoder.encode($0) }
-        _ = try await perform(method: method, path: path, query: [], body: payload, authorization: authorization)
+        _ = try await perform(method: method, path: path, query: [], body: payload, authorization: authorization, headers: headers)
     }
 
     func ping(_ path: String) async -> Bool {
@@ -199,9 +202,11 @@ actor APIClient {
     }
 
     /// `authorization` overrides the bearer token (e.g. `Share <writeToken>`).
-    private func perform(method: String, path: String, query: [URLQueryItem], body: Data?, authorization: String? = nil) async throws -> Data {
+    private func perform(method: String, path: String, query: [URLQueryItem], body: Data?, authorization: String? = nil,
+                         headers: [String: String] = [:]) async throws -> Data {
         var req = URLRequest(url: url(path, query: query))
         req.httpMethod = method
+        for (k, v) in headers { req.setValue(v, forHTTPHeaderField: k) }
         req.setValue("application/json", forHTTPHeaderField: "Accept")
         if let body {
             req.httpBody = body
