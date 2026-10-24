@@ -1,0 +1,43 @@
+/* Event invitation viewer. Brand tokens and the Nunito face come from ../style.css. */
+.top{display:flex;align-items:center;gap:12px;max-width:820px;margin:0 auto;padding:16px 16px 0}
+.top img{border-radius:12px}
+.brand{font-weight:900;font-size:22px}
+.lang{margin-left:auto}
+main{padding-bottom:max(32px,env(safe-area-inset-bottom))}
+h1{font-size:30px;margin:4px 0 8px;overflow-wrap:anywhere}
+h1:focus{outline:none}
+h2{margin:0 0 12px}
+h3{font-size:19px;margin:0;line-height:1.3;overflow-wrap:anywhere}
+.eyebrow{margin:0;font-size:13px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:var(--brand)}
+.when{font-weight:800;font-size:19px;margin:0 0 4px}
+.desc{white-space:pre-line;overflow-wrap:anywhere}
+.muted{color:var(--muted)}
+.small{font-size:14px}
+.center{text-align:center}
+.org{border-top:1px solid var(--mist);margin-top:12px;padding-top:8px}
+.org p{margin:4px 0}
+.safety{font:800 16px ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;letter-spacing:.06em;background:var(--mist);border-radius:8px;padding:2px 8px;white-space:nowrap}
+.actions,.nav{display:flex;flex-wrap:wrap;gap:8px;margin:14px 0 8px}
+.btn{display:inline-flex;align-items:center;justify-content:center;min-height:44px;min-width:44px;padding:8px 16px;border-radius:999px;border:2px solid var(--brand);background:transparent;color:var(--brand);font:inherit;font-weight:800;text-decoration:none;cursor:pointer}
+.btn.primary{background:var(--brand);color:#fff}
+button.pill{border:0;cursor:pointer;color:var(--ink);font:inherit;font-weight:800;min-height:44px;min-width:44px;padding:8px 14px}
+.btn:focus-visible,button:focus-visible,a:focus-visible,.stop:focus-visible{outline:3px solid var(--brand);outline-offset:3px}
+.btn.primary:focus-visible{outline-color:var(--ink)}
+#map{height:min(55vh,440px);border-radius:14px;overflow:hidden}
+.map-card .attribution{margin:8px 0 0}
+.stops,.plain{list-style:none;margin:0;padding:0}
+.stop{padding:14px 0;border-top:1px solid var(--mist);border-radius:4px}
+.stop:first-child{border-top:0;padding-top:0}
+.stop p{margin:4px 0}
+.stop-head{display:flex;align-items:center;gap:10px}
+.num{flex:none;display:grid;place-items:center;width:32px;height:32px;border-radius:50%;background:var(--brand);color:#fff;font-weight:900}
+.kind{font-weight:800}
+.notes{background:var(--mist);border-radius:10px;padding:8px 12px;white-space:pre-line;overflow-wrap:anywhere}
+.plain li{padding:8px 0;border-top:1px solid var(--mist)}
+.plain li:first-child{border-top:0}
+.pin{width:34px;height:34px;border-radius:50%;background:var(--brand);color:#fff;border:3px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,.35);font:900 15px Nunito,system-ui,sans-serif;cursor:pointer;padding:0}
+.status h1{font-size:26px}
+.state-error h1,.state-expired h1{color:var(--report)}
+.privacy{max-width:640px;margin:16px auto 0}
+.maplibregl-ctrl-attrib{font-size:12px}
+@media (max-width:480px){h1{font-size:26px}.card{padding:16px}}

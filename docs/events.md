@@ -130,6 +130,21 @@ https://<site>/a/#1.<b64u(key)>.<b64u(nonce ‖ ciphertext)>
 The key is shown to the host as a **secret code**: Crockford base32 of the 32 key bytes (52 chars), grouped by
 4 with `-`. The host sends the code through a different channel. MIME `application/vnd.manotu.event`.
 
+### 5.3 Opening in the app (web viewer hand-off)
+
+The web viewer's "Buka di Manotu" buttons use the app's custom scheme, carrying the **same fragment**:
+
+```
+manotu://event#1.<b64u(key)>.<b64u(nonce ‖ ciphertext)>
+manotu://event?stop=<stopId>#1.<b64u(key)>.<b64u(nonce ‖ ciphertext)>   // per-stop button
+```
+
+- Apps register `manotu://` (Android intent filter `scheme="manotu" host="event"`, iOS `CFBundleURLSchemes`
+  `manotu`) and read everything after `#` exactly like an `/a/` link (§5.1, §7). `stop` is optional and only
+  selects that stop after import; ignore it if unknown. `gimano://event…` should be accepted the same way.
+- The custom-scheme URL is only handed to the app on the device; it is never sent to a server.
+- App Links / Universal Links on `/a/` (§5.1) remain the primary path; the scheme is the in-page fallback.
+
 ## 6. Routing API additions (stateless; see docs/api.md)
 
 - `POST /routes` gains `"store": false`. Then nothing is cached (no reroute: `/routes/{id}/reroute` → 404),
