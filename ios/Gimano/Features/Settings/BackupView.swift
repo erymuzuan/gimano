@@ -20,7 +20,7 @@ struct PrivacyCard: View {
                     .background(Color.brandMist, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
                 Text("Your places stay on your phone").font(Tokens.Font.title)
             }
-            Text("Home, work, kampung, your in-laws' house: your places live on your phone, not on our servers. Gimano never stores your personal data. Backups go straight to your own Google Drive or iCloud, optionally locked with a passphrase only you know.")
+            Text("Home, work, kampung, your in-laws' house: your places live on your phone, not on our servers. Manotu never stores your personal data. Backups go straight to your own Google Drive or a file, optionally locked with a passphrase only you know.")
                 .font(Tokens.Font.body)
                 .foregroundStyle(Color.textMuted)
             if let onBackup {
@@ -66,7 +66,9 @@ struct BackupView: View {
         Form {
             if model.restoreOnFirstRun {
                 Section {
-                    Label("Restore your places from a backup: choose where it is (a file, Google Drive or iCloud), then pick it. Nothing on this phone changes until you choose Merge or Replace and confirm.",
+                    Label(ICloudBackupDestination.isEnabled
+                          ? "Restore your places from a backup: choose where it is (a file, Google Drive or iCloud), then pick it. Nothing on this phone changes until you choose Merge or Replace and confirm."
+                          : "Restore your places from a backup: choose where it is (a file or Google Drive), then pick it. Nothing on this phone changes until you choose Merge or Replace and confirm.",
                           systemImage: "arrow.uturn.backward.circle")
                         .font(Tokens.Font.caption)
                         .accessibilityIdentifier("firstRunRestoreNote")
@@ -83,13 +85,22 @@ struct BackupView: View {
             }
 
             Section("Back up to") {
-                HStack(spacing: 10) {
-                    destinationTile(.icloud, title: "iCloud", system: "icloud.fill")
-                    destinationTile(.googleDrive, title: "Drive", system: "externaldrive.fill.badge.icloud")
-                    destinationTile(.file, title: "File", system: "doc.zipper")
-                }
-                .listRowBackground(Color.clear)
+                ForEach(backup.offeredDestinations) { kind in destinationRow(kind) }
                 destinationStatus
+                if !ICloudBackupDestination.isEnabled {
+                    // Shown, but clearly unavailable: no iCloud entitlement in this build.
+                    Label {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("iCloud").font(Tokens.Font.bodyBold)
+                            Text("iCloud backup isn't available in this version").font(Tokens.Font.caption)
+                        }
+                    } icon: {
+                        Image(systemName: "icloud.slash")
+                    }
+                    .foregroundStyle(Color.textMuted)
+                    .accessibilityElement(children: .combine)
+                    .accessibilityIdentifier("backupDestination.icloudUnavailable")
+                }
             }
 
             Section {
@@ -126,7 +137,9 @@ struct BackupView: View {
                 } else {
                     Button {
                         Task { await backup.backUpNow(passphrase: usePassphrase ? passphrase : nil); await backup.refreshRemote() }
-                    } label: { Label("Back up now", systemImage: "arrow.up.circle.fill") }
+                    } label: {
+                        Label(backup.destination == .demo ? "Back up to demo storage" : "Back up now", systemImage: "arrow.up.circle.fill")
+                    }
                         .disabled(!passphraseOK || backup.isWorking || !destinationReady)
                         .accessibilityIdentifier("backUpNow")
                 }
@@ -172,10 +185,12 @@ struct BackupView: View {
                         .accessibilityIdentifier("remoteBackup")
                     }
                 }
+                if backup.destination != .demo {
                 Section {
                     Toggle("Back up automatically every day", isOn: $backup.autoBackup).accessibilityIdentifier("autoBackup")
                 } footer: {
                     Text("On Wi-Fi while charging, only when something changed. Automatic backups are not passphrase-locked, because Gimano never stores your passphrase.")
+                }
                 }
             }
 
@@ -203,10 +218,43 @@ struct BackupView: View {
 
     private var destinationReady: Bool {
         switch backup.destination {
-        case .icloud: icloudStatus == .available
+        case .icloud: ICloudBackupDestination.isEnabled && icloudStatus == .available
         case .googleDrive: googleEmail != nil
         case .file: true
+        case .demo: backup.demoMode
         }
+    }
+
+    /// One row per destination: what it is and what it needs (board "Sandaran"; review build: no account needed except
+    /// for the user's own Google Drive).
+    private func destinationRow(_ kind: BackupDestinationKind) -> some View {
+        let selected = backup.destination == kind
+        let (title, detail, system): (LocalizedStringKey, LocalizedStringKey, String) = switch kind {
+        case .googleDrive: ("Google Drive (your own Google account)", "Needs your Google account; Manotu never sees it. Optional.", "externaldrive.fill.badge.icloud")
+        case .file: ("Save to a file (no account)", "The full backup and restore, passphrase included. You choose where the file goes.", "doc.zipper")
+        case .demo: ("Demo storage (on this phone)", "Demo, not Google Drive. Shown only in demo mode, to try backup and restore without any account. Kept inside this app and removed with it.", "play.circle")
+        case .icloud: ("iCloud", "Your own iCloud account", "icloud.fill")
+        }
+        return Button { model.backup.destination = kind } label: {
+            HStack(spacing: 12) {
+                Image(systemName: system).font(.system(size: 22, weight: .semibold)).foregroundStyle(Color.brandInk)
+                    .frame(width: 40, height: 40)
+                    .background(Color.brandMist, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(title).font(Tokens.Font.bodyBold).foregroundStyle(Color.textPrimary)
+                    Text(detail).font(Tokens.Font.caption).foregroundStyle(Color.textMuted)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                Spacer(minLength: 4)
+                Image(systemName: selected ? "largecircle.fill.circle" : "circle")
+                    .font(.system(size: 22)).foregroundStyle(selected ? Color.brand : Color.outline)
+                    .accessibilityHidden(true)
+            }
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityAddTraits(selected ? .isSelected : [])
+        .accessibilityIdentifier("backupDestination.\(kind.rawValue)")
     }
 
     @ViewBuilder private var destinationStatus: some View {
@@ -241,6 +289,10 @@ struct BackupView: View {
             }
         case .file:
             Text("Export a .gimano file and keep it anywhere: Files, WhatsApp, email.").font(Tokens.Font.caption)
+        case .demo:
+            Label("Demo, not Google Drive", systemImage: "info.circle")
+                .font(Tokens.Font.caption)
+                .accessibilityIdentifier("demoBackupNote")
         }
     }
 
@@ -251,6 +303,7 @@ struct BackupView: View {
         case .icloud: "iCloud"
         case .googleDrive: "Google Drive"
         case .file: "File"
+        case .demo: "Demo storage (on this phone)"
         }
         return HStack(spacing: 14) {
             Image(systemName: at == nil ? "icloud.slash.fill" : "checkmark.icloud.fill")
@@ -279,21 +332,6 @@ struct BackupView: View {
         .accessibilityIdentifier("backupStatusCard")
     }
 
-    private func destinationTile(_ kind: BackupDestinationKind, title: LocalizedStringKey, system: String) -> some View {
-        let selected = backup.destination == kind
-        return Button { model.backup.destination = kind } label: {
-            VStack(spacing: 6) {
-                Image(systemName: system).font(.system(size: 30, weight: .semibold))
-                Text(title).font(Tokens.Font.label)
-            }
-            .foregroundStyle(Color.brandInk)
-            .frame(maxWidth: .infinity, minHeight: 96)
-            .selectableTile(selected, radius: Tokens.Radius.shortcutTile)
-        }
-        .buttonStyle(.plain)
-        .accessibilityIdentifier("backupDestination.\(kind.rawValue)")
-    }
-
     private func refreshStatus() async {
         switch backup.destination {
         case .icloud:
@@ -304,6 +342,8 @@ struct BackupView: View {
             if googleEmail != nil { await backup.refreshRemote() }
         case .file:
             break
+        case .demo:
+            await backup.refreshRemote()
         }
     }
 

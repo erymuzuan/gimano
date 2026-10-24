@@ -96,7 +96,7 @@ struct DiagnosticsTests {
         let created = try await repo.sendFeedback(FeedbackRequest(category: .bug, message: "Peta tak keluar", rating: nil, screen: .home,
                                                                    contact: ContactDetails(email: "a@b.co", consent: true)))
         #expect(try await repo.myFeedback().first?.hasContact == true)
-        try await repo.deleteFeedbackContact(id: created.id)
+        try await repo.deleteFeedbackContact(id: created.id, contactToken: created.contactToken)
         #expect(try await repo.myFeedback().first?.hasContact == false)
         _ = try await repo.sendCrashReport(CrashReport(occurredAt: .now, kind: "crash"))
         #expect(await repo.crashReports.count == 1)

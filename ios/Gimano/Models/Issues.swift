@@ -65,6 +65,8 @@ struct Issue: Codable, Sendable, Hashable, Identifiable {
     var payload: IssuePayload?
     /// Snapped road segment (the server sends the street name here, not in `roadName`).
     var segment: IssueSegment?
+    /// Who reported it (`authorRef` for blocking; absent once unlinked or deleted).
+    var reportedBy: PersonRef?
     var location: LatLng { LatLng(lat: lat, lng: lng) }
 
     /// Street for prompts: `roadName`, else the snapped segment's name.

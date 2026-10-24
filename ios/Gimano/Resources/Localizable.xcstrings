@@ -273,6 +273,16 @@
         }
       }
     },
+    "A contributor": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Seorang penyumbang"
+          }
+        }
+      }
+    },
     "A driver": {
       "localizations": {
         "ms": {
@@ -565,6 +575,16 @@
         }
       }
     },
+    "Also clear this phone's places, planned drives and settings": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Juga kosongkan tempat, perjalanan dirancang dan tetapan dalam telefon ini"
+          }
+        }
+      }
+    },
     "Alternative routes": {
       "localizations": {
         "ms": {
@@ -641,6 +661,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Rangka kerja Apple yang sebahagian daripada iOS, dan Google Sign-In hanya jika anda memilih sandaran Google Drive. Tiada satu pun menerima kegemaran, tempat atau perjalanan anda, kecuali sandaran iCloud anda sendiri."
+          }
+        }
+      }
+    },
+    "Apple frameworks that are part of iOS, and Google Sign-In only if you choose Google Drive backup. None of them receives your favourites, places or trips.": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rangka kerja Apple yang sebahagian daripada iOS, dan Google Sign-In hanya jika anda memilih sandaran Google Drive. Tiada satu pun menerima kegemaran, tempat atau perjalanan anda."
           }
         }
       }
@@ -875,6 +905,16 @@
         }
       }
     },
+    "Back up to demo storage": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sandar ke storan demo"
+          }
+        }
+      }
+    },
     "Backed up": {
       "localizations": {
         "ms": {
@@ -1015,6 +1055,16 @@
         }
       }
     },
+    "Before you share with everyone": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sebelum anda berkongsi dengan semua"
+          }
+        }
+      }
+    },
     "Best": {
       "localizations": {
         "ms": {
@@ -1075,12 +1125,82 @@
         }
       }
     },
+    "Block": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sekat"
+          }
+        }
+      }
+    },
+    "Block this user": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sekat pengguna ini"
+          }
+        }
+      }
+    },
+    "Block this user?": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sekat pengguna ini?"
+          }
+        }
+      }
+    },
+    "Blocked %@": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Disekat %@"
+          }
+        }
+      }
+    },
+    "Blocked contributors' reviews and photos are hidden on this phone. The list stays on your phone and in your own backups; Manotu isn't told.": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ulasan dan foto penyumbang yang disekat disembunyikan dalam telefon ini. Senarai ini kekal dalam telefon dan sandaran anda sendiri; Manotu tidak diberitahu."
+          }
+        }
+      }
+    },
     "Blocked lane": {
       "localizations": {
         "ms": {
           "stringUnit": {
             "state": "translated",
             "value": "Lorong tersekat"
+          }
+        }
+      }
+    },
+    "Blocked users": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pengguna disekat"
+          }
+        }
+      }
+    },
+    "Blocked. You won't see their reviews and photos.": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Disekat. Anda tidak akan melihat ulasan dan foto mereka."
           }
         }
       }
@@ -1447,6 +1567,16 @@
         }
       }
     },
+    "Community rules": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Peraturan komuniti"
+          }
+        }
+      }
+    },
     "Confirmed by %lld": {
       "localizations": {
         "ms": {
@@ -1517,6 +1647,26 @@
         }
       }
     },
+    "Content that breaks the rules is removed, and accounts that post it can be suspended.": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kandungan yang melanggar peraturan akan dibuang, dan akaun yang menyiarkannya boleh digantung."
+          }
+        }
+      }
+    },
+    "Content that breaks these rules is removed, and users who post it can be suspended.": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kandungan yang melanggar peraturan ini dibuang, dan pengguna yang menghantarnya boleh digantung."
+          }
+        }
+      }
+    },
     "Continue": {
       "localizations": {
         "ms": {
@@ -1577,6 +1727,16 @@
         }
       }
     },
+    "Couldn't delete your account: %@. Nothing was deleted.": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tidak dapat memadam akaun anda: %@. Tiada apa-apa dipadam."
+          }
+        }
+      }
+    },
     "Couldn't send report": {
       "localizations": {
         "ms": {
@@ -1613,6 +1773,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Diagnostik ranap dan tergantung dihantar kepada aplikasi; dihantar ke kami hanya jika anda bersetuju."
+          }
+        }
+      }
+    },
+    "Crash reports with your contact details": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Laporan ranap dengan butiran hubungan anda"
           }
         }
       }
@@ -1677,12 +1847,32 @@
         }
       }
     },
+    "Delete account": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Padam akaun"
+          }
+        }
+      }
+    },
     "Delete contact": {
       "localizations": {
         "ms": {
           "stringUnit": {
             "state": "translated",
             "value": "Padam hubungan"
+          }
+        }
+      }
+    },
+    "Delete my Manotu account": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Padam akaun Manotu saya"
           }
         }
       }
@@ -1707,12 +1897,32 @@
         }
       }
     },
+    "Delete your Manotu account?": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Padam akaun Manotu anda?"
+          }
+        }
+      }
+    },
     "Deletes the places on this phone first, then restores the backup.": {
       "localizations": {
         "ms": {
           "stringUnit": {
             "state": "translated",
             "value": "Memadam tempat dalam telefon ini dahulu, kemudian memulihkan sandaran."
+          }
+        }
+      }
+    },
+    "Deletes your pseudonym, reputation, votes, inbox and recovery from Manotu's server. Your public reviews, photos, places and reports stay, anonymised. Your places on this phone are kept unless you choose to clear them.": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Memadam nama samaran, reputasi, undian, peti masuk dan pemulihan anda dari pelayan Manotu. Ulasan, foto, tempat dan laporan awam anda kekal, tanpa nama. Tempat anda dalam telefon ini disimpan melainkan anda memilih untuk mengosongkannya."
           }
         }
       }
@@ -1747,6 +1957,16 @@
         }
       }
     },
+    "Demo data · server unreachable": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Data demo · pelayan tidak dapat dicapai"
+          }
+        }
+      }
+    },
     "Demo mode": {
       "localizations": {
         "ms": {
@@ -1757,12 +1977,102 @@
         }
       }
     },
+    "Demo mode has no account on the server. Turn off demo mode to delete your Manotu account.": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mod demo tiada akaun di pelayan. Matikan mod demo untuk memadam akaun Manotu anda."
+          }
+        }
+      }
+    },
+    "Demo mode lets you try Manotu anywhere, with no account.": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mod demo membolehkan anda mencuba Manotu di mana-mana, tanpa akaun."
+          }
+        }
+      }
+    },
+    "Demo mode off": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mod demo dimatikan"
+          }
+        }
+      }
+    },
+    "Demo mode on: sample data, nothing is sent": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mod demo dihidupkan: data contoh, tiada apa-apa dihantar"
+          }
+        }
+      }
+    },
+    "Demo mode uses built-in sample places, reports and routes around Kuala Lumpur, and drives along the route by itself (a simulated drive), so you can try everything from anywhere, without an account.\n\nNothing you do is sent to Manotu's server: searches, routes, reports, reviews, photos, complaints, feedback and crash reports stay on this phone (feedback is not delivered). Favourites, planned drives and backups work as usual. Map tiles still load from OpenFreeMap.": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mod demo menggunakan contoh tempat, laporan dan laluan terbina dalam di sekitar Kuala Lumpur, dan memandu sendiri di sepanjang laluan (pemanduan simulasi), supaya anda boleh mencuba semuanya dari mana-mana, tanpa akaun.\n\nTiada apa yang anda lakukan dihantar ke pelayan Manotu: carian, laluan, laporan, ulasan, gambar, aduan, maklum balas dan laporan ranap kekal dalam telefon ini (maklum balas tidak dihantar). Kegemaran, pemanduan dirancang dan sandaran berfungsi seperti biasa. Jubin peta masih dimuatkan dari OpenFreeMap."
+          }
+        }
+      }
+    },
     "Demo mode — backend unreachable": {
       "localizations": {
         "ms": {
           "stringUnit": {
             "state": "translated",
             "value": "Mod demo — pelayan tidak dapat dicapai"
+          }
+        }
+      }
+    },
+    "Demo mode: feedback kept on this phone, not sent": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mod demo: maklum balas disimpan dalam telefon ini, tidak dihantar"
+          }
+        }
+      }
+    },
+    "Demo mode: kept on this phone, not sent": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mod demo: disimpan dalam telefon ini, tidak dihantar"
+          }
+        }
+      }
+    },
+    "Demo mode: these backups stay on this phone. They are not in Google Drive or iCloud.": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mod demo: sandaran ini kekal dalam telefon ini. Ia tiada dalam Google Drive atau iCloud."
+          }
+        }
+      }
+    },
+    "Demo mode: this feedback stays on this phone and is not sent to Manotu.": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mod demo: maklum balas ini kekal dalam telefon ini dan tidak dihantar kepada Manotu."
           }
         }
       }
@@ -1783,6 +2093,46 @@
           "stringUnit": {
             "state": "translated",
             "value": "Laluan demo: hentian ini tiada di jalan demo yang dirakam, jadi ia dilangkau."
+          }
+        }
+      }
+    },
+    "Demo storage (on this phone)": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Storan demo (dalam telefon ini)"
+          }
+        }
+      }
+    },
+    "Demo, not Google Drive": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Demo, bukan Google Drive"
+          }
+        }
+      }
+    },
+    "Demo, not Google Drive. Shown only in demo mode, to try backup and restore without any account. Kept inside this app and removed with it.": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Demo, bukan Google Drive. Hanya dalam mod demo, untuk mencuba sandaran dan pemulihan tanpa akaun. Disimpan dalam aplikasi ini dan dibuang bersamanya."
+          }
+        }
+      }
+    },
+    "Demo, not Google Drive: kept on this phone so you can try backup and restore": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Demo, bukan Google Drive: disimpan dalam telefon ini supaya anda boleh mencuba sandaran dan pemulihan"
           }
         }
       }
@@ -2437,6 +2787,16 @@
         }
       }
     },
+    "Full terms: %@": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Terma penuh: %@"
+          }
+        }
+      }
+    },
     "Get within 1 km of the place to confirm it.": {
       "localizations": {
         "ms": {
@@ -2598,6 +2958,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Google Drive"
+          }
+        }
+      }
+    },
+    "Google Drive (your own Google account)": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Google Drive (akaun Google anda sendiri)"
           }
         }
       }
@@ -2818,6 +3188,16 @@
         }
       }
     },
+    "Home, work, kampung, your in-laws' house: your places live on your phone, not on our servers. Manotu never stores your personal data. Backups go straight to your own Google Drive or a file, optionally locked with a passphrase only you know.": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rumah, tempat kerja, kampung, rumah mertua: semua tempat kegemaran anda disimpan dalam telefon anda sahaja. Manotu tidak menyimpan data peribadi anda di pelayan kami. Sandaran pergi terus ke Google Drive anda sendiri atau ke fail, dan boleh dikunci dengan frasa laluan yang hanya anda tahu."
+          }
+        }
+      }
+    },
     "Hospital": {
       "localizations": {
         "ms": {
@@ -2834,6 +3214,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "Waktu mungkin berubah"
+          }
+        }
+      }
+    },
+    "How account deletion works (manotu.app/delete)": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cara pemadaman akaun berfungsi (manotu.app/delete)"
+          }
+        }
+      }
+    },
+    "I agree": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Setuju"
           }
         }
       }
@@ -3070,6 +3470,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Kampung"
+          }
+        }
+      }
+    },
+    "Keep demo": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kekalkan demo"
           }
         }
       }
@@ -3476,12 +3886,32 @@
         }
       }
     },
+    "Manotu can't reach its server right now, so it is showing sample data.": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Manotu tidak dapat mencapai pelayannya sekarang, jadi ia menunjukkan data contoh."
+          }
+        }
+      }
+    },
     "Manotu code is open source (MIT)": {
       "localizations": {
         "ms": {
           "stringUnit": {
             "state": "translated",
             "value": "Kod Manotu sumber terbuka (MIT)"
+          }
+        }
+      }
+    },
+    "Manotu never knows who you are. Your public work is credited to this random pseudonym, which only your phone and your own backup can sign for.": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Manotu tidak pernah tahu siapa anda. Sumbangan awam anda dikreditkan kepada nama samaran rawak ini, yang hanya telefon dan sandaran anda boleh tandatangani."
           }
         }
       }
@@ -3856,6 +4286,26 @@
         }
       }
     },
+    "Needs your Google account; Manotu never sees it": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Perlukan akaun Google anda; Manotu tidak pernah melihatnya"
+          }
+        }
+      }
+    },
+    "Needs your Google account; Manotu never sees it. Optional.": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Memerlukan akaun Google anda; Manotu tidak pernah melihatnya. Pilihan."
+          }
+        }
+      }
+    },
     "New": {
       "localizations": {
         "ms": {
@@ -3932,6 +4382,36 @@
           "stringUnit": {
             "state": "translated",
             "value": "Tidak"
+          }
+        }
+      }
+    },
+    "No abusive, hateful, sexual, violent or otherwise objectionable content, and no personal information about others.": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tiada kandungan kesat, kebencian, seksual, ganas atau yang tidak wajar, dan tiada maklumat peribadi orang lain."
+          }
+        }
+      }
+    },
+    "No abusive, hateful, sexual, violent or otherwise objectionable content, and nothing illegal or about private people.": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tiada kandungan kesat, kebencian, seksual, ganas atau yang tidak wajar, dan tiada yang menyalahi undang-undang atau tentang individu persendirian."
+          }
+        }
+      }
+    },
+    "No account needed. Passphrase optional.": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tiada akaun diperlukan. Frasa laluan pilihan."
           }
         }
       }
@@ -4872,6 +5352,16 @@
         }
       }
     },
+    "Read the terms (manotu.app/terms)": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Baca terma (manotu.app/terms)"
+          }
+        }
+      }
+    },
     "Recalculating route": {
       "localizations": {
         "ms": {
@@ -5038,6 +5528,26 @@
         }
       }
     },
+    "Report photo": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Laporkan gambar"
+          }
+        }
+      }
+    },
+    "Report place": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Laporkan tempat"
+          }
+        }
+      }
+    },
     "Report review": {
       "localizations": {
         "ms": {
@@ -5084,6 +5594,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Laporan tamat tempoh, dan kenderaan yang melaluinya membatalkannya."
+          }
+        }
+      }
+    },
+    "Reports, reviews, photos and complaints stay on this phone: nothing is sent to Manotu": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Laporan, ulasan, foto dan aduan kekal dalam telefon ini: tiada apa-apa dihantar kepada Manotu"
           }
         }
       }
@@ -5144,6 +5664,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Pulihkan nama samaran"
+          }
+        }
+      }
+    },
+    "Restore your places from a backup: choose where it is (a file or Google Drive), then pick it. Nothing on this phone changes until you choose Merge or Replace and confirm.": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pulihkan tempat anda dari sandaran: pilih lokasinya (fail atau Google Drive), kemudian pilih sandaran itu. Tiada apa-apa dalam telefon ini berubah sehingga anda memilih Gabung atau Ganti dan mengesahkannya."
           }
         }
       }
@@ -5214,6 +5744,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "Ulasan belum tersedia di pelayan."
+          }
+        }
+      }
+    },
+    "Reviews, photos, places, reports and votes are public and help other drivers. Before you post:": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ulasan, gambar, tempat, laporan dan undian adalah awam dan membantu pemandu lain. Sebelum anda menghantar:"
+          }
+        }
+      }
+    },
+    "Reviews, photos, places, reports, complaints and votes are public. By sharing you agree to the Manotu terms and these community rules:": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ulasan, foto, tempat, laporan, aduan dan undian adalah awam. Dengan berkongsi, anda bersetuju dengan terma Manotu dan peraturan komuniti ini:"
           }
         }
       }
@@ -5348,6 +5898,26 @@
         }
       }
     },
+    "Sample places, traffic and routes in Kuala Lumpur, stored on this phone": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tempat, trafik dan laluan contoh di Kuala Lumpur, disimpan dalam telefon ini"
+          }
+        }
+      }
+    },
+    "Sample review (demo data).": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Contoh ulasan (data demo)."
+          }
+        }
+      }
+    },
     "Save": {
       "localizations": {
         "ms": {
@@ -5384,6 +5954,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "Simpan tempat daripada kad tempat dengan butang Simpan."
+          }
+        }
+      }
+    },
+    "Save to a file": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Simpan ke fail"
+          }
+        }
+      }
+    },
+    "Save to a file (no account)": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Simpan ke fail (tanpa akaun)"
           }
         }
       }
@@ -5460,6 +6050,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Tempat disimpan"
+          }
+        }
+      }
+    },
+    "Saved to demo storage on this phone (not Google Drive)": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Disimpan ke storan demo dalam telefon ini (bukan Google Drive)"
           }
         }
       }
@@ -5554,6 +6154,16 @@
         }
       }
     },
+    "See something wrong? Tap Report on the review, or Report photo. Moderators check reports.": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nampak sesuatu yang salah? Ketik Lapor pada ulasan, atau Laporkan gambar. Moderator menyemak laporan."
+          }
+        }
+      }
+    },
     "See what's sent": {
       "localizations": {
         "ms": {
@@ -5620,6 +6230,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Menghantar…"
+          }
+        }
+      }
+    },
+    "Sent with your contact details, so it isn't linked to your account and gets no status updates here. We reply by the email or WhatsApp you gave. Swipe to delete your contact details.": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dihantar dengan butiran hubungan anda, jadi ia tidak dikaitkan dengan akaun anda dan tiada kemas kini status di sini. Kami membalas melalui e-mel atau WhatsApp yang anda berikan. Leret untuk memadam butiran hubungan anda."
           }
         }
       }
@@ -5900,6 +6520,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Menunjukkan hasil untuk %@"
+          }
+        }
+      }
+    },
+    "Shows what demo mode is and how to turn it off": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Menunjukkan maksud mod demo dan cara mematikannya"
           }
         }
       }
@@ -6674,6 +7304,16 @@
         }
       }
     },
+    "The full backup and restore, passphrase included. You choose where the file goes.": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sandaran dan pemulihan penuh, termasuk frasa laluan. Anda pilih di mana fail disimpan."
+          }
+        }
+      }
+    },
     "The pin stays in the centre · pinch to zoom": {
       "localizations": {
         "ms": {
@@ -6690,6 +7330,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Pelayan menghantar sesuatu yang tidak dijangka. Cuba lagi nanti."
+          }
+        }
+      }
+    },
+    "Their reviews and photos will be hidden on this phone. You can unblock them in Settings.": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ulasan dan foto mereka akan disembunyikan dalam telefon ini. Anda boleh menyahsekat mereka dalam Tetapan."
           }
         }
       }
@@ -6726,6 +7376,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "Sandaran ini dibuat oleh versi Manotu yang lebih baharu. Kemas kini aplikasi dahulu."
+          }
+        }
+      }
+    },
+    "This can't be undone. A new, empty pseudonym is created the next time you contribute.": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ini tidak boleh dibatalkan. Nama samaran baharu yang kosong dicipta apabila anda menyumbang lagi."
+          }
+        }
+      }
+    },
+    "This can't be undone. Manotu then starts you again with a new, empty pseudonym.": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ini tidak boleh dibatalkan. Manotu kemudian memulakan anda semula dengan nama samaran baharu yang kosong."
           }
         }
       }
@@ -6812,6 +7482,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Tandakan untuk bersetuju kami boleh menghubungi anda tentang laporan ini."
+          }
+        }
+      }
+    },
+    "To report something, tap the flag or ⋯ on a review or photo and choose a reason. We review reports.": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Untuk melaporkan sesuatu, ketik bendera atau ⋯ pada ulasan atau foto dan pilih sebab. Kami menyemak laporan."
           }
         }
       }
@@ -6936,6 +7616,26 @@
         }
       }
     },
+    "Try Manotu anywhere with sample data from Kuala Lumpur and a simulated drive. No account is needed and nothing is sent to Manotu.": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cuba Manotu di mana-mana dengan data contoh dari Kuala Lumpur dan pemanduan simulasi. Tiada akaun diperlukan dan tiada apa-apa dihantar kepada Manotu."
+          }
+        }
+      }
+    },
+    "Try Manotu anywhere, no account: built-in sample data and a simulated drive. Nothing is sent to the server.": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cuba Manotu di mana-mana, tanpa akaun: data contoh terbina dalam dan pemanduan simulasi. Tiada apa-apa dihantar ke pelayan."
+          }
+        }
+      }
+    },
     "Turn left": {
       "localizations": {
         "ms": {
@@ -6952,6 +7652,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Belok kiri ke %@"
+          }
+        }
+      }
+    },
+    "Turn off demo mode": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Matikan mod demo"
           }
         }
       }
@@ -6982,6 +7692,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Trafik biasa"
+          }
+        }
+      }
+    },
+    "Unblock": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nyahsekat"
           }
         }
       }
@@ -7588,6 +8308,46 @@
         }
       }
     },
+    "You blocked the person who added this place": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Anda menyekat orang yang menambah tempat ini"
+          }
+        }
+      }
+    },
+    "You can block any contributor: their reviews and photos disappear from your phone.": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Anda boleh menyekat mana-mana penyumbang: ulasan dan foto mereka hilang dari telefon anda."
+          }
+        }
+      }
+    },
+    "You can block any user: their reviews and photos are hidden on your phone.": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Anda boleh menyekat mana-mana pengguna: ulasan dan gambar mereka disembunyikan dalam telefon anda."
+          }
+        }
+      }
+    },
+    "You can turn it on again in Settings.": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Anda boleh menghidupkannya semula dalam Tetapan."
+          }
+        }
+      }
+    },
     "You have arrived": {
       "localizations": {
         "ms": {
@@ -7604,6 +8364,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "Anda telah tiba di %@"
+          }
+        }
+      }
+    },
+    "You haven't blocked anyone.": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Anda belum menyekat sesiapa."
+          }
+        }
+      }
+    },
+    "You start on Jalan Sultan Ismail, Kuala Lumpur, and drives are simulated": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Anda bermula di Jalan Sultan Ismail, Kuala Lumpur, dan pemanduan disimulasikan"
           }
         }
       }
@@ -7628,6 +8408,26 @@
         }
       }
     },
+    "Your Manotu account was deleted": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Akaun Manotu anda telah dipadam"
+          }
+        }
+      }
+    },
+    "Your account can't post right now: it was suspended for breaking the community rules.": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Akaun anda tidak boleh menghantar sekarang: ia digantung kerana melanggar peraturan komuniti."
+          }
+        }
+      }
+    },
     "Your location": {
       "localizations": {
         "ms": {
@@ -7644,6 +8444,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Lokasi anda tidak diketahui"
+          }
+        }
+      }
+    },
+    "Your own iCloud account": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Akaun iCloud anda sendiri"
           }
         }
       }
@@ -7690,6 +8500,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Nama samaran anda"
+          }
+        }
+      }
+    },
+    "Your saved places, planned drives and backups work as usual": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tempat simpanan, perjalanan dirancang dan sandaran anda berfungsi seperti biasa"
           }
         }
       }
@@ -7820,6 +8640,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "iCloud"
+          }
+        }
+      }
+    },
+    "iCloud backup isn't available in this version": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sandaran iCloud tidak tersedia dalam versi ini"
           }
         }
       }

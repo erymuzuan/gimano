@@ -6,6 +6,8 @@ struct PhotoViewerItem: Identifiable {
     let id = UUID()
     let urls: [URL]
     let index: Int
+    /// The server photos behind `urls` (same order) when they are public photos: enables Report photo / Block this user.
+    var photos: [Photo]? = nil
 }
 
 /// Image from a remote or file URL (WebP decodes natively on iOS 14+).
@@ -51,8 +53,13 @@ struct PhotoStrip: View {
 /// Full-screen swipeable photo viewer.
 struct PhotoViewer: View {
     @Environment(\.dismiss) private var dismiss
+    @Environment(AppModel.self) private var model
     let urls: [URL]
     @State var index: Int
+    var photos: [Photo]? = nil
+    @State private var confirmBlock: Photo?
+
+    private var current: Photo? { photos.flatMap { index < $0.count ? $0[index] : nil } }
 
     var body: some View {
         ZStack(alignment: .topTrailing) {
@@ -72,6 +79,45 @@ struct PhotoViewer: View {
             .padding()
             .accessibilityLabel(Text("Close"))
             .accessibilityIdentifier("closeViewer")
+        }
+        .overlay(alignment: .topLeading) {
+            if let photo = current {
+                Menu {
+                    Menu {
+                        ForEach(FlagReason.allCases) { r in
+                            Button(r.title) {
+                                Task {
+                                    try? await model.repo.flagPhoto(id: photo.id, reason: r)
+                                    model.showToast(String(localized: "Thanks, we'll take a look"))
+                                }
+                            }
+                        }
+                    } label: { Label("Report photo", systemImage: "flag") }
+                        .accessibilityIdentifier("reportPhoto")
+                    if photo.blockRef != nil {
+                        Button(role: .destructive) { confirmBlock = photo } label: { Label("Block this user", systemImage: "person.crop.circle.badge.xmark") }
+                            .accessibilityIdentifier("blockPhotoAuthor")
+                    }
+                } label: {
+                    Image(systemName: "ellipsis").font(.system(size: 20, weight: .bold)).foregroundStyle(.white)
+                        .frame(width: 48, height: 48)
+                        .background(.ultraThinMaterial, in: Circle())
+                }
+                .padding()
+                .accessibilityLabel(Text("More"))
+                .accessibilityIdentifier("photoMore")
+            }
+        }
+        .confirmationDialog("Block this user?", isPresented: Binding(get: { confirmBlock != nil }, set: { if !$0 { confirmBlock = nil } }), titleVisibility: .visible) {
+            Button("Block", role: .destructive) {
+                if let p = confirmBlock, let ref = p.blockRef {
+                    model.blockAuthor(ref: ref, name: p.uploadedBy?.displayName ?? String(localized: "A contributor"))
+                    dismiss()
+                }
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("Their reviews and photos will be hidden on this phone. You can unblock them in Settings.")
         }
     }
 }
@@ -103,6 +149,7 @@ struct ReviewRow: View {
     let onChange: () async -> Void
     @State private var viewer: PhotoViewerItem?
     @State private var helpfulOn = false
+    @State private var confirmBlock = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
@@ -111,10 +158,16 @@ struct ReviewRow: View {
                 if let lvl = review.author.level { Text("Lv \(lvl)").font(Tokens.Font.small).foregroundStyle(Color.textMuted) }
                 Spacer()
                 Menu {
-                    ForEach(FlagReason.allCases) { r in
-                        Button(r.title) {
-                            Task { try? await model.repo.flagReview(id: review.id, reason: r); model.showToast(String(localized: "Thanks, we'll take a look")) }
+                    Menu {
+                        ForEach(FlagReason.allCases) { r in
+                            Button(r.title) {
+                                Task { try? await model.repo.flagReview(id: review.id, reason: r); model.showToast(String(localized: "Thanks, we'll take a look")) }
+                            }
                         }
+                    } label: { Label("Report review", systemImage: "flag") }
+                    if review.blockRef != nil {
+                        Button(role: .destructive) { confirmBlock = true } label: { Label("Block this user", systemImage: "person.crop.circle.badge.xmark") }
+                            .accessibilityIdentifier("blockReviewAuthor")
                     }
                 } label: {
                     Image(systemName: "flag").font(.system(size: 14)).foregroundStyle(Color.textMuted).frame(width: 32, height: 32)
@@ -131,15 +184,21 @@ struct ReviewRow: View {
             if let photos = review.photos, !photos.isEmpty {
                 let ready = photos.filter { $0.url != nil }
                 let urls = ready.compactMap { MediaURL.resolve($0.url) }
-                PhotoStrip(thumbs: ready.compactMap { MediaURL.resolve($0.thumbUrl ?? $0.url) }) { i in viewer = PhotoViewerItem(urls: urls, index: i) }
+                PhotoStrip(thumbs: ready.compactMap { MediaURL.resolve($0.thumbUrl ?? $0.url) }) { i in
+                    viewer = PhotoViewerItem(urls: urls, index: i, photos: ready.map { var p = $0; if p.blockRef == nil { p.authorRef = review.blockRef }; if p.uploadedBy == nil { p.uploadedBy = review.author }; return p })
+                }
                 ForEach(photos.filter { $0.status == .processing || $0.url == nil }) { _ in
                     Label("Photo processing…", systemImage: "hourglass").font(Tokens.Font.small).foregroundStyle(Color.textMuted)
                         .accessibilityIdentifier("photoProcessing")
                 }
             }
             Button {
-                helpfulOn.toggle()
-                Task { try? await model.repo.toggleHelpful(reviewId: review.id); await onChange() }
+                Task {
+                    guard await model.ensureRulesAccepted() else { return }
+                    helpfulOn.toggle()
+                    try? await model.repo.toggleHelpful(reviewId: review.id)
+                    await onChange()
+                }
             } label: {
                 Label("Helpful (\(review.helpfulCount))", systemImage: helpfulOn ? "hand.thumbsup.fill" : "hand.thumbsup")
                     .font(Tokens.Font.label)
@@ -150,8 +209,17 @@ struct ReviewRow: View {
         }
         .padding(12)
         .background(Color.surfaceAlt, in: RoundedRectangle(cornerRadius: Tokens.Radius.md, style: .continuous))
+        .accessibilityElement(children: .contain)
         .accessibilityIdentifier("reviewRow")
-        .fullScreenCover(item: $viewer) { v in PhotoViewer(urls: v.urls, index: v.index) }
+        .confirmationDialog("Block this user?", isPresented: $confirmBlock, titleVisibility: .visible) {
+            Button("Block", role: .destructive) {
+                if let ref = review.blockRef { model.blockAuthor(ref: ref, name: review.author.displayName) }
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("Their reviews and photos will be hidden on this phone. You can unblock them in Settings.")
+        }
+        .fullScreenCover(item: $viewer) { v in PhotoViewer(urls: v.urls, index: v.index, photos: v.photos) }
     }
 }
 
@@ -184,7 +252,7 @@ struct AllReviewsSheet: View {
                         Text("Helpful").tag(ReviewSort.helpful)
                     }
                     .pickerStyle(.segmented)
-                    ForEach(reviews) { r in ReviewRow(review: r) { await load(reset: true) } }
+                    ForEach(BlockList.visible(reviews, blocked: model.blockedRefs)) { r in ReviewRow(review: r) { await load(reset: true) } }
                     if next != nil {
                         ProgressView().task { await load(reset: false) }
                     }
@@ -281,6 +349,7 @@ struct WriteReviewSheet: View {
     }
 
     private func send() async {
+        guard await model.ensureRulesAccepted() else { return }
         sending = true
         defer { sending = false }
         error = nil
@@ -451,6 +520,7 @@ struct AddPlacePhotosSheet: View {
     }
 
     private func upload() async {
+        guard await model.ensureRulesAccepted() else { return }
         progress = 0
         defer { progress = nil }
         do {

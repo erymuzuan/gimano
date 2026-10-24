@@ -87,6 +87,9 @@ final class AppModel {
     private(set) var repo: any GimanoRepository
     private(set) var backendStatus: BackendStatus = .unknown
     private(set) var user: User?
+    /// Contributors the user blocked (on this phone only; settings table, backed up).
+    private(set) var blockedAuthors: [BlockedAuthor] = []
+    var blockedRefs: Set<String> { Set(blockedAuthors.map(\.ref)) }
     private(set) var savedPlaces: [SavedPlace] = []
     private(set) var recents: [Recent] = []
     /// "Just for me" places (on device only).
@@ -198,6 +201,11 @@ final class AppModel {
         #endif
         self.feedbackOutbox = FeedbackOutbox(storage: LocalStoreOutboxStorage(store: store))
         #if DEBUG
+        // `-GimanoResetCommunityRules YES` (UI tests): ask the community rules again.
+        if UserDefaults.standard.bool(forKey: "GimanoResetCommunityRules") {
+            try? store.setSetting(CommunityRules.versionKey, nil)
+            try? store.setSetting(CommunityRules.acceptedAtKey, nil)
+        }
         if let raw = UserDefaults.standard.string(forKey: "GimanoFakeLocation") {
             let parts = raw.split(separator: ",").compactMap { Double($0.trimmingCharacters(in: .whitespaces)) }
             if parts.count == 2 { fixedLocation = LatLng(lat: parts[0], lng: parts[1]); position = fixedLocation! }
@@ -206,6 +214,7 @@ final class AppModel {
         if let raw = UserDefaults.standard.string(forKey: "travelMode"), let v = Vehicle(rawValue: raw) { vehicle = v }
         if let raw = try? store.setting("theme"), let t = ThemeMode(rawValue: raw) { theme = t }
         autoStartNav = (try? store.setting("auto_start_nav")) == "1"
+        blockedAuthors = store.blockedAuthors()
         if let m = SoundMode(storageValue: try? store.setting("sound_mode")) { soundMode = m }
         if let m = SoundMode(storageValue: try? store.setting("sound_mode_last")) { lastSoundMode = m }
         if let raw = try? store.setting("voice_volume"), let v = Double(raw) { voiceVolume = min(1, max(0, v)) } else { voice.volume = Float(voiceVolume) }
@@ -215,6 +224,7 @@ final class AppModel {
         wireMap()
         location.onFix = { [weak self] fix in self?.handleRealFix(fix) }
         rebuildRepository()
+        moveToPinned()
         startOutboxTimer()
     }
 
@@ -324,6 +334,7 @@ final class AppModel {
             }
             backendStatus = .unknown
         }
+        backup.demoMode = config.isDemoMode
         map.styleURL = effectiveScheme == .dark ? config.darkStyleURL : config.styleURL
         let hubURL: URL? = config.dataMode == .demo ? nil : config.liveHubURL
         live.configure(repo: repo, hubURL: hubURL, tokenProvider: { TokenStore.load(for: base) })
@@ -559,10 +570,41 @@ final class AppModel {
 
     var isDemo: Bool { backendStatus == .demoFallback || backendStatus == .demoForced }
 
+    /// Turns the public Demo mode on or off (Settings, the Demo badge). Demo puts you at the sample start in
+    /// Kuala Lumpur wherever the phone is, so search, routes and simulated drives work from anywhere.
+    func setDemoMode(_ on: Bool) {
+        guard on != config.isDemoMode else { return }
+        config.setDemoMode(on)
+        navigation.map { _ in stopNavigation() }
+        planner = nil
+        go(.home)
+        rebuildRepository()
+        if on || fixedLocation != nil {
+            moveToPinned()
+        } else if let fix = location.lastFix {
+            applyFix(fix)
+        }
+        recenter()
+        showToast(String(localized: on ? "Demo mode on: sample data, nothing is sent" : "Demo mode off"))
+    }
+
+    /// Where the app pretends to be: the demo start in Demo mode (wherever the phone really is), else a DEBUG/UI-test
+    /// fixed location.
+    private var pinnedLocation: LatLng? {
+        config.isDemoMode ? DemoRepository.defaultLocation : fixedLocation
+    }
+
+    private func moveToPinned() {
+        guard let p = pinnedLocation else { return }
+        position = p
+        map.puck = p
+        map.puckAccuracyM = nil
+    }
+
     // MARK: location
 
     private func handleRealFix(_ fix: LocationFix) {
-        guard fixedLocation == nil else { return }
+        guard pinnedLocation == nil else { return }
         hasRealFix = true
         guard !simulator.isRunning else { return }
         applyFix(fix)
@@ -773,7 +815,7 @@ final class AppModel {
 
     /// GPS as the route-start rules see it: a DEBUG fixed location counts as a fresh fix.
     func currentGPS(now: Date = .now) -> RouteOrigin.GPS {
-        if let f = fixedLocation { return .fresh(f) }
+        if let f = pinnedLocation { return .fresh(f) }
         return RouteOrigin.classify(fix: location.lastFix?.coordinate, at: location.lastFix?.timestamp, now: now)
     }
 
@@ -959,7 +1001,7 @@ final class AppModel {
         // Demo routes are captured fixtures that may not start where the device is, so always simulate them.
         #if DEBUG
         // Simulator / UI tests: no real GPS fix yet → simulate along the route.
-        config.simulateDrive || isDemo || !hasRealFix || fixedLocation != nil || planner?.selected?.demoNote != nil
+        config.simulateDrive || isDemo || !hasRealFix || pinnedLocation != nil || planner?.selected?.demoNote != nil
         #else
         // A real user waits for real GPS; only demo data (server unreachable) drives a simulated trip.
         isDemo || planner?.selected?.demoNote != nil
@@ -1009,6 +1051,7 @@ final class AppModel {
         // DEBUG sample prompts (`-GimanoFakeStillClosed`) are never sent.
         if issue.id.hasPrefix("debug-") { showToast(String(localized: "Thanks for checking!")); return }
         Task {
+            guard await ensureRulesAccepted() else { return }
             do {
                 _ = try await repo.voteIssue(id: issue.id, IssueVote(answer: answer))
                 showToast(String(localized: "Thanks for checking!"))
@@ -1025,13 +1068,14 @@ final class AppModel {
             showToast(String(localized: "Waiting for your location. Try again in a moment."))
             return false
         }
+        guard await ensureRulesAccepted() else { return false }
         var data = payload ?? [:]
         if let nav = navigation { data["routeId"] = nav.route.id }
         let new = NewIssue(kind: kind, subtype: subtype, lat: p.lat, lng: p.lng, heading: point == nil ? heading : nil, placeId: placeId,
                            vehicle: navigation?.vehicle ?? vehicle, durationHint: duration, source: source, payload: data.isEmpty ? nil : data)
         do {
             _ = try await repo.createIssue(new)
-            showToast(String(localized: "Thanks! Drivers nearby will be asked to confirm."))
+            showToast(isDemo ? String(localized: "Demo mode: kept on this phone, not sent") : String(localized: "Thanks! Drivers nearby will be asked to confirm."))
             return true
         } catch let e as APIError where e.isServerSideGap {
             showToast(String(localized: "Road problem reports aren't available on the server yet."))
@@ -1211,11 +1255,28 @@ final class AppModel {
                            precise: location.isPrecise, lastAccuracyM: location.lastFix?.accuracyM)
     }
 
-    func deleteFeedbackContact(_ id: String) async {
+    func deleteFeedbackContact(_ id: String, contactToken: String? = nil, localId: UUID? = nil) async {
         do {
-            try await repo.deleteFeedbackContact(id: id)
+            try await repo.deleteFeedbackContact(id: id, contactToken: contactToken)
+            if let localId { feedbackOutbox.markContactWithdrawn(localId) }
             showToast(String(localized: "Contact details deleted"))
             await refreshMyFeedback()
+        } catch {
+            showToast(error.localizedDescription)
+        }
+    }
+
+    /// Crash reports sent with a contact (kept on the phone with their token).
+    private(set) var crashContacts: [CrashContactEntry] = CrashContactStore.load()
+
+    func deleteCrashContact(_ entry: CrashContactEntry) async {
+        do {
+            try await repo.deleteCrashContact(id: entry.id, contactToken: entry.token)
+            var list = CrashContactStore.load()
+            if let i = list.firstIndex(where: { $0.id == entry.id }) { list[i].withdrawn = true; list[i].token = "" }
+            CrashContactStore.save(list)
+            crashContacts = list
+            showToast(String(localized: "Contact details deleted"))
         } catch {
             showToast(error.localizedDescription)
         }
@@ -1338,6 +1399,7 @@ final class AppModel {
                                               rural: place.tags?["rural"] == "yes") else {
             throw VettingError.tooFar
         }
+        guard await ensureRulesAccepted() else { throw CancellationError() }
         let ts = Int64(Date().timeIntervalSince1970)
         let repo = self.repo
         let token = await AppAttestor.shared.voteToken(placeId: place.id, ts: ts, repo: repo)
@@ -1363,18 +1425,20 @@ final class AppModel {
         switch reporter.preference {
         case .never: reporter.discardAll()
         case .always:
-            for r in pending { _ = await reporter.send(r, device: currentDevice(), contact: nil, repo: repo) }
+            // Automatic sending can't ask, so device info (opt-in) is left out.
+            for r in pending { _ = await reporter.send(r, device: nil, contact: nil, repo: repo) }
         case .ask:
             pendingCrashes = pending
             showCrashPrompt = true
         }
     }
 
-    func sendCrashReports(contact: ContactDetails?) async {
+    func sendCrashReports(contact: ContactDetails?, includeDevice: Bool = false) async {
         let reporter = CrashReporter.shared
         var sent = 0
-        for r in pendingCrashes where await reporter.send(r, device: currentDevice(), contact: contact, repo: repo) { sent += 1 }
+        for r in pendingCrashes where await reporter.send(r, device: includeDevice ? currentDevice() : nil, contact: contact, repo: repo) { sent += 1 }
         pendingCrashes = reporter.pending
+        crashContacts = CrashContactStore.load()
         showToast(sent > 0 ? String(localized: "Thanks! Crash report sent") : String(localized: "Saved. We'll send it when we can."))
     }
 
@@ -1388,7 +1452,12 @@ final class AppModel {
         feedbackDraft = nil
         Task {
             let sent = await feedbackOutbox.flush { [repo] in try await repo.sendFeedback($0) }
-            showToast(sent > 0 ? String(localized: "Thanks! Feedback sent") : String(localized: "Saved. We'll send it when we can."))
+            if isDemo {
+                // Demo data: kept on this phone, never delivered. Say so (no fake "sent").
+                showToast(String(localized: "Demo mode: feedback kept on this phone, not sent"))
+            } else {
+                showToast(sent > 0 ? String(localized: "Thanks! Feedback sent") : String(localized: "Saved. We'll send it when we can."))
+            }
         }
     }
 
@@ -1433,11 +1502,12 @@ final class AppModel {
                             heading: heading, comment: comment?.isEmpty == true ? nil : comment)
         showReport = false
         Task {
+            guard await ensureRulesAccepted() else { return }
             do {
                 let r = try await repo.createReport(new)
                 live.upsert(r)
                 syncLiveLayers()
-                showToast(String(localized: "Thanks! Your report is live."))
+                showToast(isDemo ? String(localized: "Demo mode: kept on this phone, not sent") : String(localized: "Thanks! Your report is live."))
             } catch {
                 showToast(String(localized: "Couldn't send report"))
             }
@@ -1447,6 +1517,7 @@ final class AppModel {
     func vote(_ report: Report, stillThere: Bool) {
         selectedAlert = nil
         Task {
+            guard await ensureRulesAccepted() else { return }
             if let r = try? await repo.vote(reportId: report.id, stillThere: stillThere) { live.upsert(r); syncLiveLayers() }
             showToast(String(localized: "Thanks for confirming"))
         }
@@ -1464,6 +1535,55 @@ final class AppModel {
                 if let v = u.vehicle { vehicle = v }
             }
         }
+    }
+
+    // MARK: community (UGC rules, blocking, account deletion)
+
+    /// Before a public contribution: the community rules once per terms version (stored with the date on the phone).
+    func ensureRulesAccepted() async -> Bool {
+        if CommunityRules.isAccepted(storedVersion: try? store.setting(CommunityRules.versionKey)) { return true }
+        let ok = await TopPresenter.askRules()
+        if ok {
+            try? store.setSetting(CommunityRules.versionKey, CommunityRules.version)
+            try? store.setSetting(CommunityRules.acceptedAtKey, LocalStore.timestamp())
+        }
+        return ok
+    }
+
+    /// "Block this user": hides their reviews and photos on this phone. Nothing is sent.
+    func blockAuthor(ref: String, name: String) {
+        guard !blockedRefs.contains(ref) else { return }
+        blockedAuthors.append(BlockedAuthor(ref: ref, name: name, blockedAt: .now))
+        try? store.setBlockedAuthors(blockedAuthors)
+        showToast(String(localized: "Blocked. You won't see their reviews and photos."))
+    }
+
+    func unblockAuthor(_ ref: String) {
+        blockedAuthors.removeAll { $0.ref == ref }
+        try? store.setBlockedAuthors(blockedAuthors)
+    }
+
+    /// `DELETE /me`, then forget the pseudonym and tokens on this phone (and optionally the local places).
+    /// Returns an error message, or nil on success.
+    func deleteAccount(clearLocal: Bool) async -> String? {
+        do {
+            try await repo.deleteAccount()
+        } catch {
+            return String(localized: "Couldn't delete your account: \(error.localizedDescription). Nothing was deleted.")
+        }
+        TokenStore.save(nil, for: config.apiBaseURL)
+        Keychain.set(nil, for: "device.id")
+        try? store.deleteIdentity()
+        if clearLocal {
+            try? store.wipePersonalData()
+            for key in [CommunityRules.versionKey, CommunityRules.acceptedAtKey, BlockList.settingsKey] { try? store.setSetting(key, nil) }
+            blockedAuthors = []
+        }
+        user = nil
+        reloadLocal()
+        rebuildRepository()   // drop the deleted account's token and signer from the API client
+        showToast(String(localized: "Your Manotu account was deleted"))
+        return nil
     }
 
     func showToast(_ text: String, seconds: Double = 2.5) {

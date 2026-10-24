@@ -476,7 +476,10 @@ struct PlaceIssueBadges: View {
         .task(id: placeId) {
             let box = BBox(minLng: location.lng, minLat: location.lat, maxLng: location.lng, maxLat: location.lat).expanded(byM: 300)
             let kinds: [IssueKind] = [.placeClosedPerm, .placeClosedTemp, .placeHoursWrong]
-            issues = ((try? await model.repo.issuesNearby(bbox: box, kinds: kinds)) ?? []).filter { $0.placeId == placeId && $0.state.isOpen }
+            let blocked = model.blockedRefs
+            issues = ((try? await model.repo.issuesNearby(bbox: box, kinds: kinds)) ?? []).filter {
+                $0.placeId == placeId && $0.state.isOpen && !($0.reportedBy?.authorRef.map(blocked.contains) ?? false)
+            }
         }
     }
 
