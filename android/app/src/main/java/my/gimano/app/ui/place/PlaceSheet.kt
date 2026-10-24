@@ -47,6 +47,10 @@ object PlaceSheetLayout {
 
     fun heightOf(state: PlaceSheetState, anchors: List<Float>): Float = anchors[state.ordinal]
 
+    /** Settle after a drag unless resting at the state's height (a drag clamped onto the other anchor included). */
+    fun needsSettle(heightDp: Float, state: PlaceSheetState, anchors: List<Float>): Boolean =
+        abs(heightDp - anchors[state.ordinal]) >= 0.5f
+
     /** Where the card rests after a drag from [from] that ended at [heightDp]; [growVelocityDpS] > 0 = finger moving up. */
     fun settle(heightDp: Float, growVelocityDpS: Float, anchors: List<Float>, from: PlaceSheetState): PlaceSheetState {
         if (growVelocityDpS > FLING_DP_S) return PlaceSheetState.FULL

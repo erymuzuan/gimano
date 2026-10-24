@@ -61,6 +61,25 @@ object HomeSheetLayout {
 
     fun heightOf(state: HomeSheetState, anchors: List<Float>): Float = anchors[state.ordinal]
 
+    /**
+     * After a drag, the sheet must settle (and the state change) whenever it isn't resting at its state's height,
+     * including a drag clamped exactly onto another anchor (full → swipe down hard → exactly the peek height).
+     * Checking "between anchors" missed that case and left the state at FULL while the sheet showed the peek.
+     */
+    fun needsSettle(heightDp: Float, state: HomeSheetState, anchors: List<Float>): Boolean =
+        abs(heightDp - anchors[state.ordinal]) >= 0.5f
+
+    /**
+     * A drag that reaches an end of the sheet commits that state at once: PEEK at the bottom anchor, FULL at the top.
+     * Needed because the list leaves composition at the peek height mid-gesture, so no fling (and no settle) follows.
+     * Null in between.
+     */
+    fun stateAtEnd(heightDp: Float, anchors: List<Float>): HomeSheetState? = when {
+        heightDp <= anchors.first() + 0.5f -> HomeSheetState.PEEK
+        heightDp >= anchors.last() - 0.5f -> HomeSheetState.FULL
+        else -> null
+    }
+
     /** A drag of at least this many dp away from the resting state commits to a new state, even without a fling. */
     const val COMMIT_DP = 56f
 

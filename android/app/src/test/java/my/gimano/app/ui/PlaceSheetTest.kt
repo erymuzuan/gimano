@@ -104,6 +104,16 @@ class PlaceSheetTest {
         assertEquals(PlaceSheetState.FULL, PlaceSheetLayout.settle(760f, 0f, a, PlaceSheetState.FULL))
     }
 
+    @Test fun aSwipeDownClampedOntoThePeekStillSettles() {
+        val a = PlaceSheetLayout.anchors(354f, 775f)
+        // The S24 bug: full → swipe down lands exactly on the peek; the state must still become PEEK.
+        assertTrue(PlaceSheetLayout.needsSettle(354f, PlaceSheetState.FULL, a))
+        assertEquals(PlaceSheetState.PEEK, PlaceSheetLayout.settle(354f, -1500f, a, PlaceSheetState.FULL))
+        assertTrue(PlaceSheetLayout.needsSettle(775f, PlaceSheetState.PEEK, a))
+        assertTrue(!PlaceSheetLayout.needsSettle(354f, PlaceSheetState.PEEK, a))
+        assertTrue(!PlaceSheetLayout.needsSettle(775f, PlaceSheetState.FULL, a))
+    }
+
     // --- Camera offset ----------------------------------------------------------------------------------------
 
     @Test fun pinIsCentredInTheVisibleMapNotTheScreen() {

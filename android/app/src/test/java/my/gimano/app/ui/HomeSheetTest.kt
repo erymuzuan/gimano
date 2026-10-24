@@ -77,6 +77,31 @@ class HomeSheetTest {
         assertEquals(HomeSheetState.FULL, HomeSheetLayout.settle(843f, 2000f, a))
     }
 
+    @Test fun aSwipeClampedOntoAnotherAnchorStillSettles() {
+        val a = listOf(190f, 500f, 843f)
+        // Full, swiped down hard: the drag is clamped exactly at the peek height. It must settle (→ PEEK).
+        assertTrue(HomeSheetLayout.needsSettle(190f, HomeSheetState.FULL, a))
+        assertEquals(HomeSheetState.PEEK, HomeSheetLayout.settle(190f, -2000f, a, from = HomeSheetState.FULL))
+        // Peek, swiped up hard to the top: settles to FULL.
+        assertTrue(HomeSheetLayout.needsSettle(843f, HomeSheetState.PEEK, a))
+        assertEquals(HomeSheetState.FULL, HomeSheetLayout.settle(843f, 2000f, a, from = HomeSheetState.PEEK))
+        // Already resting at its own height (a tap, or a fling inside the list): nothing to do.
+        assertTrue(!HomeSheetLayout.needsSettle(500f, HomeSheetState.HALF, a))
+        assertTrue(!HomeSheetLayout.needsSettle(190.3f, HomeSheetState.PEEK, a))
+        // Between anchors: settle.
+        assertTrue(HomeSheetLayout.needsSettle(300f, HomeSheetState.PEEK, a))
+    }
+
+    @Test fun aDragReachingAnEndCommitsThatState() {
+        val a = listOf(190f, 500f, 843f)
+        // Full → dragged all the way down: the list is gone at the peek, so this is what sets PEEK.
+        assertEquals(HomeSheetState.PEEK, HomeSheetLayout.stateAtEnd(190f, a))
+        assertEquals(HomeSheetState.PEEK, HomeSheetLayout.stateAtEnd(190.4f, a))
+        assertEquals(HomeSheetState.FULL, HomeSheetLayout.stateAtEnd(843f, a))
+        assertEquals(null, HomeSheetLayout.stateAtEnd(500f, a))   // half is settled by release, not by the drag
+        assertEquals(null, HomeSheetLayout.stateAtEnd(191f, a))
+    }
+
     @Test fun aSlowDragPastTheCommitDistanceStillChangesState() {
         val a = listOf(190f, 500f, 843f)
         assertEquals(HomeSheetState.HALF, HomeSheetLayout.settle(260f, 0f, a, from = HomeSheetState.PEEK))

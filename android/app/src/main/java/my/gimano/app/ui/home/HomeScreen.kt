@@ -152,6 +152,9 @@ fun HomeOverlay(ui: UiState, settings: AppSettings, vm: MainViewModel, onMic: ()
         val next = (heightPx - dyPx).coerceIn(anchorsPx.first(), anchorsPx.last())
         val used = heightPx - next
         heightPx = next
+        // Reaching the peek (or the top) commits that state: the list leaves composition at the peek, so the
+        // gesture's fling never arrives to settle it (the S24 "fully open" at peek height, chips missing).
+        HomeSheetLayout.stateAtEnd(next / density.density, anchors)?.let { if (it != state) vm.setHomeSheet(it) }
         return used
     }
     fun release(downVelocityPx: Float) = go(HomeSheetLayout.settle(heightPx / density.density, -downVelocityPx / density.density, anchors, from = state))
@@ -239,7 +242,9 @@ fun HomeOverlay(ui: UiState, settings: AppSettings, vm: MainViewModel, onMic: ()
             override fun onPostScroll(consumed: Offset, available: Offset, source: NestedScrollSource): Offset =
                 if (available.y > 0 && source == NestedScrollSource.UserInput) Offset(0f, -dragBy(available.y)) else Offset.Zero
             override suspend fun onPreFling(available: Velocity): Velocity {
-                if (anchorsPx.none { abs(it - heightPx) < 1f }) { release(available.y); return available }
+                // Settle unless resting at the current state's height (a drag clamped onto another anchor must
+                // still switch the state).
+                if (HomeSheetLayout.needsSettle(heightPx / density.density, state, anchors)) { release(available.y); return available }
                 return Velocity.Zero
             }
         }
