@@ -201,10 +201,14 @@ enum SecretCode {
 }
 
 enum EventCodes {
-    /// First 8 bytes of SHA-256(organizer public key), upper-case hex in 4 groups of 4 (§7.3).
+    /// Digits and upper-case letters without the look-alikes 0/O and 1/I.
+    private static let safetyAlphabet = Array("23456789ABCDEFGHJKLMNPQRSTUVWXYZ")
+
+    /// First 30 bits of SHA-256(organizer public key), 5 bits per character, e.g. "S8EVC7" (§7.3).
     static func safetyCode(_ organizerPub: [UInt8]) -> String {
         let h = Array(SHA256.hash(data: Data(organizerPub)))
-        return stride(from: 0, to: 8, by: 2).map { String(format: "%02X%02X", h[$0], h[$0 + 1]) }.joined(separator: " ")
+        let v = UInt32(h[0]) << 24 | UInt32(h[1]) << 16 | UInt32(h[2]) << 8 | UInt32(h[3])
+        return String((0..<6).map { safetyAlphabet[Int((v >> (27 - 5 * UInt32($0))) & 31)] })
     }
 
     /// SHA-256 of the exact signed event bytes; the next revision's `parent`.

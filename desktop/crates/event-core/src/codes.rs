@@ -71,14 +71,15 @@ pub fn decode_secret_code(code: &str) -> Result<[u8; 32], Error> {
     Ok(out)
 }
 
-/// First 8 bytes of SHA-256(organizer public key), upper-case hex in 4 groups of 4.
+/// Safety code alphabet: digits and upper-case letters without the look-alikes 0/O and 1/I.
+pub const SAFETY_ALPHABET: &[u8; 32] = b"23456789ABCDEFGHJKLMNPQRSTUVWXYZ";
+
+/// The first 30 bits of SHA-256(organizer public key), most significant first, as 6 characters of
+/// [`SAFETY_ALPHABET`] (5 bits each), e.g. `ETN9PD`.
 pub fn safety_code(organizer_pub: &[u8; 32]) -> String {
     let h = Sha256::digest(organizer_pub);
-    h[..8]
-        .chunks(2)
-        .map(|c| format!("{:02X}{:02X}", c[0], c[1]))
-        .collect::<Vec<_>>()
-        .join(" ")
+    let v = u32::from_be_bytes([h[0], h[1], h[2], h[3]]);
+    (0..6).map(|i| SAFETY_ALPHABET[((v >> (27 - 5 * i)) & 31) as usize] as char).collect()
 }
 
 #[cfg(test)]
@@ -144,7 +145,8 @@ mod tests {
     #[test]
     fn safety_code_format() {
         let c = safety_code(&[0u8; 32]);
-        // SHA-256 of 32 zero bytes starts 66687aadf862bd77.
-        assert_eq!(c, "6668 7AAD F862 BD77");
+        // SHA-256 of 32 zero bytes starts 66687aad: top 30 bits 01100 11001 10100 00111 10101 01011.
+        assert_eq!(c, "ETN9PD");
+        assert!(!c.contains(['0', '1', 'O', 'I']));
     }
 }

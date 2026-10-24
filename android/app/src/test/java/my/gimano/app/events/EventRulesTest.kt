@@ -89,7 +89,7 @@ class EventCodesTest {
         assertEquals(EventPackException.INVALID_SECRET_CODE, bad(code.replaceFirst(Regex("[0-9A-Z]"), "ı")))
     }
 
-    @Test fun safetyCodeFormat() = assertEquals("6668 7AAD F862 BD77", EventHashes.safetyCode(ByteArray(32)))
+    @Test fun safetyCodeFormat() = assertEquals("ETN9PD", EventHashes.safetyCode(ByteArray(32)))
 
     @Test fun base64urlIsStrict() {
         assertArrayEquals(byteArrayOf(0x41), B64u.decode("QQ"))

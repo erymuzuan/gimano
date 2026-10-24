@@ -166,7 +166,8 @@ POST /routes/match
 1. Decrypt; on failure show "Jemputan ini tidak dapat dibuka / disahkan" and import nothing.
 2. Inflate (bounded to 20 MiB output), parse the envelope, verify the signature, then parse `event`.
 3. First time an event `id` is seen: pin `pub` after showing the organizer alias and a **safety code**
-   (first 8 bytes of SHA-256(pub) as 4 groups of 4 hex, e.g. `4F2A 91C0 7B3E 02D9`).
+   (6 characters, e.g. `S8EVC7`: the first 30 bits of SHA-256(pub), most significant first, 5 bits per character
+   from the alphabet `23456789ABCDEFGHJKLMNPQRSTUVWXYZ`, which leaves out the look-alikes 0/O and 1/I).
 4. Identical bytes already stored → "sudah diimport", nothing changes.
    Later revisions must have the same `pub` (else reject: "penganjur berbeza"). Lower `rev` than stored → keep the
    stored one ("versi lebih lama"). Same `rev`, different bytes → fork warning, keep both, user chooses.

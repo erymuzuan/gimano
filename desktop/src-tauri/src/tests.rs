@@ -775,7 +775,7 @@ fn import_link_then_newer_revision() {
         .import_preview(event_core::open_link(&l1).unwrap(), now())
         .unwrap();
     assert_eq!(p.decision, "new");
-    assert_eq!(p.safety_code.len(), 19);
+    assert_eq!(p.safety_code.len(), 6);
     guest.import_confirm(now()).unwrap();
     let p = guest
         .import_preview(event_core::open_link(&l1).unwrap(), now())

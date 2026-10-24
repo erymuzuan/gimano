@@ -108,7 +108,7 @@ await check("sha256 matches node:crypto (0..300 bytes) and the §7.3 zero-key sa
     const d = Uint8Array.from({ length: n }, (_, i) => (i * 131 + n) & 255);
     assert.equal(Buffer.from(sha256(d)).toString("hex"), createHash("sha256").update(d).digest("hex"), `len ${n}`);
   }
-  assert.equal(safetyCode(new Uint8Array(32)), "6668 7AAD F862 BD77");
+  assert.equal(safetyCode(new Uint8Array(32)), "ETN9PD");
 });
 
 console.log(`\n${passed} passed, ${failed} failed (${files.length} vector files from ${dir})`);

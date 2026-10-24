@@ -85,10 +85,15 @@ object EventHashes {
     /** SHA-256 of the exact signed event bytes: the next revision's `parent`. */
     fun revisionHash(eventBytes: ByteArray): ByteArray = sha256(eventBytes)
 
-    /** First 8 bytes of SHA-256(organizer pub), upper-case hex, 4 groups of 4 (§7.3). */
+    /** Digits and upper-case letters without the look-alikes 0/O and 1/I. */
+    private const val SAFETY_ALPHABET = "23456789ABCDEFGHJKLMNPQRSTUVWXYZ"
+
+    /** First 30 bits of SHA-256(organizer pub), 5 bits per character, e.g. "S8EVC7" (§7.3). */
     fun safetyCode(organizerPub: ByteArray): String {
         val h = sha256(organizerPub)
-        return (0 until 4).joinToString(" ") { i -> "%02X%02X".format(h[2 * i].toInt() and 0xff, h[2 * i + 1].toInt() and 0xff) }
+        val v = ((h[0].toLong() and 0xff) shl 24) or ((h[1].toLong() and 0xff) shl 16) or
+            ((h[2].toLong() and 0xff) shl 8) or (h[3].toLong() and 0xff)
+        return String(CharArray(6) { i -> SAFETY_ALPHABET[((v shr (27 - 5 * i)) and 31).toInt()] })
     }
 }
 

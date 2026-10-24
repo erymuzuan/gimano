@@ -39,7 +39,7 @@ All binary values are base64url without padding (`…B64u`); some are also given
 | `link` | `<site>/a/#<linkFragment>` |
 | `fileB64u` | `MNTE` ‖ `01` ‖ `01` ‖ nonce ‖ ciphertext |
 | `secretCode` | Crockford base32 of the key, 52 chars in groups of 4 |
-| `safetyCode` | first 8 bytes of SHA-256(pub), upper-case hex, 4 groups of 4 |
+| `safetyCode` | first 30 bits of SHA-256(pub) as 6 chars of `23456789ABCDEFGHJKLMNPQRSTUVWXYZ` (docs/events.md §7.3) |
 | `revisionHashB64u` | SHA-256(eventBytes), the next revision's `parent` |
 | `now` | time to use for the import decision |
 | `expected` | summary of the decoded event and the import decision |

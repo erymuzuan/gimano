@@ -138,11 +138,15 @@ export function sha256(data) {
   return out;
 }
 
-/** First 8 bytes of SHA-256(pub), upper-case hex in 4 groups of 4 (§7.3). */
+const SAFETY_ALPHABET = "23456789ABCDEFGHJKLMNPQRSTUVWXYZ";
+
+/** First 30 bits of SHA-256(pub) as 6 characters without look-alikes 0/O, 1/I, e.g. "S8EVC7" (§7.3). */
 export function safetyCode(pub) {
   const h = sha256(pub);
-  const hex = Array.from(h.slice(0, 8), b => b.toString(16).padStart(2, "0")).join("").toUpperCase();
-  return hex.match(/.{4}/g).join(" ");
+  const v = ((h[0] << 24) | (h[1] << 16) | (h[2] << 8) | h[3]) >>> 0;
+  let out = "";
+  for (let i = 0; i < 6; i++) out += SAFETY_ALPHABET[(v >>> (27 - 5 * i)) & 31];
+  return out;
 }
 
 // ---- transport ------------------------------------------------------------------------------------------------

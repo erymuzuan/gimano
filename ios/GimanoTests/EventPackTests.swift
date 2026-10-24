@@ -217,7 +217,7 @@ struct EventPackRuleTests {
 
     @Test("Safety code of 32 zero bytes")
     func safetyCode() {
-        #expect(EventCodes.safetyCode([UInt8](repeating: 0, count: 32)) == "6668 7AAD F862 BD77")
+        #expect(EventCodes.safetyCode([UInt8](repeating: 0, count: 32)) == "ETN9PD")
     }
 
     @Test("Inflate is bounded at 20 MiB: an error, not a truncation")
