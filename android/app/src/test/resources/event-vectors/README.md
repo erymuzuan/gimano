@@ -12,13 +12,16 @@ anything except tests.
 
 | File | Kind | Reader must |
 |---|---|---|
-| `kenduri-one-day.json` | positive | open the link/fragment and the file + secret code to `eventJson`; decision `new` |
+| `kenduri-one-day.json` | positive | open the link/fragment, the suite-2 file (`fileV2B64u` + `secretCodeV2`) and the suite-1 file (`fileB64u` + `secretCode`) to `eventJson`; decision `new` |
 | `ride-two-day.json` | positive | same, with 1 route (7 points, 2 legs, ascent/descent) |
 | `negative-tampered-ciphertext.json` | negative | fail with `decrypt` |
 | `negative-bad-signature.json` | negative | decrypt and inflate, then fail with `signature` |
-| `negative-wrong-key.json` | negative | fail with `decrypt` (link, and file + `secretCode`) |
+| `negative-wrong-key.json` | negative | fail with `decrypt` (link, and suite-1 file + `secretCode`) |
+| `negative-wrong-secret-code.json` | negative | the kenduri suite-2 file with a well-formed but different 8-character `secretCode`: derive, then fail with `decrypt` |
+| `negative-invalid-secret-code.json` | negative | the kenduri suite-2 file with each of `secretCodes` (each has an `O`, `0`, `I` or `1`): fail with `invalid_secret_code` **before** running Argon2id |
+| `argon2-kat.json` | kat | for every `argon2Kat` entry, read `code` leniently to `password` and derive `key` from it and the salt (suite-2 file key, below) |
 | `negative-expired.json` | negative | decrypt and verify, then decide `expired` at `now` and import nothing |
-| `negative-oversized-fragment.json` | negative | reject `linkFragment` (> 16 000 chars) with `fragment_too_long` **before decoding**; the same pack in `fileB64u` + `secretCode` must open |
+| `negative-oversized-fragment.json` | negative | reject `linkFragment` (> 16 000 chars) with `fragment_too_long` **before decoding**; the same pack in the suite-1 `fileB64u` + `secretCode` must open |
 | `ride-two-day-stops-only.json` | positive | open like any positive vector; it is the stops-only variant (docs/events.md §5.5) of `ride-two-day`: `expected.stopsOnly` is true, no route has a `polyline`, and `revisionHashB64u` is `variant.fullHash` (= `fullHashB64u` = `ride-two-day`'s `revisionHashB64u`), **not** SHA-256 of its own bytes (`eventBytesHashB64u`) |
 | `negative-variant-with-polyline.json` | negative | decrypt and verify, then reject the event with `variant_has_polyline` |
 | `negative-missing-polyline.json` | negative | decrypt and verify, then reject the event with `missing_polyline` (a full event without `routes[0].polyline`) |
@@ -42,8 +45,13 @@ All binary values are base64url without padding (`…B64u`); some are also given
 | `ciphertextB64u` | XChaCha20-Poly1305-IETF(key, nonce, AD `manotu-event-v1`) of the deflated bytes: ciphertext ‖ 16-byte tag, **without** the nonce |
 | `linkFragment` | `1.<b64u(key)>.<b64u(nonce ‖ ciphertext)>` (no `#`) |
 | `link` | `<site>/a/#<linkFragment>` |
-| `fileB64u` | `MNTE` ‖ `01` ‖ `01` ‖ nonce ‖ ciphertext |
-| `secretCode` | Crockford base32 of the key, 52 chars in groups of 4 |
+| `fileB64u` | **suite 1** (read only): `MNTE` ‖ `01` ‖ `01` ‖ nonce ‖ ciphertext, opened with `secretCode` |
+| `secretCode` | suite 1: Crockford base32 of the link key, 52 chars in groups of 4 |
+| `secretCodeV2` | suite 2: the 8-character file code `XXXX-XXXX` (alphabet `23456789ABCDEFGHJKLMNPQRSTUVWXYZ`) |
+| `fileSaltB64u` | suite 2: the file's 16-byte Argon2id salt |
+| `fileNonceV2B64u` | suite 2: the file's own 24-byte nonce |
+| `fileKeyV2B64u` | suite 2: Argon2id13(`secretCodeV2` upper case without `-`, `fileSaltB64u`, opslimit 3, 64 MiB) — independent of `keyB64u` |
+| `fileV2B64u` | **suite 2**: `MNTE` ‖ `01` ‖ `02` ‖ salt ‖ nonce ‖ XChaCha20-Poly1305(`fileKeyV2B64u`, nonce, AD `manotu-event-v1`) of `deflatedB64u` |
 | `safetyCode` | first 30 bits of SHA-256(pub) as 6 chars of `23456789ABCDEFGHJKLMNPQRSTUVWXYZ` (docs/events.md §7.3) |
 | `revisionHashB64u` | SHA-256(eventBytes), the next revision's `parent` |
 | `now` | time to use for the import decision |
@@ -52,6 +60,27 @@ All binary values are base64url without padding (`…B64u`); some are also given
 Negative vectors carry `expectedError` (the stable code from `event_core::Error::code()`, or `expired`
 for the import decision) plus only the inputs they need. The three variant negatives also carry the
 signed `eventJson`, so a reader can test its event parser without the crypto layers.
+
+## File suites (§5.2) and Argon2id
+
+Writers produce **suite 2** only; readers open both suites, dispatching on byte 5 of the file.
+
+- Suite 2 key: libsodium `crypto_pwhash(32, password, salt, opslimit 3, memlimit 67 108 864,
+  crypto_pwhash_ALG_ARGON2ID13)`, i.e. Argon2id v1.3, t = 3, m = 65 536 KiB, 1 lane, 32-byte output
+  (RustCrypto `argon2`: `Params::new(65536, 3, 1, Some(32))`). `password` is the code read leniently: upper
+  case, spaces and `-` removed, exactly 8 characters of `23456789ABCDEFGHJKLMNPQRSTUVWXYZ`. Any other
+  character (including `0`, `O`, `1`, `I`) is `invalid_secret_code`, checked before deriving; a wrong length is
+  also `invalid_secret_code`; a well-formed wrong code is `decrypt`.
+- The ciphertext is the same deflated envelope as the link, under the file key and the file's own nonce. So
+  `fileV2B64u` is reproducible byte for byte from `deflatedB64u`, `fileKeyV2B64u`, `fileNonceV2B64u` and
+  `fileSaltB64u`.
+- Writers use a fresh salt and nonce per file and the event's stable code; the vectors fix them (SHA-256 of
+  `manotu-vector:<name>:file-code|file-salt|file-nonce`, the code from the first 40 bits).
+- `argon2-kat.json` has `params` and `argon2Kat` entries `{code, password, saltHex, saltB64u, keyHex, keyB64u}`;
+  `code` may be lower case or contain spaces, `password` is what goes into Argon2id. The last two entries are the
+  kenduri and ride file keys.
+- A suite-1 file opened with an 8-character code, or a suite-2 file opened with a 52-character code, fails with
+  `invalid_secret_code`.
 
 ## Stops-only variant (§5.5) and import sequence (§7.4)
 
@@ -115,14 +144,19 @@ Raw DEFLATE output is **not** unique: zlib, miniz, Apple `Compression` and brows
   never re-serialize them.
 
 The desktop core is checked against these rules in `tests/vectors.rs`; the vectors were also
-cross-checked with the vendored libsodium-wrappers and Node `zlib.inflateRawSync`.
+cross-checked with the vendored libsodium-wrappers and Node `zlib.inflateRawSync`. The suite-2 vectors and
+`argon2-kat.json` were cross-checked with `libsodium-wrappers-sumo` 0.8.4 (libsodium 1.0.22, `crypto_pwhash`)
+and Node's `crypto.argon2Sync`; the vendored `site/manotu/s/vendor/` build is not sumo and has no
+`crypto_pwhash`.
 
 ## Reading rules worth testing on every platform
 
 - Base64url decoding is strict: no padding, no non-canonical trailing bits.
 - Ed25519 verification is strict (`verify_strict` / libsodium `crypto_sign_verify_detached`).
 - Inflate output is bounded to 20 MiB; a larger output is an error, not a truncation.
-- The secret code decoder ignores `-` and whitespace, is case-insensitive, reads `I`/`L` as `1` and
+- The suite-1 secret code decoder ignores `-` and whitespace, is case-insensitive, reads `I`/`L` as `1` and
   `O` as `0`, and rejects non-zero padding bits in the last character.
+- The suite-2 code reader ignores `-` and whitespace, is case-insensitive, and **rejects** `0`, `O`, `1`, `I`
+  and any other character outside its alphabet (no look-alike mapping).
 - Text limits count Unicode scalar values (code points), not UTF-16 units or bytes.
 - Unknown JSON fields are ignored; unknown `template` / stop `kind` values read as `other`.

@@ -1,0 +1,54 @@
+{
+  "argon2Kat": [
+    {
+      "code": "2222-2222",
+      "keyB64u": "1WSUJm3F3jdUvfykCXkq84NFPbviGGxOP7y0kdljLdY",
+      "keyHex": "d56494266dc5de3754bdfca409792af383453dbbe2186c4e3fbcb491d9632dd6",
+      "password": "22222222",
+      "saltB64u": "AAAAAAAAAAAAAAAAAAAAAA",
+      "saltHex": "00000000000000000000000000000000"
+    },
+    {
+      "code": "ZZZZ-ZZZZ",
+      "keyB64u": "v46VPn3F1FMvwSMwXi4v4JLPJ-oJWPK8vTts_9_Y72Q",
+      "keyHex": "bf8e953e7dc5d4532fc123305e2e2fe092cf27ea0958f2bcbd3b6cffdfd8ef64",
+      "password": "ZZZZZZZZ",
+      "saltB64u": "_____________________w",
+      "saltHex": "ffffffffffffffffffffffffffffffff"
+    },
+    {
+      "code": "k7m4 qx9p",
+      "keyB64u": "vbhFrMsmRz6R0sCPGKSEz16KM0EDnVDNBhDp5OGvo3k",
+      "keyHex": "bdb845accb26473e91d2c08f18a484cf5e8a3341039d50cd0610e9e4e1afa379",
+      "password": "K7M4QX9P",
+      "saltB64u": "AAECAwQFBgcICQoLDA0ODw",
+      "saltHex": "000102030405060708090a0b0c0d0e0f"
+    },
+    {
+      "code": "6BJT-PBDR",
+      "keyB64u": "E_HTpD_rmXAGZIP3u7u3L6BUn53vIqdVUtTDOxkoD8U",
+      "keyHex": "13f1d3a43feb9970066483f7bbbbb72fa0549f9def22a75552d4c33b19280fc5",
+      "password": "6BJTPBDR",
+      "saltB64u": "k_5HpfzxCWDQLoGs8OYybg",
+      "saltHex": "93fe47a5fcf10960d02e81acf0e6326e"
+    },
+    {
+      "code": "2YBH-VXMF",
+      "keyB64u": "fMpuaQgNplHC5Txr3h5wX1DCf9oC3TQie5xYZBHdD8M",
+      "keyHex": "7cca6e69080da651c2e53c6bde1e705f50c27fda02dd34227b9c586411dd0fc3",
+      "password": "2YBHVXMF",
+      "saltB64u": "p4g9y7irgRgGMECKpLdUsg",
+      "saltHex": "a7883dcbb8ab81180630408aa4b754b2"
+    }
+  ],
+  "description": "docs/events.md §5.2 suite-2 file key: Argon2id v1.3 (libsodium crypto_pwhash, crypto_pwhash_ALG_ARGON2ID13) with opslimit 3, memlimit 67108864 bytes (64 MiB = m_cost 65536 KiB), 1 lane, 32-byte output. The password is the code read leniently (`password`: upper case, no separator, 8 ASCII characters); the salt is 16 bytes.",
+  "kind": "kat",
+  "name": "argon2-kat",
+  "params": {
+    "alg": "argon2id13",
+    "memlimitBytes": 67108864,
+    "opslimit": 3,
+    "outlen": 32,
+    "parallelism": 1
+  }
+}

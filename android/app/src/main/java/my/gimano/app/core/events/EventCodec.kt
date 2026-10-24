@@ -22,6 +22,8 @@ class EventPackException(val code: String, message: String = code) : Exception(m
         const val UNSUPPORTED_FILE_FORMAT = "unsupported_file_format"
         const val UNSUPPORTED_SUITE = "unsupported_suite"
         const val INVALID_SECRET_CODE = "invalid_secret_code"
+        /** Suite-2 file key: Argon2id could not run (e.g. the 64 MiB allocation failed). */
+        const val KEY_DERIVATION = "key_derivation"
         const val DECRYPT = "decrypt"
         const val INFLATE = "inflate"
         const val INFLATE_TOO_LARGE = "inflate_too_large"
@@ -104,7 +106,7 @@ object EventHashes {
     internal data class VariantProbe(val variant: RawVariant? = null)
 
     /** Digits and upper-case letters without the look-alikes 0/O and 1/I. */
-    private const val SAFETY_ALPHABET = "23456789ABCDEFGHJKLMNPQRSTUVWXYZ"
+    const val SAFETY_ALPHABET = "23456789ABCDEFGHJKLMNPQRSTUVWXYZ"
 
     /** First 30 bits of SHA-256(organizer pub), 5 bits per character, e.g. "S8EVC7" (§7.3). */
     fun safetyCode(organizerPub: ByteArray): String {
@@ -115,7 +117,60 @@ object EventHashes {
     }
 }
 
-/** The file key as a Crockford base32 "secret code" (§5.2): 52 chars, MSB first, 4 zero padding bits, groups of 4. */
+/**
+ * The suite-2 file secret code (§5.2): 8 CSPRNG characters of the safety alphabet (40 bits), shown `XXXX-XXXX`.
+ * The code is the Argon2id password, not a key; it stays the same for every revision of an event.
+ */
+object SecretCodeV2 {
+    const val CHARS = 8
+    const val BYTES = 5
+    private const val ALPHABET = EventHashes.SAFETY_ALPHABET
+
+    /** 40 bits (MSB first) as `XXXX-XXXX`; uniform bits give uniform characters. */
+    fun encode(bits: ByteArray): String {
+        require(bits.size == BYTES)
+        val v = bits.fold(0L) { acc, b -> (acc shl 8) or (b.toLong() and 0xff) }
+        val sb = StringBuilder(CHARS + 1)
+        for (i in 0 until CHARS) {
+            if (i == 4) sb.append('-')
+            sb.append(ALPHABET[((v shr (35 - 5 * i)) and 31).toInt()])
+        }
+        return sb.toString()
+    }
+
+    /** A fresh code from the CSPRNG, e.g. `K7M4-QX9P`. */
+    fun generate(rng: java.security.SecureRandom = java.security.SecureRandom()): String {
+        val b = ByteArray(BYTES).also(rng::nextBytes)
+        try { return encode(b) } finally { b.fill(0) }
+    }
+
+    /**
+     * Reads a typed code: case-insensitive, spaces and `-` ignored, any other character outside the alphabet
+     * (including `0 O 1 I`, no look-alike mapping) rejected. Returns the 8 upper-case ASCII bytes, the Argon2id
+     * password. Fails with `invalid_secret_code`, before any derivation.
+     */
+    fun parse(code: String): ByteArray {
+        val out = ByteArray(CHARS)
+        var n = 0
+        for (c in code) {
+            if (c == '-' || c.isWhitespace()) continue
+            val u = if (c in 'a'..'z') c - 32 else c
+            if (ALPHABET.indexOf(u) < 0) { out.fill(0); fail(EventPackException.INVALID_SECRET_CODE, "invalid character") }
+            if (n == CHARS) { out.fill(0); fail(EventPackException.INVALID_SECRET_CODE, "too long") }
+            out[n++] = u.code.toByte()
+        }
+        if (n != CHARS) { out.fill(0); fail(EventPackException.INVALID_SECRET_CODE, "wrong length") }
+        return out
+    }
+
+    /** A stored or typed code in its display form `XXXX-XXXX` (fails like [parse]). */
+    fun format(code: String): String {
+        val p = parse(code)
+        try { return String(p, Charsets.US_ASCII).let { it.substring(0, 4) + "-" + it.substring(4) } } finally { p.fill(0) }
+    }
+}
+
+/** Suite-1 (read only) file key as a Crockford base32 "secret code" (§5.2): 52 chars, MSB first, 4 zero padding bits, groups of 4. */
 object SecretCode {
     private const val ALPHABET = "0123456789ABCDEFGHJKMNPQRSTVWXYZ"
     private const val KEY_CHARS = 52
@@ -202,13 +257,22 @@ object RawInflate {
 /** Nonce ‖ ciphertext (with its 16-byte tag), as carried in a link or file. */
 class SealedPack(val nonce: ByteArray, val ciphertext: ByteArray)
 
+/** A parsed `.manotu-event` file: [salt] is the suite-2 Argon2id salt, null for a suite-1 (raw key) file. */
+class ParsedFile(val salt: ByteArray?, val sealed: SealedPack) {
+    val suite: Byte get() = if (salt != null) EventTransport.FILE_SUITE_CODE else EventTransport.FILE_SUITE_RAW_KEY
+}
+
 object EventTransport {
     const val NONCE_LEN = 24
     const val TAG_LEN = 16
     val FILE_MAGIC = byteArrayOf('M'.code.toByte(), 'N'.code.toByte(), 'T'.code.toByte(), 'E'.code.toByte())
     const val FILE_FORMAT_V1: Byte = 0x01
+    /** Suite 1: the 52-character code is the raw key. Read only. */
     const val FILE_SUITE_RAW_KEY: Byte = 0x01
-    private const val HEADER_LEN = 6
+    /** Suite 2: the key is Argon2id over the 8-character code and the file's salt. Written. */
+    const val FILE_SUITE_CODE: Byte = 0x02
+    const val FILE_SALT_LEN = 16
+    const val HEADER_LEN = 6
     const val FILE_MIME = "application/vnd.manotu.event"
     const val FILE_EXTENSION = "manotu-event"
 
@@ -228,13 +292,24 @@ object EventTransport {
         return key to SealedPack(data.copyOfRange(0, NONCE_LEN), data.copyOfRange(NONCE_LEN, data.size))
     }
 
-    /** `"MNTE" ‖ 0x01 format ‖ 0x01 suite ‖ nonce(24) ‖ ciphertext` (§5.2). */
-    fun parseFile(bytes: ByteArray): SealedPack {
+    /**
+     * §5.2, dispatching on the suite byte:
+     * suite 2 `"MNTE" ‖ 0x01 ‖ 0x02 ‖ salt(16) ‖ nonce(24) ‖ ciphertext`, suite 1 `"MNTE" ‖ 0x01 ‖ 0x01 ‖ nonce(24) ‖ ciphertext`.
+     */
+    fun parseFile(bytes: ByteArray): ParsedFile {
         if (bytes.size > EventLimits.MAX_FILE_BYTES) fail(EventPackException.FILE_TOO_LARGE)
-        if (bytes.size < HEADER_LEN + NONCE_LEN + TAG_LEN || !looksLikeFile(bytes)) fail(EventPackException.MALFORMED_FILE)
+        if (bytes.size < HEADER_LEN || !looksLikeFile(bytes)) fail(EventPackException.MALFORMED_FILE)
         if (bytes[4] != FILE_FORMAT_V1) fail(EventPackException.UNSUPPORTED_FILE_FORMAT)
-        if (bytes[5] != FILE_SUITE_RAW_KEY) fail(EventPackException.UNSUPPORTED_SUITE)
-        return SealedPack(bytes.copyOfRange(HEADER_LEN, HEADER_LEN + NONCE_LEN), bytes.copyOfRange(HEADER_LEN + NONCE_LEN, bytes.size))
+        val (salt, start) = when (bytes[5]) {
+            FILE_SUITE_RAW_KEY -> null to HEADER_LEN
+            FILE_SUITE_CODE -> {
+                if (bytes.size < HEADER_LEN + FILE_SALT_LEN) fail(EventPackException.MALFORMED_FILE)
+                bytes.copyOfRange(HEADER_LEN, HEADER_LEN + FILE_SALT_LEN) to HEADER_LEN + FILE_SALT_LEN
+            }
+            else -> fail(EventPackException.UNSUPPORTED_SUITE)
+        }
+        if (bytes.size < start + NONCE_LEN + TAG_LEN) fail(EventPackException.MALFORMED_FILE)
+        return ParsedFile(salt, SealedPack(bytes.copyOfRange(start, start + NONCE_LEN), bytes.copyOfRange(start + NONCE_LEN, bytes.size)))
     }
 
     fun looksLikeFile(bytes: ByteArray): Boolean = bytes.size >= 4 && (0 until 4).all { bytes[it] == FILE_MAGIC[it] }

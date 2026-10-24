@@ -172,7 +172,7 @@ object RawDeflate {
  * Seals event packs (docs/events.md §3): Ed25519 over `"manotu-event-v1\n" ‖ eventBytes` → envelope JSON →
  * raw DEFLATE → XChaCha20-Poly1305-IETF (AD `manotu-event-v1`). Same lazysodium the reader uses; no new SDK.
  */
-class EventPackWriter(private val sodium: LazySodium) {
+class EventPackWriter(val sodium: LazySodium) {
     private val ed = Ed25519(sodium)
     private val reader = EventPackReader(sodium)
 
@@ -192,6 +192,11 @@ class EventPackWriter(private val sodium: LazySodium) {
     fun newPackKey(): ByteArray = sodium.randomBytesBuf(KEY_BYTES)
 
     fun newNonce(): ByteArray = sodium.randomBytesBuf(EventTransport.NONCE_LEN)
+
+    fun newSalt(): ByteArray = sodium.randomBytesBuf(EventTransport.FILE_SALT_LEN)
+
+    /** The event's file secret code (§5.2): made once per event and kept with its organiser keys. */
+    fun newSecretCode(): String = SecretCodeV2.generate()
 
     fun organizerPub(seed: ByteArray): ByteArray {
         val kp = ed.keyPair(seed)
@@ -236,6 +241,34 @@ class EventPackWriter(private val sodium: LazySodium) {
         val check = reader.open(key, sealed)
         check(check.eventBytes.contentEquals(eventBytes)) { "sealed pack does not round-trip" }
         return sealed
+    }
+}
+
+/** A suite-2 file and the layers behind it (tests and diagnostics). */
+class SealedFile(val salt: ByteArray, val key: ByteArray, val parts: SealedParts, val bytes: ByteArray)
+
+/** Writer side of §5.2 suite 2: every file is sealed under Argon2id(code, fresh salt) with a fresh nonce. */
+class EventFileWriter(private val writer: EventPackWriter, private val reader: EventPackReader) {
+    /** Deterministic suite-2 file for test vectors. Never reuse a salt/nonce pair; [seal] picks fresh ones. */
+    fun sealParts(eventBytes: ByteArray, seed: ByteArray, code: String, salt: ByteArray, nonce: ByteArray): SealedFile {
+        val key = reader.deriveFileKey(code, salt)
+        val parts = writer.sealParts(eventBytes, seed, key, nonce)
+        return SealedFile(salt.copyOf(), key, parts, EventLinks.file(salt, parts.sealed))
+    }
+
+    /**
+     * The file for exactly these event bytes under the event's stable [code], with a fresh salt and nonce, opened
+     * again to prove it verifies before it is offered. One Argon2id run (64 MiB): call it off the main thread.
+     */
+    fun seal(eventBytes: ByteArray, seed: ByteArray, code: String): ByteArray {
+        val f = sealParts(eventBytes, seed, code, writer.newSalt(), writer.newNonce())
+        try {
+            val check = reader.open(f.key, EventTransport.parseFile(f.bytes).sealed)
+            check(check.eventBytes.contentEquals(eventBytes)) { "sealed file does not round-trip" }
+            return f.bytes
+        } finally {
+            f.key.fill(0)
+        }
     }
 }
 
@@ -317,10 +350,14 @@ object EventLinks {
 
     fun link(site: String, key: ByteArray, sealed: SealedPack): String = "${site.trimEnd('/')}/a/#${fragment(key, sealed)}"
 
-    /** `"MNTE" ‖ 0x01 ‖ 0x01 ‖ nonce(24) ‖ ciphertext`. */
-    fun file(sealed: SealedPack): ByteArray {
-        val size = 6 + sealed.nonce.size + sealed.ciphertext.size
+    /**
+     * Suite 2 (the only suite written): `"MNTE" ‖ 0x01 ‖ 0x02 ‖ salt(16) ‖ nonce(24) ‖ ciphertext`, for a pack sealed
+     * under the Argon2id key of the event's code and this [salt].
+     */
+    fun file(salt: ByteArray, sealed: SealedPack): ByteArray {
+        require(salt.size == EventTransport.FILE_SALT_LEN)
+        val size = EventTransport.HEADER_LEN + salt.size + sealed.nonce.size + sealed.ciphertext.size
         if (size > EventLimits.MAX_FILE_BYTES) fail(EventPackException.FILE_TOO_LARGE)
-        return EventTransport.FILE_MAGIC + byteArrayOf(EventTransport.FILE_FORMAT_V1, EventTransport.FILE_SUITE_RAW_KEY) + sealed.nonce + sealed.ciphertext
+        return EventTransport.FILE_MAGIC + byteArrayOf(EventTransport.FILE_FORMAT_V1, EventTransport.FILE_SUITE_CODE) + salt + sealed.nonce + sealed.ciphertext
     }
 }

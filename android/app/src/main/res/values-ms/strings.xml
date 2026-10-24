@@ -758,8 +758,10 @@
     <string name="event_too_long">Pautan ini terlalu panjang. Minta fail acara daripada penganjur.</string>
     <string name="event_not_a_file">Ini bukan fail acara Manotu.</string>
     <string name="event_code_title">Masukkan kod rahsia</string>
-    <string name="event_code_hint">Penganjur menghantar kod 52 aksara berasingan daripada fail.</string>
+    <string name="event_code_hint">Penganjur menghantar kod 8 aksara (contoh K7M4-QX9P) berasingan daripada fail. Fail lama menggunakan kod 52 aksara: tampal di sini juga.</string>
     <string name="event_code_wrong">Kod salah, atau fail rosak.</string>
+    <string name="event_code_invalid">Itu bukan kod untuk fail ini. Semak panjangnya; kod tidak pernah menggunakan 0, O, 1 atau I.</string>
+    <string name="event_code_opening">Membuka…</string>
     <string name="event_open">Buka</string>
     <string name="event_opening">Membuka jemputan…</string>
     <string name="event_next">Seterusnya</string>
@@ -872,7 +874,7 @@
     <string name="host_file_save">Simpan fail…</string>
     <string name="host_file_share">Kongsi fail…</string>
     <string name="host_secret_code">Kod rahsia</string>
-    <string name="host_secret_code_hint">Hantar berasingan daripada fail (chat lain, SMS atau panggilan).</string>
+    <string name="host_secret_code_hint">Hantar berasingan daripada fail (chat lain, SMS atau panggilan). Kod ini kekal sama untuk setiap kemas kini acara ini.</string>
     <string name="host_copy_code">Salin kod</string>
     <string name="host_share_code">Kongsi kod…</string>
     <string name="host_know_title">Apa yang anda perlu tahu</string>

@@ -161,6 +161,32 @@ class EventStoreTest {
         assertNull(st.storedFor(p1.event.id))
     }
 
+    @Test fun importerFlowWithSuite2File() {
+        val dispatcher = StandardTestDispatcher()
+        val scope = TestScope(dispatcher)
+        val st = store()
+        val imp = EventImporter(scope, reader, st, clock = { now }, work = dispatcher)
+        val k = Json.parseToJsonElement(javaClass.classLoader!!.getResourceAsStream("event-vectors/kenduri-one-day.json")!!.bufferedReader().readText()).jsonObject
+        now = Instant.parse(k.getValue("now").jsonPrimitive.content)
+        imp.openFile(B64u.decode(k.getValue("fileV2B64u").jsonPrimitive.content)!!)
+        assertEquals(EventImportUi.NeedCode(), imp.ui.value)
+        // A look-alike: rejected before Argon2id, the dialog stays.
+        imp.submitCode("6BJT-PBD0")
+        assertEquals("Membuka… while the key is derived", EventImportUi.NeedCode(opening = true), imp.ui.value)
+        scope.advanceUntilIdle()
+        assertEquals(EventImportUi.NeedCode(invalid = true), imp.ui.value)
+        // The old 52-character code is not this file's code.
+        imp.submitCode(k.getValue("secretCode").jsonPrimitive.content); scope.advanceUntilIdle()
+        assertEquals(EventImportUi.NeedCode(invalid = true), imp.ui.value)
+        // A well-formed wrong code: derived, then decrypt fails.
+        imp.submitCode("T9H7-WEMG"); scope.advanceUntilIdle()
+        assertEquals(EventImportUi.NeedCode(wrong = true), imp.ui.value)
+        imp.submitCode(k.getValue("secretCodeV2").jsonPrimitive.content.lowercase()); scope.advanceUntilIdle()
+        val review = imp.ui.value as EventImportUi.Review
+        assertTrue(review.decision is ImportDecision.New)
+        assertEquals(k.getValue("safetyCode").jsonPrimitive.content, review.safetyCode)
+    }
+
     @Test fun importerFlowWithFileAndCode() {
         val dispatcher = StandardTestDispatcher()
         val scope = TestScope(dispatcher)

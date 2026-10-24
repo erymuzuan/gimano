@@ -698,7 +698,7 @@ fun EventShareScreen(editor: HostEditor, use24h: Boolean, onBack: () -> Unit) {
                         Icon(Icons.Filled.Lock, null, tint = c.brandInk, modifier = Modifier.size(16.dp)); Spacer(Modifier.width(6.dp))
                         Text(stringResource(R.string.host_secret_code), style = GimanoType.label, color = c.brandInk)
                     }
-                    Text(code, fontFamily = FontFamily.Monospace, fontSize = 16.sp, fontWeight = FontWeight.Bold, color = c.text, modifier = Modifier.padding(vertical = 6.dp))
+                    Text(code, fontFamily = FontFamily.Monospace, fontSize = 26.sp, letterSpacing = 3.sp, fontWeight = FontWeight.Bold, color = c.text, modifier = Modifier.padding(vertical = 6.dp))
                     Text(stringResource(R.string.host_secret_code_hint), fontSize = 13.sp, color = c.textMuted)
                     Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.padding(top = 6.dp)) {
                         TextButton(onClick = { copySensitive(context, "Manotu", code); copied = R.string.host_copied_code }) {

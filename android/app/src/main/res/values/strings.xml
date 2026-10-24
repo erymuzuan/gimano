@@ -761,8 +761,10 @@
     <string name="event_too_long">This link is too long. Ask the organizer for the event file instead.</string>
     <string name="event_not_a_file">This isn\'t a Manotu event file.</string>
     <string name="event_code_title">Enter the secret code</string>
-    <string name="event_code_hint">The organizer sends the 52-character code separately from the file.</string>
+    <string name="event_code_hint">The organizer sends an 8-character code (like K7M4-QX9P) separately from the file. Older files use a 52-character code: paste it here too.</string>
     <string name="event_code_wrong">Wrong code, or the file is damaged.</string>
+    <string name="event_code_invalid">That isn\'t a code for this file. Check the length; codes never use 0, O, 1 or I.</string>
+    <string name="event_code_opening">Opening…</string>
     <string name="event_open">Open</string>
     <string name="event_opening">Opening the invitation…</string>
     <string name="event_next">Next</string>
@@ -875,7 +877,7 @@
     <string name="host_file_save">Save file…</string>
     <string name="host_file_share">Share file…</string>
     <string name="host_secret_code">Secret code</string>
-    <string name="host_secret_code_hint">Send it separately from the file (another chat, SMS or a call).</string>
+    <string name="host_secret_code_hint">Send it separately from the file (another chat, SMS or a call). It stays the same for every update of this event.</string>
     <string name="host_copy_code">Copy code</string>
     <string name="host_share_code">Share code…</string>
     <string name="host_know_title">What you need to know</string>

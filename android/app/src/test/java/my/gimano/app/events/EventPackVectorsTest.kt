@@ -5,6 +5,8 @@ import com.goterl.lazysodium.SodiumJava
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.int
+import kotlinx.serialization.json.jsonArray
+import kotlinx.serialization.json.long
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import my.gimano.app.core.events.*
@@ -64,6 +66,27 @@ class EventPackVectorsTest {
         checkOpened(v, reader.openLink(v.s("link")))
         checkOpened(v, reader.openFile(v.b("fileB64u"), v.s("secretCode")))
         checkOpened(v, reader.openFile(v.b("fileB64u"), v.s("secretCode").lowercase().replace('-', ' ')))
+        if ("fileV2B64u" in v) suite2(v)
+        layers(v)
+    }
+
+    /** Suite 2 (what writers produce now): Argon2id over the 8-character code and the file salt. */
+    private fun suite2(v: JsonObject) {
+        val v2 = v.b("fileV2B64u")
+        assertEquals(EventTransport.FILE_SUITE_CODE, v2[5])
+        checkOpened(v, reader.openFile(v2, v.s("secretCodeV2")))
+        checkOpened(v, reader.openFile(v2, " " + v.s("secretCodeV2").lowercase().replace("-", " - ") + " "))
+        val parsed = EventTransport.parseFile(v2)
+        assertArrayEquals(v.b("fileSaltB64u"), parsed.salt)
+        assertArrayEquals(v.b("fileNonceV2B64u"), parsed.sealed.nonce)
+        assertArrayEquals(v.b("fileKeyV2B64u"), reader.fileKey(parsed, v.s("secretCodeV2")))
+        assertArrayEquals(v.b("deflatedB64u"), reader.decrypt(v.b("fileKeyV2B64u"), parsed.sealed.nonce, parsed.sealed.ciphertext))
+        // Each suite takes only its own code shape: invalid_secret_code before any derivation.
+        assertCode(EventPackException.INVALID_SECRET_CODE) { reader.openFile(v2, v.s("secretCode")) }
+        assertCode(EventPackException.INVALID_SECRET_CODE) { reader.openFile(v.b("fileB64u"), v.s("secretCodeV2")) }
+    }
+
+    private fun layers(v: JsonObject) {
         // Every layer as committed.
         val key = v.b("keyB64u")
         val nonce = v.b("nonceB64u")
@@ -89,7 +112,7 @@ class EventPackVectorsTest {
     }
 
     @Test fun kenduriOneDay() {
-        positive("kenduri-one-day")
+        assertTrue("suite-2 fields", "fileV2B64u" in vector("kenduri-one-day")); positive("kenduri-one-day")
         val p = reader.openLink(vector("kenduri-one-day").s("linkFragment"))
         val parking = p.event.stops.first()
         assertEquals(StopKind.PARKING, parking.kind)
@@ -100,7 +123,7 @@ class EventPackVectorsTest {
     }
 
     @Test fun rideTwoDay() {
-        positive("ride-two-day")
+        assertTrue("suite-2 fields", "fileV2B64u" in vector("ride-two-day")); positive("ride-two-day")
         val r = reader.openLink(vector("ride-two-day").s("linkFragment")).event.routes.single()
         assertEquals(EventTravelMode.BICYCLE, r.mode)
         assertEquals(7, r.points.size)
@@ -145,10 +168,86 @@ class EventPackVectorsTest {
         assertEquals(ImportDecision.New(p.safetyCode), EventImport.decide(ImportCandidate.of(p), null, Instant.parse(v.s("now"))))
     }
 
+    /** Counts Argon2id runs, to prove invalid codes are rejected before deriving. */
+    private class CountingSodium : LazySodiumJava(SodiumJava()) {
+        var pwhash = 0
+        override fun cryptoPwHash(outputHash: ByteArray?, outputHashLen: Int, password: ByteArray?, passwordLen: Int, salt: ByteArray?,
+            opsLimit: Long, memLimit: com.sun.jna.NativeLong?, alg: com.goterl.lazysodium.interfaces.PwHash.Alg?): Boolean {
+            pwhash++
+            return super.cryptoPwHash(outputHash, outputHashLen, password, passwordLen, salt, opsLimit, memLimit, alg)
+        }
+    }
+
+    @Test fun argon2KnownAnswers() {
+        val v = vector("argon2-kat")
+        val params = v.getValue("params").jsonObject
+        assertEquals("argon2id13", params.s("alg"))
+        assertEquals(EventPackReader.FILE_KDF_OPSLIMIT, params.getValue("opslimit").jsonPrimitive.long)
+        assertEquals(EventPackReader.FILE_KDF_MEMLIMIT, params.getValue("memlimitBytes").jsonPrimitive.long)
+        assertEquals(EventPackReader.FILE_KEY_BYTES, params.getValue("outlen").jsonPrimitive.int)
+        val kats = v.getValue("argon2Kat").jsonArray.map { it.jsonObject }
+        assertTrue(kats.size >= 5)
+        val times = ArrayList<Long>()
+        for (k in kats) {
+            assertEquals(k.s("password"), String(SecretCodeV2.parse(k.s("code")), Charsets.US_ASCII))
+            assertEquals(k.s("saltHex"), k.b("saltB64u").joinToString("") { "%02x".format(it) })
+            val t0 = System.nanoTime()
+            val key = reader.deriveFileKey(k.s("code"), k.b("saltB64u"))
+            times += (System.nanoTime() - t0) / 1_000_000
+            assertEquals(k.s("code"), k.s("keyB64u"), B64u.encode(key))
+            assertEquals(k.s("keyHex"), key.joinToString("") { "%02x".format(it) })
+        }
+        println("Argon2id (opslimit 3, 64 MiB) per derivation on this JVM: ${times.joinToString()} ms")
+    }
+
+    @Test fun wrongSecretCodeDerivesThenFailsDecrypt() {
+        val v = vector("negative-wrong-secret-code")
+        assertEquals(EventPackException.DECRYPT, v.s("expectedError"))
+        val counting = CountingSodium()
+        assertCode(EventPackException.DECRYPT) { EventPackReader(counting).openFile(v.b("fileB64u"), v.s("secretCode")) }
+        assertEquals(1, counting.pwhash)
+    }
+
+    @Test fun invalidSecretCodesFailBeforeArgon2() {
+        val v = vector("negative-invalid-secret-code")
+        assertEquals(EventPackException.INVALID_SECRET_CODE, v.s("expectedError"))
+        val counting = CountingSodium()
+        val r = EventPackReader(counting)
+        val codes = v.getValue("secretCodes").jsonArray.map { it.jsonPrimitive.content }
+        assertTrue(codes.isNotEmpty())
+        val file = v.b("fileB64u")
+        for (c in codes) assertCode(EventPackException.INVALID_SECRET_CODE) { r.openFile(file, c) }
+        // Wrong lengths, other characters, and the other suite's 52-character code.
+        val kenduri = vector("kenduri-one-day")
+        for (c in listOf("", "6BJT-PBD", "6BJT-PBDRR", "6BJT_PBDR", "6BJT-PBDÉ", kenduri.s("secretCode"))) {
+            assertCode(EventPackException.INVALID_SECRET_CODE) { r.openFile(file, c) }
+        }
+        assertEquals("no Argon2id run for an invalid code", 0, counting.pwhash)
+    }
+
+    @Test fun secretCodeV2Format() {
+        assertEquals("2222-2222", SecretCodeV2.encode(ByteArray(5)))
+        assertEquals("ZZZZ-ZZZZ", SecretCodeV2.encode(ByteArray(5) { -1 }))
+        assertEquals("3456-789A", SecretCodeV2.encode(byteArrayOf(0x08, 0x86.toByte(), 0x42, 0x98.toByte(), 0xe8.toByte())))
+        repeat(64) {
+            val c = SecretCodeV2.generate()
+            assertTrue(c, Regex("[2-9A-HJ-NP-Z]{4}-[2-9A-HJ-NP-Z]{4}").matches(c))
+            assertEquals(c.replace("-", ""), String(SecretCodeV2.parse(c), Charsets.US_ASCII))
+        }
+        assertEquals("K7M4QX9P", String(SecretCodeV2.parse("k7m4-qx9p"), Charsets.US_ASCII))
+        assertEquals("K7M4QX9P", String(SecretCodeV2.parse(" K7M4 QX9P "), Charsets.US_ASCII))
+        assertEquals("K7M4QX9P", String(SecretCodeV2.parse("K-7-M-4QX9P"), Charsets.US_ASCII))
+        assertEquals("K7M4-QX9P", SecretCodeV2.format("k7m4qx9p"))
+        for (bad in listOf("K7M4-QX9O", "K7M4-QX90", "K7M4-QX9I", "K7M4-QX91", "K7M4_QX9P", "K7M4-QX9É", "K7M4-QX9", "K7M4-QX9PP")) {
+            assertCode(EventPackException.INVALID_SECRET_CODE) { SecretCodeV2.parse(bad) }
+        }
+    }
+
     @Test fun everyVectorFileIsCovered() {
         val names = listOf("kenduri-one-day", "ride-two-day", "negative-tampered-ciphertext", "negative-bad-signature", "negative-wrong-key",
             "negative-expired", "negative-oversized-fragment", "ride-two-day-stops-only", "negative-variant-with-polyline",
-            "negative-missing-polyline", "negative-unknown-variant", "import-stops-only-sequence")
+            "negative-missing-polyline", "negative-unknown-variant", "import-stops-only-sequence",
+            "argon2-kat", "negative-wrong-secret-code", "negative-invalid-secret-code")
         val dir = javaClass.classLoader!!.getResource("event-vectors")!!.let { File(it.toURI()) }
         assertEquals(names.sorted(), dir.listFiles()!!.filter { it.extension == "json" }.map { it.nameWithoutExtension }.sorted())
     }
@@ -164,7 +263,16 @@ class EventPackVectorsTest {
         assertCode(EventPackException.MALFORMED_FILE) { EventTransport.parseFile(ok.copyOf(45)) }
         assertCode(EventPackException.MALFORMED_FILE) { EventTransport.parseFile(byteArrayOf(0) + ok.copyOfRange(1, ok.size)) }
         assertCode(EventPackException.UNSUPPORTED_FILE_FORMAT) { EventTransport.parseFile(ok.copyOf().also { it[4] = 2 }) }
-        assertCode(EventPackException.UNSUPPORTED_SUITE) { EventTransport.parseFile(ok.copyOf().also { it[5] = 2 }) }
+        assertCode(EventPackException.UNSUPPORTED_SUITE) { EventTransport.parseFile(ok.copyOf().also { it[5] = 3 }) }
+        assertCode(EventPackException.UNSUPPORTED_SUITE) { EventTransport.parseFile(ok.copyOf().also { it[5] = 0 }) }
+        // Suite 2: salt(16) before the nonce; too short for salt + nonce + tag is malformed.
+        val ok2 = EventTransport.FILE_MAGIC + byteArrayOf(1, 2) + ByteArray(16) { 7 } + ByteArray(40)
+        val p2 = EventTransport.parseFile(ok2)
+        assertArrayEquals(ByteArray(16) { 7 }, p2.salt)
+        assertEquals(16, p2.sealed.ciphertext.size)
+        assertNull(EventTransport.parseFile(ok).salt)
+        assertCode(EventPackException.MALFORMED_FILE) { EventTransport.parseFile(ok2.copyOf(ok2.size - 1)) }
+        assertCode(EventPackException.MALFORMED_FILE) { EventTransport.parseFile(ok2.copyOf(6 + 10)) }
         assertCode(EventPackException.FILE_TOO_LARGE) { EventTransport.parseFile(ByteArray(EventLimits.MAX_FILE_BYTES + 1)) }
     }
 }

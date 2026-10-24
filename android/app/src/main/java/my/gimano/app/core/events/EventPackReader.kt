@@ -2,6 +2,7 @@ package my.gimano.app.core.events
 
 import com.goterl.lazysodium.LazySodium
 import com.goterl.lazysodium.interfaces.AEAD
+import com.goterl.lazysodium.interfaces.PwHash
 import com.goterl.lazysodium.interfaces.Sign
 
 /** A decrypted pack whose signature verified and whose event passed validation. */
@@ -26,6 +27,11 @@ class EventPackReader(private val sodium: LazySodium) {
     companion object {
         val AD = "manotu-event-v1".toByteArray(Charsets.US_ASCII)
         val SIGNATURE_PREFIX = "manotu-event-v1\n".toByteArray(Charsets.US_ASCII)
+
+        /** §5.2 suite 2: libsodium `crypto_pwhash`, ALG_ARGON2ID13, opslimit 3, memlimit 64 MiB, 32-byte key. */
+        const val FILE_KDF_OPSLIMIT = 3L
+        const val FILE_KDF_MEMLIMIT = 67_108_864L
+        const val FILE_KEY_BYTES = 32
     }
 
     fun openLink(link: String): OpenedPack {
@@ -33,10 +39,43 @@ class EventPackReader(private val sodium: LazySodium) {
         return open(key, sealed)
     }
 
+    /**
+     * Opens a file of either suite with the code the host sent through another channel: 8 characters for suite 2
+     * (Argon2id, 64 MiB, a fraction of a second: never on the main thread), 52 for suite 1. A code of the other
+     * suite's shape is `invalid_secret_code`, checked before deriving.
+     */
     fun openFile(bytes: ByteArray, secretCode: String): OpenedPack {
-        val sealed = EventTransport.parseFile(bytes)
-        val key = SecretCode.decode(secretCode)
-        return open(key, sealed)
+        val parsed = EventTransport.parseFile(bytes)
+        val key = fileKey(parsed, secretCode)
+        try { return open(key, parsed.sealed) } finally { key.fill(0) }
+    }
+
+    fun fileKey(parsed: ParsedFile, secretCode: String): ByteArray =
+        parsed.salt?.let { deriveFileKey(secretCode, it) } ?: SecretCode.decode(secretCode)
+
+    /**
+     * The suite-2 file key: Argon2id13 over the code's 8 upper-case characters (no separator) with the file salt.
+     * The code is checked first, so a typo fails as `invalid_secret_code` without the deliberately slow derivation;
+     * a failed derivation (allocation) is `key_derivation`.
+     */
+    fun deriveFileKey(secretCode: String, salt: ByteArray): ByteArray {
+        val password = SecretCodeV2.parse(secretCode)
+        try {
+            if (salt.size != EventTransport.FILE_SALT_LEN) fail(EventPackException.KEY_DERIVATION)
+            val out = ByteArray(FILE_KEY_BYTES)
+            val ok = try {
+                sodium.cryptoPwHash(out, out.size, password, password.size, salt, FILE_KDF_OPSLIMIT,
+                    com.sun.jna.NativeLong(FILE_KDF_MEMLIMIT), PwHash.Alg.PWHASH_ALG_ARGON2ID13)
+            } catch (e: Exception) {
+                false
+            } catch (e: OutOfMemoryError) {
+                false
+            }
+            if (!ok) { out.fill(0); fail(EventPackException.KEY_DERIVATION) }
+            return out
+        } finally {
+            password.fill(0)
+        }
     }
 
     fun decrypt(key: ByteArray, nonce: ByteArray, ciphertext: ByteArray): ByteArray {

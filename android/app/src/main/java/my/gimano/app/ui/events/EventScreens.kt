@@ -103,9 +103,15 @@ fun EventImportDialogs(
             },
         )
         is EventImportUi.NeedCode -> {
+            // 8 characters (XXXX-XXXX) for current files; a pasted 52-character code still opens an older file.
             var code by remember { mutableStateOf("") }
+            val error = when {
+                s.invalid -> R.string.event_code_invalid
+                s.wrong -> R.string.event_code_wrong
+                else -> null
+            }
             AlertDialog(
-                onDismissRequest = importer::dismiss,
+                onDismissRequest = { if (!s.opening) importer.dismiss() },
                 title = { Text(stringResource(R.string.event_code_title)) },
                 text = {
                     Column {
@@ -113,17 +119,28 @@ fun EventImportDialogs(
                         Spacer(Modifier.height(12.dp))
                         OutlinedTextField(
                             code, { code = it.take(80) }, Modifier.fillMaxWidth(),
-                            placeholder = { Text("XXXX-XXXX-…") },
-                            textStyle = LocalTextStyle.current.copy(fontFamily = FontFamily.Monospace),
-                            isError = s.wrong,
-                            supportingText = if (s.wrong) { { Text(stringResource(R.string.event_code_wrong)) } } else null,
+                            enabled = !s.opening,
+                            singleLine = true,
+                            placeholder = { Text("XXXX-XXXX", fontFamily = FontFamily.Monospace) },
+                            textStyle = LocalTextStyle.current.copy(fontFamily = FontFamily.Monospace, fontSize = 20.sp, letterSpacing = 2.sp),
+                            isError = error != null && !s.opening,
+                            supportingText = if (error != null && !s.opening) { { Text(stringResource(error)) } } else null,
                             keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Characters, keyboardType = KeyboardType.Ascii, autoCorrectEnabled = false),
                             shape = RoundedCornerShape(Radius.md),
                         )
+                        if (s.opening) Row(Modifier.padding(top = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+                            CircularProgressIndicator(Modifier.size(22.dp), color = c.brand, strokeWidth = 3.dp)
+                            Spacer(Modifier.width(12.dp))
+                            Text(stringResource(R.string.event_code_opening), color = c.text, fontSize = 15.sp)
+                        }
                     }
                 },
-                confirmButton = { TextButton(onClick = { importer.submitCode(code) }, enabled = code.isNotBlank()) { Text(stringResource(R.string.event_open), fontWeight = FontWeight.ExtraBold) } },
-                dismissButton = { TextButton(onClick = importer::dismiss) { Text(stringResource(R.string.cancel)) } },
+                confirmButton = {
+                    TextButton(onClick = { importer.submitCode(code) }, enabled = code.isNotBlank() && !s.opening) {
+                        Text(stringResource(R.string.event_open), fontWeight = FontWeight.ExtraBold)
+                    }
+                },
+                dismissButton = { TextButton(onClick = importer::dismiss, enabled = !s.opening) { Text(stringResource(R.string.cancel)) } },
             )
         }
         is EventImportUi.Review -> if (s.previous != null && s.decision !is ImportDecision.New)

@@ -30,8 +30,12 @@ enum class EventNotice {
 sealed interface EventImportUi {
     data object Idle : EventImportUi
     data object Working : EventImportUi
-    /** A `.manotu-event` file is waiting for its secret code. */
-    data class NeedCode(val wrong: Boolean = false) : EventImportUi
+    /**
+     * A `.manotu-event` file is waiting for its secret code. [wrong]: the last code did not open it (wrong code or a
+     * damaged file); [invalid]: the last code is not a code (wrong length or a character outside the alphabet);
+     * [opening]: the key is being derived (Argon2id, a second or so on a phone): "Membuka…" in the dialog.
+     */
+    data class NeedCode(val wrong: Boolean = false, val invalid: Boolean = false, val opening: Boolean = false) : EventImportUi
     /** Show title, alias, safety code, dates…; Simpan / Batal. */
     data class Review(
         val plan: EventPlan, val safetyCode: String, val decision: ImportDecision,
@@ -78,7 +82,8 @@ class EventImporter(
 
     fun submitCode(code: String) {
         val bytes = pendingFile ?: return
-        _ui.value = EventImportUi.Working
+        if ((_ui.value as? EventImportUi.NeedCode)?.opening == true) return
+        _ui.value = EventImportUi.NeedCode(opening = true)
         scope.launch {
             val r = withContext(work) { runCatching { reader.openFile(bytes, code) } }
             r.onSuccess { pendingFile = null; decide(it) }
@@ -86,7 +91,9 @@ class EventImporter(
                     val code0 = (e as? EventPackException)?.code
                     _ui.value = when (code0) {
                         // Wrong code and a damaged file are indistinguishable by design: let the user retype.
-                        EventPackException.INVALID_SECRET_CODE, EventPackException.DECRYPT -> EventImportUi.NeedCode(wrong = true)
+                        EventPackException.DECRYPT -> EventImportUi.NeedCode(wrong = true)
+                        // Not a code for this file (typo, look-alike, or the other suite's length): checked before deriving.
+                        EventPackException.INVALID_SECRET_CODE -> EventImportUi.NeedCode(invalid = true)
                         EventPackException.MALFORMED_FILE, EventPackException.UNSUPPORTED_FILE_FORMAT, EventPackException.UNSUPPORTED_SUITE ->
                             EventImportUi.Notice(EventNotice.NOT_A_FILE).also { pendingFile = null }
                         else -> EventImportUi.Notice(EventNotice.CANNOT_OPEN).also { pendingFile = null }
