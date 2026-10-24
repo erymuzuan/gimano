@@ -111,6 +111,8 @@ services:
       Urls: "http://+:8080"
       Valhalla__Url: "http://valhalla:8002"
       Jwt__SigningKey: ${JWT_SIGNING_KEY:?Set JWT_SIGNING_KEY (>= 32 chars) in deploy/.env}
+      # Event short links: key for the uploader hash (quota, DELETE /me). Empty = derived from the JWT key.
+      Drops__OwnerKey: ${DROPS_OWNER_KEY:-}
       # Feedback screenshots are base64 (≤ 1.5 MB decoded ≈ 2 MB JSON).
       Kestrel__Limits__MaxRequestBodySize: "4194304"
       # Dev: the share viewer may be opened from anywhere (file://, LAN); production restricts to www.bukitbunga.com.
