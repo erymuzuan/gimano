@@ -122,6 +122,27 @@ class EventWizardTest {
         assertTrue(InviteMessages.openFileMessage(p.plan.copy(lang = "en"), "u").startsWith("Invitation: Kenduri Aqil & Sofea\nSun, 15 Nov · 11:00–16:00\nI'm sending the Manotu invitation file next"))
     }
 
+    /** Link-first sharing (24 Oct 2026): the share text carries the full link; publishing seals no file by default. */
+    @Test fun linkMessageAndLinkFirstPublish() = runTest {
+        val host = HostStore(FakeHostDao(), TestVault(), writer, clock = { now })
+        val d = draft().copy(sensitive = true)   // an older draft with the switch on: still no Argon2id on publish
+        host.create(d)
+        val p = host.publish(d.id)
+        assertNull(p.codeFile())
+        val link = p.link(EventLinks.DEFAULT_SITE)!!
+        val url = "https://manotu.app/download/"
+        assertEquals("Jemputan: Kenduri Aqil & Sofea\nAhd, 15 Nov · 11:00–16:00\nBuka pelan, parkir & arah: $link\nBelum ada Manotu? $url",
+            InviteMessages.linkMessage(p.plan, link, url))
+        assertEquals("Invitation: Kenduri Aqil & Sofea\nSun, 15 Nov · 11:00–16:00\nOpen the plan, parking & directions: $link\nNo Manotu yet? $url",
+            InviteMessages.linkMessage(p.plan.copy(lang = "en"), link, url))
+        assertFalse(InviteMessages.linkMessage(p.plan, link, url).contains(p.secretCode))
+        assertArrayEquals(reader.openLink(link).eventBytes, reader.openFileWithoutCode(p.file()).eventBytes)
+        val short = my.gimano.app.ui.events.shortLink(link)
+        assertEquals(33, short.length)
+        assertTrue(short.endsWith("…") && link.startsWith(short.dropLast(1)))
+        assertEquals("https://manotu.app/a/", my.gimano.app.ui.events.shortLink("https://manotu.app/a/"))
+    }
+
     // --- Info blocks and templates --------------------------------------------------------------------------
 
     @Test fun infoBlocksAndAgendaAreWrittenInOrder() {

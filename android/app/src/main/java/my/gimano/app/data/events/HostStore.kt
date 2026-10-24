@@ -167,7 +167,8 @@ class HostStore(
     suspend fun publish(id: String, codeFile: Boolean? = null): Publication {
         var e = dao.get(id) ?: throw EventPackException(EventPackException.INVALID_EVENT, "unknown event")
         val d = draftOf(e) ?: throw EventPackException(EventPackException.INVALID_EVENT, "draft unreadable")
-        val withCodeFile = codeFile ?: d.sensitive
+        // Link-first sharing: no file is sealed unless asked for (the open file is framed on demand, Publication.file()).
+        val withCodeFile = codeFile ?: false
         val prepared = EventRevisions.prepare(d, publishedOf(e), clock())
         var s = vault.open(e.secrets)
         try {

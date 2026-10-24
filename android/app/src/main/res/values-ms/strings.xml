@@ -1140,7 +1140,10 @@
     <string name="ew_agenda_bad">Baris ini perlukan masa dahulu (contoh 11:00): %1$s</string>
     <string name="ew_remove_n">Buang %1$s</string>
     <string name="ew_advanced">Lanjutan</string>
-    <string name="ew_advanced_sub">Penganjur · akses tamat · nota sendiri · fail</string>
+    <string name="ew_advanced_sub">Penganjur · akses tamat · nota sendiri · bahasa</string>
+    <string name="ew_share_copy_link">Salin pautan</string>
+    <string name="ew_share_link_hint">Sesiapa yang ada pautan boleh lihat pelan. Kongsi dalam kumpulan yang dipercayai.</string>
+    <string name="ew_share_file_only">Walaupun tanpa laluan, pautan tetap terlalu panjang. Hantar fail acara (tetamu perlukan Manotu).</string>
     <string name="ew_adv_organizer">Nama penganjur</string>
     <string name="ew_adv_organizer_hint">cth. Keluarga Aqil</string>
     <string name="ew_adv_notes">Nota untuk saya</string>

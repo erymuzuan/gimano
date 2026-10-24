@@ -1144,7 +1144,10 @@
     <string name="ew_agenda_bad">This line needs a time first (like 11:00): %1$s</string>
     <string name="ew_remove_n">Remove %1$s</string>
     <string name="ew_advanced">More options</string>
-    <string name="ew_advanced_sub">Organizer · access ends · own notes · file</string>
+    <string name="ew_advanced_sub">Organizer · access ends · own notes · language</string>
+    <string name="ew_share_copy_link">Copy link</string>
+    <string name="ew_share_link_hint">Anyone with the link can see the plan. Share it in groups you trust.</string>
+    <string name="ew_share_file_only">Even without the route lines no link fits. Send the event file instead (guests need Manotu).</string>
     <string name="ew_adv_organizer">Organizer name</string>
     <string name="ew_adv_organizer_hint">e.g. Aqil\'s family</string>
     <string name="ew_adv_notes">Notes for me</string>

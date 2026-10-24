@@ -22,17 +22,11 @@ object InviteMessages {
         else "${s.format(day)} ${s.format(hm)} – ${e.format(day)} ${e.format(hm)}"
     }
 
-    fun linkMessage(p: EventPlan, link: String, downloadUrl: String): String = if (p.lang == "en") """
-        Invitation: ${p.title}
-        ${whenText(p)}
-        Open the plan, parking & directions: $link
-        No Manotu yet? Download: $downloadUrl
-    """.trimIndent() else """
-        Jemputan: ${p.title}
-        ${whenText(p)}
-        Buka pelan, tempat parkir & arah: $link
-        Belum ada Manotu? Muat turun: $downloadUrl
-    """.trimIndent()
+    /** The default share ("Kongsi jemputan", link first): title, date · time, the link, the download page. */
+    fun linkMessage(p: EventPlan, link: String, downloadUrl: String): String = if (p.lang == "en")
+        "Invitation: ${p.title}\n${whenShort(p)}\nOpen the plan, parking & directions: $link\nNo Manotu yet? $downloadUrl"
+    else
+        "Jemputan: ${p.title}\n${whenShort(p)}\nBuka pelan, parkir & arah: $link\nBelum ada Manotu? $downloadUrl"
 
     /** "Ahd, 15 Nov · 11:00–16:00" (one day), else the [whenText] range across days. */
     fun whenShort(p: EventPlan): String {

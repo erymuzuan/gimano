@@ -799,14 +799,7 @@ private fun AdvancedSheet(d: HostDraft, editor: HostEditor, use24h: Boolean, onD
                     }
                 }
             }
-            Row(Modifier.padding(top = 14.dp).fillMaxWidth().clickable(role = Role.Switch) { editor.setSensitive(!d.sensitive) }, verticalAlignment = Alignment.CenterVertically) {
-                AdvIcon("ev_lock")
-                Column(Modifier.weight(1f)) {
-                    Text(stringResource(R.string.ew_adv_sensitive), fontSize = 16.sp, fontWeight = FontWeight.ExtraBold, color = c.text)
-                    Text(stringResource(R.string.ew_adv_sensitive_sub), fontSize = 13.sp, color = c.textMuted)
-                }
-                Switch(checked = d.sensitive, onCheckedChange = { editor.setSensitive(it) })
-            }
+            // "Hantar sebagai fail + kod" is no longer offered (link-first sharing, 24 Oct 2026); the codec keeps suite 2.
             Button(onClick = onDismiss, Modifier.padding(top = 20.dp).fillMaxWidth().height(56.dp), shape = RoundedCornerShape(Radius.md),
                 colors = ButtonDefaults.buttonColors(containerColor = c.brand, contentColor = c.brandOn)) {
                 Text(stringResource(R.string.done), fontWeight = FontWeight.ExtraBold, fontSize = 17.sp)
@@ -937,10 +930,6 @@ private fun ReviewStep(d: HostDraft, editor: HostEditor, use24h: Boolean, issues
     if (exp != null) Row(Modifier.padding(top = 10.dp), verticalAlignment = Alignment.CenterVertically) {
         TwoToneIcon("ev_key", null, size = 18.dp); Spacer(Modifier.width(6.dp))
         Text(stringResource(R.string.ew_access_ends, instantText(exp, d.zone(), use24h, lang)), fontSize = 14.sp, fontWeight = FontWeight.Bold, color = c.textMuted)
-    }
-    if (d.sensitive) Row(Modifier.padding(top = 6.dp), verticalAlignment = Alignment.CenterVertically) {
-        TwoToneIcon("ev_lock", null, size = 18.dp); Spacer(Modifier.width(6.dp))
-        Text(stringResource(R.string.ew_adv_sensitive), fontSize = 14.sp, fontWeight = FontWeight.Bold, color = c.textMuted)
     }
 }
 
