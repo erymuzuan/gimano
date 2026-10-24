@@ -39,7 +39,7 @@ final class DriveBackupUITests: XCTestCase {
         return false
     }
 
-    func test_r_GoogleDriveBackupRestore() {
+    func test_r_GoogleDriveBackupRestore() throws {
         // A favourite to back up.
         wait(app.buttons["whereTo"]).tap()
         let f = wait(app.textFields["searchField"])
@@ -54,6 +54,9 @@ final class DriveBackupUITests: XCTestCase {
 
         wait(app.buttons["menuButton"]).tap()
         wait(app.buttons["menuBackup"]).tap()
+        if app.descendants(matching: .any)["backupDestination.googleDriveUnavailable"].waitForExistence(timeout: 5) {
+            throw XCTSkip("Built with GIMANO_DRIVE=NO (store build): no Google Drive backup")
+        }
         wait(app.buttons["backupDestination.googleDrive"]).tap()
         sleep(1)
         XCTAssertFalse(app.descendants(matching: .any)["driveNotConfigured"].exists, "Google client id should be configured")
@@ -117,9 +120,12 @@ final class DriveBackupUITests: XCTestCase {
     }
 
     /// Restores a backup made by another device/platform found in the same Drive appDataFolder (e.g. Android).
-    func test_s_RestoreBackupFromOtherPlatform() {
+    func test_s_RestoreBackupFromOtherPlatform() throws {
         wait(app.buttons["menuButton"]).tap()
         wait(app.buttons["menuBackup"]).tap()
+        if app.descendants(matching: .any)["backupDestination.googleDriveUnavailable"].waitForExistence(timeout: 5) {
+            throw XCTSkip("Built with GIMANO_DRIVE=NO (store build): no Google Drive backup")
+        }
         wait(app.buttons["backupDestination.googleDrive"]).tap()
         wait(app.buttons["Sign out"], 30)
         for _ in 0..<5 where !app.buttons.matching(identifier: "remoteBackup").firstMatch.exists { app.swipeUp() }
