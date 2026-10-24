@@ -3,7 +3,8 @@ import SwiftUI
 /// Place card from search (boards TempatFlow / TempatIntai / TempatBaru / TempatPenuh).
 ///
 /// - **Peek** (default, ≤ 40 % of the screen): name with one rating line ("★ 4.3 · 12 reviews · 450 m", or grey stars +
-///   "New"), category · address · open now, the "Routes · eta" button, then Save · Call · Share · Website.
+///   "New"), category · address · open now, the "Routes" button (plain: nothing is routed, and no position leaves the
+///   phone, until it is tapped), then Save · Call · Share · Website.
 /// - **Full** (swipe up): Reviews (average, 5→1 bars, latest review, Write a review), Photos (Add photo at the end),
 ///   hours and amenities, Suggest an edit.
 ///
@@ -27,7 +28,6 @@ struct PlaceCardView: View {
     @State private var writing = false
     @State private var showAllReviews = false
     @State private var showAddPhotos = false
-    @State private var etaS: Double?
     /// Natural heights of the peek's scrolling top (name, rating, address) and its fixed bottom (Routes, actions).
     @State private var peekTop: CGFloat = 120
     @State private var peekFixed: CGFloat = 170
@@ -103,7 +103,6 @@ struct PlaceCardView: View {
             }
         }
         .task(id: summary.id) { await load() }
-        .task(id: summary.id) { await loadEta() }
         .task(id: summary.id) { if canReview { await reloadReviews() } }
     }
 
@@ -250,32 +249,21 @@ struct PlaceCardView: View {
             return
         }
         guard !isPin else { return }
-        place = try? await model.repo.place(id: summary.id, near: model.position)
-    }
-
-    /// "Routes · 6 min": the fastest route from a fresh GPS fix (no fix → just "Routes", like the route start rules).
-    private func loadEta() async {
-        guard case .fresh(let me) = model.currentGPS(), !RouteOrigin.sameSpot(me, summary.location) else { return }
-        let req = RouteRequest(origin: RouteEndpoint(lat: me.lat, lng: me.lng),
-                               destination: RouteEndpoint(lat: summary.lat, lng: summary.lng, placeId: isPrivate || isPin ? nil : summary.id),
-                               vehicle: model.vehicle, alternatives: 2)
-        guard let routes = try? await model.repo.routes(req), !Task.isCancelled else { return }
-        // A demo stand-in route goes somewhere else: no ETA rather than a wrong one.
-        // Same request and pick as the route preview (best of the alternatives), so "Routes · 16 min" matches it.
-        etaS = routes.filter { $0.demoNote == nil }.map(\.effectiveDurationS).min()
+        // No position goes with it: the distance is measured on the phone (see PlaceCardLoader).
+        place = await PlaceCardLoader.detail(id: summary.id, source: model.repo)
     }
 
     private var myReviewId: String? { try? model.store.setting("review.\(summary.id)") }
     private var myReview: Review? { reviews.first { $0.id == myReviewId } }
 
     private func reloadReviews() async {
-        reviews = (try? await model.repo.reviews(placeId: summary.id, sort: .recent, cursor: nil).reviews) ?? []
+        reviews = await PlaceCardLoader.reviews(placeId: summary.id, source: model.repo) ?? []
         reviewsLoaded = true
         // Photos are re-encoded to WebP on the server: poll briefly until they're published.
         for _ in 0..<6 where reviews.contains(where: { r in (r.photos ?? []).contains { $0.url == nil || $0.status == .processing } }) {
             try? await Task.sleep(for: .seconds(2))
             if Task.isCancelled { return }
-            reviews = (try? await model.repo.reviews(placeId: summary.id, sort: .recent, cursor: nil).reviews) ?? reviews
+            reviews = await PlaceCardLoader.reviews(placeId: summary.id, source: model.repo) ?? reviews
         }
     }
 
@@ -411,7 +399,8 @@ struct PlaceCardView: View {
         } label: {
             HStack(spacing: 10) {
                 RouteGlyph().frame(width: 26, height: 26)
-                (Text("Routes") + Text(etaS.map { " · " + ETAFormatter.duration($0) } ?? ""))
+                // Plain "Routes": no route (and no position) is requested until it's tapped.
+                Text("Routes")
                     .lineLimit(1)
                     .minimumScaleFactor(0.7)
             }

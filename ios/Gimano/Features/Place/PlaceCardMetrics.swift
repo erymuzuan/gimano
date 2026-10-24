@@ -66,3 +66,23 @@ struct PlaceRatingLine: Equatable, Sendable {
         return 0
     }
 }
+
+/// The only requests a place card makes when it opens. It can't reach routing, so opening a card never sends the
+/// user's position: the location leaves the phone only once Routes is tapped (route preview), as on Android.
+protocol PlaceCardDataSource: Sendable {
+    func place(id: String, near: LatLng?) async throws -> Place
+    func reviews(placeId: String, sort: ReviewSort, cursor: String?) async throws -> ReviewsPage
+}
+
+enum PlaceCardLoader {
+    /// `GET /places/{id}` without `lat`/`lng` (the server would only use them for `distanceM`; the card measures the
+    /// distance on the phone from its own fix).
+    static func detail(id: String, source: any PlaceCardDataSource) async -> Place? {
+        try? await source.place(id: id, near: nil)
+    }
+
+    /// `GET /places/{id}/reviews` (no position).
+    static func reviews(placeId: String, source: any PlaceCardDataSource) async -> [Review]? {
+        try? await source.reviews(placeId: placeId, sort: .recent, cursor: nil).reviews
+    }
+}

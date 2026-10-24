@@ -72,4 +72,29 @@ struct PlaceCardTests {
         #expect(PlaceCategory.mosque.flatIcon == .surau)
         #expect(PlaceCategory.fuel.flatIcon == .fuel)
     }
+
+    @Test("Opening a card never sends the user's position: details without near, reviews, nothing else")
+    func noPositionOnOpen() async {
+        let src = RecordingCardSource()
+        _ = await PlaceCardLoader.detail(id: "w480717734", source: src)
+        _ = await PlaceCardLoader.reviews(placeId: "w480717734", source: src)
+        let calls = await src.calls
+        #expect(calls == ["place(w480717734, near: nil)", "reviews(w480717734)"])
+        #expect(!calls.contains { $0.contains("near: LatLng") || $0.contains("route") })
+    }
+}
+
+/// Records what a place card asks for (the card's data source has no routing call at all).
+actor RecordingCardSource: PlaceCardDataSource {
+    var calls: [String] = []
+
+    func place(id: String, near: LatLng?) async throws -> Place {
+        calls.append("place(\(id), near: \(near.map { "LatLng(\($0.lat), \($0.lng))" } ?? "nil"))")
+        return Place(summary: PlaceSummary(id: id, name: "Masjid Jamek", category: .mosque, address: "", lat: 3.1488, lng: 101.6957))
+    }
+
+    func reviews(placeId: String, sort: ReviewSort, cursor: String?) async throws -> ReviewsPage {
+        calls.append("reviews(\(placeId))")
+        return ReviewsPage(reviews: [], next: nil)
+    }
 }
