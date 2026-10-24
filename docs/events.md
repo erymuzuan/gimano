@@ -59,7 +59,7 @@ session/arrival times carry the event's local offset (e.g. `2026-11-15T11:00:00+
   "rev": 3,                             // 1, 2, 3 … one per publication
   "parent": "b64u(SHA-256(eventBytes of rev-1))",   // null for rev 1
   "publishedAt": "2026-11-01T02:15:00Z",
-  "template": "kenduri",                // kenduri|dinner|company|ride|convoy|trip|other
+  "template": "kenduri",                // kenduri|dinner|company|ride|convoy|trip|meeting|seminar|picnic|hike|other
   "title": "Kenduri Aqil & Sofea",      // 1–120 chars
   "description": "…",                   // optional, ≤ 2000
   "lang": "ms",                         // ms|en (display language chosen by the host)
@@ -81,6 +81,10 @@ session/arrival times carry the event's local offset (e.g. `2026-11-15T11:00:00+
   }],
   "sessions": [{                        // optional agenda
     "id": "b64u(8)", "title": "Jamuan", "start": "…+08:00", "end": "…+08:00", "stopId": "…"
+  }],
+  "info": [{                            // optional guest notes, plain text (§4.1)
+    "kind": "dress",                    // dress|safety|documents|bring|contact|other
+    "text": "Tema pastel. Baju Melayu / kurung."      // 1–1000
   }],
   "routes": [{                          // optional
     "id": "b64u(8)",
@@ -104,12 +108,23 @@ unique; stop references must resolve; unknown `template`/`kind` read as `other`,
 are rejected; `distanceM`/`durationS`/`ascentM`/`descentM` are non-negative integers; rev 1 has `parent: null`
 and later revisions must have a parent. Session title 1–120, alias ≤ 80, `dwellMin` ≤ 20 160.
 
-Limits (reject above them): 14 days between `start` and `end`, 200 stops, 50 sessions, 20 routes, 50 000 polyline
+Limits (reject above them): 14 days between `start` and `end`, 200 stops, 50 sessions, 12 info blocks, 20 routes, 50 000 polyline
 points in total, 20 MiB file, 16 000-character link fragment.
+
+### 4.1 Guest info blocks and templates (added 24 Oct 2026)
+
+- `info` is optional; when present it holds 1–12 blocks, written after `sessions` and before `routes`. Each block
+  is `{kind, text}`: `text` is plain guest-visible text, 1–1000 code points (newlines allowed, no markup);
+  `kind` is `dress` (Kod pakaian), `safety` (Keselamatan), `documents` (Dokumen), `bring` (Bawa), `contact`
+  (Hubungi) or `other`. An unknown `kind` reads as `other`. A kind may repeat. Readers show blocks in order.
+  The agenda stays in `sessions` (it is not an info block).
+- Templates `meeting`, `seminar`, `picnic`, `hike` were added; older readers show them as `other`. Whether an event
+  is "one venue" or "a journey" is not stored: an event with `routes` is a journey.
+- Older readers ignore `info` (unknown fields are ignored), so these events still open everywhere.
 
 ## 5. Transport
 
-### 5.1 Invitation link (default)
+### 5.1 Invitation link
 
 ```
 https://<site>/a/#1.<b64u(key)>.<b64u(nonce ‖ ciphertext)>
@@ -123,10 +138,11 @@ https://<site>/a/#1.<b64u(key)>.<b64u(nonce ‖ ciphertext)>
 - Phones register `/a/` as an app link (Android App Links / iOS Universal Links) so it opens in Manotu when
   installed; otherwise the page shows the plan with "Buka di Manotu / Google Maps / apl lain".
 
-### 5.2 File `.manotu-event` (sensitive events)
+### 5.2 File `.manotu-event`
 
 ```
-suite 2 (written since 24 Oct 2026):  "MNTE" ‖ 0x01 (format) ‖ 0x02 (suite: code) ‖ salt (16) ‖ nonce (24) ‖ ciphertext
+suite 3 (default share, no code):     "MNTE" ‖ 0x01 (format) ‖ 0x03 (suite: open) ‖ key (32) ‖ nonce (24) ‖ ciphertext
+suite 2 (sensitive events):           "MNTE" ‖ 0x01 (format) ‖ 0x02 (suite: code) ‖ salt (16) ‖ nonce (24) ‖ ciphertext
 suite 1 (read only, older files):     "MNTE" ‖ 0x01 (format) ‖ 0x01 (suite: raw key) ‖ nonce (24) ‖ ciphertext
 ```
 
@@ -159,6 +175,26 @@ trusted people. The web viewer does not open files (files are for Manotu users),
 opening these; writers no longer produce them.
 
 The host sends the code through a different channel. MIME `application/vnd.manotu.event`.
+
+**Suite 3 (open file, the default share since 24 Oct 2026).** The file carries its own key, exactly like a link
+carries its key after `#`: `key`, `nonce` and `ciphertext` are **the same bytes as the link** of the same
+publication (`#1.<key>.<nonce ‖ ciphertext>`), so a suite-3 file and its link are interchangeable and the file adds
+only 6 header bytes. It is always the **full** event (never a stops-only variant) and has no 16 000-character
+limit, only the 20 MiB file limit. Readers open it with no code and apply every link rule (signature, §7). Anyone holding the file
+can read the plan, as with the link. Older apps report `unsupported_suite`; they need an update. Hosts pick suite 2
+("Acara sensitif") when the plan must not be readable by whoever ends up holding the file.
+
+### 5.2.1 Sharing (apps, since 24 Oct 2026)
+
+- **Default ("Hantar fail"):** one share action sends the suite-3 file plus this text (BM; EN when the event `lang`
+  is `en`), no code:
+  `Jemputan: <title>\n<date · time>\nKetik fail untuk buka di Manotu.\nBelum ada Manotu? <download URL>`
+  (`https://manotu.app/download/`).
+- **Acara sensitif:** a suite-2 file plus the 8-character code, which the app offers to send separately.
+- **Link:** still produced for every publication (the web viewer and older apps use it); offered as a secondary
+  "Salin pautan web" action, not the default. Stops-only links (§5.5) stay as they are.
+- Guests see one code at most: the organizer safety code (§7.3) is behind a "Penganjur disahkan" row, not on the
+  main event card.
 
 ### 5.3 Opening in the app (web viewer hand-off)
 
