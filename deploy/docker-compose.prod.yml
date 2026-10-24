@@ -159,6 +159,9 @@ services:
       # Opaque per-author handles for on-device blocking (base64, 32 bytes). Empty = derived from the JWT key (then rotating
       # the JWT key changes every handle and empties the apps' block lists). openssl rand -base64 32
       Community__AuthorHandleKey: ${AUTHOR_HANDLE_KEY:-}
+      # Event short links (docs/events.md §5.6): key for the uploader hash (quota, DELETE /me). Empty = derived from the
+      # JWT key (rotating it would orphan live links from their owners). openssl rand -base64 32
+      Drops__OwnerKey: ${DROPS_OWNER_KEY:-}
       # Agent endpoints /admin/v1 and /mcp (docs/back-office.md): OFF in production until the back office is deliberately
       # deployed here. To enable, set AGENT_ADMIN_ENABLED=true and AGENT_ADMIN_NETWORKS to the agents' CIDR (Tailscale:
       # 100.64.0.0/10) in deploy/.env.prod. Requests through Cloudflare are refused either way (Admin__AllowPublic=false).

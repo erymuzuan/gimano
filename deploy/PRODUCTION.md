@@ -148,11 +148,12 @@ metadata, feedback, and the anonymous device accounts. Back up daily and keep 14
 ```bash
 # /etc/cron.d/gimano-backup  (root)
 15 3 * * * root cd /opt/gimano && docker compose -f deploy/docker-compose.prod.yml --env-file deploy/.env.prod exec -T postgis \
-  pg_dump -U gimano -d gimano -Fc --exclude-table-data=road_segments --exclude-table-data=water_areas --exclude-table-data=places \
+  pg_dump -U gimano -d gimano -Fc --exclude-table-data=road_segments --exclude-table-data=water_areas --exclude-table-data=places --exclude-table-data=drops \
   > /var/backups/gimano/gimano-$(date +\%F).dump && find /var/backups/gimano -name '*.dump' -mtime +14 -delete
 ```
 
-The excluded tables are rebuilt by the importer (they're only a few GB, but they're OSM data). Media (photos) live
+`drops` (event short links: encrypted blobs the server can't read) is left out on purpose, so an ended or deleted
+link never lingers in a backup; after a restore, organizers simply share again. The other excluded tables are rebuilt by the importer (they're only a few GB, but they're OSM data). Media (photos) live
 in the `gimano_media` volume. Back them up with `docker run --rm -v gimano_media:/m -v /var/backups/gimano:/b alpine tar czf /b/media-$(date +%F).tgz -C /m .`,
 or switch to S3-compatible storage (`Media__Provider=s3`, `Media__S3__*`). Restore: `pg_restore -c -d gimano`
 inside the postgis container, then run the importer for the OSM tables.
@@ -173,3 +174,5 @@ inside the postgis container, then run the importer for the OSM tables.
   and the transient `gimano.locations` exchange (exclusive auto-delete queue, 30 s TTL, drop-head).
 - Share links (`/api/v1/shares`) live in API memory: a single API instance is assumed. If the API ever scales out,
   move them to a shared store (Redis), still in memory and never persisted.
+- Event short links (`/api/v1/drops`) are in Postgres (table `drops`, ciphertext only, no key). The worker purges expired and
+  deleted links hourly, so keep the worker running. `DROPS_OWNER_KEY` in `.env.prod` (optional, see the example file).
