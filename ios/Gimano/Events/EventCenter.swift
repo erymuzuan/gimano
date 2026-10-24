@@ -9,12 +9,27 @@ struct PendingEventImport: Identifiable, Equatable {
     let decision: EventImportDecision
     /// The version on this phone (for "older" / "fork" / "newer" warnings).
     let stored: ImportedEvent?
+    /// The host opened their own invitation: nothing is imported, their event opens.
+    var isOwn = false
+    /// A newer revision: what changed against the version on this phone (board "5 · Pelan berubah").
+    var changes: [EventChange] = []
+}
+
+/// The guest is previewing or driving a route to this event stop (set by "Navigate").
+struct EventActiveTrip: Equatable, Sendable {
+    var eventId: String
+    var stopId: String
+    var target: LatLng
 }
 
 enum EventNavRoute: Hashable {
     case confirm
     case secretCode
     case detail(String)
+    /// The organizer's editor for a hosted event (board "1 · Acara baharu").
+    case host(String)
+    /// "Kongsi jemputan" for a hosted event (board "2").
+    case share(String)
 }
 
 /// Events (Acara): opening invitation links and `.manotu-event` files, the import decision, the on-device library.
@@ -22,7 +37,14 @@ enum EventNavRoute: Hashable {
 @Observable
 final class EventCenter {
     let store: EventStore
+    let secrets: any EventSecretStore
     private(set) var events: [ImportedEvent] = []
+    /// Events this phone organizes.
+    private(set) var hosted: [HostedEvent] = []
+    /// The last publication per hosted event, in memory only (links and codes are never stored).
+    private(set) var invites: [String: PublishedInvite] = [:]
+    /// Set by "Navigate" to an event stop; checked when a newer revision moves that stop.
+    var activeTrip: EventActiveTrip?
 
     /// The Acara sheet and its navigation.
     var isPresented = false
@@ -38,8 +60,9 @@ final class EventCenter {
 
     @ObservationIgnored var now: () -> Date = { .now }
 
-    init(store: EventStore) {
+    init(store: EventStore, secrets: any EventSecretStore = KeychainEventSecretStore()) {
         self.store = store
+        self.secrets = secrets
     }
 
     // MARK: library
@@ -47,6 +70,94 @@ final class EventCenter {
     /// Purges expired events (§7.5) and reloads. Called on launch, when the app comes to the foreground and when listing.
     func refresh() {
         events = (try? store.events(now: now())) ?? []
+        for id in (try? store.expiredHostedIds(now: now())) ?? [] {
+            try? store.deleteHosted(eventId: id)
+            secrets.delete(eventId: id)
+            invites[id] = nil
+        }
+        hosted = (try? store.hostedEvents()) ?? []
+        Self.cleanShareFiles(olderThan: now().addingTimeInterval(-24 * 3600))
+    }
+
+    // MARK: organizer
+
+    func hostedEvent(_ id: String) -> HostedEvent? { hosted.first { $0.id == id } }
+
+    /// "Acara baharu": a new draft with its own id (its keys are created on first publish).
+    @discardableResult
+    func newEvent() -> String {
+        let d = HostedEventDraft.new(now: now())
+        try? store.saveDraft(d)
+        refresh()
+        path.append(.host(d.id))
+        return d.id
+    }
+
+    func saveDraft(_ d: HostedEventDraft) {
+        var d = d
+        d.updatedAt = now()
+        try? store.saveDraft(d)
+        hosted = (try? store.hostedEvents()) ?? hosted
+    }
+
+    /// Removes the draft, its published revisions and its keys from this phone. Copies already sent stay
+    /// readable until their access ends.
+    func deleteHosted(_ id: String) {
+        try? store.deleteHosted(eventId: id)
+        secrets.delete(eventId: id)
+        invites[id] = nil
+        path.removeAll { $0 == .host(id) || $0 == .share(id) }
+        refresh()
+    }
+
+    /// Publishes (a new revision when something changed) and opens "Kongsi jemputan". Returns an error message.
+    func publish(_ id: String) -> String? {
+        switch EventPublisher.publish(eventId: id, store: store, secrets: secrets, now: now()) {
+        case .success(let invite):
+            invites[id] = invite
+            hosted = (try? store.hostedEvents()) ?? hosted
+            if path.last != .share(id) { path.append(.share(id)) }
+            return nil
+        case .failure(let e):
+            return e.message
+        }
+    }
+
+    /// Whether the draft differs from what was last published (or was never published).
+    func hasUnpublishedChanges(_ h: HostedEvent) -> Bool {
+        guard let latest = try? store.latestHostedRevision(eventId: h.id) else { return true }
+        if case .success(let p) = EventPublisher.prepare(h.draft, previousBytes: latest.eventBytes, now: now()) { return !p.reused }
+        return true
+    }
+
+    /// The `.manotu-event` file for sharing, in a temporary folder (encrypted; removed after a day).
+    func inviteFileURL(_ id: String) -> URL? {
+        guard let invite = invites[id] else { return nil }
+        let dir = Self.shareDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+        let safe = String(String.UnicodeScalarView(invite.doc.title.unicodeScalars.filter {
+            CharacterSet.alphanumerics.contains($0) || $0 == " " || $0 == "-"
+        })).trimmingCharacters(in: .whitespaces)
+        let name = safe.isEmpty ? "acara" : String(safe.prefix(60))
+        let url = dir.appendingPathComponent("\(name).\(EventPack.fileExtension)")
+        do {
+            try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+            try Data(invite.fileBytes).write(to: url, options: [.atomic, .completeFileProtection])
+            return url
+        } catch {
+            return nil
+        }
+    }
+
+    private static var shareDirectory: URL {
+        FileManager.default.temporaryDirectory.appendingPathComponent("manotu-event-share", isDirectory: true)
+    }
+
+    private static func cleanShareFiles(olderThan cutoff: Date) {
+        let fm = FileManager.default
+        guard let items = try? fm.contentsOfDirectory(at: shareDirectory, includingPropertiesForKeys: [.creationDateKey]) else { return }
+        for u in items where ((try? u.resourceValues(forKeys: [.creationDateKey]).creationDate) ?? .distantPast) < cutoff {
+            try? fm.removeItem(at: u)
+        }
     }
 
     func event(_ id: String) -> ImportedEvent? {
@@ -159,10 +270,20 @@ final class EventCenter {
     }
 
     private func decide(_ pack: OpenedEventPack) throws(EventPackError) {
+        // The organizer opening their own invitation: their event, not someone else's import.
+        if EventPublisher.isOwn(pack, store: store) {
+            pending = PendingEventImport(pack: pack, decision: .alreadyImported, stored: nil, isOwn: true)
+            errorMessage = nil
+            path.removeAll { $0 == .confirm }
+            path.append(.confirm)
+            return
+        }
         let stored = try? store.record(eventId: pack.event.id)
         let decision = EventImport.decide(EventImportCandidate(pack), stored: stored, now: now())
         let current = (try? store.events(now: now()))?.first { $0.eventId == pack.event.id }
-        pending = PendingEventImport(pack: pack, decision: decision, stored: current)
+        var changes: [EventChange] = []
+        if case .newer = decision, let current { changes = EventChange.between(current.doc, pack.event) }
+        pending = PendingEventImport(pack: pack, decision: decision, stored: current, changes: changes)
         errorMessage = nil
         path.removeAll { $0 == .confirm }
         path.append(.confirm)
@@ -178,6 +299,11 @@ final class EventCenter {
         guard let p = pending else { return nil }
         pending = nil
         let id = p.pack.event.id
+        if p.isOwn {
+            refresh()
+            path = hostedEvent(id) != nil ? [.host(id)] : []
+            return nil
+        }
         let stored = (try? store.save(p.pack, decision: p.decision, now: now())) ?? false
         refresh()
         let opensStored = stored || p.decision == .alreadyImported || p.decision.code == "older"
@@ -189,6 +315,12 @@ final class EventCenter {
         pending = nil
         pendingFile = nil
         path.removeAll { $0 == .confirm || $0 == .secretCode }
+    }
+
+    /// The active trip's stop moved or was removed in the pending update (the destination never changes silently).
+    func pendingAffectsTrip(_ p: PendingEventImport, trip: EventActiveTrip?) -> EventChange? {
+        guard let t = trip, t.eventId == p.pack.event.id else { return nil }
+        return EventChange.affectsTrip(p.changes, stopId: t.stopId)
     }
 
     // MARK: schedule
@@ -215,6 +347,32 @@ extension AppModel {
         clearEventFromMap()
         let destination = Destination(name: stop.label, address: doc.title, location: stop.navigationTarget, placeId: nil)
         planRoute(to: destination, remember: false, vehicle: EventCenter.vehicle(for: stop, in: doc), eventTrip: true)
+        events.activeTrip = EventActiveTrip(eventId: doc.id, stopId: stop.id, target: stop.navigationTarget)
+    }
+
+    /// The trip to an event stop that is being previewed or driven right now, if any.
+    var currentEventTrip: EventActiveTrip? {
+        guard let t = events.activeTrip, let p = planner, p.isEventTrip,
+              Geo.distance(p.destination.location, t.target) < 1 else { return nil }
+        return t
+    }
+
+    /// "Guna pelan baharu": imports the newer revision; when the trip's stop moved, ends the drive and opens the
+    /// route preview to the new position (the user starts it). Never changes the destination without this tap.
+    func acceptEventUpdate() {
+        guard let p = events.pending else { return }
+        let affected = currentEventTrip.flatMap { t in
+            EventChange.affectsTrip(p.changes, stopId: t.stopId).map { _ in t }
+        }
+        guard let id = events.confirmPending() else { return }
+        showToast(String(localized: "Plan updated"))
+        guard let t = affected, let e = events.event(id) else { return }
+        if navigation != nil { stopNavigation() }
+        if let stop = e.doc.stop(t.stopId) {
+            navigate(toEventStop: stop, in: e.doc)
+        } else {
+            events.activeTrip = nil
+        }
     }
 
     /// Draws the event's routes (and the next stop's pin) on the home map behind the Acara sheet.

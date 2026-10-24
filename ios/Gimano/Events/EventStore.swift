@@ -92,6 +92,27 @@ final class EventStore: Sendable {
                 CREATE INDEX ix_event_revisions_expiry ON event_revisions(expires_at);
                 """)
         }
+        // Events this phone organizes (EventHost.swift): the draft (with organizer-only notes, never packed),
+        // the organizer public key (the seed and pack key are in the Keychain, this device only) and every
+        // published revision's exact signed bytes (for `parent`).
+        m.registerMigration("v2-hosted") { db in
+            try db.execute(sql: """
+                CREATE TABLE hosted_events (
+                  event_id TEXT PRIMARY KEY,
+                  draft BLOB NOT NULL,
+                  organizer_pub BLOB,
+                  expires_at REAL NOT NULL,
+                  updated_at TEXT NOT NULL);
+                CREATE TABLE hosted_revisions (
+                  event_id TEXT NOT NULL REFERENCES hosted_events(event_id) ON DELETE CASCADE,
+                  rev INTEGER NOT NULL,
+                  hash BLOB NOT NULL,
+                  payload BLOB NOT NULL,
+                  published_at TEXT NOT NULL,
+                  expires_at REAL NOT NULL,
+                  PRIMARY KEY (event_id, rev));
+                """)
+        }
         return m
     }
 
@@ -234,6 +255,8 @@ final class EventStore: Sendable {
         try dbQueue.write { db in
             try db.execute(sql: "DELETE FROM event_revisions")
             try db.execute(sql: "DELETE FROM event_organizers")
+            try db.execute(sql: "DELETE FROM hosted_revisions")
+            try db.execute(sql: "DELETE FROM hosted_events")
         }
     }
 }

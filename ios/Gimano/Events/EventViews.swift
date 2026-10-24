@@ -22,6 +22,15 @@ enum EventFormat {
         return "\(dateTime(from, doc)) – \(sameDay ? time(to, doc) : dateTime(to, doc))"
     }
 
+    /// Drafts (dates not yet written as RFC 3339).
+    static func range(_ from: Date, _ to: Date, _ tz: TimeZone) -> String {
+        var cal = Calendar.current
+        cal.timeZone = tz
+        let full = Date.FormatStyle(date: .abbreviated, time: .shortened, timeZone: tz)
+        let time = Date.FormatStyle(date: .omitted, time: .shortened, timeZone: tz)
+        return "\(from.formatted(full)) – \(cal.isDate(from, inSameDayAs: to) ? to.formatted(time) : to.formatted(full))"
+    }
+
     static func expiry(_ doc: EventDoc) -> String {
         doc.expiresAt.date.formatted(date: .abbreviated, time: .shortened)
     }
@@ -76,6 +85,8 @@ struct EventsSheet: View {
                     case .confirm: EventImportConfirmView()
                     case .secretCode: EventSecretCodeView()
                     case .detail(let id): EventDetailView(eventId: id)
+                    case .host(let id): EventEditorView(eventId: id)
+                    case .share(let id): EventShareView(eventId: id)
                     }
                 }
         }
@@ -100,6 +111,19 @@ struct EventsListView: View {
     var body: some View {
         let center = model.events
         List {
+            Section {
+                Button { center.newEvent() } label: {
+                    Label("New event", systemImage: "plus.circle.fill").font(Tokens.Font.bodyBold)
+                }
+                .accessibilityIdentifier("eventNew")
+                ForEach(center.hosted) { h in
+                    NavigationLink(value: EventNavRoute.host(h.id)) { hostedRow(h) }
+                        .accessibilityIdentifier("eventHosted.\(h.id)")
+                }
+            } header: {
+                Text("I'm organizing").font(Tokens.Font.label)
+            }
+
             Section {
                 VStack(alignment: .leading, spacing: Tokens.Space.s) {
                     TextField("Paste an invitation link", text: $pasted, axis: .vertical)
@@ -133,7 +157,7 @@ struct EventsListView: View {
 
             Section {
                 if center.events.isEmpty {
-                    ContentUnavailableView("No events yet", systemImage: "party.popper",
+                    ContentUnavailableView("No invitations yet", systemImage: "party.popper",
                                            description: Text("Open an invitation link or file from the organizer."))
                 }
                 ForEach(center.events) { e in
@@ -142,6 +166,8 @@ struct EventsListView: View {
                             Button("Delete", role: .destructive) { center.delete(e.eventId) }
                         }
                 }
+            } header: {
+                Text("Invited").font(Tokens.Font.label)
             }
 
             Section {
@@ -158,6 +184,29 @@ struct EventsListView: View {
         .fileImporter(isPresented: $pickingFile, allowedContentTypes: [UTType(EventPack.fileUTType) ?? .data]) { result in
             if case .success(let url) = result { center.handle(url: url) }
         }
+    }
+
+    private func hostedRow(_ h: HostedEvent) -> some View {
+        let d = h.draft
+        return HStack(spacing: Tokens.Space.m) {
+            Image(systemName: EventFormat.icon(d.template))
+                .font(.system(size: 26)).foregroundStyle(Color.brandOn)
+                .frame(width: 44, height: 44)
+                .background(Color.brand, in: RoundedRectangle(cornerRadius: Tokens.Radius.sm, style: .continuous))
+            VStack(alignment: .leading, spacing: 2) {
+                Text(verbatim: d.title.isEmpty ? String(localized: "Untitled event") : d.title).font(Tokens.Font.bodyBold).lineLimit(2)
+                Text(verbatim: EventFormat.range(d.start, d.end, d.timeZone)).font(Tokens.Font.caption).foregroundStyle(Color.textMuted)
+                Group {
+                    if let rev = h.latestRev {
+                        Text("Published · version \(Int(rev))")
+                    } else {
+                        Text("Draft · not shared yet")
+                    }
+                }
+                .font(Tokens.Font.small).foregroundStyle(Color.brand)
+            }
+        }
+        .padding(.vertical, 4)
     }
 
     private func row(_ e: ImportedEvent) -> some View {
@@ -189,10 +238,21 @@ struct EventImportConfirmView: View {
         ScrollView {
             if let p = center.pending {
                 VStack(alignment: .leading, spacing: Tokens.Space.l) {
-                    summary(p)
-                    warning(p)
-                    if case .expired = p.decision {} else { safety(p) }
-                    actions(p)
+                    if p.isOwn {
+                        summary(p)
+                        banner("This is your event", "You organize this event, so nothing is imported. Open it to edit or share.",
+                               tint: .brandMist, icon: "person.crop.circle.badge.checkmark")
+                        Button { center.confirmPending() } label: { Text("Open my event") }
+                            .buttonStyle(PrimaryButtonStyle())
+                            .accessibilityIdentifier("eventOpenOwn")
+                    } else if case .newer = p.decision, !p.changes.isEmpty {
+                        EventUpdateView(pending: p)
+                    } else {
+                        summary(p)
+                        warning(p)
+                        if case .expired = p.decision {} else { safety(p) }
+                        actions(p)
+                    }
                 }
                 .padding(Tokens.Space.gutter)
             }
