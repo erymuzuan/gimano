@@ -44,13 +44,15 @@ public static class PrivacyEndpoints
 
     /// <summary>
     /// Deletes the user row and everything keyed by it: saved places, recents (cascade), report votes,
-    /// feedback screenshots; reports and feedback text are detached (anonymised). Device tokens are stateless JWTs:
+    /// feedback screenshots, event short links; reports and feedback text are detached (anonymised). Device tokens are stateless JWTs:
     /// once the user row is gone they no longer resolve to an account. Driver dots were never stored.
     /// </summary>
-    private static async Task<NoContent> DeleteAccount(HttpContext http, GimanoDbContext db, CancellationToken ct)
+    private static async Task<NoContent> DeleteAccount(HttpContext http, GimanoDbContext db, Gimano.Core.Events.DropService drops, CancellationToken ct)
     {
         var uid = http.User.RequiredUserId();
         await using var tx = await db.Database.BeginTransactionAsync(ct);
+        // Event short links (encrypted packs) the user uploaded, live or ended: found by the keyed owner hash.
+        await drops.DeleteAllForUserAsync(uid, ct);
         // Volunteered contact details on this user's reports go immediately.
         var fbIds = db.Feedback.Where(f => f.UserId == uid).Select(f => f.Id);
         var crashIds = db.CrashReports.Where(c => c.UserId == uid).Select(c => c.Id);

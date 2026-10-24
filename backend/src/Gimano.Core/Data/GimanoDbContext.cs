@@ -49,6 +49,7 @@ public sealed class GimanoDbContext(DbContextOptions<GimanoDbContext> options) :
     public DbSet<AgentRun> AgentRuns => Set<AgentRun>();
     public DbSet<ReplyDraft> ReplyDrafts => Set<ReplyDraft>();
     public DbSet<AppBuild> AppBuilds => Set<AppBuild>();
+    public DbSet<Events.Drop> Drops => Set<Events.Drop>();
 
     protected override void OnModelCreating(ModelBuilder b)
     {
@@ -493,6 +494,17 @@ public sealed class GimanoDbContext(DbContextOptions<GimanoDbContext> options) :
         {
             e.Property(x => x.Geom).HasColumnType("geography (polygon, 4326)");
             e.HasIndex(x => x.Geom).HasMethod("gist");
+        });
+
+        // Event short links (docs/events.md §5.6): an encrypted pack the server can't read, kept until the event is over.
+        b.Entity<Events.Drop>(e =>
+        {
+            e.ToTable("drops");
+            e.Property(x => x.Id).HasMaxLength(10);
+            e.Property(x => x.WriteTokenHash).HasMaxLength(32);
+            e.Property(x => x.OwnerHash).HasMaxLength(32);
+            e.HasIndex(x => x.OwnerHash);
+            e.HasIndex(x => x.ExpiresAt);
         });
 
         b.Entity<TollRate>(e =>

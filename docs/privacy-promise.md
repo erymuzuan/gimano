@@ -55,12 +55,23 @@ anonymised.
 *Kami hanya menyimpan apa yang anda kongsi secara terbuka: laporan jalan, tempat awam, ulasan,
 gambar dan maklum balas.*
 
+**Event invitation links (owner-approved exception, 24 Oct 2026).** When you share an event with a short link, our
+server keeps the event plan **end-to-end encrypted**, without the key: the key is in the part of the link after `#`,
+which never reaches our servers, so we can't read the plan. It is deleted 14 days after the event ends (at most 400
+days), when you end the link, or when you delete your account.
+
+*Pautan jemputan acara: pelan acara disimpan di pelayan kami dalam bentuk tersulit hujung ke hujung, tanpa kuncinya.
+Kami tidak dapat membacanya. Ia dipadam 14 hari selepas acara tamat (paling lama 400 hari), apabila anda menamatkan
+pautan, atau apabila anda memadam akaun.*
+
 ## Usage notes for marketing
 
 - Do **not** say "we never store your email": we do, briefly, if you volunteer it on a feedback/crash report.
   Say "we never ask for your email to use Manotu".
 - Do **not** say "we collect no data at all": we do receive public contributions and anonymous
   speed pings.
+- Do **not** say "nothing about your events is on our servers": short invitation links keep an encrypted copy we can't
+  read until the event is over. Say "end-to-end encrypted; we can't read it".
 - Do **not** promise "military-grade" or similar. Say "end-to-end encrypted with a passphrase only you
   know" (libsodium Argon2id + XChaCha20-Poly1305), and only for passphrase-protected backups.
 - "Open source" claims link to https://github.com/erymuzuan/manotu.
