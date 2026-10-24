@@ -20,7 +20,9 @@ struct PrivacyCard: View {
                     .background(Color.brandMist, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
                 Text("Your places stay on your phone").font(Tokens.Font.title)
             }
-            Text("Home, work, kampung, your in-laws' house: your places live on your phone, not on our servers. Manotu never stores your personal data. Backups go straight to your own Google Drive or a file, optionally locked with a passphrase only you know.")
+            Text(GoogleDriveBackupDestination.isEnabled
+                 ? "Home, work, kampung, your in-laws' house: your places live on your phone, not on our servers. Manotu never stores your personal data. Backups go straight to your own Google Drive or a file, optionally locked with a passphrase only you know."
+                 : "Home, work, kampung, your in-laws' house: your places live on your phone, not on our servers. Manotu never stores your personal data. Back up to a file you keep, optionally locked with a passphrase only you know.")
                 .font(Tokens.Font.body)
                 .foregroundStyle(Color.textMuted)
             if let onBackup {
@@ -66,10 +68,7 @@ struct BackupView: View {
         Form {
             if model.restoreOnFirstRun {
                 Section {
-                    Label(ICloudBackupDestination.isEnabled
-                          ? "Restore your places from a backup: choose where it is (a file, Google Drive or iCloud), then pick it. Nothing on this phone changes until you choose Merge or Replace and confirm."
-                          : "Restore your places from a backup: choose where it is (a file or Google Drive), then pick it. Nothing on this phone changes until you choose Merge or Replace and confirm.",
-                          systemImage: "arrow.uturn.backward.circle")
+                    Label(firstRunRestoreNote, systemImage: "arrow.uturn.backward.circle")
                         .font(Tokens.Font.caption)
                         .accessibilityIdentifier("firstRunRestoreNote")
                     Button("Choose a backup file") { showImporter = true }
@@ -87,6 +86,20 @@ struct BackupView: View {
             Section("Back up to") {
                 ForEach(backup.offeredDestinations) { kind in destinationRow(kind) }
                 destinationStatus
+                if !GoogleDriveBackupDestination.isEnabled {
+                    // Store build (GIMANO_DRIVE = NO): no Drive destination, no Google sign-in. Same for every user.
+                    Label {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Google Drive").font(Tokens.Font.bodyBold)
+                            Text("Google Drive backup isn't available in this version. Backup to a file works.").font(Tokens.Font.caption)
+                        }
+                    } icon: {
+                        Image(systemName: "externaldrive.badge.xmark")
+                    }
+                    .foregroundStyle(Color.textMuted)
+                    .accessibilityElement(children: .combine)
+                    .accessibilityIdentifier("backupDestination.googleDriveUnavailable")
+                }
                 if !ICloudBackupDestination.isEnabled {
                     // Shown, but clearly unavailable: no iCloud entitlement in this build.
                     Label {
@@ -216,10 +229,20 @@ struct BackupView: View {
         }
     }
 
+    /// Names only the places this build can restore from.
+    private var firstRunRestoreNote: LocalizedStringKey {
+        switch (GoogleDriveBackupDestination.isEnabled, ICloudBackupDestination.isEnabled) {
+        case (true, true): "Restore your places from a backup: choose where it is (a file, Google Drive or iCloud), then pick it. Nothing on this phone changes until you choose Merge or Replace and confirm."
+        case (true, false): "Restore your places from a backup: choose where it is (a file or Google Drive), then pick it. Nothing on this phone changes until you choose Merge or Replace and confirm."
+        case (false, true): "Restore your places from a backup: choose where it is (a file or iCloud), then pick it. Nothing on this phone changes until you choose Merge or Replace and confirm."
+        case (false, false): "Restore your places from a backup file: choose the file, then check what it holds. Nothing on this phone changes until you choose Merge or Replace and confirm."
+        }
+    }
+
     private var destinationReady: Bool {
         switch backup.destination {
         case .icloud: ICloudBackupDestination.isEnabled && icloudStatus == .available
-        case .googleDrive: googleEmail != nil
+        case .googleDrive: GoogleDriveBackupDestination.isEnabled && googleEmail != nil
         case .file: true
         case .demo: backup.demoMode
         }
@@ -232,7 +255,10 @@ struct BackupView: View {
         let (title, detail, system): (LocalizedStringKey, LocalizedStringKey, String) = switch kind {
         case .googleDrive: ("Google Drive (your own Google account)", "Needs your Google account; Manotu never sees it. Optional.", "externaldrive.fill.badge.icloud")
         case .file: ("Save to a file (no account)", "The full backup and restore, passphrase included. You choose where the file goes.", "doc.zipper")
-        case .demo: ("Demo storage (on this phone)", "Demo, not Google Drive. Shown only in demo mode, to try backup and restore without any account. Kept inside this app and removed with it.", "play.circle")
+        case .demo: ("Demo storage (on this phone)", GoogleDriveBackupDestination.isEnabled
+                     ? "Demo, not Google Drive. Shown only in demo mode, to try backup and restore without any account. Kept inside this app and removed with it."
+                     : "Demo only, not a cloud backup. Shown only in demo mode, to try backup and restore without any account. Kept inside this app and removed with it.",
+                     "play.circle")
         case .icloud: ("iCloud", "Your own iCloud account", "icloud.fill")
         }
         return Button { model.backup.destination = kind } label: {
@@ -268,6 +294,11 @@ struct BackupView: View {
                   systemImage: icloudStatus == .available ? "checkmark.circle.fill" : "exclamationmark.circle")
                 .font(Tokens.Font.caption)
                 .accessibilityIdentifier("icloudStatus")
+        case .googleDrive where !GoogleDriveBackupDestination.isEnabled:
+            // Unreachable (Drive is never offered or kept as the destination in this build); no sign-in button.
+            Label("Google Drive backup isn't available in this version. Backup to a file works.", systemImage: "exclamationmark.circle")
+                .font(Tokens.Font.caption)
+                .accessibilityIdentifier("driveNotAvailable")
         case .googleDrive:
             if !GoogleDriveBackupDestination.isConfigured {
                 Label("Google Drive: not configured in this build", systemImage: "exclamationmark.circle")
@@ -290,7 +321,7 @@ struct BackupView: View {
         case .file:
             Text("Export a .gimano file and keep it anywhere: Files, WhatsApp, email.").font(Tokens.Font.caption)
         case .demo:
-            Label("Demo, not Google Drive", systemImage: "info.circle")
+            Label(GoogleDriveBackupDestination.isEnabled ? "Demo, not Google Drive" : "Demo only, not a cloud backup", systemImage: "info.circle")
                 .font(Tokens.Font.caption)
                 .accessibilityIdentifier("demoBackupNote")
         }
@@ -338,6 +369,7 @@ struct BackupView: View {
             icloudStatus = await ICloudBackupDestination().accountStatus()
             if icloudStatus == .available { await backup.refreshRemote() }
         case .googleDrive:
+            guard GoogleDriveBackupDestination.isEnabled else { googleEmail = nil; return }
             googleEmail = await GoogleDriveBackupDestination.restoreSession()
             if googleEmail != nil { await backup.refreshRemote() }
         case .file:

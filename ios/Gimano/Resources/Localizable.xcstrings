@@ -675,6 +675,26 @@
         }
       }
     },
+    "Apple frameworks that are part of iOS. None of them receives your favourites, places or trips, except your own iCloud backup.": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rangka kerja Apple yang sebahagian daripada iOS. Tiada satu pun menerima kegemaran, tempat atau perjalanan anda, kecuali sandaran iCloud anda sendiri."
+          }
+        }
+      }
+    },
+    "Apple frameworks that are part of iOS. None of them receives your favourites, places or trips.": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rangka kerja Apple yang sebahagian daripada iOS. Tiada satu pun menerima kegemaran, tempat atau perjalanan anda."
+          }
+        }
+      }
+    },
     "Apply": {
       "localizations": {
         "ms": {
@@ -2077,6 +2097,26 @@
         }
       }
     },
+    "Demo only, not a cloud backup": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Demo sahaja, bukan sandaran awan"
+          }
+        }
+      }
+    },
+    "Demo only, not a cloud backup. Shown only in demo mode, to try backup and restore without any account. Kept inside this app and removed with it.": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Demo sahaja, bukan sandaran awan. Hanya dalam mod demo, untuk mencuba sandaran dan pemulihan tanpa akaun. Disimpan dalam aplikasi ini dan dibuang bersamanya."
+          }
+        }
+      }
+    },
     "Demo route: no captured route for this trip. Showing the nearest one, to %@.": {
       "localizations": {
         "ms": {
@@ -2972,6 +3012,16 @@
         }
       }
     },
+    "Google Drive backup isn't available in this version. Backup to a file works.": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sandaran Google Drive tidak tersedia dalam versi ini. Sandaran ke fail berfungsi."
+          }
+        }
+      }
+    },
     "Google Drive error (%lld). Try again later.": {
       "localizations": {
         "ms": {
@@ -3184,6 +3234,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Rumah, tempat kerja, kampung, rumah mertua: semua tempat kegemaran anda disimpan dalam telefon anda sahaja. Manotu tidak menyimpan data peribadi anda di pelayan kami. Sandaran pergi terus ke Google Drive atau iCloud anda sendiri, dan boleh dikunci dengan frasa laluan yang hanya anda tahu."
+          }
+        }
+      }
+    },
+    "Home, work, kampung, your in-laws' house: your places live on your phone, not on our servers. Manotu never stores your personal data. Back up to a file you keep, optionally locked with a passphrase only you know.": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rumah, tempat kerja, kampung, rumah mertua: semua tempat kegemaran anda disimpan dalam telefon anda sahaja. Manotu tidak menyimpan data peribadi anda di pelayan kami. Sandarkan ke fail yang anda simpan sendiri, dan boleh dikunci dengan frasa laluan yang hanya anda tahu."
           }
         }
       }
@@ -5172,6 +5232,16 @@
         }
       }
     },
+    "Planned-drive reminders, scheduled on the phone.": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Peringatan perjalanan dirancang, dijadualkan dalam telefon."
+          }
+        }
+      }
+    },
     "Platform components": {
       "localizations": {
         "ms": {
@@ -5668,12 +5738,32 @@
         }
       }
     },
+    "Restore your places from a backup file: choose the file, then check what it holds. Nothing on this phone changes until you choose Merge or Replace and confirm.": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pulihkan tempat anda dari fail sandaran: pilih fail itu, kemudian semak kandungannya. Tiada apa-apa dalam telefon ini berubah sehingga anda memilih Gabung atau Ganti dan mengesahkannya."
+          }
+        }
+      }
+    },
     "Restore your places from a backup: choose where it is (a file or Google Drive), then pick it. Nothing on this phone changes until you choose Merge or Replace and confirm.": {
       "localizations": {
         "ms": {
           "stringUnit": {
             "state": "translated",
             "value": "Pulihkan tempat anda dari sandaran: pilih lokasinya (fail atau Google Drive), kemudian pilih sandaran itu. Tiada apa-apa dalam telefon ini berubah sehingga anda memilih Gabung atau Ganti dan mengesahkannya."
+          }
+        }
+      }
+    },
+    "Restore your places from a backup: choose where it is (a file or iCloud), then pick it. Nothing on this phone changes until you choose Merge or Replace and confirm.": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pulihkan tempat anda dari sandaran: pilih lokasinya (fail atau iCloud), kemudian pilih sandaran itu. Tiada apa-apa dalam telefon ini berubah sehingga anda memilih Gabung atau Ganti dan mengesahkannya."
           }
         }
       }
@@ -6060,6 +6150,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Disimpan ke storan demo dalam telefon ini (bukan Google Drive)"
+          }
+        }
+      }
+    },
+    "Saved to demo storage on this phone (not a cloud backup)": {
+      "localizations": {
+        "ms": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Disimpan ke storan demo dalam telefon ini (bukan sandaran awan)"
           }
         }
       }

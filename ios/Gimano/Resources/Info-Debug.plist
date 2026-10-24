@@ -73,6 +73,8 @@
 	<string>$(APP_GOOGLE_CLIENT_ID)</string>
 	<key>GimanoAPIBaseURL</key>
 	<string>$(GIMANO_API_BASE_URL)</string>
+	<key>GimanoDriveEnabled</key>
+	<string>$(GIMANO_DRIVE)</string>
 	<key>GimanoICloudEnabled</key>
 	<string>$(GIMANO_ICLOUD)</string>
 	<key>GimanoMapStyleURL</key>

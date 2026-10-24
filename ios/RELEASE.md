@@ -27,7 +27,7 @@ Build the legacy app with `APP_VARIANT=gimano` (Local.xcconfig or the xcodebuild
 2. In Xcode → Settings → Accounts, sign in with that Apple ID (or pass an App Store Connect API key, see below).
 3. developer.apple.com → Identifiers: register **`my.manotu.app`** with capabilities iCloud (CloudKit container
    `iCloud.my.manotu.app`), Background Modes and App Attest (DeviceCheck); automatic signing then creates the profiles.
-   Until the container exists, build with `GIMANO_ICLOUD=NO` (Drive and file backups still work).
+   Until the container exists, build with `GIMANO_ICLOUD=NO` (file backups still work; Drive only with `GIMANO_DRIVE=YES`).
 4. Google Cloud: the iOS OAuth client for bundle id `my.manotu.app` is `MANOTU_GOOGLE_CLIENT_ID` (already set locally).
 5. Build: `xcodebuild -scheme Gimano -destination 'id=<device>' -allowProvisioningUpdates` (Debug talks to WS556).
 
@@ -48,15 +48,17 @@ Build the legacy app with `APP_VARIANT=gimano` (Local.xcconfig or the xcodebuild
 5. **Capabilities on the App ID** (developer.apple.com → Identifiers → my.gimano.app). Automatic signing with the API key creates the
    Apple Distribution certificate and the App Store profile itself. It can't create an iCloud container that doesn't exist yet, so:
    - enable **iCloud (CloudKit)** with container `iCloud.my.gimano.app`, then build with `GIMANO_ICLOUD=YES` (the default).
-     Until this is done, build with `GIMANO_ICLOUD=NO scripts/testflight.sh`: iCloud backup is hidden and Google Drive / file backups still work.
+     Until this is done, build with `GIMANO_ICLOUD=NO scripts/testflight.sh`: iCloud backup is hidden and file backups still work.
+   - **Google Drive backup is excluded from the store build** (owner decision 2026-10-24): `scripts/testflight.sh` passes
+     `GIMANO_DRIVE=NO` (and `GIMANO_ICLOUD=NO`) unless overridden, and refuses an archive whose Info.plist holds a Google
+     OAuth client. Every user of that build sees the same backup screen: a file backup, Drive and iCloud shown as unavailable.
    - Background modes (location, audio, processing) need no setup.
 
 ## Upload a build
 
 ```sh
 cd ios
-scripts/testflight.sh                 # archive (Release) → export (app-store-connect) → upload with altool
-GIMANO_ICLOUD=NO scripts/testflight.sh  # if the iCloud container isn't set up yet
+scripts/testflight.sh                 # archive (Release, GIMANO_ICLOUD=NO GIMANO_DRIVE=NO) → export → upload with altool
 ```
 
 What the script runs (for manual use):

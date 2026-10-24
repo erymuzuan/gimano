@@ -152,9 +152,20 @@ struct GoogleDriveBackupDestination: BackupDestination {
     static let scope = "https://www.googleapis.com/auth/drive.appdata"
     let kind = BackupDestinationKind.googleDrive
 
+    /// False when the app was built with `GIMANO_DRIVE = NO` (the store/TestFlight build, owner decision 2026-10-24).
+    /// Then the backup screen offers no Drive destination, the factory in `BackupManager` returns no Drive destination,
+    /// and nothing here talks to GoogleSignIn or Drive (the package stays linked but is unreachable).
+    static var isEnabled: Bool {
+        (Bundle.main.object(forInfoDictionaryKey: "GimanoDriveEnabled") as? String)?.uppercased() == "YES"
+    }
+
+    static var notAvailable: CloudBackupError {
+        .notConfigured(String(localized: "Google Drive backup isn't available in this version. Backup to a file works."))
+    }
+
     /// The OAuth client id from git-ignored `Config/Google.xcconfig` (via Info.plist `GIDClientID`).
     static var clientID: String? {
-        guard let id = Bundle.main.object(forInfoDictionaryKey: "GIDClientID") as? String,
+        guard isEnabled, let id = Bundle.main.object(forInfoDictionaryKey: "GIDClientID") as? String,
               !id.isEmpty, !id.contains("$("), id.hasSuffix(".apps.googleusercontent.com") else { return nil }
         return id
     }
@@ -163,6 +174,7 @@ struct GoogleDriveBackupDestination: BackupDestination {
 
     @MainActor
     static func signIn() async throws -> String {
+        guard isEnabled else { throw notAvailable }
         guard let clientID else { throw CloudBackupError.notConfigured(String(localized: "Google Drive isn't configured in this build.")) }
         GIDSignIn.sharedInstance.configuration = GIDConfiguration(clientID: clientID)
         guard let root = UIApplication.shared.connectedScenes.compactMap({ $0 as? UIWindowScene })
@@ -174,10 +186,10 @@ struct GoogleDriveBackupDestination: BackupDestination {
     }
 
     @MainActor
-    static func signOut() { GIDSignIn.sharedInstance.signOut() }
+    static func signOut() { if isEnabled { GIDSignIn.sharedInstance.signOut() } }
 
     @MainActor
-    static var signedInEmail: String? { GIDSignIn.sharedInstance.currentUser?.profile?.email }
+    static var signedInEmail: String? { isEnabled ? GIDSignIn.sharedInstance.currentUser?.profile?.email : nil }
 
     /// Restores the previous Google session after an app relaunch (tokens are kept in the Keychain by GoogleSignIn).
     @MainActor
@@ -191,6 +203,7 @@ struct GoogleDriveBackupDestination: BackupDestination {
 
     @MainActor
     private static func accessToken() async throws -> String {
+        guard isEnabled else { throw notAvailable }
         guard isConfigured else { throw CloudBackupError.notConfigured(String(localized: "Google Drive isn't configured in this build.")) }
         if GIDSignIn.sharedInstance.currentUser == nil {
             _ = await restoreSession()

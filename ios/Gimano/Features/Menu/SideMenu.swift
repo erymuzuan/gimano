@@ -543,9 +543,22 @@ enum AppInfo {
         ("MetricKit", "Crash and hang diagnostics delivered to the app; sent only if you agree."),
         ("App Attest (DeviceCheck)", "Proves a vote comes from a genuine iPhone. No device ID is stored."),
         ("AVFoundation speech", "Spoken directions, generated on the phone."),
-        ("UserNotifications, BackgroundTasks", "Planned-drive reminders and daily backups, scheduled on the phone."),
+        (ICloudBackupDestination.isEnabled || GoogleDriveBackupDestination.isEnabled)
+            ? ("UserNotifications, BackgroundTasks", "Planned-drive reminders and daily backups, scheduled on the phone.")
+            : ("UserNotifications, BackgroundTasks", "Planned-drive reminders, scheduled on the phone."),
+    ] + (GoogleDriveBackupDestination.isEnabled ? [
         ("Google Sign-In (open source)", "Only if you choose Google Drive backup: signs in to your own Drive."),
-    ] }
+    ] : []) }
+
+    /// The footer under "Platform components", naming only what this build has.
+    static var platformComponentsFooter: LocalizedStringKey {
+        switch (GoogleDriveBackupDestination.isEnabled, ICloudBackupDestination.isEnabled) {
+        case (true, true): "Apple frameworks that are part of iOS, and Google Sign-In only if you choose Google Drive backup. None of them receives your favourites, places or trips, except your own iCloud backup."
+        case (true, false): "Apple frameworks that are part of iOS, and Google Sign-In only if you choose Google Drive backup. None of them receives your favourites, places or trips."
+        case (false, true): "Apple frameworks that are part of iOS. None of them receives your favourites, places or trips, except your own iCloud backup."
+        case (false, false): "Apple frameworks that are part of iOS. None of them receives your favourites, places or trips."
+        }
+    }
 
     static let licences: [(String, String)] = [
         ("MapLibre Native", "BSD-2-Clause"), ("GRDB.swift", "MIT"), ("swift-sodium / libsodium", "ISC"),
@@ -608,9 +621,7 @@ struct AboutView: View {
             } header: {
                 Text("Platform components")
             } footer: {
-                Text(ICloudBackupDestination.isEnabled
-                     ? "Apple frameworks that are part of iOS, and Google Sign-In only if you choose Google Drive backup. None of them receives your favourites, places or trips, except your own iCloud backup."
-                     : "Apple frameworks that are part of iOS, and Google Sign-In only if you choose Google Drive backup. None of them receives your favourites, places or trips.")
+                Text(AppInfo.platformComponentsFooter)
             }
             .accessibilityIdentifier("platformComponents")
             Section {

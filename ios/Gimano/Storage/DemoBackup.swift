@@ -1,20 +1,21 @@
 import Foundation
 
 extension BackupDestinationKind {
-    /// Destinations offered in this build and mode, in screen order. Google Drive (the user's own account) and a file
-    /// are always there; "Demo storage (on this phone)" only in Demo mode; iCloud only when the build has the entitlement
-    /// (otherwise it is shown as unavailable, never as a working choice).
-    static func offered(iCloudEnabled: Bool, demoMode: Bool) -> [BackupDestinationKind] {
-        var kinds: [BackupDestinationKind] = [.googleDrive, .file]
+    /// Destinations offered in this build and mode, in screen order. A file is always there; Google Drive (the user's
+    /// own account) only when the build has it (`GIMANO_DRIVE`, NO in the store build); "Demo storage (on this phone)"
+    /// only in Demo mode; iCloud only when the build has the entitlement. Anything not offered is shown as unavailable,
+    /// never as a working choice.
+    static func offered(iCloudEnabled: Bool, driveEnabled: Bool, demoMode: Bool) -> [BackupDestinationKind] {
+        var kinds: [BackupDestinationKind] = driveEnabled ? [.googleDrive, .file] : [.file]
         if demoMode { kinds.append(.demo) }
         if iCloudEnabled { kinds.append(.icloud) }
         return kinds
     }
 
-    /// A saved choice that is no longer offered (iCloud in a build without it, Demo storage after Demo mode) falls back
-    /// to a file, which needs no account.
-    static func normalized(_ current: BackupDestinationKind, iCloudEnabled: Bool, demoMode: Bool) -> BackupDestinationKind {
-        offered(iCloudEnabled: iCloudEnabled, demoMode: demoMode).contains(current) ? current : .file
+    /// A saved choice that is no longer offered (iCloud or Drive in a build without it, Demo storage after Demo mode)
+    /// falls back to a file, which needs no account.
+    static func normalized(_ current: BackupDestinationKind, iCloudEnabled: Bool, driveEnabled: Bool, demoMode: Bool) -> BackupDestinationKind {
+        offered(iCloudEnabled: iCloudEnabled, driveEnabled: driveEnabled, demoMode: demoMode).contains(current) ? current : .file
     }
 }
 
