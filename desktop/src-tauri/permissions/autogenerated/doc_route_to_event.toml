@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-doc-route-to-event"
+description = "Enables the doc_route_to_event command without any pre-configured scope."
+commands.allow = ["doc_route_to_event"]
+
+[[permission]]
+identifier = "deny-doc-route-to-event"
+description = "Denies the doc_route_to_event command without any pre-configured scope."
+commands.deny = ["doc_route_to_event"]

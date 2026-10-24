@@ -49,6 +49,14 @@ CREATE TABLE planned_drives (
   id TEXT PRIMARY KEY, name TEXT, origin_json TEXT, destination_json TEXT NOT NULL,
   waypoints_json TEXT, vehicle TEXT NOT NULL, depart_at TEXT, created_at TEXT NOT NULL);
 
+CREATE TABLE personal_routes (         -- "Laluan saya": routes from the route builder (schema 3)
+  id TEXT PRIMARY KEY,                 -- unique id (UUID or random b64u)
+  name TEXT NOT NULL,                  -- ≤ 80
+  mode TEXT NOT NULL CHECK (mode IN ('car','motorcycle','bicycle','walk')),
+  route_json TEXT NOT NULL,            -- see "personal_routes.route_json" below
+  distance_m INTEGER, duration_s INTEGER,   -- NULL = unknown (legs not calculated yet)
+  created_at TEXT NOT NULL, updated_at TEXT NOT NULL);
+
 CREATE TABLE settings (key TEXT PRIMARY KEY, value TEXT NOT NULL);
 
 CREATE TABLE identity (                -- the contributor pseudonym's signing key (single row)
@@ -62,6 +70,25 @@ CREATE TABLE outbox (id TEXT PRIMARY KEY, kind TEXT NOT NULL, payload_json TEXT 
   attempts INTEGER NOT NULL DEFAULT 0, next_attempt_at TEXT NOT NULL);   -- feedback, reports, uploads
 ```
 
+**`personal_routes.route_json`** (identical on both platforms, so routes restore across them):
+
+```jsonc
+{ "v": 1,
+  "points": [{ "lat": 3.5701, "lng": 101.6583 }, …],        // ≥ 2 once saved; WGS84, ≤ 6 decimals
+  "legs": [{                                                 // legs.length == points.length - 1, leg i = point i → i+1
+    "source": "routed",                                      // routed | matched | sketch | pending
+    "polyline": "…",                                         // precision 6 (same as the routing API); "" when pending
+    "distanceM": 12400, "durationS": 2880 }] }               // optional; absent = unknown, never 0
+```
+
+`matched` = a drawn line snapped to roads (`/routes/match`); the original finger stroke is not kept. `pending` = a
+leg that still needs routing (offline); the app recalculates it when the route is opened. Unknown fields are ignored.
+Writer rules: a matched leg with unmatched parts is stored as `sketch`; a failed leg (offline, no route) as `pending`.
+Reader rules: "Ikut jalan" opens off only when every leg is `sketch`; a `route_json` with `v` > 1 is kept but not
+shown; legs that don't fit the points become `pending`. Point ids and event-stop links are not stored.
+
+Schema 3 adds only `personal_routes`; a schema-2 backup restores into it with no routes. Apps that kept personal
+routes in the events database (`manotu-events.db` / events store, never backed up) move them here once on upgrade.
 ### Shared `settings` keys
 
 Rows both apps read and write, so a backup made on one platform restores on the other. Values are text; dates are
@@ -87,7 +114,7 @@ A ZIP container:
 
 ```
 manifest.json   {format:1, schemaVersion, appVersion, platform, createdAt,
-                 counts:{saved_places, recents, private_places, photos, planned_drives},
+                 counts:{saved_places, recents, private_places, photos, planned_drives, personal_routes},
                  encryption: "none" | "passphrase-argon2id-xchacha20poly1305", kdf:{opslimit, memlimit, salt}}
 data.sqlite     snapshot via `VACUUM INTO` (consistent, compact; outbox table dropped)
 photos/*.webp   private-place photos

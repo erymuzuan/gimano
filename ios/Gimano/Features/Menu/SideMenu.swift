@@ -48,6 +48,11 @@ struct SideMenu: View {
                 actionRow("Add a place", icon: "mappin.and.ellipse", id: "menuAddPlace") { model.showMenu = false; model.addPlaceStart = model.position }
                 actionRow("My contributions", icon: "person.crop.rectangle.stack.fill", id: "menuContributions") { model.showMenu = false; model.menuSheet = .contributions }
                 row("Planned drives", icon: "calendar", .planned)
+                actionRow("Events", icon: "party.popper.fill", id: "menuEvents") { model.showMenu = false; model.events.open() }
+                actionRow("My routes", icon: "point.topleft.down.to.point.bottomright.curvepath", id: "menuMyRoutes") {
+                    model.showMenu = false
+                    model.events.openMyRoutes()
+                }
                 inboxRow
                 row("Settings", icon: "gearshape.fill", .settings)
                 actionRow("Add feedback", icon: "bubble.left.and.text.bubble.right.fill", id: "menuAddFeedback") {

@@ -2,6 +2,7 @@ using Gimano.Api.Auth;
 using Gimano.Api.Services;
 using Gimano.Core.Contracts;
 using Gimano.Core.Geo;
+using Gimano.Core.Routing;
 using Microsoft.AspNetCore.Http.HttpResults;
 
 namespace Gimano.Api.Endpoints;
@@ -12,24 +13,52 @@ public static class RouteEndpoints
     {
         var routes = api.MapGroup("/routes").WithTags("Routing").AllowAnonymous();
         routes.MapPost("", Route).WithSummary("Routes via Valhalla, decorated with alerts and live traffic. 503 when Valhalla is down.");
+        routes.MapPost("/match", Match).WithSummary("Snaps a drawn line to roads (Valhalla map matching). Stateless. 422 nothing matched, 503 Valhalla down.");
         routes.MapPost("/{id}/reroute", Reroute);
         routes.MapGet("/departure-times", DepartureTimes);
         return api;
     }
 
-    private static async Task<Results<Ok<RoutesResponse>, ValidationProblem>> Route(
-        RouteRequest req, HttpContext http, RouteService svc, CancellationToken ct)
+    /// <summary>Waypoint limit: 5 normally, 25 for stateless (<c>"store": false</c>, Events) requests.</summary>
+    internal const int MaxWaypoints = 5, MaxWaypointsStateless = 25;
+
+    internal static ValidationProblem? Validate(RouteRequest req)
     {
         if (req.Origin is null || req.Destination is null) return Validation.Problem("origin", "origin and destination are required.");
         if (Validation.LatLng(req.Origin.Lat, req.Origin.Lng, "origin.") is { } p1) return p1;
         if (Validation.LatLng(req.Destination.Lat, req.Destination.Lng, "destination.") is { } p2) return p2;
-        if (req.Waypoints is { Count: > 5 }) return Validation.Problem("waypoints", "At most 5 waypoints.");
+        var max = req.Stored ? MaxWaypoints : MaxWaypointsStateless;
+        if (req.Waypoints?.Count > max) return Validation.Problem("waypoints", $"At most {max} waypoints.");
         if (req.Waypoints?.Any(w => w is null || w.Name is { Length: > 100 }) == true) return Validation.Problem("waypoints", "Waypoint names are max 100 chars.");
         if (req.Waypoints?.Any(w => !Validation.ValidLatLng(w.Lat, w.Lng)) == true) return Validation.Problem("waypoints", "Invalid waypoint.");
         if (req.Alternatives is < 0 or > 3) return Validation.Problem("alternatives", "alternatives must be 0–3.");
+        return null;
+    }
+
+    internal static ValidationProblem? ValidateMatch(RouteMatchRequest req)
+    {
+        if (req.Points is not { Count: >= ValhallaMapper.MinMatchPoints and <= ValhallaMapper.MaxMatchPoints })
+            return Validation.Problem("points", $"points must have {ValhallaMapper.MinMatchPoints}–{ValhallaMapper.MaxMatchPoints} entries.");
+        for (var i = 0; i < req.Points.Count; i++)
+            if (req.Points[i] is not { } p || !Validation.ValidLatLng(p.Lat, p.Lng))
+                return Validation.Problem($"points[{i}]", "lat/lng must be valid WGS84 coordinates.");
+        return null;
+    }
+
+    private static async Task<Results<Ok<RoutesResponse>, ValidationProblem>> Route(
+        RouteRequest req, HttpContext http, RouteService svc, CancellationToken ct)
+    {
+        if (Validate(req) is { } problem) return problem;
 
         var routes = await svc.RouteAsync(req, http.User.UserId(), ct, lang: http.Lang());
         return TypedResults.Ok(new RoutesResponse(routes));
+    }
+
+    private static async Task<Results<Ok<RouteMatchResponse>, ValidationProblem>> Match(
+        RouteMatchRequest req, RouteMatchService svc, CancellationToken ct)
+    {
+        if (ValidateMatch(req) is { } problem) return problem;
+        return TypedResults.Ok(await svc.MatchAsync(req, ct));
     }
 
     private static async Task<Results<Ok<RoutesResponse>, ValidationProblem>> Reroute(

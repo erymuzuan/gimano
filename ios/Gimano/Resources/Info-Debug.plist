@@ -38,6 +38,18 @@
 				<string>my.gimano.backup</string>
 			</array>
 		</dict>
+		<dict>
+			<key>CFBundleTypeName</key>
+			<string>Manotu event invitation</string>
+			<key>CFBundleTypeRole</key>
+			<string>Viewer</string>
+			<key>LSHandlerRank</key>
+			<string>Owner</string>
+			<key>LSItemContentTypes</key>
+			<array>
+				<string>my.manotu.event</string>
+			</array>
+		</dict>
 	</array>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
@@ -64,6 +76,17 @@
 			<key>CFBundleURLSchemes</key>
 			<array>
 				<string>$(APP_GOOGLE_REVERSED_CLIENT_ID)</string>
+			</array>
+		</dict>
+		<dict>
+			<key>CFBundleTypeRole</key>
+			<string>Viewer</string>
+			<key>CFBundleURLName</key>
+			<string>my.manotu.event-link</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>manotu</string>
+				<string>gimano</string>
 			</array>
 		</dict>
 	</array>
@@ -169,6 +192,27 @@
 				<key>public.mime-type</key>
 				<array>
 					<string>application/vnd.manotu.backup+zip</string>
+				</array>
+			</dict>
+		</dict>
+		<dict>
+			<key>UTTypeConformsTo</key>
+			<array>
+				<string>public.data</string>
+			</array>
+			<key>UTTypeDescription</key>
+			<string>Manotu event invitation</string>
+			<key>UTTypeIdentifier</key>
+			<string>my.manotu.event</string>
+			<key>UTTypeTagSpecification</key>
+			<dict>
+				<key>public.filename-extension</key>
+				<array>
+					<string>manotu-event</string>
+				</array>
+				<key>public.mime-type</key>
+				<array>
+					<string>application/vnd.manotu.event</string>
 				</array>
 			</dict>
 		</dict>

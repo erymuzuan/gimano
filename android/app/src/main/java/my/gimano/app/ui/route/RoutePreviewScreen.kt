@@ -82,7 +82,7 @@ fun RoutePreviewOverlay(plan: RoutePlan, settings: AppSettings, vm: MainViewMode
                         IconButton(onClick = { vm.cancelCountdown(); vm.swapStartDestination() }, enabled = plan.origin != null, modifier = Modifier.padding(top = 18.dp)) {
                             Icon(Icons.Filled.SwapVert, stringResource(R.string.swap_start_dest), tint = if (plan.origin != null) c.text else c.outline)
                         }
-                        Overflow(vm)
+                        Overflow(vm, plan.hasEventStop)
                     }
                 }
             }
@@ -131,14 +131,15 @@ fun RoutePreviewOverlay(plan: RoutePlan, settings: AppSettings, vm: MainViewMode
                         colors = ButtonDefaults.buttonColors(containerColor = c.brand)) {
                         Text(stringResource(R.string.drive_to_start, start), fontWeight = FontWeight.ExtraBold, fontSize = 17.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     }
-                    Spacer(Modifier.height(8.dp))
-                    OutlinedButton(onClick = vm::planThisDrive, modifier = Modifier.fillMaxWidth().height(52.dp), shape = RoundedCornerShape(Radius.md)) {
+                    // Event stops: no "Save trip" (the stop label must not go into planned drives).
+                    if (!plan.hasEventStop) Spacer(Modifier.height(8.dp))
+                    if (!plan.hasEventStop) OutlinedButton(onClick = vm::planThisDrive, modifier = Modifier.fillMaxWidth().height(52.dp), shape = RoundedCornerShape(Radius.md)) {
                         GIcon("recent", null, size = 22.dp); Spacer(Modifier.width(8.dp))
                         Text(stringResource(R.string.save_trip), fontWeight = FontWeight.ExtraBold, fontSize = 16.sp)
                     }
                 } else Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
                     BigIconButton("add_stop", stringResource(R.string.add_stop), enabled = plan.stops.size < RouteLegs.MAX_STOPS, onClick = vm::addStopInPreview)
-                    BigIconButton("recent", stringResource(R.string.plan_this_drive), enabled = !plan.loading && !plan.error, onClick = vm::planThisDrive)
+                    if (!plan.hasEventStop) BigIconButton("recent", stringResource(R.string.plan_this_drive), enabled = !plan.loading && !plan.error, onClick = vm::planThisDrive)
                     GoNowButton(plan, Modifier.weight(1f), vm.goActionFor(plan), onGo = vm::startNavigation)
                 }
             }
@@ -228,7 +229,7 @@ private fun BigIconButton(icon: String, label: String, enabled: Boolean, onClick
 }
 
 @Composable
-private fun Overflow(vm: MainViewModel) {
+private fun Overflow(vm: MainViewModel, eventStop: Boolean) {
     var open by remember { mutableStateOf(false) }
     Box {
         IconButton(onClick = { open = true }) { Icon(Icons.Filled.MoreVert, stringResource(R.string.more), tint = Gimano.colors.text) }
@@ -238,7 +239,7 @@ private fun Overflow(vm: MainViewModel) {
                 leadingIcon = { Icon(Icons.Filled.Schedule, null) },
                 onClick = { open = false; vm.openLeaveLater() },
             )
-            DropdownMenuItem(
+            if (!eventStop) DropdownMenuItem(
                 text = { Text(stringResource(R.string.plan_this_drive), fontWeight = FontWeight.Bold) },
                 leadingIcon = { GIcon("recent", null, size = 24.dp) },
                 onClick = { open = false; vm.planThisDrive() },

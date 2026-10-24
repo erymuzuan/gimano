@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-recovery-export"
+description = "Enables the recovery_export command without any pre-configured scope."
+commands.allow = ["recovery_export"]
+
+[[permission]]
+identifier = "deny-recovery-export"
+description = "Denies the recovery_export command without any pre-configured scope."
+commands.deny = ["recovery_export"]

@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-delete-all-local-data"
+description = "Enables the delete_all_local_data command without any pre-configured scope."
+commands.allow = ["delete_all_local_data"]
+
+[[permission]]
+identifier = "deny-delete-all-local-data"
+description = "Denies the delete_all_local_data command without any pre-configured scope."
+commands.deny = ["delete_all_local_data"]

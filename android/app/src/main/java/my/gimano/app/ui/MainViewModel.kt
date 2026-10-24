@@ -49,7 +49,11 @@ import my.gimano.app.ui.map.VisibleBounds
 import java.time.Instant
 import java.time.ZoneId
 
-enum class SearchPurpose { NAVIGATE, SET_HOME, SET_WORK, ADD_STOP, ADD_STOP_PREVIEW, ADD_FAVORITE, PLAN_DRIVE, SET_ORIGIN, ENTRANCE }
+enum class SearchPurpose { NAVIGATE, SET_HOME, SET_WORK, ADD_STOP, ADD_STOP_PREVIEW, ADD_FAVORITE, PLAN_DRIVE, SET_ORIGIN, ENTRANCE,
+    /** A stop of the event being organised (search or map; never reverse-geocoded). */
+    EVENT_STOP,
+    /** The vehicle entrance of an event stop (map only). */
+    EVENT_ENTRANCE }
 
 sealed interface Screen {
     data object Home : Screen
@@ -73,6 +77,18 @@ sealed interface Screen {
     data object PinActions : Screen
     data object About : Screen
     data object Licences : Screen
+    /** Imported events (side menu "Acara"). */
+    data object Events : Screen
+    /** One event over the map; [stopId] selects a stop (from `manotu://event?stop=…`). */
+    data class EventDetail(val id: String, val stopId: String? = null) : Screen
+    /** "Acara baharu" / editing an event this phone organises (HostEditor holds the draft). */
+    data object EventEdit : Screen
+    /** "Kongsi jemputan" for the event in the editor. */
+    data object EventShare : Screen
+    /** Route builder ("Bina laluan") over the map: a route of the event in the editor, or a personal route. */
+    data class RouteBuilder(val forEvent: Boolean) : Screen
+    /** "Laluan saya": personal routes on this phone. */
+    data object MyRoutes : Screen
 }
 
 data class PlaceSel(
@@ -109,8 +125,12 @@ data class RoutePlan(
     val countdownRunning: Boolean = false,
     val request: RouteRequest? = null,
     val computedAt: Instant = Instant.now(),
+    /** Opened from an event's stop: back returns to that event. */
+    val returnToEvent: String? = null,
 ) {
     val selected: Route? get() = routes.firstOrNull { it.id == selectedId } ?: routes.firstOrNull()
+    /** An event stop is the destination or a stop: no "Plan this drive" (its label must not be saved). */
+    val hasEventStop: Boolean get() = destination.eventStop || stops.any { it.eventStop }
     val originName: String? get() = originPlace?.name
     val goAction: GoAction get() = StartOptions.goAction(originSource, alreadyHere, selected != null && !loading && !error)
 }
@@ -278,7 +298,7 @@ class MainViewModel(private val c: AppContainer) : ViewModel() {
             c.navigation.state.collect { s ->
                 // Arrived at an unnamed pin → "Nak namakan tempat ini?" once.
                 val pd = pinDestination
-                if (s.arrived && pd != null && s.destination != null && GeoMath.distanceM(pd, s.destination.point) < 30) {
+                if (s.arrived && pd != null && s.destination != null && !s.destination.eventStop && GeoMath.distanceM(pd, s.destination.point) < 30) {
                     pinDestination = null
                     _ui.update { it.copy(namePin = s.destination) }
                 }
@@ -854,7 +874,13 @@ class MainViewModel(private val c: AppContainer) : ViewModel() {
 
     /** Camera settled while picking: look up the address under the pin after ~400 ms of stillness. */
     fun onPickMoved(center: GeoPoint) {
-        if (_ui.value.screen !is Screen.PickOnMap) return
+        val screen = _ui.value.screen as? Screen.PickOnMap ?: return
+        // Event stops: no reverse geocoding. Nothing about an event reaches the server (docs/events.md §1).
+        if (screen.purpose == SearchPurpose.EVENT_STOP || screen.purpose == SearchPurpose.EVENT_ENTRANCE) {
+            pickJob?.cancel()
+            _ui.update { it.copy(pick = it.pick?.copy(center = center, loading = false)) }
+            return
+        }
         _ui.update { it.copy(pick = it.pick?.copy(center = center, loading = true)) }
         pickJob?.cancel()
         pickJob = viewModelScope.launch {
@@ -1005,6 +1031,14 @@ class MainViewModel(private val c: AppContainer) : ViewModel() {
                 _ui.update { it.copy(screen = Screen.RoutePreview) }
                 setPlanOrigin(GeoPoint(p.lat, p.lng), OriginSource.CHOSEN, p.toDestination())
             }
+            SearchPurpose.EVENT_STOP -> {
+                _ui.update { it.copy(screen = Screen.EventEdit) }
+                c.hostEditor.addStop(p.lat, p.lng, if (fromMap || p.id.startsWith("pin:")) "" else p.name)
+            }
+            SearchPurpose.EVENT_ENTRANCE -> {
+                _ui.update { it.copy(screen = Screen.EventEdit) }
+                c.hostEditor.setEntrance(p.lat, p.lng)
+            }
             SearchPurpose.ADD_STOP_PREVIEW -> {
                 val plan = _ui.value.plan
                 _ui.update { it.copy(screen = Screen.RoutePreview) }
@@ -1023,6 +1057,8 @@ class MainViewModel(private val c: AppContainer) : ViewModel() {
     /** Route preview overflow → "Plan this drive". */
     fun planThisDrive() {
         val plan = _ui.value.plan ?: return
+        // Event stop names stay out of planned drives (gimano.db is backed up; event data must not be).
+        if (plan.hasEventStop) return
         cancelCountdown()
         val origin = plan.originPlace?.takeIf { plan.originSource == OriginSource.CHOSEN }?.toPoint()
         _events.tryEmit(UiEvent.PlanDrive(plan.destination.toPoint(), origin, plan.stops.map { it.toPoint() }, plan.mode.wire))
@@ -1190,15 +1226,161 @@ class MainViewModel(private val c: AppContainer) : ViewModel() {
 
     // --- Route planning ---------------------------------------------------------------------
 
-    fun routeTo(dest: NavDestination, stops: List<NavDestination> = emptyList(), quickPick: Boolean = false) {
+    fun routeTo(dest: NavDestination, stops: List<NavDestination> = emptyList(), quickPick: Boolean = false, returnToEvent: String? = null) {
         val st = settings.current
         val prev = _ui.value.plan
         val plan = RoutePlan(destination = dest, origin = null, originSource = OriginSource.LOCATING, stops = stops, quickPick = quickPick,
-            mode = TravelMode.from(st.vehicle), avoid = prev?.avoid ?: AvoidOptions(), loading = false)
+            mode = TravelMode.from(st.vehicle), avoid = prev?.avoid ?: AvoidOptions(), loading = false, returnToEvent = returnToEvent)
         GLog.d("VM", "route preview, ${stops.size} stops")
         _ui.update { it.copy(screen = Screen.RoutePreview, plan = plan, following = false, selectedAlertId = null) }
-        viewModelScope.launch { local.recordRecent(dest.name, dest.address, dest.point.lat, dest.point.lng, dest.placeId) }
+        // Event stops never go into recents (gimano.db is backed up; event data must not be: docs/events.md §7.6).
+        if (!dest.eventStop) viewModelScope.launch { local.recordRecent(dest.name, dest.address, dest.point.lat, dest.point.lng, dest.placeId) }
         resolveOrigin()
+    }
+
+    /**
+     * "Pandu" on an event stop: route preview to the stop's vehicle entrance, else its pin (§7.7). The label is shown on
+     * this phone only; the routing request carries coordinates and travel mode only ([NavDestination.eventStop]).
+     */
+    fun routeToEventStop(eventId: String, stopId: String, label: String, target: GeoPoint) =
+        routeTo(NavDestination(label, "", target, null, eventStop = true, eventId = eventId, stopId = stopId), returnToEvent = eventId)
+
+    /**
+     * The guest accepted an updated plan and asked to drive to the stop's new position (EvUpdate): stop the current drive
+     * and open the route preview to the new target. Never done without that tap.
+     */
+    fun retargetEventStop(eventId: String, stopId: String, label: String, target: GeoPoint) {
+        if (nav.value.active) stopNavigation()
+        routeToEventStop(eventId, stopId, label, target)
+    }
+
+    // --- Events this phone organises (host side) ------------------------------------------------
+
+    fun newHostEvent() {
+        c.hostEditor.newEvent(if (c.lang() == my.gimano.app.core.format.Lang.EN) "en" else "ms")
+        _ui.update { it.copy(screen = Screen.EventEdit) }
+    }
+
+    fun openHostEvent(id: String) = viewModelScope.launch {
+        if (c.hostEditor.open(id)) _ui.update { it.copy(screen = Screen.EventEdit) }
+    }
+
+    fun closeEventEditor() {
+        c.hostEditor.close()
+        _ui.update { it.copy(screen = Screen.Events) }
+    }
+
+    fun addEventStopBySearch() = openSearch(SearchPurpose.EVENT_STOP)
+
+    fun addEventStopOnMap() {
+        val d = c.hostEditor.draft.value
+        val last = d?.stops?.lastOrNull()?.let { GeoPoint(it.lat, it.lng) }
+        openPickOnMap(SearchPurpose.EVENT_STOP, start = last ?: here())
+    }
+
+    fun addEventStopFromSaved(p: SavedPlace) = c.hostEditor.addStop(p.lat, p.lng, p.name)
+
+    fun pickEventEntrance(stopId: String) {
+        val s = c.hostEditor.draft.value?.stops?.firstOrNull { it.id == stopId } ?: return
+        c.hostEditor.entranceFor = stopId
+        openPickOnMap(SearchPurpose.EVENT_ENTRANCE, start = s.entrance ?: GeoPoint(s.lat, s.lng))
+    }
+
+    fun shareHostEvent() = viewModelScope.launch {
+        if (c.hostEditor.publish()) _ui.update { it.copy(screen = Screen.EventShare) }
+    }
+
+    // --- Route builder ("Bina laluan") and "Laluan saya" ------------------------------------------------------
+
+    private fun builderCamera(points: List<GeoPoint>): CameraCommand = when {
+        points.size >= 2 -> CameraCommand.Fit(points, topDp = 150, bottomDp = 300)
+        points.size == 1 -> CameraCommand.MoveTo(points[0], 14.0)
+        else -> CameraCommand.MoveTo(here(), 13.0)
+    }
+
+    /** From the event editor: edit route [routeId], or a new one (null). */
+    fun openEventRoute(routeId: String?) {
+        val ed = c.hostEditor
+        val d = ed.draft.value ?: return
+        if (routeId == null && d.routes.size >= my.gimano.app.core.events.EventLimits.MAX_ROUTES) return
+        val r = routeId?.let(ed::route) ?: my.gimano.app.core.routes.BuilderRoute(
+            id = my.gimano.app.core.events.EventIds.newItemId(), mode = ed.defaultMode(),
+            day = runCatching { d.localDate().toString() }.getOrNull()?.takeIf { d.routes.isEmpty() && runCatching { d.end().toLocalDate() != d.start().toLocalDate() }.getOrDefault(false) },
+        )
+        val stops = d.stops.map { my.gimano.app.data.routes.StopRef(it.id, it.label, my.gimano.app.core.routes.Pos(it.lat, it.lng)) }
+        c.routeBuilder.start(r, my.gimano.app.data.routes.BuilderTarget.Event, stops) { ed.saveRoute(it) }
+        val pts = r.points.map { it.geo }.ifEmpty { stops.map { it.pos.geo } }
+        _ui.update { it.copy(screen = Screen.RouteBuilder(forEvent = true), camera = builderCamera(pts)) }
+    }
+
+    fun openMyRoutes() = _ui.update { it.copy(screen = Screen.MyRoutes) }
+
+    /** "Laluan saya": open route [id], or a new one (null). Its name is the route title. */
+    fun openPersonalRoute(id: String?) = viewModelScope.launch {
+        val p = id?.let { runCatching { c.personalRoutes.get(it) }.getOrNull() }
+        val vehicle = settings.current.vehicle.takeIf { v -> my.gimano.app.core.events.EventTravelMode.entries.any { it.wire == v } } ?: "car"
+        val r = p?.route?.copy(title = p.name) ?: my.gimano.app.core.routes.BuilderRoute(my.gimano.app.core.events.EventIds.newItemId(), mode = vehicle)
+        c.routeBuilder.start(r, my.gimano.app.data.routes.BuilderTarget.Personal(isNew = p == null)) { c.personalRoutes.save(it.title, it) }
+        _ui.update { it.copy(screen = Screen.RouteBuilder(forEvent = false), camera = builderCamera(r.points.map { p -> p.geo })) }
+    }
+
+    fun closeRouteBuilder() {
+        val forEvent = (_ui.value.screen as? Screen.RouteBuilder)?.forEvent ?: false
+        c.routeBuilder.close()
+        _ui.update { it.copy(screen = if (forEvent) Screen.EventEdit else Screen.MyRoutes) }
+    }
+
+    /** Back in the builder: leaves at once when nothing changed, else the builder asks first. */
+    fun routeBuilderBack() { if (c.routeBuilder.requestBack()) closeRouteBuilder() }
+
+    /** Removes the route being edited from the event and leaves the builder. */
+    fun deleteEventRoute(id: String) {
+        c.hostEditor.removeRoute(id)
+        c.routeBuilder.close()
+        _ui.update { it.copy(screen = Screen.EventEdit) }
+    }
+
+    /** "Dari Laluan saya": a copy of a personal route becomes a route of the event in the editor. */
+    fun copyPersonalRouteToEvent(p: my.gimano.app.data.routes.PersonalRoute) {
+        val ed = c.hostEditor
+        val d = ed.draft.value ?: return
+        if (d.routes.size >= my.gimano.app.core.events.EventLimits.MAX_ROUTES) return
+        ed.saveRoute(p.route.copy(id = my.gimano.app.core.events.EventIds.newItemId(), title = p.name.take(my.gimano.app.core.events.EventLimits.ROUTE_TITLE_CHARS),
+            points = p.route.points.map { it.copy(stopId = null) }))
+    }
+
+    /**
+     * "Guna dalam acara": a new event (ride / convoy / trip by mode) with a start stop (and a finish stop unless it is a
+     * loop) and a copy of the route linked to them. The personal route stays as it is.
+     */
+    fun useRouteInEvent(p: my.gimano.app.data.routes.PersonalRoute, startLabel: String, finishLabel: String) {
+        val pts = p.route.points
+        if (pts.size < 2) return
+        newHostEvent()
+        val ed = c.hostEditor
+        val first = pts.first()
+        val last = pts.last()
+        val loop = first.pos == last.pos
+        val start = my.gimano.app.core.events.HostStop(my.gimano.app.core.events.EventIds.newItemId(), "start", startLabel, first.lat, first.lng)
+        val finish = if (loop) null else my.gimano.app.core.events.HostStop(my.gimano.app.core.events.EventIds.newItemId(), "finish", finishLabel, last.lat, last.lng)
+        val route = p.route.copy(
+            id = my.gimano.app.core.events.EventIds.newItemId(), title = "",
+            points = pts.mapIndexed { i, pt ->
+                when {
+                    i == 0 -> pt.copy(stopId = start.id)
+                    i == pts.lastIndex -> pt.copy(stopId = finish?.id ?: start.id)
+                    else -> pt.copy(stopId = null)
+                }
+            },
+        )
+        val template = when (p.route.mode) { "bicycle" -> "ride"; "motorcycle" -> "convoy"; else -> "trip" }
+        ed.update { it.copy(template = template, title = p.name.take(my.gimano.app.core.events.EventLimits.TITLE_CHARS), stops = listOfNotNull(start, finish), routes = listOf(route)) }
+    }
+
+    /** Event screen: fit its stops and route lines above the bottom panel. */
+    fun fitEvent(points: List<GeoPoint>, bottomDp: Int) {
+        if (points.isEmpty()) return
+        _ui.update { it.copy(camera = if (points.size == 1) CameraCommand.MoveTo(points[0], 15.5) else CameraCommand.Fit(points, topDp = 120, bottomDp = bottomDp)) }
     }
 
     /** The user's own position for routing: a fix no older than 2 min, else null. Never the camera centre. */
@@ -1489,6 +1671,8 @@ class MainViewModel(private val c: AppContainer) : ViewModel() {
     fun shareDrive() {
         val s = nav.value
         val d = s.destination ?: return
+        // The live link carries the destination name: never an event stop's label.
+        if (d.eventStop || s.stops.any { it.eventStop }) return
         setNavExpanded(false)
         viewModelScope.launch {
             try {
@@ -1548,6 +1732,7 @@ class MainViewModel(private val c: AppContainer) : ViewModel() {
                 is Screen.Search -> when ((s.screen as Screen.Search).purpose) {
                     SearchPurpose.ADD_STOP -> _ui.update { it.copy(screen = Screen.Navigating) }
                     SearchPurpose.ADD_STOP_PREVIEW, SearchPurpose.SET_ORIGIN -> _ui.update { it.copy(screen = Screen.RoutePreview) }
+                    SearchPurpose.EVENT_STOP, SearchPurpose.EVENT_ENTRANCE -> _ui.update { it.copy(screen = Screen.EventEdit) }
                     else -> goHome()
                 }
                 Screen.PlaceCard -> goHome()
@@ -1559,12 +1744,20 @@ class MainViewModel(private val c: AppContainer) : ViewModel() {
                 // Back to the place card at the place's zoom (not the route overview), pin centred above the card.
                 Screen.RoutePreview -> if (s.place != null) _ui.update {
                     it.copy(screen = Screen.PlaceCard, plan = null, camera = CameraCommand.MoveTo(GeoPoint(s.place.summary.lat, s.place.summary.lng), 15.5))
+                } else if (s.plan?.returnToEvent != null) _ui.update {
+                    it.copy(screen = Screen.EventDetail(s.plan.returnToEvent), plan = null)
                 } else _ui.update { it.copy(screen = Screen.Home, plan = null) }
                 Screen.Settings -> goHome()
                 Screen.Backup, Screen.MyFeedback, Screen.Account, Screen.About -> _ui.update { it.copy(screen = Screen.Settings) }
                 Screen.Licences -> _ui.update { it.copy(screen = Screen.About) }
                 Screen.Contributions, Screen.AddPlace, Screen.Planned, Screen.Favourites, Screen.Inbox -> goHome()
                 Screen.Theme -> goHome()
+                Screen.Events -> goHome()
+                is Screen.EventDetail -> _ui.update { it.copy(screen = Screen.Events) }
+                Screen.EventEdit -> closeEventEditor()
+                Screen.EventShare -> { c.hostEditor.closeShare(); _ui.update { it.copy(screen = Screen.EventEdit) } }
+                is Screen.RouteBuilder -> routeBuilderBack()
+                Screen.MyRoutes -> goHome()
                 Screen.Navigating -> when {
                     s.navExpanded -> setNavExpanded(false)
                     nav.value.arrived -> stopNavigation()

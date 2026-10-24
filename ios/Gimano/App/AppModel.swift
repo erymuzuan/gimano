@@ -46,6 +46,8 @@ final class RoutePlanner {
     /// Opened with one tap (Home, Work, a favourite, a recent, a planned drive), not from a search: the only
     /// trips the optional auto-start countdown may run for.
     var quickPick = false
+    /// To an imported event's stop (Acara): not saved to recents, and "Leave later" doesn't copy the stop's name.
+    var isEventTrip = false
 
     init(destination: Destination, vehicle: Vehicle) {
         self.destination = destination
@@ -172,6 +174,9 @@ final class AppModel {
     var menuSheet: MenuSheet?
     /// A `.gimano` file opened from another app.
     var incomingBackup: URL?
+    /// Imported and hosted events (Acara), kept on this phone only and never backed up. Its "Laluan saya" live in
+    /// `store` (backed up).
+    let events: EventCenter
     /// On-device personal data (favourites, recents, private places, settings).
     let store: LocalStore
     let backup: BackupManager
@@ -195,6 +200,10 @@ final class AppModel {
         self.map = MapState(styleURL: config.styleURL)
         self.repo = DemoRepository()
         self.store = store
+        // Schema 3: "Laluan saya" saved by earlier builds in the events database move here once (never into the
+        // in-memory fallback store, which would lose them).
+        if !store.isInMemory { try? PersonalRouteMove.run(from: .shared, to: store) }
+        self.events = EventCenter(store: .shared, personalStore: store)
         self.backup = BackupManager(store: store)
         #if DEBUG
         Self.applyTestLaunchArguments(store: store)
@@ -452,14 +461,18 @@ final class AppModel {
     /// A new planned drive for the trip in route preview (or an empty one from the menu).
     func newPlannedDrive(from planner: RoutePlanner?) -> PlannedDrive {
         let dest = planner?.destination
+        // An event stop's name stays with the event (planned drives are backed up).
+        let eventTrip = planner?.isEventTrip == true
+        let destName = eventTrip ? nil : dest?.name
         var arrival = Calendar.current.date(bySettingHour: 8, minute: 30, second: 0, of: .now.addingTimeInterval(24 * 3600)) ?? .now
         if let d = planner?.departAt { arrival = d.addingTimeInterval(planner?.selected?.effectiveDurationS ?? 1800) }
         let origin: PlannedDrive.Place? = if case .chosen(let n, let p, let id) = planner?.start {
             PlannedDrive.Place(lat: p.lat, lng: p.lng, name: n, address: nil, placeId: id)
         } else { nil }
-        return PlannedDrive(id: UUID().uuidString.lowercased(), name: dest?.name, origin: origin,
+        return PlannedDrive(id: UUID().uuidString.lowercased(), name: destName, origin: origin,
                             destination: PlannedDrive.Place(lat: dest?.location.lat ?? home?.lat ?? position.lat, lng: dest?.location.lng ?? home?.lng ?? position.lng,
-                                                            name: dest?.name ?? home?.name, address: dest?.address ?? home?.address, placeId: dest?.placeId),
+                                                            name: dest == nil ? home?.name : destName,
+                                                            address: eventTrip ? nil : (dest?.address ?? home?.address), placeId: dest?.placeId),
                             waypoints: planner?.stops ?? [], vehicle: planner?.vehicle ?? vehicle, departAt: nil,
                             schedule: PlannedDrive.Schedule(arriveAt: arrival), createdAt: .now)
     }
@@ -537,6 +550,7 @@ final class AppModel {
         privatePlaces = (try? store.privatePlaces()) ?? []
         plannedDrives = (try? store.plannedDrives()) ?? []
         map.privatePins = privatePlaces.map { $0.location }
+        events.reloadPersonalRoutes()
     }
 
     /// Local "Just for me" places matching a query.
@@ -799,13 +813,18 @@ final class AppModel {
         openPlace(summary)
     }
 
-    func planRoute(to d: Destination, stops: [TripStop] = [], quickPick: Bool = false) {
-        // Recents stay on the device.
-        try? store.recordRecent(name: d.name, address: d.address, lat: d.location.lat, lng: d.location.lng, placeId: d.placeId)
-        recents = (try? store.recents()) ?? recents
-        let planner = RoutePlanner(destination: d, vehicle: vehicle)
+    func planRoute(to d: Destination, stops: [TripStop] = [], quickPick: Bool = false, remember: Bool = true,
+                   vehicle tripVehicle: Vehicle? = nil, eventTrip: Bool = false) {
+        // Recents stay on the device. Event stops are never remembered: event data must not outlive the event
+        // or end up in a backup (docs/events.md §7.5–7.6).
+        if remember {
+            try? store.recordRecent(name: d.name, address: d.address, lat: d.location.lat, lng: d.location.lng, placeId: d.placeId)
+            recents = (try? store.recents()) ?? recents
+        }
+        let planner = RoutePlanner(destination: d, vehicle: tripVehicle ?? vehicle)
         planner.stops = stops
         planner.quickPick = quickPick
+        planner.isEventTrip = eventTrip
         self.planner = planner
         go(.routePreview)
         Task { await resolveStartAndFetch(planner) }

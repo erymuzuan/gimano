@@ -12,6 +12,7 @@ import my.gimano.app.core.format.Lang
 import my.gimano.app.data.backup.BackupCrypto
 import my.gimano.app.data.backup.BackupManager
 import my.gimano.app.data.backup.DriveBackup
+import my.gimano.app.data.events.transactor
 import my.gimano.app.data.feedback.FeedbackService
 import my.gimano.app.data.live.LiveHub
 import my.gimano.app.data.local.GimanoDatabase
@@ -114,10 +115,57 @@ class AppContainer(val app: Application) {
             app, db, crypto, exportSettings = { settings.current.toBackupMap() }, importSettings = { settings.applyBackupMap(it) },
             seedToPlain = { s -> if (seedWrapper.isWrapped(s)) java.util.Base64.getEncoder().encodeToString(seedWrapper.unwrap(s)) else s },
             afterRestore = {
+                personalRoutes.invalidate()
                 kotlinx.coroutines.withContext(Dispatchers.IO) { identity.reload(); blocks.reload(); rules.reload() }   // restored block list + rules too
                 remote.adoptRestoredIdentity()
             },
         )
+    }
+    /** Imported events (docs/events.md): own DB file, excluded from every backup; payloads sealed with a Keystore key. */
+    private val eventsDb by lazy { my.gimano.app.data.events.EventsDatabase.build(app) }
+    private val eventSodium by lazy { LazySodiumAndroid(SodiumAndroid()) }
+    private suspend fun scheduleEventExpiry() = my.gimano.app.data.events.EventExpiryWorker.schedule(
+        app, listOfNotNull(eventStore.nextExpiry(), hostStore.nextExpiry()).minOrNull())
+    val eventStore: my.gimano.app.data.events.EventStore by lazy {
+        my.gimano.app.data.events.EventStore(
+            eventsDb.events(), my.gimano.app.data.events.KeystoreEventVault(), eventsDb.transactor(),
+            onChanged = { scheduleEventExpiry() },
+        )
+    }
+    /** Events this phone organises: drafts, per-event keys and published revisions, same DB file and vault. */
+    val hostStore: my.gimano.app.data.events.HostStore by lazy {
+        my.gimano.app.data.events.HostStore(
+            eventsDb.hosted(), my.gimano.app.data.events.KeystoreEventVault(), my.gimano.app.core.events.EventPackWriter(eventSodium),
+            onChanged = { scheduleEventExpiry() },
+        )
+    }
+    val hostEditor by lazy { my.gimano.app.data.events.HostEditor(scope, hostStore) }
+    val eventImporter by lazy {
+        my.gimano.app.data.events.EventImporter(scope, my.gimano.app.core.events.EventPackReader(eventSodium), eventStore,
+            isOwn = { id, pub -> hostStore.isOwn(id, pub) })
+    }
+    /** "Laluan saya": personal routes in the main DB (`personal_routes`), so they are in the user's own backups. */
+    val personalRoutes by lazy { my.gimano.app.data.routes.PersonalRouteStore({ my.gimano.app.data.backup.AndroidSqlPort(db.openHelper.writableDatabase) }) }
+    /** Once on upgrade: personal routes kept in manotu-events.db before schema 3 move to the main DB. */
+    suspend fun movePersonalRoutes() {
+        val n = my.gimano.app.data.routes.PersonalRouteMove(eventsDb.personalRoutes(), my.gimano.app.data.events.KeystoreEventVault(), personalRoutes).run()
+        if (n > 0) my.gimano.app.core.GLog.i("Routes", "moved $n personal routes to the main DB")
+    }
+    /**
+     * Route builder legs: anonymous client (no account token, no request signing), coordinates + mode only, `store: false`.
+     * In demo mode (no server) legs stay "perlu dikira".
+     */
+    private val routingClient by lazy { my.gimano.app.data.remote.ApiFactory.okHttp({ null }, null, { my.gimano.app.data.remote.ApiFactory.acceptLanguage(lang() == Lang.MS) }) }
+    private var routingApi: Pair<String, my.gimano.app.data.remote.GimanoApi>? = null
+    val routeBuilder by lazy {
+        my.gimano.app.data.routes.RouteBuilder(scope, my.gimano.app.data.routes.ApiLegRouter {
+            if (repo.isDemo) null
+            else {
+                val base = settings.current.apiBaseUrl
+                routingApi?.takeIf { it.first == base }?.second
+                    ?: my.gimano.app.data.remote.ApiFactory.create(base, routingClient).also { routingApi = base to it }
+            }
+        })
     }
     /** Null in the Play build (BuildConfig.DRIVE_BACKUP=false): no Drive client exists there at all. */
     val drive: DriveBackup? by lazy { my.gimano.app.data.backup.BackupDestinations.drive(BuildConfig.DRIVE_BACKUP) { DriveBackup(app) } }
@@ -168,6 +216,9 @@ class GimanoApp : Application() {
             }
         })
         my.gimano.app.data.places.PhotoPrep.sweepCameraTemps(this)
+        // Events past their expiresAt are deleted on every start (also by EventExpiryWorker at the time itself).
+        container.scope.launch(Dispatchers.IO) { runCatching { container.eventStore.purgeExpired() }; runCatching { container.hostStore.purgeExpired() } }
+        container.scope.launch(Dispatchers.IO) { runCatching { container.movePersonalRoutes() } }
         // Play build: never leave a Drive auto-backup job scheduled (e.g. a restored "auto backup on" setting).
         if (!BuildConfig.DRIVE_BACKUP) my.gimano.app.data.backup.BackupWorker.schedule(this, false)
     }

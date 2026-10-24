@@ -1,0 +1,165 @@
+{
+  "description": "docs/events.md §7.4: a stops-only variant and its full event are not a fork. Start each sequence with an empty store, import the packs in order at `now`, and apply each decision: new → store; upgrade_to_full → replace the stored variant of that rev with the full event, silently; newer/fork → add; already_imported/older → nothing. The parent check of rev 2 uses the stored variant's revision hash (its fullHash). Every pack opens with the ride-two-day key; rev2 is signed with the same seed.",
+  "kind": "import-sequence",
+  "name": "import-stops-only-sequence",
+  "now": "2026-11-01T03:00:00Z",
+  "packs": {
+    "full": {
+      "linkFragment": "1.uPbTlTeukFRYT6bp9mzZAaHx_Skmjb-bxLvZxvNU7Ok.ekQUTeJsBNcehedgh4PvEuiQZt7Afp3C4ddFJJN0ZggYvaT68kthftXtgTyLOj5LQus0mU2jj0oU_eQ57hgkB0NsVbOii-rYEahXKMyjHt3l14f-ZeYkokUV_-FJNN-99k3-Cdk13-nPSX5l2wbFTUFEcsIpjKfrDeYEV1zzmKMQNjWHN8fwu1wmuwpJLKh_dVd4ucwyBONo4asyPqTLO-VLfiOyj6kH_9cIeY7xRCUUD3oAkOJ39N48UeoklqjSEOCGBPyPG-weClGNVPRaZ_r9C2TVcUbq0_rpUdL4kjaK28OC60k435aR6DnSZKobOJJ---MMKWG-ney-UjeXYn6CD5_ak9x1PcZTwhqHspIprx8PwTQrSCHO31IJjt5BBIhLZl7D09KjnpGjb9kkA0cRkPVD4Xz6gym2LQ9VdwO4ZRFRu6Lb-37tRs8jwM2Lj69qWybwSYBMVUz2FCoveWCLebQ5Ua9qlpb9QVDEs7cFojeaSAedV8OSxXbAr6HOG2d6W9fOspnUIi35fYnsJm10Opo6P7DiSWp-vp2mjuZw8988sux_aS2uvsT5s2bbNRfh0GqGZWyVJdOyE3kw0YOsB1L_Qh4IdkTmRkoqpW7X41Vh8dSHq-Mdg3bB276r18wHiD_a3Wud9yzqhBuk2cjkXpzA3pnwM1LC5HBZEECjNvhbL5Ceo3YrDfH6detW9bZfiSfwoyJIKRPEcocSTW7qSyHuC0Eun_-NVBF706eFSOvxwTyKt5qferPSTUW2GMhkUfYsMIFlvk6cYliuLKo0GGuO0Yg5iE5tkJ55gtu1zTaWIVNjLT3HM8758KIxbiuFUe0lJJwscbBnZT5s8AG2VAaqBjd3wySBDCe8m9u9i6NwMyvz7i-MJDmv57gaDehJz2QgwGEZvvQ8aIpv4lXQ6M9AS1aVfmP97onrpcI3cw0rg4Hv0KfbKnS8h171GULeOMK9HL-UczSwPTD84HYXbO4cQ3VPKDkhd6rAf6jX6dshNYexOIEnMtlpQWwtigCBiB8OWggLtjScLpQ0-RhqD8xbHpG8qITgizXnee0nRdOZmVFpRP_KczqOK-6sN0cP11rDe5Y8ZP7ZEpBRQ9ekAxkA-2_hhy0bsjS8tpmatna4y3WTVXdl10zTbP32Y6FPWp37IyXqAaUQhQPpaSPTP3XY90fMlTpkNpGjg9HvToN03TC5BFIVP0KDlOR0cDJFbpLRyoKdy65KqycKNBX3G6phcGMhvCUatvTW4R2oStrQdst4cjztHqA5uW0VAQMwpfY1pM6qvrius-P68RLCQZMuuoRa9Nxm2_cYX_paO_9ulPA9jEFjLoObiREkj6NYNs8J_MUn2Ix3_QLd0a-QKgwiamojh6eTSmWWSnxtBn2vevT3-d9ro2F041GeKWzvClV-MX_2mwQUJur2MvOoagDLtkNwIFRu_c7dLJ6jUavUZqpRO8z3wRm_laQ-BvjgRwCf4tNqSxMi7N0WHO-cxd12AmHOsFXI35cE3Na_5VQAHJPsLK65s07_vIoHq4UlH-bXp5ns5fdwyx5Jk6gfPqYB7op5vXXZyaR-SY8x0_ImYg0h9ue807ywymDnlsxP3a7xlLlZ3nGA_78GErt6bgzSOSTONopVgmDtIoc-uR1-6cwsFCongdu9XmBU66zkhY8KDvI8ZhmFLIXXOX9vQScRSLmiCM9o0UeUWpQ5PDJ7358FDHjHWYZTixMXLxSJCdfq6ZJGTsmHIXB1otJ9iMjC2b7oI-X8Lb6QeHKpS0oo6cH-VhgvmSrNN0Y2zKLBaXXY1Y2goc81V3Xz5FXREzVVu2YFZORz52f_JJvRcr33_j1aK6A3WhAhOpfMV6Qs39-d5lIcNdna-Z5Pi6ixOuOs8F9udiHuNF3jyNNbo5HPHDplZIhYeX42dy0lt_gnu-MVJvEPR56lnQ1T4JIZZzPFDi_ecveYDY7nY8ZGkBISbcodFUI_u2ywROivE5uZqTM0cE1a29RamDzhRu39VmhzvO-5Md5aIofC",
+      "rev": 1,
+      "revisionHashB64u": "a29hwMq5ZYlPKbqowU5icvi2jnSGMDY8aWWo9Mzxs1Y",
+      "stopsOnly": false,
+      "vector": "ride-two-day"
+    },
+    "rev2": {
+      "eventJson": "{\"id\":\"wNWFUytHJzy5W7HCfBUluQ\",\"rev\":2,\"parent\":\"a29hwMq5ZYlPKbqowU5icvi2jnSGMDY8aWWo9Mzxs1Y\",\"publishedAt\":\"2026-11-12T08:00:00Z\",\"template\":\"ride\",\"title\":\"Jelajah Basikal Dua Hari (dikemas kini)\",\"description\":\"Two-day social ride, about 20 km on day 1. Helmets required.\",\"lang\":\"en\",\"tz\":\"Asia/Kuala_Lumpur\",\"start\":\"2026-11-21T07:00:00+08:00\",\"end\":\"2026-11-22T13:00:00+08:00\",\"expiresAt\":\"2026-11-23T05:00:00Z\",\"organizer\":{\"alias\":\"Kelab Kayuh Fiktif\"},\"stops\":[{\"id\":\"RhrW0P9cMfA\",\"kind\":\"start\",\"label\":\"Mula: Dataran Kayuh\",\"lat\":2.95,\"lng\":101.85},{\"id\":\"mKqfJ0Todss\",\"kind\":\"checkpoint\",\"label\":\"CP1 Air & regroup\",\"lat\":2.99,\"lng\":101.9,\"arrive\":{\"from\":\"2026-11-21T08:15:00+08:00\",\"to\":\"2026-11-21T09:00:00+08:00\"},\"dwellMin\":15,\"audience\":\"Penunggang\"},{\"id\":\"JqucG8LekXU\",\"kind\":\"meal\",\"label\":\"Makan tengah hari\",\"lat\":3.02,\"lng\":101.95,\"dwellMin\":60},{\"id\":\"IU-qGpOkheU\",\"kind\":\"accommodation\",\"label\":\"Homestay Bukit Fiksyen\",\"lat\":3.05,\"lng\":102.0,\"entrance\":{\"lat\":3.0503,\"lng\":102.0011},\"notes\":\"Basikal disimpan di stor belakang.\"},{\"id\":\"DTe96TKvjoQ\",\"kind\":\"finish\",\"label\":\"Tamat: Dataran Kayuh\",\"lat\":2.951,\"lng\":101.851}],\"sessions\":[{\"id\":\"WPuydFdEYwk\",\"title\":\"Flag off\",\"start\":\"2026-11-21T07:30:00+08:00\",\"end\":\"2026-11-21T07:45:00+08:00\",\"stopId\":\"RhrW0P9cMfA\"},{\"id\":\"jffAcq2jtk0\",\"title\":\"Dinner & briefing\",\"start\":\"2026-11-21T20:00:00+08:00\",\"end\":\"2026-11-21T21:00:00+08:00\",\"stopId\":\"IU-qGpOkheU\"}],\"routes\":[{\"id\":\"a-AvMAXaZiw\",\"title\":\"Hari 1\",\"mode\":\"bicycle\",\"day\":\"2026-11-21\",\"stopIds\":[\"RhrW0P9cMfA\",\"mKqfJ0Todss\",\"IU-qGpOkheU\"],\"polyline\":\"_v`sD_xlgaE_mV_g^okXoh\\\\oh\\\\obd@_af@_ry@_af@ojcA_af@ojcA\",\"source\":\"routed\",\"distanceM\":20100,\"durationS\":4520,\"ascentM\":420,\"descentM\":310,\"legs\":[{\"fromStopId\":\"RhrW0P9cMfA\",\"toStopId\":\"mKqfJ0Todss\",\"distanceM\":7050,\"durationS\":1590,\"source\":\"routed\"},{\"fromStopId\":\"mKqfJ0Todss\",\"toStopId\":\"IU-qGpOkheU\",\"distanceM\":13050,\"durationS\":2930,\"source\":\"routed\"}]}]}",
+      "linkFragment": "1.uPbTlTeukFRYT6bp9mzZAaHx_Skmjb-bxLvZxvNU7Ok._MLNxmxls2LFLFXRiQZFmU-wUYDerrnAXLjqi6R7SB3eUwvsklerRZkqxvBLpFgRJotkEGvMF_AgNR46fcOnv_IZmSQySZIJ3Qisz8qnctiqc7btZURyT5GutKM6eokmQMYwnxR5gQTAz7pPZY5i0j2l7Woy1l6qj2NHq-Xx3OUA9_0ygqK6gVIxKaL3OxOrSfp5xiyfm6CNd99wk-cUmqWVUq_Av3QBDJ-_U5iNs66Sz1wZ-sz0EN9Nghu1H52zF3JLw7ado8J6ocXbwXJ3vJZxn2-882ztoTT-yr8HX-c7ncE5p5yVG_LUSKHR1yHmowNZZEL1NAtM8Wxhc2wvcAUec7HpG0R0xsYYfyMcfWzZlVyZNHt0M3xn71IJvdd2PJlO9MYzAgjSjI6Kn09lQZx9wYN_EgdHfK1MahN9UbLdia1daxe8jcaFCHLUhIrkT9yFrNdtYopQbS7IrZufhqD37QJR3F8zdi4zZUCl-UcL-EGyhqfY3zk3oh3u1TDTWN50p1KgtWOWk5nQbn4_fJG69FQFCh8Fxi-bhUQxhZRXWH0x2HzCeaChc5J42sxnn7U-kGH-D_EIp7IRxfnaBmKnsNmdwIZtirTmTflQVxIU7rFTSVHK0SibcHIu-O-yD5f6XJu36dT0noTRB8OGeGdcbYvAocenLFcTaDYRYzkfbMP0EXFhxm7EtFbkpWfXFzG4nUBuv1g2DhE5lg5KM6NONyMbojjJeOc3ofW_0Q5ipmGdQ41m95d2dTmnDj20KHRNaMUmg7vSrpy32FAV8OUcGte9fA4JKikKiSt6g23MByiqFHk8Cc0r8KiOLYn3uCy056Lia28jJLCAz3X9BdzugVt12fBO7kxJIxXZDs7vqbDzItLjJnDHM2OnKdFxmf083UIhVQuQA0luy_sDn6RwfxqHc8c86Our6wjiedBlt7hbkBbmDLqqROq4gWYVgAdqxWqRxovSsUwDGRijbEG6XIhhVdpM3DFgbqXaeIRlUTULEInsedsNowUucZ0z5MKfmW3gj01xZf6fB3tyqpOGgVJLdEHLs-pj92vCEWERvgIuKi4WVlV5CKyBRf3n1pX2yAk0RJQwrHN9pcQXEF2868KwFkgXs6edSLQ4PUsOGHGE3IfpNNRETjz3s7fhlgslfs1TGTvpEPAgBOX1OKdy2aYDU-8WZJkjtUj9gpiwamfQX8J7rUZh83Zc-4hZ9yRGw6Emm5JMMm-U4pDJK2Nz9cXjnUdi3J8rdDRkWwPHjDQREqN__PFDzQlK_eUS7N7pwBzOVRFQMHOzYyLHPlvtL2R0Flsf7pVs7K30C5YQVo5o0t4MleFR9Jo1yMrn8GYoHVL60-5-ZaV_8E311a4hWV8dunYVLj3M6y9tGmFcE8Wf9yKd6J3hdpJP3gn8mxv3sDXVk496ybMDCMDPIo_QavMx7Bscjcw5kGmbs4GwWZ4QCEQSXq8mvt0ZUUrnywkp4Z24Z2E9J0kJjkFeQg24oDZQnGPjk7GNw9IkS3sH5h2eKjeXFcwZQjQdff01B4Tx0kPktbwtegQZu40hkadC5wwBoLRIer87myBZT9_lA6kJ-G_xG8HXdwXwW75Vj-uu9BB1Hj8qM-bPI4WeTYzD9HoYP7o1L1QwinD4GQ-gAsFuhPEM6dLg3HOXeJTGRRRyTYoa2gFRc8eKC65saa5bRLtySMGMqeOpjM2QgzU4essz4c-6EI6TpRxfStneSPU7yL-s9VMUtYcj5geVOpBNFq_I5CdkJwrWU4vbnRLZgWiHDruilgp00Dkr4Cs08WN5rdPKT9fPEVsD5PCc03NxMIWNT1iv_ne000vwipb017jg2xpuGSop40tR-SjeGbqB6sWjjNcJXPwKnciiF4RGeZD83yf6NUGFtKSXXW-IZWU0-fIoylbq_rj_DZbMUeL8fXGjXY2wm7X1EPltMv0sTCavVl0bu5F9EHI22xzgjZlKbOyWeuzg186_5oSYBpXWGz9au0OiUl40zdAp-jsL8QOwyupS1lGxnIY8xtAbg8qzzquwPydA6ekBVNgAfhw9eEn3iZ6qiRZyi4xu69rJh_7SYfA",
+      "parent": "a29hwMq5ZYlPKbqowU5icvi2jnSGMDY8aWWo9Mzxs1Y",
+      "rev": 2,
+      "revisionHashB64u": "Lylk5gFonI-1fZ983Whs5iMq869fBblR9L9oi2Hki0E",
+      "stopsOnly": false
+    },
+    "variant": {
+      "linkFragment": "1.uPbTlTeukFRYT6bp9mzZAaHx_Skmjb-bxLvZxvNU7Ok.FUwUYNxzl4Bq598Jv3K1GWE3974K4JOcmqS4vBP9XTyhvjuyQHaAExTV5-7pFQxftQLP9IMdteHrgV7n8aeU4so35IA38NESMsWTe9q0yd9IAp2ViUKdlbB5orutMmOkkcLHf9dOY2pbasUNd4XFbCyGjh0-uKLYEr2qAxAFE5Yz-x9e5exrF55MXL7X0d09MntgOswiSv_cvuuBdEYpjqk_iMgcQC_MUMeBLRHYtNuTufx3vcXQQjrGOPHjmB9ZT65uLNqsnt4e06cUFdqqN4-GaYVZogVB_i_nVuuTlAHgWN3BOz6KLtu7qODJ_vXVA-as13tBXueOd2ihXfEB1Eke9IuZlnAi6Z1zVVHIkIB9AcvZj6wSpOuUNmnao2lzehHi0NiyTft0FoD9cHhEtQ8YVvgOUSEIRRO38BpMk6bTMq-7hyJHvMqMGU9mm6J6M98egEqtVgSDydZEUB6FKH7LROkO39FD3eK0YczLoG-zd-CN_AbKnOZSLjbMBoUw5eDolR4zHZ5D-BxLWRViWSANRXPcdQLD7lXLrHWMTbIa4AVppJe63yQuvqkoKOadhXwTzzJUImLg1HQONlKTAtmMse8lJTyTAtSFsaTB89DgkuPSEe-_QDCZZDZY2IRlQvD9NPSUQHXwyw8-93xKfeQ1E-VkqN7lpHZXBmqfZkDoXydYdxzt8OAILoetdGuvMubWJZtjoudg9opmFz-4hot4SSihFD89Lg2KkKv7S3f-uk1nxzqg_uL8WuakPRdBQ2_VIuNouZgXREqWE9_xSDmIGL3VkoF3VTLIkOV_bKT3uyRkJ8G-wdU9_fyFuWIicv1W0aD2KpBm7bNkfOfDlhph9Rf8FkUW5NAR_4bMO3pSE_bmnT1BemahGVvMMmlY9c-5OuvT2JVvFEo_I5j-9bqRSKH3GlX5tURokYT3WcnsD021BpvAR6xPCONvBRYMCf2y73-iZpvPqqkgRarWEHiVSpXiKkj4a5cxNZqo_clmJ0lQgVYKdgSxGg0Aiu6zIqx7iwPcmj-HJDFuV_m723UtFx4-1O0OR7BkT9UJSFFh98zTHRK6yZM3-9DJoycmUZuzpEj1SFn9cm1v4FYh1I7BDgs2IFSy6D-NWicYbj6npP8AqKKYNjVpiHZiglEFr3UaPk-FjNFoYh7S1xIfsLpqbCtBL5oDuOwxPzlx3HSKP3-jYiBjbwmVOVYs5wAGIx462lVOXC9Ieh3JEmvymrjQRWmMGu0P9cGmhNvyeB8ygB6IwnGQ9wkPFRFv50uSHTVcXEN3qZygMwZQh2mb8nHFp10BBfZcI9DdmrQrNKo4p2M0bzfB47h807zFvqUMDgcOj2ZIsAmoachNJrbGnEg6ci09R9pHKEHyAUhL4-5T-ryzT2pedm0D-C9efq7ge0O9ySTEeTyJOqlVtd-UYIEgJhCqpwswlti5xWN6CdW4gxL7VNfGcQtB1PRKe39UW00LSQWpzVEBgEcP_Baont8c6FHs5raBHw0gXjzxQ2RLHya-OfcpkUWOMdDH3zNZNifQnj8iaJATasg-hxuBaDi_rcVBf1YCsUQOW9x1zeTu7_1JC-bZgcgTAAy6aA3HyFVaga6w3kMVWdQw74tl6oDoWHppeWxYUzLiuBUsBMB0ZlkXLYXyH-a4G6qIDP2qWROmlMwfSvp2Hfi9JMC5FftAtVjgaJ8GMlKBPb2c8YfT8AZzIt20Kj4BJhbExHTMIIlOcauAg0HHkmzIseV5D8rUJUTw9A7C0UlaBpXtSFOxh4IF4qYnRNUro6RyAsYNqxL0p-XWuDpYxjUtUNkXDBg7vbRzbh4A-o0zxVYImsw-42jmjPMhzRULbS2qCfV12cbVprHh1dCoZ8_5SZTTpR2mMjCiOIHWnBFJfD-afKu_Bt8QP9nZtiBwSoAFt5WbE2QGAHvwZQcGaIwCJ6XMLqBl8r9TcvEeOtsBsL9KKEP9Kf219IR2rlw6mIb1Dvdr0vX0t8myfxJmNPr9rjrSXPkwIlmVNnctvXtcvpMcvOdzUkJimvIg84NJsk9y0ZB-u9HnO9M",
+      "rev": 1,
+      "revisionHashB64u": "a29hwMq5ZYlPKbqowU5icvi2jnSGMDY8aWWo9Mzxs1Y",
+      "stopsOnly": true,
+      "vector": "ride-two-day-stops-only"
+    }
+  },
+  "sequences": [
+    {
+      "name": "variant then full",
+      "steps": [
+        {
+          "decision": "new",
+          "import": "variant",
+          "parentCheck": null,
+          "storedAfter": [
+            {
+              "rev": 1,
+              "revisionHashB64u": "a29hwMq5ZYlPKbqowU5icvi2jnSGMDY8aWWo9Mzxs1Y",
+              "stopsOnly": true
+            }
+          ]
+        },
+        {
+          "decision": "upgrade_to_full",
+          "import": "full",
+          "parentCheck": null,
+          "storedAfter": [
+            {
+              "rev": 1,
+              "revisionHashB64u": "a29hwMq5ZYlPKbqowU5icvi2jnSGMDY8aWWo9Mzxs1Y",
+              "stopsOnly": false
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "full then variant",
+      "steps": [
+        {
+          "decision": "new",
+          "import": "full",
+          "parentCheck": null,
+          "storedAfter": [
+            {
+              "rev": 1,
+              "revisionHashB64u": "a29hwMq5ZYlPKbqowU5icvi2jnSGMDY8aWWo9Mzxs1Y",
+              "stopsOnly": false
+            }
+          ]
+        },
+        {
+          "decision": "already_imported",
+          "import": "variant",
+          "parentCheck": null,
+          "storedAfter": [
+            {
+              "rev": 1,
+              "revisionHashB64u": "a29hwMq5ZYlPKbqowU5icvi2jnSGMDY8aWWo9Mzxs1Y",
+              "stopsOnly": false
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "variant then rev 2",
+      "steps": [
+        {
+          "decision": "new",
+          "import": "variant",
+          "parentCheck": null,
+          "storedAfter": [
+            {
+              "rev": 1,
+              "revisionHashB64u": "a29hwMq5ZYlPKbqowU5icvi2jnSGMDY8aWWo9Mzxs1Y",
+              "stopsOnly": true
+            }
+          ]
+        },
+        {
+          "decision": "newer",
+          "import": "rev2",
+          "parentCheck": "matches",
+          "storedAfter": [
+            {
+              "rev": 1,
+              "revisionHashB64u": "a29hwMq5ZYlPKbqowU5icvi2jnSGMDY8aWWo9Mzxs1Y",
+              "stopsOnly": true
+            },
+            {
+              "rev": 2,
+              "revisionHashB64u": "Lylk5gFonI-1fZ983Whs5iMq869fBblR9L9oi2Hki0E",
+              "stopsOnly": false
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "variant, full, variant",
+      "steps": [
+        {
+          "decision": "new",
+          "import": "variant",
+          "parentCheck": null,
+          "storedAfter": [
+            {
+              "rev": 1,
+              "revisionHashB64u": "a29hwMq5ZYlPKbqowU5icvi2jnSGMDY8aWWo9Mzxs1Y",
+              "stopsOnly": true
+            }
+          ]
+        },
+        {
+          "decision": "upgrade_to_full",
+          "import": "full",
+          "parentCheck": null,
+          "storedAfter": [
+            {
+              "rev": 1,
+              "revisionHashB64u": "a29hwMq5ZYlPKbqowU5icvi2jnSGMDY8aWWo9Mzxs1Y",
+              "stopsOnly": false
+            }
+          ]
+        },
+        {
+          "decision": "already_imported",
+          "import": "variant",
+          "parentCheck": null,
+          "storedAfter": [
+            {
+              "rev": 1,
+              "revisionHashB64u": "a29hwMq5ZYlPKbqowU5icvi2jnSGMDY8aWWo9Mzxs1Y",
+              "stopsOnly": false
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

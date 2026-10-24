@@ -2,12 +2,12 @@ import Foundation
 import GRDB
 
 /// On-device personal data (docs/privacy-and-backup.md): Home/Work/favourites, recents, "Just for me" places,
-/// planned drives, settings and the device-local outbox. Same SQLite schema as Android (Room), so backups
-/// restore across platforms.
+/// planned drives, personal routes ("Laluan saya"), settings and the device-local outbox. Same SQLite schema as
+/// Android (Room), so backups restore across platforms.
 ///
 /// Versioning uses `PRAGMA user_version` (not GRDB's migrator table) so a snapshot contains only the shared tables.
 final class LocalStore: Sendable {
-    static let schemaVersion = 2
+    static let schemaVersion = 3
 
     /// Schema v1, verbatim from docs/privacy-and-backup.md.
     static let schemaV1 = """
@@ -57,11 +57,26 @@ final class LocalStore: Sendable {
       created_at TEXT NOT NULL);
     """
 
+    /// Schema v3: "Laluan saya", routes from the route builder (docs/privacy-and-backup.md; `route_json` v1 is
+    /// `PersonalRouteJSON`).
+    static let schemaV3 = """
+    CREATE TABLE personal_routes (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      mode TEXT NOT NULL CHECK (mode IN ('car','motorcycle','bicycle','walk')),
+      route_json TEXT NOT NULL,
+      distance_m INTEGER, duration_s INTEGER,
+      created_at TEXT NOT NULL, updated_at TEXT NOT NULL);
+    """
+
     /// Tables included in backups (everything except the device-local outbox).
-    static let backedUpTables = ["saved_places", "recents", "private_places", "private_place_photos", "planned_drives", "settings", "identity"]
+    static let backedUpTables = ["saved_places", "recents", "private_places", "private_place_photos", "planned_drives", "personal_routes",
+                                 "settings", "identity"]
     static let maxRecents = 50
 
     let dbQueue: DatabaseQueue
+    /// The in-memory fallback (corrupt DB) or a test store: nothing written to it outlives the session.
+    let isInMemory: Bool
     /// Directory holding private-place photos (`photos/<id>.webp`).
     let photosDirectory: URL
 
@@ -69,6 +84,7 @@ final class LocalStore: Sendable {
         var config = Configuration()
         config.foreignKeysEnabled = true
         dbQueue = try path.map { try DatabaseQueue(path: $0, configuration: config) } ?? DatabaseQueue(configuration: config)
+        isInMemory = path == nil
         self.photosDirectory = photosDirectory
         try FileManager.default.createDirectory(at: photosDirectory, withIntermediateDirectories: true)
         try Self.migrate(dbQueue)
@@ -97,6 +113,9 @@ final class LocalStore: Sendable {
             }
             if version < 2 {
                 try db.execute(sql: schemaV2)
+            }
+            if version < 3 {
+                try db.execute(sql: schemaV3)
             }
             if version < schemaVersion {
                 try db.execute(sql: "PRAGMA user_version = \(schemaVersion)")
@@ -366,7 +385,7 @@ final class LocalStore: Sendable {
     func counts() throws -> [String: Int] {
         try dbQueue.read { db in
             var out: [String: Int] = [:]
-            for t in ["saved_places", "recents", "private_places", "planned_drives"] {
+            for t in ["saved_places", "recents", "private_places", "planned_drives", "personal_routes"] {
                 out[t] = try Int.fetchOne(db, sql: "SELECT COUNT(*) FROM \(t)") ?? 0
             }
             out["photos"] = try Int.fetchOne(db, sql: "SELECT COUNT(*) FROM private_place_photos") ?? 0
@@ -382,7 +401,8 @@ final class LocalStore: Sendable {
                   SELECT MAX(updated_at) AS t FROM saved_places UNION ALL
                   SELECT MAX(last_used_at) FROM recents UNION ALL
                   SELECT MAX(updated_at) FROM private_places UNION ALL
-                  SELECT MAX(created_at) FROM planned_drives)
+                  SELECT MAX(created_at) FROM planned_drives UNION ALL
+                  SELECT MAX(updated_at) FROM personal_routes)
                 """)
         }
     }

@@ -6,12 +6,17 @@ package my.gimano.app.data.local
  * PRAGMA user_version = [VERSION].
  */
 object GimanoSchema {
-    const val VERSION = 2
+    const val VERSION = 3
     const val DB_NAME = "gimano.db"
 
     /** Tables that make up a backup (outbox is device-local and never backed up). */
-    val BACKED_UP_TABLES = listOf("saved_places", "recents", "private_places", "private_place_photos", "planned_drives", "settings", "identity")
-    /** Tables every backup has (schema 1 backups have no `identity`). */
+    val BACKED_UP_TABLES = listOf(
+        "saved_places", "recents", "private_places", "private_place_photos", "planned_drives", "personal_routes", "settings", "identity",
+    )
+    /**
+     * Tables every backup has once [migrateAttached] has brought it to [VERSION] (schema 1 backups have no `identity`;
+     * it is adopted separately and only when the backup carries one).
+     */
     val REQUIRED_TABLES = BACKED_UP_TABLES - "identity"
     val ALL_TABLES = BACKED_UP_TABLES + "outbox"
 
@@ -42,6 +47,7 @@ object GimanoSchema {
         """CREATE TABLE planned_drives (
   id TEXT PRIMARY KEY, name TEXT, origin_json TEXT, destination_json TEXT NOT NULL,
   waypoints_json TEXT, vehicle TEXT NOT NULL, depart_at TEXT, created_at TEXT NOT NULL)""",
+        PERSONAL_ROUTES_DDL,
         "CREATE TABLE settings (key TEXT PRIMARY KEY, value TEXT NOT NULL)",
         IDENTITY_DDL,
         """CREATE TABLE outbox (id TEXT PRIMARY KEY, kind TEXT NOT NULL, payload_json TEXT NOT NULL,
@@ -54,12 +60,34 @@ object GimanoSchema {
   seed_b64 TEXT NOT NULL,
   created_at TEXT NOT NULL)"""
 
+    /** Schema 3: "Laluan saya", routes from the route builder (`route_json` = [my.gimano.app.core.routes.PersonalRouteJson]). */
+    const val PERSONAL_ROUTES_DDL = """CREATE TABLE personal_routes (
+  id TEXT PRIMARY KEY,
+  name TEXT NOT NULL,
+  mode TEXT NOT NULL CHECK (mode IN ('car','motorcycle','bicycle','walk')),
+  route_json TEXT NOT NULL,
+  distance_m INTEGER, duration_s INTEGER,
+  created_at TEXT NOT NULL, updated_at TEXT NOT NULL)"""
+
+    /** Tables added after schema 1, in order (the schema 1 → [VERSION] migrations, all idempotent). */
+    private val ADDED_TABLES = listOf("identity" to IDENTITY_DDL, "personal_routes" to PERSONAL_ROUTES_DDL)
+
+    /** The migration statements, for the DB [schema] (`main`, or an attached backup copy such as `bk`). */
+    fun migrations(schema: String = "main"): List<String> = ADDED_TABLES.map { (t, ddl) ->
+        ddl.replaceFirst("CREATE TABLE $t", "CREATE TABLE IF NOT EXISTS $schema.$t")
+    }
+
     /**
      * Brings an existing DB up to the shared schema, idempotently (runs on every open). Tables added after
-     * schema 1 are not Room entities, so Room never sees them.
+     * schema 1 are not Room entities, so Room never sees them (and Room's own version, in user_version, stays 1).
      */
     fun upgrade(exec: (String) -> Unit) {
-        exec(IDENTITY_DDL.replaceFirst("CREATE TABLE identity", "CREATE TABLE IF NOT EXISTS identity"))
+        migrations().forEach(exec)
+    }
+
+    /** Migrates an attached older backup copy ([schema]) to [VERSION] before its rows are copied over. */
+    fun migrateAttached(schema: String, exec: (String) -> Unit) {
+        migrations(schema).forEach(exec)
     }
 
     /** Applies the schema to an empty database (used by Room's onCreate and by tests on plain SQLite). */

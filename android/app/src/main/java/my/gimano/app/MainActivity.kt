@@ -18,6 +18,10 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import androidx.lifecycle.lifecycleScope
 import my.gimano.app.core.theme.ThemeMode
 import java.time.Instant
 import androidx.activity.result.contract.ActivityResultContracts
@@ -47,6 +51,42 @@ class MainActivity : AppCompatActivity() {
         super.onNewIntent(intent)
         applyDebugExtras(intent)
         handlePlannedIntent(intent)
+        handleEventIntent(intent)
+    }
+
+    /**
+     * Event invitations (docs/events.md §5): `manotu://event[?stop=<id>]#1.…` / `gimano://event…`, `https://…/a/#1.…`,
+     * or a `.manotu-event` file (content://). The link's fragment holds the key: it is never logged or sent anywhere.
+     */
+    private fun handleEventIntent(i: Intent?) {
+        if (i?.action != Intent.ACTION_VIEW) return
+        val uri = i.data ?: return
+        val importer = (application as GimanoApp).container.eventImporter
+        when (uri.scheme?.lowercase()) {
+            "manotu", "gimano" -> if (uri.host.equals("event", ignoreCase = true))
+                importer.openLink(uri.toString(), runCatching { uri.getQueryParameter("stop") }.getOrNull())
+            "https" -> importer.openLink(uri.toString())
+            "content", "file" -> lifecycleScope.launch {
+                val bytes = withContext(Dispatchers.IO) {
+                    runCatching {
+                        contentResolver.openInputStream(uri)?.use { input ->
+                            // Bounded read: one byte over the 20 MiB limit is enough to reject.
+                            val max = my.gimano.app.core.events.EventLimits.MAX_FILE_BYTES + 1
+                            val out = java.io.ByteArrayOutputStream()
+                            val buf = ByteArray(64 * 1024)
+                            while (out.size() < max) {
+                                val n = input.read(buf, 0, minOf(buf.size, max - out.size()))
+                                if (n < 0) break
+                                out.write(buf, 0, n)
+                            }
+                            out.toByteArray()
+                        }
+                    }.getOrNull()
+                }
+                importer.openFile(bytes ?: ByteArray(0))
+            }
+        }
+        i.data = null   // handled once; a recreated activity must not import again
     }
 
     private val vm: MainViewModel by viewModels { MainViewModel.Factory((application as GimanoApp).container) }
@@ -56,6 +96,7 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         applyDebugExtras(intent)
         handlePlannedIntent(intent)
+        if (savedInstanceState == null) handleEventIntent(intent)
         setContent {
             // Theme: Light by default (even on a dark-mode phone), Dark, Follow phone, or Auto by sunset.
             val st by vm.settingsState.collectAsStateWithLifecycle()

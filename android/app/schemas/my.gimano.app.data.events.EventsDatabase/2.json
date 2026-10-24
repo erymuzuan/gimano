@@ -1,0 +1,158 @@
+{
+  "formatVersion": 1,
+  "database": {
+    "version": 2,
+    "identityHash": "84332b766c73273c869785f3ec851087",
+    "entities": [
+      {
+        "tableName": "event_pin",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`event_id` TEXT NOT NULL, `organizer_pub` BLOB NOT NULL, `expires_at` INTEGER NOT NULL, `pinned_at` INTEGER NOT NULL, PRIMARY KEY(`event_id`))",
+        "fields": [
+          {
+            "fieldPath": "eventId",
+            "columnName": "event_id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "organizerPub",
+            "columnName": "organizer_pub",
+            "affinity": "BLOB",
+            "notNull": true
+          },
+          {
+            "fieldPath": "expiresAt",
+            "columnName": "expires_at",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "pinnedAt",
+            "columnName": "pinned_at",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "event_id"
+          ]
+        }
+      },
+      {
+        "tableName": "event_revision",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`hash` TEXT NOT NULL, `event_id` TEXT NOT NULL, `rev` INTEGER NOT NULL, `active` INTEGER NOT NULL, `imported_at` INTEGER NOT NULL, `payload` BLOB, PRIMARY KEY(`hash`))",
+        "fields": [
+          {
+            "fieldPath": "hash",
+            "columnName": "hash",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "eventId",
+            "columnName": "event_id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "rev",
+            "columnName": "rev",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "active",
+            "columnName": "active",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "importedAt",
+            "columnName": "imported_at",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "payload",
+            "columnName": "payload",
+            "affinity": "BLOB"
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "hash"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_event_revision_event_id",
+            "unique": false,
+            "columnNames": [
+              "event_id"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_event_revision_event_id` ON `${TABLE_NAME}` (`event_id`)"
+          }
+        ]
+      },
+      {
+        "tableName": "event_host",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`event_id` TEXT NOT NULL, `draft` BLOB NOT NULL, `secrets` BLOB NOT NULL, `published` BLOB, `published_rev` INTEGER, `expires_at` INTEGER, `updated_at` INTEGER NOT NULL, PRIMARY KEY(`event_id`))",
+        "fields": [
+          {
+            "fieldPath": "eventId",
+            "columnName": "event_id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "draft",
+            "columnName": "draft",
+            "affinity": "BLOB",
+            "notNull": true
+          },
+          {
+            "fieldPath": "secrets",
+            "columnName": "secrets",
+            "affinity": "BLOB",
+            "notNull": true
+          },
+          {
+            "fieldPath": "published",
+            "columnName": "published",
+            "affinity": "BLOB"
+          },
+          {
+            "fieldPath": "publishedRev",
+            "columnName": "published_rev",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "expiresAt",
+            "columnName": "expires_at",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "updatedAt",
+            "columnName": "updated_at",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "event_id"
+          ]
+        }
+      }
+    ],
+    "setupQueries": [
+      "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '84332b766c73273c869785f3ec851087')"
+    ]
+  }
+}

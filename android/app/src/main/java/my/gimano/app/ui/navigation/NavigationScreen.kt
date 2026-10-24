@@ -274,7 +274,8 @@ private fun EtaBar(nav: NavState, ui: UiState, settings: AppSettings, vm: MainVi
                     Spacer(Modifier.height(8.dp))
                     ExpandedRow(Icons.Filled.AddLocationAlt, stringResource(R.string.add_stop), vm::addStop)
                     ExpandedRow(Icons.Filled.Schedule, stringResource(R.string.best_time), vm::openBestTimeFromNav)
-                    ExpandedRow(Icons.Filled.Share, stringResource(R.string.share_drive), vm::shareDrive)
+                    // Share my drive carries the destination name: not for event stops.
+                    if (nav.destination?.eventStop != true && nav.stops.none { it.eventStop }) ExpandedRow(Icons.Filled.Share, stringResource(R.string.share_drive), vm::shareDrive)
                     ExpandedRow(Icons.Filled.Feedback, stringResource(R.string.add_feedback)) { vm.requestFeedback("navigation") }
                     Spacer(Modifier.height(10.dp))
                     Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {

@@ -138,7 +138,7 @@ fun BackupScreen(vm: BackupViewModel, onBack: () -> Unit) {
         AlertDialog(
             onDismissRequest = vm::cancelRestore,
             title = { Text(stringResource(R.string.restore_title), style = GimanoType.title) },
-            text = { Text(stringResource(R.string.restore_body, my.gimano.app.core.format.Formatters.localStamp(pr.manifest.createdAt), pr.manifest.platform, n.saved_places, n.recents, n.private_places)) },
+            text = { Text(stringResource(R.string.restore_body, my.gimano.app.core.format.Formatters.localStamp(pr.manifest.createdAt), pr.manifest.platform, n.saved_places, n.recents, n.private_places, n.personal_routes)) },
             confirmButton = { Button(onClick = { vm.confirmRestore(RestoreMode.MERGE) }) { Text(stringResource(R.string.restore_merge)) } },
             dismissButton = { OutlinedButton(onClick = { vm.confirmRestore(RestoreMode.REPLACE) }) { Text(stringResource(R.string.restore_replace)) } },
         )

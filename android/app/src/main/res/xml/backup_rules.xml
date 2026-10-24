@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Android Auto Backup (API ≤ 30): same scope as data_extraction_rules.xml. -->
+<!-- Android Auto Backup (API ≤ 30): same scope as data_extraction_rules.xml (manotu-events.db is not included). -->
 <full-backup-content>
     <include domain="database" path="gimano.db" />
     <include domain="file" path="photos/" />

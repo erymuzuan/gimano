@@ -78,6 +78,14 @@ interface GimanoApi {
     @POST("routes")
     suspend fun routes(@Body body: RouteRequest): RoutesResponse
 
+    /** Route builder: one leg, `"store": false` (docs/events.md §6). */
+    @POST("routes")
+    suspend fun routesStateless(@Body body: StatelessRouteRequest): RoutesResponse
+
+    /** Route builder "Lukis": snap a drawn line to roads (404/405 on servers that don't have it yet). */
+    @POST("routes/match")
+    suspend fun matchLine(@Body body: MatchLineRequest): MatchLineResponse
+
     @POST("routes/{id}/reroute")
     suspend fun reroute(@Path("id") id: String, @Body body: RerouteRequest): RoutesResponse
 

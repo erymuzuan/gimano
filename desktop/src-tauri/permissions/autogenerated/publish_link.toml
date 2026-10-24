@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-publish-link"
+description = "Enables the publish_link command without any pre-configured scope."
+commands.allow = ["publish_link"]
+
+[[permission]]
+identifier = "deny-publish-link"
+description = "Denies the publish_link command without any pre-configured scope."
+commands.deny = ["publish_link"]

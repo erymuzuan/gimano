@@ -26,6 +26,9 @@ enum DataMode: String, CaseIterable, Identifiable, Sendable {
 final class AppConfig {
     static let fallbackAPIBaseURL = "http://localhost:5080/api/v1/"
     static let fallbackStyleURL = "https://tiles.openfreemap.org/styles/liberty"
+    /// "Belum ada Manotu? Muat turun: …" in event invitation messages. On iOS this becomes the App Store URL once
+    /// Manotu is published there.
+    nonisolated static let downloadURL = "https://manotu.app/download/"
 
     private let defaults: UserDefaults
 

@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Text.Json.Nodes;
 using Gimano.Core.Contracts;
 using Gimano.Core.Data;
 using Gimano.Core.Domain;
@@ -26,11 +27,8 @@ public sealed class RouteService(
         var vehicle = req.Vehicle ?? Vehicle.Car;
         var snapshot = await issues.GetAsync(ct);
         var routed = WithNavigationPoints(req, snapshot);
-        var stops = (routed.Waypoints ?? []).Append(routed.Destination).ToList();
         var excluded = Exclusions(routed, vehicle, snapshot);
-        var response = await valhalla.RouteAsync(
-            ValhallaMapper.BuildRouteRequest(routed, originHeading, excludePolygons: Gimano.Core.Issues.IssueGeometry.ToValhalla(excluded.Select(e => e.Ring))), ct);
-        var candidates = ValhallaMapper.MapResponse(response, stops);
+        var candidates = await CandidatesAsync(routed, originHeading, excluded, ct);
         if (candidates.Count == 0) throw new NoRouteException("No route found.");
 
         var bbox = candidates.Select(c => BBox.Of(c.Points)).Aggregate((a, b) =>
@@ -55,12 +53,60 @@ public sealed class RouteService(
             tariffs = plazas.Count > 0 ? await TariffsAsync(ct) : [];
         }
 
-        var routes = RouteDecorator.Decorate(candidates, activeReports, jams, () => Guid.CreateVersion7().ToString("N"), vehicle, plazas, tariffs)
+        var routes = RouteDecorator.Decorate(candidates, activeReports, jams, NewRouteId(req.Stored), vehicle, plazas, tariffs)
             .Select(r => r with { Issues = IssuesFor(r, excluded, snapshot, req.IgnoreIssues, lang) }).ToList();
-        foreach (var r in routes) cache.Set(CacheKey(r.Id), cacheAs ?? req, CacheFor);
+        Remember(routes, cacheAs ?? req);
 
-        // Privacy rule: destinations/recents are never recorded server-side (they live on the device).
+        // Privacy rule: destinations/recents are never recorded server-side (they live on the device). userId is not
+        // used for anything persistent here; "store": false routes are not even kept in the in-memory reroute cache.
         return routes;
+    }
+
+    /// <summary>Stateless (<c>"store": false</c>) route ids start with <c>x-</c>: reroute answers 404 without a cache lookup.</summary>
+    internal const string StatelessIdPrefix = "x-";
+
+    internal static Func<string> NewRouteId(bool store) => store
+        ? () => Guid.CreateVersion7().ToString("N")
+        : () => StatelessIdPrefix + Guid.CreateVersion7().ToString("N");
+
+    /// <summary>Keeps the request for reroute (3 h, in memory) — never for <c>"store": false</c>.</summary>
+    internal void Remember(IEnumerable<RouteDto> routes, RouteRequest request)
+    {
+        if (!request.Stored) return;
+        foreach (var r in routes) cache.Set(CacheKey(r.Id), request, CacheFor);
+    }
+
+    /// <summary>
+    /// One Valhalla call (with alternates) normally; more than <see cref="ValhallaMapper.MaxLocationsPerRequest"/> stops
+    /// are routed in consecutive chunks, joined into a single route (no alternates for multi-stop routes anyway).
+    /// </summary>
+    private async Task<IReadOnlyList<RouteCandidate>> CandidatesAsync(RouteRequest routed, double? originHeading,
+        IReadOnlyList<IssueDirectory.RoadIssue> excluded, CancellationToken ct)
+    {
+        // A JsonNode can have one parent only: build the exclusion polygons per Valhalla request.
+        JsonArray Exclude() => Gimano.Core.Issues.IssueGeometry.ToValhalla(excluded.Select(e => e.Ring));
+        static List<LatLng> StopsOf(RouteRequest r) => (r.Waypoints ?? []).Append(r.Destination).ToList();
+
+        var chunks = ValhallaMapper.SplitStops(routed);
+        if (chunks.Count == 1)
+        {
+            var response = await valhalla.RouteAsync(ValhallaMapper.BuildRouteRequest(routed, originHeading, excludePolygons: Exclude()), ct);
+            return ValhallaMapper.MapResponse(response, StopsOf(routed));
+        }
+
+        var parts = new List<RouteCandidate>();
+        var departAt = routed.DepartAt;
+        for (var i = 0; i < chunks.Count; i++)
+        {
+            var chunk = chunks[i] with { DepartAt = departAt };
+            var response = await valhalla.RouteAsync(
+                ValhallaMapper.BuildRouteRequest(chunk, i == 0 ? originHeading : null, excludePolygons: Exclude()), ct);
+            var part = ValhallaMapper.MapResponse(response, StopsOf(chunk)).FirstOrDefault()
+                ?? throw new NoRouteException("No route found.");
+            parts.Add(part);
+            departAt = departAt?.AddSeconds(part.DurationS);
+        }
+        return [ValhallaMapper.Join(parts)];
     }
 
     /// <summary>A confirmed entrance correction replaces a place stop's coordinates (the display pin is unchanged).</summary>
@@ -115,7 +161,8 @@ public sealed class RouteService(
 
     public async Task<IReadOnlyList<RouteDto>> RerouteAsync(string routeId, RerouteRequest r, Guid? userId, CancellationToken ct, string lang = "en")
     {
-        if (!cache.TryGetValue(CacheKey(routeId), out RouteRequest? original) || original is null)
+        if (routeId.StartsWith(StatelessIdPrefix, StringComparison.Ordinal)
+            || !cache.TryGetValue(CacheKey(routeId), out RouteRequest? original) || original is null)
             throw new NotFoundException($"Route {routeId} is unknown or expired; request a new route.");
         var req = original with { Origin = new LatLng(r.Lat, r.Lng), Waypoints = RemainingStops(original.Waypoints, r.NextStopIndex), DepartAt = null };
         return await RouteAsync(req, userId, ct, r.Heading, cacheAs: original, lang: lang);

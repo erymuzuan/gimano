@@ -72,6 +72,8 @@ fun SearchScreen(ui: UiState, purpose: SearchPurpose, vm: MainViewModel, onMic: 
             SearchPurpose.PLAN_DRIVE -> R.string.plan_a_drive
             SearchPurpose.SET_ORIGIN -> R.string.change_start
             SearchPurpose.ENTRANCE -> R.string.suggest_entrance
+            SearchPurpose.EVENT_STOP -> R.string.host_stop_search
+            SearchPurpose.EVENT_ENTRANCE -> R.string.host_entrance_pick
             SearchPurpose.NAVIGATE -> null
         }
         Row(Modifier.fillMaxWidth().padding(start = 4.dp, end = 12.dp, top = 8.dp, bottom = 8.dp), verticalAlignment = Alignment.CenterVertically) {

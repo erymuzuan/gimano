@@ -102,6 +102,9 @@ android {
         // Website APKs update themselves from manotu.app; the Google Play build (buildType "play") must not.
         buildConfigField("boolean", "SELF_UPDATE", "true")
         buildConfigField("String", "DISTRIBUTION", "\"web\"")
+        // "Belum ada Manotu? Muat turun: …" in event invitations (InviteMessages). Later this becomes the Play Store URL
+        // (the "play" build type could point there already); until told otherwise both builds use manotu.app/download/.
+        buildConfigField("String", "DOWNLOAD_URL", "\"https://manotu.app/download/\"")
         // Google Drive backup (sign-in, auto-backup, restore). Off in the Play build: see create("play").
         buildConfigField("boolean", "DRIVE_BACKUP", "true")
     }
