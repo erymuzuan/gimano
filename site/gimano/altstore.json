@@ -6,6 +6,36 @@
   "website": "https://manotu.app/",
   "iconURL": "https://manotu.app/logo.png",
   "tintColor": "0047AB",
-  "apps": [],
+  "apps": [
+    {
+      "name": "Manotu",
+      "bundleIdentifier": "my.manotu.app",
+      "developerName": "Manotu contributors",
+      "localizedDescription": "Open-source community navigation for Malaysia. Favourites, recent places and planned drives stay on your phone. This sideload preview uses file backups; iCloud and Google Drive sign-in are unavailable. Requires AltStore Classic or Sideloadly. Free Apple accounts need a refresh every seven days.",
+      "iconURL": "https://manotu.app/logo.png",
+      "tintColor": "0047AB",
+      "category": "utilities",
+      "versions": [
+        {
+          "version": "0.3.4",
+          "buildVersion": "10",
+          "date": "2026-10-24T01:30:00+00:00",
+          "localizedDescription": "Compact place card with ratings, big 'Still closed?' buttons, sound selector (Full, Alerts only, Mute). Your location is sent only when you ask for a route.",
+          "downloadURL": "https://manotu.app/download/manotu-0.3.4.ipa",
+          "size": 9490340,
+          "minOSVersion": "17.0"
+        }
+      ],
+      "appPermissions": {
+        "entitlements": [],
+        "privacy": {
+          "NSCameraUsageDescription": "Manotu uses the camera so you can add photos of places and reviews.",
+          "NSLocationAlwaysAndWhenInUseUsageDescription": "Manotu keeps using your location while you navigate with the screen off, so voice guidance and traffic reports keep working.",
+          "NSLocationWhenInUseUsageDescription": "Manotu uses your location to show where you are, find places near you and guide you turn by turn.",
+          "NSPhotoLibraryAddUsageDescription": "Manotu can save photos you choose to your library."
+        }
+      }
+    }
+  ],
   "news": []
 }

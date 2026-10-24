@@ -96,15 +96,15 @@ footer{display:flex;flex-wrap:wrap;gap:16px 28px;padding-top:28px;padding-bottom
 
       <p class="lede">Percuma, tanpa iklan, sumber terbuka. <span class="en">Free, no ads, open source. Get the Android APK or sideload the iPhone IPA.</span></p>
       <div class="actions">
-        <a id="apk-link" class="btn btn-primary" href="https://manotu.app/download/manotu-0.3.3.apk" download type="application/vnd.android.package-archive">
+        <a id="apk-link" class="btn btn-primary" href="https://manotu.app/download/manotu-0.3.4.apk" download type="application/vnd.android.package-archive">
           <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"></path></svg>
           Muat turun APK · Download
         </a>
-        <a class="btn btn-ghost" href="#iphone">iPhone · akan datang</a>
+        <a class="btn btn-ghost" href="#iphone">iPhone IPA · AltStore ↓</a>
       </div>
       <div class="meta" aria-label="Butiran fail · File details">
-        <span id="apk-file">manotu-0.3.3.apk</span>
-        <span>Versi <span id="apk-version">0.3.3</span></span>
+        <span id="apk-file">manotu-0.3.4.apk</span>
+        <span>Versi <span id="apk-version">0.3.4</span></span>
         <span id="apk-size">41.7 MB</span>
         <span>Android 8.0 ke atas · Android 8.0+</span>
       </div>
@@ -185,14 +185,14 @@ footer{display:flex;flex-wrap:wrap;gap:16px 28px;padding-top:28px;padding-bottom
     <h2 id="sahkan">Pastikan fail tidak diubah</h2>
     <div class="grid">
       <div class="hash on-dark">
-        <span class="label">SHA-256 · <span id="apk-hash-file">manotu-0.3.3.apk</span> · <span id="apk-bytes">41,811,346</span> bait / bytes</span>
-        <code id="apk-sha256">16eb22b3e38af4b1f7640bb037bbd911fedc9ddfe14816239589d37e52c79b62</code>
+        <span class="label">SHA-256 · <span id="apk-hash-file">manotu-0.3.4.apk</span> · <span id="apk-bytes">41,847,454</span> bait / bytes</span>
+        <code id="apk-sha256">cdaee52587e41e2aeb326bbcacda1f4aa605c40f29baefbbd816e942b5dd8056</code>
         <span class="label">Tandatangan keluaran · Release signing</span>
 
         <span class="label">Sijil tandatangan asal dikekalkan · Original signing certificate retained</span>
         <span class="label">SHA-256 sijil · Certificate SHA-256</span>
         <code class="signer">b9:ba:dd:cd:63:b3:d7:4b:8a:37:4c:b9:3d:f3:27:85:79:ba:4f:ae:ae:12:1c:35:82:7d:37:7e:21:0b:be:c9</code>
-        <span class="label">Fail APK · APK file: <a id="apk-mirror" class="dl-gh" href="https://manotu.app/download/manotu-0.3.3.apk">manotu-0.3.3.apk</a></span>
+        <span class="label">Fail APK · APK file: <a id="apk-mirror" class="dl-gh" href="https://manotu.app/download/manotu-0.3.4.apk">manotu-0.3.4.apk</a></span>
       </div>
       <div class="card">
         <h3>Semak sendiri · Check it yourself</h3>
@@ -207,10 +207,18 @@ footer{display:flex;flex-wrap:wrap;gap:16px 28px;padding-top:28px;padding-bottom
   </section>
 
   <section class="wrap" aria-labelledby="iphone">
-    <span class="eyebrow">IPHONE</span>
-    <h2 id="iphone">iPhone: akan datang · Coming soon</h2>
-    <p>Manotu untuk iPhone akan tersedia melalui TestFlight dan App Store sebaik akaun pembangun Apple kami diluluskan. Tiada fail IPA untuk dimuat turun buat masa ini.</p>
-    <p lang="en">Manotu for iPhone will come through TestFlight and the App Store once our Apple developer account is approved. There is no IPA to download for now.</p>
+    <span class="eyebrow">IPHONE · iOS 17+ · PRATONTON · PREVIEW</span>
+    <h2 id="iphone">Pasang melalui AltStore · Sideload Manotu</h2>
+    <div class="actions"><a class="btn btn-primary" href="https://manotu.app/download/manotu-0.3.4.ipa">↓ Muat turun IPA 0.3.4 · Download IPA</a><a class="btn btn-ghost" href="/gimano/altstore.json">AltStore source JSON</a></div>
+    <p>Fail IPA ini tidak ditandatangani: AltStore Classic atau Sideloadly menandatanganinya dengan Apple ID anda sendiri semasa memasang. Membuka fail dalam Safari sahaja tidak memasangnya.</p>
+    <p lang="en">This IPA is unsigned: AltStore Classic or Sideloadly signs it with your own Apple ID when installing. Opening it in Safari alone does not install it.</p>
+    <div class="grid">
+      <div class="card"><span class="num">1</span><h3>Pasang AltStore Classic</h3><p>Use a Mac or Windows computer to install AltServer and AltStore Classic on your iPhone. Follow the official <a href="https://faq.altstore.io/altstore-classic/how-to-install-altstore-macos">Mac</a> or <a href="https://faq.altstore.io/altstore-classic/how-to-install-altstore-windows">Windows</a> guide. Enable Developer Mode and trust your developer profile if iOS asks.</p></div>
+      <div class="card"><span class="num">2</span><h3>Tambah sumber Manotu</h3><p>In AltStore, open Sources → + and paste this URL, then install Manotu.</p><pre>https://www.bukitbunga.com/gimano/altstore.json</pre><p>Or import the IPA through My Apps → +, or use <a href="https://sideloadly.io/">Sideloadly</a>.</p></div>
+      <div class="card"><span class="num">3</span><h3>Refresh setiap tujuh hari</h3><p>Free Apple accounts need a refresh within seven days using AltServer, and allow three sideloaded apps including AltStore. Refresh an expired app rather than deleting it, so you keep its data.</p></div>
+    </div>
+    <p class="note"><b>Sandaran · Backups:</b> iCloud and Google Drive sign-in are not available in this sideload build. Backup to a file works: save it to your own storage through Files.</p>
+    <p>SHA-256 (manotu-0.3.4.ipa): <code>dd7ff9d25485685210d7d034b51da1625776b8185a6c6844a56a83d0279c0095</code> · <a href="https://github.com/erymuzuan/manotu/releases/tag/v0.3.4">Release notes</a></p>
     <div class="note">
       <p><strong>Apple App Store + CarPlay &amp; Google Play + Android Auto — Akan datang · Coming soon</strong></p>
       <p>Kami sedang melalui proses kelulusan program pembangun Apple dan Google.</p>
