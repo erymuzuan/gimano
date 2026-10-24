@@ -85,10 +85,15 @@ Every upload needs a new build number: bump `CURRENT_PROJECT_VERSION` in `projec
 
 ## Questions App Store Connect will ask
 
-- **Encryption (export compliance)**: `ITSAppUsesNonExemptEncryption = NO` in Info.plist. Gimano uses only standard encryption: HTTPS, plus
-  libsodium (XChaCha20-Poly1305, Argon2id, Ed25519) to protect the user's own backups, Share my drive and contribution signatures.
-  It has no proprietary algorithms. This falls under the exemption for standard, published algorithms used for data protection and authentication, so no
-  documentation upload or annual self-classification report should be needed. **The account holder must confirm this answer** when asked.
+- **Encryption (export compliance)**: `ITSAppUsesNonExemptEncryption = NO` in Info.plist. NO is Apple's "exempt" classification,
+  not a claim that the app has no cryptography. Manotu uses HTTPS (Apple OS) plus bundled libsodium (XChaCha20-Poly1305,
+  Argon2id, Ed25519) to keep the user's own backups and Share my drive confidential and to sign contributions. All of these are
+  standard, published algorithms, with nothing proprietary. The account holder answered App Store Connect's App Encryption
+  Documentation questionnaire on 2026-10-24: standard algorithms instead of, or in addition to, Apple's OS, and **not
+  distributed in France**. Apple's result was "you don't need to upload any documents" and to mark this in Info.plist (screenshot
+  kept with the store handoff). An earlier build declared YES without a compliance code, and the upload was rejected with
+  "Invalid Export Compliance Code". **Re-run the questionnaire before** adding non-standard/proprietary crypto or distributing in
+  France: either change may require documentation and an `ITSEncryptionExportComplianceCode`.
 - **App Privacy ("nutrition label")**: answer to match `Gimano/Resources/PrivacyInfo.xcprivacy`. **No tracking.** Data collected, not linked to identity,
   used for App Functionality only:
   - Precise location: only while navigating (live traffic pings), not kept as a history;
