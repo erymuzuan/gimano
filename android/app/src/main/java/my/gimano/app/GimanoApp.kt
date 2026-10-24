@@ -115,6 +115,24 @@ class AppContainer(val app: Application) {
         my.gimano.app.data.events.EventImporter(scope, my.gimano.app.core.events.EventPackReader(eventSodium), eventStore,
             isOwn = { id, pub -> hostStore.isOwn(id, pub) })
     }
+    /** "Laluan saya": personal routes, same DB file (no backups) and vault. */
+    val personalRoutes by lazy { my.gimano.app.data.routes.PersonalRouteStore(eventsDb.personalRoutes(), my.gimano.app.data.events.KeystoreEventVault()) }
+    /**
+     * Route builder legs: anonymous client (no account token, no request signing), coordinates + mode only, `store: false`.
+     * In demo mode (no server) legs stay "perlu dikira".
+     */
+    private val routingClient by lazy { my.gimano.app.data.remote.ApiFactory.okHttp({ null }, null, { my.gimano.app.data.remote.ApiFactory.acceptLanguage(lang() == Lang.MS) }) }
+    private var routingApi: Pair<String, my.gimano.app.data.remote.GimanoApi>? = null
+    val routeBuilder by lazy {
+        my.gimano.app.data.routes.RouteBuilder(scope, my.gimano.app.data.routes.ApiLegRouter {
+            if (repo.isDemo) null
+            else {
+                val base = settings.current.apiBaseUrl
+                routingApi?.takeIf { it.first == base }?.second
+                    ?: my.gimano.app.data.remote.ApiFactory.create(base, routingClient).also { routingApi = base to it }
+            }
+        })
+    }
     val integrity by lazy { my.gimano.app.data.vetting.Integrity(app, BuildConfig.CLOUD_PROJECT_NUMBER) }
     val vetting = my.gimano.app.data.vetting.VettingMemory(db.settings())
     /** Complaints v1 (hidden until the server has /issues). */

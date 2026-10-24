@@ -128,19 +128,60 @@ interface HostEventDao {
     suspend fun nextExpiry(): Long?
 }
 
+/**
+ * A personal route ("Laluan saya") from the route builder, not tied to an event. [payload] is the name and the route
+ * sealed with the events vault; it stays on this phone (this file is excluded from backups) and is never sent anywhere.
+ */
+@Entity(tableName = "personal_route")
+data class PersonalRouteEntity(
+    @PrimaryKey val id: String,
+    val payload: ByteArray,
+    @ColumnInfo(name = "updated_at") val updatedAt: Long,
+)
+
+@Dao
+interface PersonalRouteDao {
+    @Query("SELECT * FROM personal_route ORDER BY updated_at DESC")
+    fun allFlow(): Flow<List<PersonalRouteEntity>>
+
+    @Query("SELECT * FROM personal_route WHERE id = :id")
+    suspend fun get(id: String): PersonalRouteEntity?
+
+    @Insert(onConflict = androidx.room.OnConflictStrategy.REPLACE)
+    suspend fun upsert(e: PersonalRouteEntity)
+
+    @Query("DELETE FROM personal_route WHERE id = :id")
+    suspend fun delete(id: String)
+}
+
+/** Schema changes as plain SQL, so the JVM tests run the exact statements against a v2 database. */
+object EventsMigrations {
+    /** v2 → v3: personal routes. Must equal Room's `createSql` for [PersonalRouteEntity] (schemas/…/3.json). */
+    val V2_TO_V3 = listOf(
+        "CREATE TABLE IF NOT EXISTS `personal_route` (`id` TEXT NOT NULL, `payload` BLOB NOT NULL, `updated_at` INTEGER NOT NULL, PRIMARY KEY(`id`))",
+    )
+
+    val MIGRATION_2_3 = object : androidx.room.migration.Migration(2, 3) {
+        override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) = V2_TO_V3.forEach(db::execSQL)
+    }
+}
+
 @Database(
-    entities = [EventPinEntity::class, EventRevisionEntity::class, HostEventEntity::class], version = 2, exportSchema = true,
+    entities = [EventPinEntity::class, EventRevisionEntity::class, HostEventEntity::class, PersonalRouteEntity::class], version = 3, exportSchema = true,
     autoMigrations = [AutoMigration(from = 1, to = 2)],
 )
 abstract class EventsDatabase : RoomDatabase() {
     abstract fun events(): EventDao
     abstract fun hosted(): HostEventDao
+    abstract fun personalRoutes(): PersonalRouteDao
 
     companion object {
         const val DB_NAME = "manotu-events.db"
 
         fun build(context: Context): EventsDatabase =
-            Room.databaseBuilder(context.applicationContext, EventsDatabase::class.java, DB_NAME).build()
+            Room.databaseBuilder(context.applicationContext, EventsDatabase::class.java, DB_NAME)
+                .addMigrations(EventsMigrations.MIGRATION_2_3)
+                .build()
     }
 }
 

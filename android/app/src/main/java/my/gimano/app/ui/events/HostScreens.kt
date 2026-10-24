@@ -138,6 +138,10 @@ private fun issueText(i: DraftIssue): String {
             stringResource(R.string.host_err_stop_too_long, n)
         DraftIssue.Code.STOP_POSITION -> stringResource(R.string.host_err_stop_position, n)
         DraftIssue.Code.INVALID -> stringResource(R.string.host_err_invalid)
+        DraftIssue.Code.ROUTE_NOT_READY -> stringResource(R.string.host_err_route_pending, (i.route ?: 0) + 1)
+        DraftIssue.Code.ROUTE_UNMATCHED -> stringResource(R.string.host_err_route_unmatched, (i.route ?: 0) + 1)
+        DraftIssue.Code.TOO_MANY_ROUTES -> stringResource(R.string.host_err_too_many_routes, EventLimits.MAX_ROUTES)
+        DraftIssue.Code.TOO_MANY_ROUTE_POINTS -> stringResource(R.string.host_err_route_points, EventLimits.MAX_POLYLINE_POINTS)
     }
 }
 
@@ -176,7 +180,8 @@ internal fun HostedRow(h: HostedEvent, use24h: Boolean, lang: Lang, onClick: () 
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun EventEditScreen(editor: HostEditor, saved: List<SavedPlace>, use24h: Boolean, vm: MainViewModel) {
+fun EventEditScreen(editor: HostEditor, saved: List<SavedPlace>, use24h: Boolean, vm: MainViewModel,
+    personalRoutes: my.gimano.app.data.routes.PersonalRouteStore? = null) {
     val c = Gimano.colors
     val lang = currentLang()
     val scope = rememberCoroutineScope()
@@ -190,6 +195,9 @@ fun EventEditScreen(editor: HostEditor, saved: List<SavedPlace>, use24h: Boolean
     var pickExpiryDate by remember { mutableStateOf(false) }
     var askDelete by remember { mutableStateOf(false) }
     val published by editor.published.collectAsStateWithLifecycle()
+    var pickRoute by remember { mutableStateOf(false) }
+    // Rides, convoys and trips are about the route: its section comes first and stands out.
+    val routeFirst = d.template in setOf("ride", "convoy", "trip")
 
     Column(Modifier.fillMaxSize().background(c.background).windowInsetsPadding(WindowInsets.statusBars).imePadding()) {
         Row(Modifier.fillMaxWidth().padding(4.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -229,6 +237,7 @@ fun EventEditScreen(editor: HostEditor, saved: List<SavedPlace>, use24h: Boolean
             OutlinedTextField(d.description, { v -> editor.update { it.copy(description = cap(v, EventLimits.DESCRIPTION_CHARS)) } },
                 Modifier.fillMaxWidth(), label = { Text(stringResource(R.string.host_description)) }, minLines = 2, maxLines = 5, shape = RoundedCornerShape(Radius.md))
 
+            if (routeFirst) RoutesSection(d, issues, prominent = true, canPick = personalRoutes != null, onOpen = vm::openEventRoute, onPick = { pickRoute = true })
             Section(stringResource(R.string.host_stops_section))
             d.stops.forEachIndexed { i, s ->
                 StopCard(s, i, d.stops.size, bad = issues.any { it.stop == i }, onClick = { editor.editStop(s.id) },
@@ -241,6 +250,7 @@ fun EventEditScreen(editor: HostEditor, saved: List<SavedPlace>, use24h: Boolean
                 Spacer(Modifier.width(8.dp))
                 Text(stringResource(R.string.host_add_stop), fontWeight = FontWeight.ExtraBold, color = c.brand, fontSize = 16.sp)
             }
+            if (!routeFirst) RoutesSection(d, issues, prominent = false, canPick = personalRoutes != null, onOpen = vm::openEventRoute, onPick = { pickRoute = true })
 
             // "Akses tamat Ahad 16 Nov, 16:00 (24 jam selepas acara). Boleh ubah."
             Column(Modifier.padding(top = 16.dp).fillMaxWidth().clip(RoundedCornerShape(Radius.md)).background(c.brandMist).clickable { pickExpiryDate = true }.padding(14.dp)) {
@@ -266,6 +276,7 @@ fun EventEditScreen(editor: HostEditor, saved: List<SavedPlace>, use24h: Boolean
         }
     }
 
+    if (pickRoute && personalRoutes != null) PickPersonalRouteSheet(personalRoutes, onDismiss = { pickRoute = false }) { p -> pickRoute = false; vm.copyPersonalRouteToEvent(p) }
     if (addOpen) AddStopSheet(saved, onDismiss = { addOpen = false },
         onMap = { addOpen = false; vm.addEventStopOnMap() },
         onSearch = { addOpen = false; vm.addEventStopBySearch() },
@@ -331,6 +342,71 @@ fun EventEditScreen(editor: HostEditor, saved: List<SavedPlace>, use24h: Boolean
         },
         dismissButton = { TextButton(onClick = { askDelete = false }) { Text(stringResource(R.string.cancel)) } },
     )
+}
+
+/** "Laluan": the event's routes (route builder), with "Bina laluan" and "Dari Laluan saya". */
+@Composable
+private fun RoutesSection(d: HostDraft, issues: List<DraftIssue>, prominent: Boolean, canPick: Boolean, onOpen: (String?) -> Unit, onPick: () -> Unit) {
+    val c = Gimano.colors
+    Section(stringResource(R.string.host_routes_section))
+    d.routes.forEachIndexed { i, r ->
+        val sum = remember(r) { my.gimano.app.core.routes.RouteAssembly.summary(r) }
+        val bad = issues.any { it.route == i }
+        Row(Modifier.padding(bottom = 8.dp).fillMaxWidth().clip(RoundedCornerShape(Radius.md)).background(c.surface)
+            .then(if (bad) Modifier.border(2.dp, c.report, RoundedCornerShape(Radius.md)) else Modifier)
+            .clickable { onOpen(r.id) }.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+            Box(Modifier.size(40.dp).clip(RoundedCornerShape(12.dp)).background(c.brandMist), contentAlignment = Alignment.Center) {
+                my.gimano.app.ui.routes.ModeIcon(r.mode, my.gimano.app.ui.routes.modeLabel(r.mode))
+            }
+            Spacer(Modifier.width(10.dp))
+            Column(Modifier.weight(1f)) {
+                Text(listOfNotNull(r.title.ifBlank { null }, r.day).joinToString(" · ").ifBlank { stringResource(R.string.host_routes_section) + " ${i + 1}" },
+                    fontSize = 16.sp, fontWeight = FontWeight.ExtraBold, color = c.text, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                val status = when {
+                    r.points.size < 2 -> stringResource(R.string.host_route_empty)
+                    sum.openLegs > 0 -> stringResource(R.string.rb_open_legs, sum.openLegs)
+                    sum.unmatchedLegs > 0 -> stringResource(R.string.rb_unmatched)
+                    sum.navigable -> stringResource(R.string.rb_routed)
+                    else -> stringResource(R.string.rb_sketch)
+                }
+                Text(listOf(Formatters.distance(sum.distanceM.toDouble()), stringResource(R.string.rb_points_n, r.points.size), status).joinToString(" · "),
+                    fontSize = 13.sp, color = if (bad) c.report else c.textMuted, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            }
+        }
+    }
+    val full = d.routes.size >= EventLimits.MAX_ROUTES
+    Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(Radius.md))
+        .then(if (prominent) Modifier.background(c.brand) else Modifier.border(2.dp, c.outline, RoundedCornerShape(Radius.md)))
+        .clickable(enabled = !full) { onOpen(null) }.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
+        Icon(Icons.Filled.Add, null, tint = if (prominent) c.brandOn else c.brand)
+        Spacer(Modifier.width(8.dp))
+        Text(stringResource(R.string.host_route_build), fontWeight = FontWeight.ExtraBold, color = if (prominent) c.brandOn else c.brand, fontSize = 16.sp)
+    }
+    if (full) Text(stringResource(R.string.rb_too_many_routes, EventLimits.MAX_ROUTES), fontSize = 13.sp, color = c.textMuted, modifier = Modifier.padding(top = 4.dp))
+    if (canPick && !full) TextButton(onClick = onPick) { Text(stringResource(R.string.host_route_from_mine), fontWeight = FontWeight.ExtraBold, color = c.brand) }
+    if (d.routes.isNotEmpty()) Text(stringResource(R.string.host_route_hint), fontSize = 12.sp, color = c.textMuted)
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun PickPersonalRouteSheet(store: my.gimano.app.data.routes.PersonalRouteStore, onDismiss: () -> Unit, onPick: (my.gimano.app.data.routes.PersonalRoute) -> Unit) {
+    val c = Gimano.colors
+    val routes by remember(store) { store.routes() }.collectAsStateWithLifecycle(initialValue = emptyList())
+    ModalBottomSheet(onDismissRequest = onDismiss, containerColor = c.surface, shape = RoundedCornerShape(topStart = Radius.sheet, topEnd = Radius.sheet)) {
+        Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 20.dp).padding(bottom = 24.dp)) {
+            Text(stringResource(R.string.rb_pick_route), style = GimanoType.title, color = c.text)
+            if (routes.isEmpty()) Text(stringResource(R.string.my_routes_none), fontSize = 14.sp, color = c.textMuted, modifier = Modifier.padding(top = 8.dp))
+            routes.filter { it.route.points.size >= 2 }.forEach { p ->
+                Row(Modifier.fillMaxWidth().heightIn(min = 56.dp).clickable { onPick(p) }.padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                    my.gimano.app.ui.routes.ModeIcon(p.route.mode, my.gimano.app.ui.routes.modeLabel(p.route.mode))
+                    Spacer(Modifier.width(14.dp))
+                    Text(p.name.ifBlank { stringResource(R.string.rb_untitled) }, Modifier.weight(1f), fontSize = 17.sp, fontWeight = FontWeight.ExtraBold, color = c.text,
+                        maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(Formatters.distance(my.gimano.app.core.routes.RouteAssembly.summary(p.route).distanceM.toDouble()), fontSize = 14.sp, color = c.textMuted)
+                }
+            }
+        }
+    }
 }
 
 @Composable

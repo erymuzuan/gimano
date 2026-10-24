@@ -85,6 +85,10 @@ sealed interface Screen {
     data object EventEdit : Screen
     /** "Kongsi jemputan" for the event in the editor. */
     data object EventShare : Screen
+    /** Route builder ("Bina laluan") over the map: a route of the event in the editor, or a personal route. */
+    data class RouteBuilder(val forEvent: Boolean) : Screen
+    /** "Laluan saya": personal routes on this phone. */
+    data object MyRoutes : Screen
 }
 
 data class PlaceSel(
@@ -1262,6 +1266,93 @@ class MainViewModel(private val c: AppContainer) : ViewModel() {
         if (c.hostEditor.publish()) _ui.update { it.copy(screen = Screen.EventShare) }
     }
 
+    // --- Route builder ("Bina laluan") and "Laluan saya" ------------------------------------------------------
+
+    private fun builderCamera(points: List<GeoPoint>): CameraCommand = when {
+        points.size >= 2 -> CameraCommand.Fit(points, topDp = 150, bottomDp = 300)
+        points.size == 1 -> CameraCommand.MoveTo(points[0], 14.0)
+        else -> CameraCommand.MoveTo(here(), 13.0)
+    }
+
+    /** From the event editor: edit route [routeId], or a new one (null). */
+    fun openEventRoute(routeId: String?) {
+        val ed = c.hostEditor
+        val d = ed.draft.value ?: return
+        if (routeId == null && d.routes.size >= my.gimano.app.core.events.EventLimits.MAX_ROUTES) return
+        val r = routeId?.let(ed::route) ?: my.gimano.app.core.routes.BuilderRoute(
+            id = my.gimano.app.core.events.EventIds.newItemId(), mode = ed.defaultMode(),
+            day = runCatching { d.localDate().toString() }.getOrNull()?.takeIf { d.routes.isEmpty() && runCatching { d.end().toLocalDate() != d.start().toLocalDate() }.getOrDefault(false) },
+        )
+        val stops = d.stops.map { my.gimano.app.data.routes.StopRef(it.id, it.label, my.gimano.app.core.routes.Pos(it.lat, it.lng)) }
+        c.routeBuilder.start(r, my.gimano.app.data.routes.BuilderTarget.Event, stops) { ed.saveRoute(it) }
+        val pts = r.points.map { it.geo }.ifEmpty { stops.map { it.pos.geo } }
+        _ui.update { it.copy(screen = Screen.RouteBuilder(forEvent = true), camera = builderCamera(pts)) }
+    }
+
+    fun openMyRoutes() = _ui.update { it.copy(screen = Screen.MyRoutes) }
+
+    /** "Laluan saya": open route [id], or a new one (null). Its name is the route title. */
+    fun openPersonalRoute(id: String?) = viewModelScope.launch {
+        val p = id?.let { runCatching { c.personalRoutes.get(it) }.getOrNull() }
+        val vehicle = settings.current.vehicle.takeIf { v -> my.gimano.app.core.events.EventTravelMode.entries.any { it.wire == v } } ?: "car"
+        val r = p?.route?.copy(title = p.name) ?: my.gimano.app.core.routes.BuilderRoute(my.gimano.app.core.events.EventIds.newItemId(), mode = vehicle)
+        c.routeBuilder.start(r, my.gimano.app.data.routes.BuilderTarget.Personal(isNew = p == null)) { c.personalRoutes.save(it.title, it) }
+        _ui.update { it.copy(screen = Screen.RouteBuilder(forEvent = false), camera = builderCamera(r.points.map { p -> p.geo })) }
+    }
+
+    fun closeRouteBuilder() {
+        val forEvent = (_ui.value.screen as? Screen.RouteBuilder)?.forEvent ?: false
+        c.routeBuilder.close()
+        _ui.update { it.copy(screen = if (forEvent) Screen.EventEdit else Screen.MyRoutes) }
+    }
+
+    /** Back in the builder: leaves at once when nothing changed, else the builder asks first. */
+    fun routeBuilderBack() { if (c.routeBuilder.requestBack()) closeRouteBuilder() }
+
+    /** Removes the route being edited from the event and leaves the builder. */
+    fun deleteEventRoute(id: String) {
+        c.hostEditor.removeRoute(id)
+        c.routeBuilder.close()
+        _ui.update { it.copy(screen = Screen.EventEdit) }
+    }
+
+    /** "Dari Laluan saya": a copy of a personal route becomes a route of the event in the editor. */
+    fun copyPersonalRouteToEvent(p: my.gimano.app.data.routes.PersonalRoute) {
+        val ed = c.hostEditor
+        val d = ed.draft.value ?: return
+        if (d.routes.size >= my.gimano.app.core.events.EventLimits.MAX_ROUTES) return
+        ed.saveRoute(p.route.copy(id = my.gimano.app.core.events.EventIds.newItemId(), title = p.name.take(my.gimano.app.core.events.EventLimits.ROUTE_TITLE_CHARS),
+            points = p.route.points.map { it.copy(stopId = null) }))
+    }
+
+    /**
+     * "Guna dalam acara": a new event (ride / convoy / trip by mode) with a start stop (and a finish stop unless it is a
+     * loop) and a copy of the route linked to them. The personal route stays as it is.
+     */
+    fun useRouteInEvent(p: my.gimano.app.data.routes.PersonalRoute, startLabel: String, finishLabel: String) {
+        val pts = p.route.points
+        if (pts.size < 2) return
+        newHostEvent()
+        val ed = c.hostEditor
+        val first = pts.first()
+        val last = pts.last()
+        val loop = first.pos == last.pos
+        val start = my.gimano.app.core.events.HostStop(my.gimano.app.core.events.EventIds.newItemId(), "start", startLabel, first.lat, first.lng)
+        val finish = if (loop) null else my.gimano.app.core.events.HostStop(my.gimano.app.core.events.EventIds.newItemId(), "finish", finishLabel, last.lat, last.lng)
+        val route = p.route.copy(
+            id = my.gimano.app.core.events.EventIds.newItemId(), title = "",
+            points = pts.mapIndexed { i, pt ->
+                when {
+                    i == 0 -> pt.copy(stopId = start.id)
+                    i == pts.lastIndex -> pt.copy(stopId = finish?.id ?: start.id)
+                    else -> pt.copy(stopId = null)
+                }
+            },
+        )
+        val template = when (p.route.mode) { "bicycle" -> "ride"; "motorcycle" -> "convoy"; else -> "trip" }
+        ed.update { it.copy(template = template, title = p.name.take(my.gimano.app.core.events.EventLimits.TITLE_CHARS), stops = listOfNotNull(start, finish), routes = listOf(route)) }
+    }
+
     /** Event screen: fit its stops and route lines above the bottom panel. */
     fun fitEvent(points: List<GeoPoint>, bottomDp: Int) {
         if (points.isEmpty()) return
@@ -1641,6 +1732,8 @@ class MainViewModel(private val c: AppContainer) : ViewModel() {
                 is Screen.EventDetail -> _ui.update { it.copy(screen = Screen.Events) }
                 Screen.EventEdit -> closeEventEditor()
                 Screen.EventShare -> { c.hostEditor.closeShare(); _ui.update { it.copy(screen = Screen.EventEdit) } }
+                is Screen.RouteBuilder -> routeBuilderBack()
+                Screen.MyRoutes -> goHome()
                 Screen.Navigating -> when {
                     s.navExpanded -> setNavExpanded(false)
                     nav.value.arrived -> stopNavigation()

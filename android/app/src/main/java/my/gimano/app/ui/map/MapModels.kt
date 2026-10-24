@@ -10,6 +10,17 @@ import my.gimano.app.data.model.TrafficSegment
 @Immutable
 data class RouteDraw(val id: String, val points: List<GeoPoint>, val selected: Boolean, val traffic: List<TrafficSegment>)
 
+/** Route builder line: [kind] = routed | sketch | unmatched | drawn | drawing (finger still down). */
+@Immutable
+data class BuilderLine(val points: List<GeoPoint>, val kind: String)
+
+/** Route builder point: [role] = start | end | stop | shape. */
+@Immutable
+data class BuilderMark(val point: GeoPoint, val role: String, val selected: Boolean)
+
+@Immutable
+data class BuilderDraw(val lines: List<BuilderLine> = emptyList(), val marks: List<BuilderMark> = emptyList())
+
 /** Everything the map draws, as plain data. */
 @Immutable
 data class MapRenderState(
@@ -29,6 +40,8 @@ data class MapRenderState(
     val showAlerts: Boolean = true,
     val showDrivers: Boolean = true,
     val navigating: Boolean = false,
+    /** The route builder's lines and points; also event sketch routes (dashed) on the event screen. */
+    val builder: BuilderDraw? = null,
 )
 
 /** One-shot camera instructions; [id] makes repeated identical commands re-apply. */

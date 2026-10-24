@@ -88,6 +88,13 @@ class MapHandle {
     }
 
     fun clearUserMoved() { userMovedCamera = false }
+
+    /** Screen pixel to map position (route builder drag and draw). */
+    fun unproject(x: Float, y: Float): GeoPoint? {
+        val m = map ?: return null
+        val ll = m.projection.fromScreenLocation(PointF(x, y))
+        return GeoPoint(ll.latitude, ll.longitude)
+    }
 }
 
 private object Ids {
@@ -109,6 +116,15 @@ private object Ids {
     const val L_PUCK = "g-l-puck"
     const val L_PUCK_ACC = "g-l-puck-acc"
     const val L_PINS = "g-l-pins"
+    const val BUILD_LINES = "g-build-lines"
+    const val BUILD_PTS = "g-build-pts"
+    const val L_B_CASE = "g-l-b-case"
+    const val L_B_ROUTED = "g-l-b-routed"
+    const val L_B_SKETCH = "g-l-b-sketch"
+    const val L_B_UNMATCHED = "g-l-b-unmatched"
+    const val L_B_DRAWN = "g-l-b-drawn"
+    const val L_B_DRAWING = "g-l-b-drawing"
+    const val L_B_PTS = "g-l-b-pts"
 }
 
 @Composable
@@ -133,6 +149,11 @@ fun GimanoMap(
      * peek and full), the camera moves back to it, centred in the visible map. Otherwise only the padding changes.
      */
     focus: GeoPoint? = null,
+    /**
+     * Raw touches before the map's own gestures (route builder: drag a point, draw with a finger). Return true to
+     * consume the event (the map then neither pans nor clicks).
+     */
+    touchInterceptor: ((android.view.MotionEvent) -> Boolean)? = null,
 ) {
     val context = LocalContext.current
     val density = LocalDensity.current
@@ -154,6 +175,11 @@ fun GimanoMap(
     val alertCb by rememberUpdatedState(onAlertClick)
     val routeCb by rememberUpdatedState(onRouteClick)
     val privateCb by rememberUpdatedState(onPrivateClick)
+    val touchCb by rememberUpdatedState(touchInterceptor)
+    DisposableEffect(mapView) {
+        mapView.setOnTouchListener { _, ev -> touchCb?.invoke(ev) ?: false }
+        onDispose { mapView.setOnTouchListener(null) }
+    }
 
     DisposableEffect(lifecycle, mapView) {
         val obs = LifecycleEventObserver { _, e ->
@@ -310,7 +336,7 @@ private fun Style.addBelowLabels(layer: Layer, below: String?) {
 private fun installLayers(style: Style, c: GimanoColors, icons: Map<String, Bitmap>) {
     icons.forEach { (k, v) -> style.addImage(k, v) }
     val empty = FeatureCollection.fromFeatures(emptyList())
-    listOf(Ids.ROUTES, Ids.ROUTE_TRAFFIC, Ids.JAMS, Ids.DRIVERS, Ids.ALERTS, Ids.PUCK, Ids.PINS).forEach {
+    listOf(Ids.ROUTES, Ids.ROUTE_TRAFFIC, Ids.JAMS, Ids.DRIVERS, Ids.ALERTS, Ids.PUCK, Ids.PINS, Ids.BUILD_LINES, Ids.BUILD_PTS).forEach {
         style.addSource(GeoJsonSource(it, empty))
     }
     val below = firstSymbolLayerId(style)
@@ -346,6 +372,35 @@ private fun installLayers(style: Style, c: GimanoColors, icons: Map<String, Bitm
     style.addBelowLabels(LineLayer(Ids.L_TRAFFIC, Ids.ROUTE_TRAFFIC).withProperties(
         PF.lineColor(trafficColor), PF.lineWidth(width(5f)), PF.lineCap(Property.LINE_CAP_ROUND), PF.lineJoin(Property.LINE_JOIN_ROUND),
     ), below)
+    // Route builder: road legs solid, sketches dashed, unmatched drawn parts dashed orange, the raw drawn line faint.
+    val kind = { k: String -> Expression.eq(Expression.get("kind"), k) }
+    style.addBelowLabels(LineLayer(Ids.L_B_CASE, Ids.BUILD_LINES).withFilter(Expression.any(kind("routed"), kind("sketch"))).withProperties(
+        PF.lineColor(Color.White.toArgb()), PF.lineWidth(width(10f)), PF.lineCap(Property.LINE_CAP_ROUND), PF.lineJoin(Property.LINE_JOIN_ROUND)), below)
+    style.addBelowLabels(LineLayer(Ids.L_B_ROUTED, Ids.BUILD_LINES).withFilter(kind("routed")).withProperties(
+        PF.lineColor(c.routeActive.toArgb()), PF.lineWidth(width(7f)), PF.lineCap(Property.LINE_CAP_ROUND), PF.lineJoin(Property.LINE_JOIN_ROUND)), below)
+    style.addBelowLabels(LineLayer(Ids.L_B_SKETCH, Ids.BUILD_LINES).withFilter(kind("sketch")).withProperties(
+        PF.lineColor(c.routeActive.toArgb()), PF.lineWidth(width(5f)), PF.lineDasharray(arrayOf(1.2f, 1.4f)), PF.lineJoin(Property.LINE_JOIN_ROUND)), below)
+    style.addBelowLabels(LineLayer(Ids.L_B_DRAWN, Ids.BUILD_LINES).withFilter(kind("drawn")).withProperties(
+        PF.lineColor(c.brandTint.toArgb()), PF.lineWidth(width(4f)), PF.lineOpacity(0.9f), PF.lineDasharray(arrayOf(0.6f, 1.6f)), PF.lineJoin(Property.LINE_JOIN_ROUND)), below)
+    style.addBelowLabels(LineLayer(Ids.L_B_UNMATCHED, Ids.BUILD_LINES).withFilter(kind("unmatched")).withProperties(
+        PF.lineColor(c.report.toArgb()), PF.lineWidth(width(6f)), PF.lineDasharray(arrayOf(1.2f, 1.2f)), PF.lineJoin(Property.LINE_JOIN_ROUND)), below)
+    style.addLayer(LineLayer(Ids.L_B_DRAWING, Ids.BUILD_LINES).withFilter(kind("drawing")).withProperties(
+        PF.lineColor(c.brandTint.toArgb()), PF.lineWidth(5f), PF.lineCap(Property.LINE_CAP_ROUND), PF.lineJoin(Property.LINE_JOIN_ROUND)))
+    val role = { r: String -> Expression.eq(Expression.get("role"), r) }
+    val sel = Expression.eq(Expression.get("sel"), true)
+    style.addLayer(CircleLayer(Ids.L_B_PTS, Ids.BUILD_PTS).withProperties(
+        PF.circleRadius(Expression.switchCase(role("shape"), Expression.literal(6f), Expression.literal(9f))),
+        PF.circleColor(Expression.switchCase(
+            role("shape"), Expression.color(Color.White.toArgb()),
+            role("end"), Expression.color(c.brandInk.toArgb()),
+            Expression.color(c.brand.toArgb()))),
+        PF.circleStrokeColor(Expression.switchCase(
+            sel, Expression.color(c.report.toArgb()),
+            role("shape"), Expression.color(c.brand.toArgb()),
+            Expression.color(Color.White.toArgb()))),
+        PF.circleStrokeWidth(Expression.switchCase(sel, Expression.literal(4f), Expression.literal(2.5f))),
+        PF.circlePitchAlignment(Property.CIRCLE_PITCH_ALIGNMENT_MAP),
+    ))
     style.addLayer(CircleLayer(Ids.L_DRIVERS, Ids.DRIVERS).withProperties(
         PF.circleColor(c.brand.toArgb()), PF.circleRadius(5.5f), PF.circleStrokeColor(Color.White.toArgb()), PF.circleStrokeWidth(2f),
     ))
@@ -425,6 +480,16 @@ private fun updateSources(style: Style, s: MapRenderState) {
         s.stops.map { Feature.fromGeometry(pt(it)).apply { addStringProperty("icon", "stop") } } +
         listOfNotNull(s.pin?.let { Feature.fromGeometry(pt(it)).apply { addStringProperty("icon", "pin") } }))
     style.getSourceAs<GeoJsonSource>(Ids.PINS)?.setGeoJson(FeatureCollection.fromFeatures(pins))
+
+    val b = s.builder
+    val lines = b?.lines.orEmpty().filter { it.points.size >= 2 }.map { l ->
+        Feature.fromGeometry(LineString.fromLngLats(l.points.map(::pt))).apply { addStringProperty("kind", l.kind) }
+    }
+    style.getSourceAs<GeoJsonSource>(Ids.BUILD_LINES)?.setGeoJson(FeatureCollection.fromFeatures(lines))
+    val marks = b?.marks.orEmpty().sortedBy { it.selected }.map { m ->
+        Feature.fromGeometry(pt(m.point)).apply { addStringProperty("role", m.role); addBooleanProperty("sel", m.selected) }
+    }
+    style.getSourceAs<GeoJsonSource>(Ids.BUILD_PTS)?.setGeoJson(FeatureCollection.fromFeatures(marks))
 }
 
 /** Rasterises Gimano's own pebble markers (Material Symbols glyph on a type-coloured tile). */

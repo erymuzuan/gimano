@@ -16,6 +16,9 @@ import my.gimano.app.core.events.EventPackException
 import my.gimano.app.core.events.HostDraft
 import my.gimano.app.core.events.HostDraftRules
 import my.gimano.app.core.events.HostStop
+import my.gimano.app.core.routes.BuilderRoute
+import my.gimano.app.core.routes.Pos
+import my.gimano.app.core.routes.RouteEdit
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
@@ -86,11 +89,38 @@ class HostEditor(
         scheduleSave()
     }
 
-    fun updateStop(id: String, f: (HostStop) -> HostStop) = update { d -> d.copy(stops = d.stops.map { if (it.id == id) f(it) else it }) }
+    fun updateStop(id: String, f: (HostStop) -> HostStop) = update { d ->
+        val before = d.stops.firstOrNull { it.id == id }
+        val stops = d.stops.map { if (it.id == id) f(it) else it }
+        val after = stops.firstOrNull { it.id == id }
+        // Route points linked to a moved stop follow it (desktop `sync_stop_points`).
+        val routes = if (before != null && after != null && (before.lat != after.lat || before.lng != after.lng))
+            d.routes.map { RouteEdit.syncStop(it, id, Pos(after.lat, after.lng)) } else d.routes
+        d.copy(stops = stops, routes = routes)
+    }
 
     fun removeStop(id: String) {
         _editingStop.value = null
-        update { d -> d.copy(stops = d.stops.filterNot { it.id == id }) }
+        update { d -> d.copy(stops = d.stops.filterNot { it.id == id }, routes = d.routes.map { RouteEdit.dropStop(it, id) }) }
+    }
+
+    // --- Routes ("Laluan", from the route builder) ---------------------------------------------------------
+
+    /** Adds or replaces a route (builder "Simpan"). */
+    fun saveRoute(r: BuilderRoute) = update { d ->
+        if (d.routes.any { it.id == r.id }) d.copy(routes = d.routes.map { if (it.id == r.id) r else it })
+        else d.copy(routes = (d.routes + r).take(EventLimits.MAX_ROUTES))
+    }
+
+    fun removeRoute(id: String) = update { d -> d.copy(routes = d.routes.filterNot { it.id == id }) }
+
+    fun route(id: String): BuilderRoute? = _draft.value?.routes?.firstOrNull { it.id == id }
+
+    /** A new route's default mode from the template (ride: bicycle, convoy: motorcycle, others: car). */
+    fun defaultMode(): String = when (_draft.value?.template) {
+        "ride" -> my.gimano.app.core.events.EventTravelMode.BICYCLE.wire
+        "convoy" -> my.gimano.app.core.events.EventTravelMode.MOTORCYCLE.wire
+        else -> my.gimano.app.core.events.EventTravelMode.CAR.wire
     }
 
     fun moveStop(id: String, by: Int) = update { d ->
@@ -137,7 +167,7 @@ class HostEditor(
         saveJob?.cancel()
         scope.launch {
             if (d != null) {
-                val blank = !publishedOnce && d.title.isBlank() && d.stops.isEmpty()
+                val blank = !publishedOnce && d.title.isBlank() && d.stops.isEmpty() && d.routes.isEmpty()
                 mutex.withLock { runCatching { if (blank) store.delete(d.id) else store.save(d) } }
             }
         }

@@ -160,6 +160,10 @@ fun GimanoRoot(vm: MainViewModel, onMic: () -> Unit, onExit: () -> Unit, onReque
         if (!nav.active && screen == Screen.Navigating) vm.stopNavigation()
     }
 
+    // Route builder ("Bina laluan"): its state, and the finger handling the map hands over (drag a point, draw).
+    val builderUi by container.routeBuilder.ui.collectAsStateWithLifecycle()
+    val builderTouch = my.gimano.app.ui.routes.rememberBuilderTouch(container.routeBuilder, handle)
+    val building = screen is Screen.RouteBuilder && builderUi != null
     val navPoints = remember(nav.route?.id) { nav.route?.let { runCatching { Polyline.decode(it.polyline) }.getOrNull() }.orEmpty() }
     val navigating = screen == Screen.Navigating || (screen is Screen.Search && nav.active)
     val renderState = MapRenderState(
@@ -168,10 +172,11 @@ fun GimanoRoot(vm: MainViewModel, onMic: () -> Unit, onExit: () -> Unit, onReque
             screen == Screen.RoutePreview -> ui.plan?.routes.orEmpty().map { r ->
                 RouteDraw(r.id, ui.plan?.decoded?.get(r.id).orEmpty(), r.id == ui.plan?.selected?.id, r.trafficSegments)
             }
-            screen is Screen.EventDetail -> eventDetail?.plan?.routes.orEmpty().map { r -> RouteDraw("event-" + r.id, r.points, true, emptyList()) }
+            // Sketch / GPX routes are drawn dashed (builder layer) so nobody mistakes them for roads.
+            screen is Screen.EventDetail -> eventDetail?.plan?.routes.orEmpty().filter { it.source.navigable }.map { r -> RouteDraw("event-" + r.id, r.points, true, emptyList()) }
             else -> emptyList()
         },
-        alerts = ui.alerts + if (screen == Screen.RoutePreview) ui.plan?.selected?.alerts.orEmpty().map { it.toReport() }.filter { a -> ui.alerts.none { it.id == a.id } } else emptyList(),
+        alerts = if (building) emptyList() else ui.alerts + if (screen == Screen.RoutePreview) ui.plan?.selected?.alerts.orEmpty().map { it.toReport() }.filter { a -> ui.alerts.none { it.id == a.id } } else emptyList(),
         jams = ui.jams,
         drivers = ui.drivers,
         puck = if (navigating) nav.puck ?: nav.fix?.point else ui.myLocation?.point,
@@ -189,12 +194,19 @@ fun GimanoRoot(vm: MainViewModel, onMic: () -> Unit, onExit: () -> Unit, onReque
             navigating -> nav.stops.map { it.point }
             screen == Screen.RoutePreview -> ui.plan?.stops.orEmpty().map { it.point }
             screen is Screen.EventDetail -> eventDetail?.plan?.stops.orEmpty().map { it.pin }
+            building -> builderUi?.stops.orEmpty().map { it.pos.geo }
             else -> emptyList()
         },
         showTraffic = settings.showTraffic,
         showAlerts = settings.showAlerts,
         showDrivers = settings.showDrivers,
         navigating = navigating,
+        builder = when {
+            building -> my.gimano.app.ui.routes.builderDraw(builderUi!!, builderTouch)
+            screen is Screen.EventDetail -> eventDetail?.plan?.routes.orEmpty().filter { !it.source.navigable }
+                .takeIf { it.isNotEmpty() }?.let { rs -> my.gimano.app.ui.map.BuilderDraw(rs.map { my.gimano.app.ui.map.BuilderLine(it.points, "sketch") }) }
+            else -> null
+        },
     )
 
     ModalNavigationDrawer(
@@ -209,6 +221,7 @@ fun GimanoRoot(vm: MainViewModel, onMic: () -> Unit, onExit: () -> Unit, onReque
                 onFavourites = { scope.launch { drawer.close() }; vm.open(Screen.Favourites) },
                 onPlanned = { scope.launch { drawer.close() }; vm.open(Screen.Planned) },
                 onEvents = { scope.launch { drawer.close() }; vm.open(Screen.Events) },
+                onMyRoutes = { scope.launch { drawer.close() }; vm.openMyRoutes() },
                 onInbox = { scope.launch { drawer.close() }; vm.open(Screen.Inbox) },
                 onContributions = { scope.launch { drawer.close() }; vm.open(Screen.Contributions) },
                 onAddPlace = { scope.launch { drawer.close() }; vm.startAddPlace(vm.here(), ""); cvm.startAdd(vm.here(), "") },
@@ -235,8 +248,12 @@ fun GimanoRoot(vm: MainViewModel, onMic: () -> Unit, onExit: () -> Unit, onReque
                 focus = if (screen == Screen.PlaceCard && placeSheetDp > 0) ui.place?.summary?.let { my.gimano.app.core.geo.GeoPoint(it.lat, it.lng) } else null,
                 modifier = Modifier.fillMaxSize(),
                 onCameraIdle = vm::onCameraIdle,
-                onMapClick = { if (screen == Screen.Home) { vm.selectAlert(null); vm.collapseHomeSheet() } },
-                onMapLongClick = vm::dropPin,
+                onMapClick = { p ->
+                    if (screen == Screen.Home) { vm.selectAlert(null); vm.collapseHomeSheet() }
+                    else if (building) container.routeBuilder.tapMap(my.gimano.app.core.routes.Pos.of(p))
+                },
+                onMapLongClick = { p -> if (!building) vm.dropPin(p) },
+                touchInterceptor = if (building) builderTouch::onTouch else null,
                 onAlertClick = { id -> if (screen == Screen.Home || screen == Screen.PlaceCard) { vm.goHome(); vm.selectAlert(id) } },
                 onRouteClick = { id -> if (screen == Screen.RoutePreview) vm.selectRoute(id) },
                 onPrivateClick = { id -> if (screen == Screen.Home || screen == Screen.PlaceCard) vm.showPrivate(id) },
@@ -272,7 +289,22 @@ fun GimanoRoot(vm: MainViewModel, onMic: () -> Unit, onExit: () -> Unit, onReque
                 Screen.Theme -> my.gimano.app.ui.more.ThemeScreen(settings.theme, onPick = { vm.setTheme(it) }, onBack = vm::back)
                 Screen.Events -> my.gimano.app.ui.events.EventsListScreen(container.eventStore, container.hostStore, settings.use24h, onBack = vm::back,
                     onOpen = { id -> vm.open(Screen.EventDetail(id)) }, onOpenHosted = { id -> vm.openHostEvent(id) }, onNew = vm::newHostEvent)
-                Screen.EventEdit -> my.gimano.app.ui.events.EventEditScreen(container.hostEditor, ui.saved, settings.use24h, vm)
+                Screen.EventEdit -> my.gimano.app.ui.events.EventEditScreen(container.hostEditor, ui.saved, settings.use24h, vm, container.personalRoutes)
+                is Screen.RouteBuilder -> {
+                    val draft by container.hostEditor.draft.collectAsStateWithLifecycle()
+                    val days = remember(draft?.date, draft?.startTime, draft?.endTime) {
+                        draft?.let { d -> runCatching {
+                            val a = d.start().toLocalDate(); val b = d.end().toLocalDate()
+                            generateSequence(a) { it.plusDays(1) }.takeWhile { !it.isAfter(b) }.take(15).map { it.toString() }.toList()
+                        }.getOrNull() }.orEmpty()
+                    }
+                    my.gimano.app.ui.routes.RouteBuilderOverlay(container.routeBuilder, handle, builderTouch,
+                        eventTitle = if (screen.forEvent) draft?.title else null, eventDays = if (screen.forEvent) days else emptyList(),
+                        onBack = vm::routeBuilderBack, onClose = vm::closeRouteBuilder, onDeleteRoute = vm::deleteEventRoute,
+                        onSaveToMine = if (screen.forEvent) { name, route -> container.personalRoutes.save(name, route) } else null)
+                }
+                Screen.MyRoutes -> my.gimano.app.ui.routes.MyRoutesScreen(container.personalRoutes, onBack = vm::back,
+                    onOpen = { id -> vm.openPersonalRoute(id) }, onUseInEvent = vm::useRouteInEvent)
                 Screen.EventShare -> my.gimano.app.ui.events.EventShareScreen(container.hostEditor, settings.use24h, onBack = vm::back)
                 is Screen.EventDetail -> my.gimano.app.ui.events.EventDetailOverlay(
                     eventDetail, container.eventStore, settings.use24h, selected = eventStopSel,

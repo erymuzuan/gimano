@@ -56,6 +56,8 @@ data class HostDraft(
     val stops: List<HostStop> = emptyList(),
     /** For the organiser only: never written into a pack. */
     val organizerNotes: String = "",
+    /** Routes from the route builder ("Laluan"); published as `routes[]` once every leg is calculated. */
+    val routes: List<my.gimano.app.core.routes.BuilderRoute> = emptyList(),
 ) {
     companion object {
         const val DEFAULT_TZ = "Asia/Kuala_Lumpur"
@@ -95,9 +97,16 @@ data class HostDraft(
 fun decodeHostDraft(bytes: ByteArray): HostDraft = HostDraft.Codec.decodeFromString(HostDraft.serializer(), bytes.toString(Charsets.UTF_8))
 
 /** Why "Kongsi jemputan" is not possible yet; [stop] is the stop index for stop problems. */
-data class DraftIssue(val code: Code, val stop: Int? = null) {
+data class DraftIssue(val code: Code, val stop: Int? = null, val route: Int? = null) {
     enum class Code { TITLE_REQUIRED, TITLE_TOO_LONG, ALIAS_TOO_LONG, DESCRIPTION_TOO_LONG, BAD_TIME, TOO_LONG_EVENT, EXPIRED,
-        NO_STOPS, TOO_MANY_STOPS, STOP_LABEL_REQUIRED, STOP_LABEL_TOO_LONG, STOP_NOTES_TOO_LONG, STOP_AUDIENCE_TOO_LONG, STOP_POSITION, INVALID }
+        NO_STOPS, TOO_MANY_STOPS, STOP_LABEL_REQUIRED, STOP_LABEL_TOO_LONG, STOP_NOTES_TOO_LONG, STOP_AUDIENCE_TOO_LONG, STOP_POSITION, INVALID,
+        /** A route still has legs to calculate ("perlu dikira"). */
+        ROUTE_NOT_READY,
+        /** Part of a drawn route matched no road: fix it or keep it as a sketch. */
+        ROUTE_UNMATCHED,
+        TOO_MANY_ROUTES,
+        /** Routes have more than 50 000 polyline points in total. */
+        TOO_MANY_ROUTE_POINTS }
 }
 
 object HostDraftRules {
@@ -130,7 +139,30 @@ object HostDraftRules {
             val e = s.entrance
             if (!coordOk(s.lat, s.lng) || (e != null && !coordOk(e.lat, e.lng))) out += DraftIssue(DraftIssue.Code.STOP_POSITION, i)
         }
+        // Routes (§4): every leg calculated or kept as a sketch; at most 20 routes and 50 000 points. Empty routes are
+        // left out of the pack (like the desktop), not an error.
+        val stopIds = d.stops.map { it.id }.toSet()
+        var routes = 0
+        var points = 0
+        d.routes.forEachIndexed { i, r ->
+            when (val a = my.gimano.app.core.routes.RouteAssembly.toEventRoute(r, stopIds)) {
+                is my.gimano.app.core.routes.Assembled.Ok -> { routes++; points += a.route.points.size }
+                is my.gimano.app.core.routes.Assembled.Blocked -> when (a.why) {
+                    my.gimano.app.core.routes.RouteBlock.EMPTY -> Unit
+                    my.gimano.app.core.routes.RouteBlock.NOT_READY -> out += DraftIssue(DraftIssue.Code.ROUTE_NOT_READY, route = i)
+                    my.gimano.app.core.routes.RouteBlock.UNMATCHED -> out += DraftIssue(DraftIssue.Code.ROUTE_UNMATCHED, route = i)
+                }
+            }
+        }
+        if (routes > EventLimits.MAX_ROUTES) out += DraftIssue(DraftIssue.Code.TOO_MANY_ROUTES)
+        if (points > EventLimits.MAX_POLYLINE_POINTS) out += DraftIssue(DraftIssue.Code.TOO_MANY_ROUTE_POINTS)
         return out
+    }
+
+    /** The routes that go into the pack: complete ones only (others are blocked by [issues] or left out when empty). */
+    fun packRoutes(d: HostDraft): List<EventRoute> {
+        val stopIds = d.stops.map { it.id }.toSet()
+        return d.routes.mapNotNull { (my.gimano.app.core.routes.RouteAssembly.toEventRoute(it, stopIds) as? my.gimano.app.core.routes.Assembled.Ok)?.route }
     }
 
     private fun opt(s: String) = s.trim().takeIf { it.isNotEmpty() }
@@ -154,7 +186,7 @@ object HostDraftRules {
                 // s.organizerNote is deliberately not read: it has no field in the pack.
             )
         },
-        sessions = emptyList(), routes = emptyList(),
+        sessions = emptyList(), routes = packRoutes(d),
     )
 }
 
@@ -214,7 +246,8 @@ object EventDiff {
 
     fun diff(old: EventPlan, new: EventPlan): PlanDiff {
         val time = !old.start.isEqual(new.start) || !old.end.isEqual(new.end)
-        val info = old.title != new.title || old.description != new.description || old.organizerAlias != new.organizerAlias || old.expiresAt != new.expiresAt
+        val info = old.title != new.title || old.description != new.description || old.organizerAlias != new.organizerAlias || old.expiresAt != new.expiresAt ||
+            old.routes.map { it.id to it.polyline } != new.routes.map { it.id to it.polyline }
         val changes = ArrayList<StopChange>()
         val newById = new.stops.associateBy { it.id }
         for (b in old.stops) {
