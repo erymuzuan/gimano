@@ -49,6 +49,8 @@ fun BackupScreen(vm: BackupViewModel, onBack: () -> Unit) {
     val context = LocalContext.current
     val ui by vm.ui.collectAsStateWithLifecycle()
     val s by vm.settings.collectAsStateWithLifecycle()
+    // "Demo, not Google Drive" only where Drive exists; the Play build (no Drive) just says it stays on the phone.
+    val demoLabel = if (vm.driveAvailable) R.string.demo_not_drive else R.string.demo_on_this_phone
 
     val createDoc = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/octet-stream")) { uri -> if (uri != null) vm.writeTo(uri) }
     val openDoc = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri -> if (uri != null) vm.restoreFromUri(uri) }
@@ -81,7 +83,7 @@ fun BackupScreen(vm: BackupViewModel, onBack: () -> Unit) {
                     when (s.lastBackupDest) {
                         "drive" -> "Google Drive"
                         "file" -> stringResource(R.string.backup_dest_file)
-                        "demo" -> stringResource(R.string.dest_demo_title) + " · " + stringResource(R.string.demo_not_drive)
+                        "demo" -> stringResource(R.string.dest_demo_title) + " · " + stringResource(demoLabel)
                         else -> s.lastBackupDest ?: ""
                     })
                 else stringResource(R.string.no_backup_yet),
@@ -95,15 +97,24 @@ fun BackupScreen(vm: BackupViewModel, onBack: () -> Unit) {
                 Modifier.fillMaxWidth().padding(vertical = 6.dp).clip(RoundedCornerShape(14.dp)).background(Color(0xFFFFF1CC)).padding(12.dp),
                 color = Color(0xFF7A5200), fontSize = 13.sp, fontWeight = FontWeight.ExtraBold,
             )
-            // 1 · Google Drive: the real integration, in the user's own account (optional).
-            DestHeader(stringResource(R.string.dest_drive_title), stringResource(R.string.dest_drive_note))
-            BigAction(Icons.Filled.CloudUpload, if (vm.driveConfigured) stringResource(R.string.backup_to_drive) else stringResource(R.string.drive_not_configured), enabled = vm.driveConfigured && !ui.busy) { vm.backup(PassphrasePurpose.BACKUP_DRIVE) }
-            if (vm.driveConfigured) BigAction(Icons.Filled.Restore, stringResource(R.string.restore_from_drive), enabled = !ui.busy) { vm.listDrive() }
-            SwitchLine(
-                Icons.Filled.CloudUpload, stringResource(R.string.auto_backup),
-                stringResource(if (!vm.driveConfigured) R.string.auto_backup_needs_drive else R.string.auto_backup_desc),
-                s.autoBackup && vm.driveConfigured, vm::setAutoBackup, enabled = vm.driveConfigured,
-            )
+            // 1 · Google Drive: the real integration, in the user's own account (optional). Not in the Play build
+            // (BuildConfig.DRIVE_BACKUP=false): no Drive buttons, sign-in, auto-backup or restore; say so plainly.
+            if (vm.driveAvailable) {
+                DestHeader(stringResource(R.string.dest_drive_title), stringResource(R.string.dest_drive_note))
+                BigAction(Icons.Filled.CloudUpload, if (vm.driveConfigured) stringResource(R.string.backup_to_drive) else stringResource(R.string.drive_not_configured), enabled = vm.driveConfigured && !ui.busy) { vm.backup(PassphrasePurpose.BACKUP_DRIVE) }
+                if (vm.driveConfigured) BigAction(Icons.Filled.Restore, stringResource(R.string.restore_from_drive), enabled = !ui.busy) { vm.listDrive() }
+                SwitchLine(
+                    Icons.Filled.CloudUpload, stringResource(R.string.auto_backup),
+                    stringResource(if (!vm.driveConfigured) R.string.auto_backup_needs_drive else R.string.auto_backup_desc),
+                    s.autoBackup && vm.driveConfigured, vm::setAutoBackup, enabled = vm.driveConfigured,
+                )
+            } else {
+                Text(
+                    stringResource(R.string.drive_not_in_this_version),
+                    Modifier.fillMaxWidth().padding(top = 14.dp).clip(RoundedCornerShape(14.dp)).background(c.surface).padding(12.dp),
+                    color = c.text, fontSize = 14.sp, fontWeight = FontWeight.Bold,
+                )
+            }
 
             // 2 · A file: full backup + restore (passphrase included), no account at all.
             DestHeader(stringResource(R.string.dest_file_title), stringResource(R.string.dest_file_note))
@@ -113,9 +124,9 @@ fun BackupScreen(vm: BackupViewModel, onBack: () -> Unit) {
 
             // 3 · Demo mode only: try backup → restore without any account. Never Google Drive.
             if (s.demoMode) {
-                DestHeader(stringResource(R.string.dest_demo_title), stringResource(R.string.dest_demo_note), demo = true)
-                BigAction(Icons.Filled.Science, stringResource(R.string.backup_to_demo), enabled = !ui.busy, sub = stringResource(R.string.demo_not_drive)) { vm.backup(PassphrasePurpose.BACKUP_DEMO) }
-                BigAction(Icons.Filled.Restore, stringResource(R.string.restore_from_demo), enabled = !ui.busy, sub = stringResource(R.string.demo_not_drive)) { vm.listDemo() }
+                DestHeader(stringResource(R.string.dest_demo_title), stringResource(if (vm.driveAvailable) R.string.dest_demo_note else R.string.dest_demo_note_no_drive), demo = true)
+                BigAction(Icons.Filled.Science, stringResource(R.string.backup_to_demo), enabled = !ui.busy, sub = stringResource(demoLabel)) { vm.backup(PassphrasePurpose.BACKUP_DEMO) }
+                BigAction(Icons.Filled.Restore, stringResource(R.string.restore_from_demo), enabled = !ui.busy, sub = stringResource(demoLabel)) { vm.listDemo() }
             }
             Text(stringResource(R.string.android_auto_backup_note), fontSize = 13.sp, color = c.textMuted, modifier = Modifier.padding(top = 12.dp))
         }
@@ -132,7 +143,7 @@ fun BackupScreen(vm: BackupViewModel, onBack: () -> Unit) {
             dismissButton = { OutlinedButton(onClick = { vm.confirmRestore(RestoreMode.REPLACE) }) { Text(stringResource(R.string.restore_replace)) } },
         )
     }
-    ui.driveFiles?.let { files ->
+    ui.driveFiles?.takeIf { vm.driveAvailable }?.let { files ->
         AlertDialog(
             onDismissRequest = vm::cancelRestore,
             title = { Text(stringResource(R.string.restore_from_drive)) },
@@ -152,7 +163,7 @@ fun BackupScreen(vm: BackupViewModel, onBack: () -> Unit) {
             title = { Text(stringResource(R.string.restore_from_demo)) },
             text = {
                 Column {
-                    Text(stringResource(R.string.demo_not_drive), fontSize = 13.sp, fontWeight = FontWeight.ExtraBold, color = Gimano.colors.textMuted)
+                    Text(stringResource(demoLabel), fontSize = 13.sp, fontWeight = FontWeight.ExtraBold, color = Gimano.colors.textMuted)
                     if (files.isEmpty()) Text(stringResource(R.string.no_backup_yet), Modifier.padding(top = 8.dp))
                     files.forEach { f ->
                         Text(java.text.DateFormat.getDateTimeInstance(java.text.DateFormat.MEDIUM, java.text.DateFormat.SHORT).format(java.util.Date(f.createdAtMs)) +

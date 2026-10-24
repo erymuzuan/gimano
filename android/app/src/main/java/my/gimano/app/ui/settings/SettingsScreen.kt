@@ -1,6 +1,7 @@
 package my.gimano.app.ui.settings
 
 import kotlinx.coroutines.launch
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 
 import androidx.appcompat.app.AppCompatDelegate
 import androidx.compose.foundation.background
@@ -54,6 +55,22 @@ fun SettingsScreen(s: AppSettings, vm: MainViewModel, fallback: Boolean, display
             NavRow(stringResource(R.string.my_feedback), onMyFeedback)
             NavRow(stringResource(R.string.theme), onTheme)
             TextSetting(stringResource(R.string.display_name), displayName ?: s.displayName ?: "", onApply = vm::setDisplayName)
+
+            // Privacy: blocked users (kept on this phone only; included in your own backup).
+            Section(stringResource(R.string.privacy))
+            val blocked by vm.container.blocks.blocked.collectAsStateWithLifecycle()
+            val scope = rememberCoroutineScope()
+            Text(stringResource(R.string.blocked_users), fontSize = 16.sp, fontWeight = FontWeight.ExtraBold, color = c.text)
+            Text(stringResource(R.string.blocked_users_desc), fontSize = 13.sp, color = c.textMuted)
+            if (blocked.isEmpty()) Text(stringResource(R.string.blocked_none), Modifier.padding(vertical = 8.dp), fontSize = 14.sp, color = c.textMuted)
+            blocked.forEach { b ->
+                Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Text(b.name.ifBlank { "—" }, Modifier.weight(1f), fontSize = 15.sp, fontWeight = FontWeight.Bold, color = c.text)
+                    TextButton(onClick = { scope.launch { vm.container.blocks.unblock(b.ref) } }) {
+                        Text(stringResource(R.string.unblock), fontWeight = FontWeight.ExtraBold)
+                    }
+                }
+            }
 
             Section(stringResource(R.string.language))
             val appLocales = AppCompatDelegate.getApplicationLocales()

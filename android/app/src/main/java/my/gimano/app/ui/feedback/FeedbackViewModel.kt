@@ -27,9 +27,9 @@ data class FeedbackDraft(
     val message: String = "",
     val rating: Int? = null,
     val screenshot: ByteArray? = null,
-    val includeScreenshot: Boolean = true,
-    /** "Sertakan maklumat peranti" (default on; previewed with "Lihat apa yang dihantar"). */
-    val includeDevice: Boolean = true,
+    val includeScreenshot: Boolean = FeedbackConsent.DEFAULT_SCREENSHOT,
+    /** "Sertakan maklumat peranti" (opt-in, starts unticked; previewed with "Lihat apa yang dihantar"). */
+    val includeDevice: Boolean = FeedbackConsent.DEFAULT_DEVICE,
     /** "Sertakan lokasi kasar" (default OFF; rounded to 2 dp on the phone). */
     val includeLocation: Boolean = false,
     /** "Boleh kami hubungi anda tentang laporan ini?": never prefilled. */
@@ -60,8 +60,10 @@ class FeedbackViewModel(private val c: AppContainer) : ViewModel() {
 
     fun open(screen: String, screenshot: ByteArray?, routeId: String?, placeId: String?) {
         _draft.value = FeedbackDraft(
-            open = true, screen = screen, screenshot = screenshot, includeScreenshot = screenshot != null,
-            includeDevice = c.settings.current.feedbackDevice, routeId = routeId, placeId = placeId,
+            open = true, screen = screen, screenshot = screenshot,
+            // Opt-in, every time: the screenshot and device info start unticked (shown to the user before sending).
+            includeScreenshot = FeedbackConsent.DEFAULT_SCREENSHOT, includeDevice = FeedbackConsent.DEFAULT_DEVICE,
+            routeId = routeId, placeId = placeId,
         )
     }
 
@@ -121,3 +123,8 @@ class FeedbackViewModel(private val c: AppContainer) : ViewModel() {
     }
 }
 
+/** Feedback consent defaults (store review): the screenshot and device info are opt-in, unticked at every start. */
+object FeedbackConsent {
+    const val DEFAULT_SCREENSHOT = false
+    const val DEFAULT_DEVICE = false
+}

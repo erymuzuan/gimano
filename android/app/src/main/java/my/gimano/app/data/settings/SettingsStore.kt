@@ -52,7 +52,7 @@ data class AppSettings(
     val legacyMigrated: Boolean = false,
     val privacyCardDismissed: Boolean = false,
     /** "Sertakan maklumat peranti" (default ON per docs/api.md; previewed). Replaces 0.1.0's opt-in diagnostics. */
-    val feedbackDevice: Boolean = true,
+    val feedbackDevice: Boolean = false,
     val theme: String = "light",
     val inboxRead: Set<String> = emptySet(),
     /** "Kenapa tak ikut laluan?": "Jangan tanya lagi" and the last day it was asked (on this phone only). */
@@ -149,7 +149,8 @@ class SettingsStore(private val context: Context, private val scope: CoroutineSc
         lastBackupDest = p[K.lastBackupDest],
         legacyMigrated = p[K.legacyMigrated] ?: false,
         privacyCardDismissed = p[K.privacyCardDismissed] ?: false,
-        feedbackDevice = p[K.feedbackDevice] ?: true,
+        // Opt-in: device info on feedback starts unticked (store review, user decision 2026-10-24).
+        feedbackDevice = p[K.feedbackDevice] ?: false,
         theme = p[K.theme] ?: "light",
         inboxRead = p[K.inboxRead] ?: emptySet(),
         deviationNeverAsk = p[K.deviationNeverAsk] ?: false,

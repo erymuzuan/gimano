@@ -51,7 +51,7 @@ val FEEDBACK_CATEGORIES = listOf(
 fun FeedbackCategoryIcon(cat: String, size: androidx.compose.ui.unit.Dp) {
     val c = Gimano.colors
     when (cat) {
-        "bug" -> Icon(Icons.Filled.BugReport, null, tint = c.brandInk, modifier = Modifier.size(size))
+        "bug", "crash" -> Icon(Icons.Filled.BugReport, null, tint = c.brandInk, modifier = Modifier.size(size))
         "idea" -> Icon(Icons.Filled.Lightbulb, null, tint = c.brandInk, modifier = Modifier.size(size))
         "route" -> Icon(Icons.Filled.AltRoute, null, tint = c.brandInk, modifier = Modifier.size(size))
         else -> GIcon(FEEDBACK_CATEGORIES.firstOrNull { it.first == cat }?.third ?: "feedback", null, size = size)

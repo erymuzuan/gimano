@@ -104,6 +104,15 @@ class RemoteRepository(
      * Recovery code: prove the key and learn its userId (`POST /auth/token` with publicKey). Only when the
      * server accepts it does the phone switch to that identity. Returns the display name.
      */
+    /**
+     * DELETE /me. Returns normally when the server account is gone: deleted now, or already absent (404/410).
+     * Anything else throws, and the caller must not touch the phone's identity.
+     */
+    suspend fun deleteAccount() {
+        val r = authed { deleteMe() }
+        if (!r.isSuccessful && r.code() != 404 && r.code() != 410) throw HttpException(r)
+    }
+
     suspend fun restoreFromSeed(seed: ByteArray): String = withContext(Dispatchers.IO) {
         val pk = identity.publicKeyOf(seed)
         val ts = nowTs()
@@ -168,7 +177,19 @@ class RemoteRepository(
     override suspend fun inbox(): List<InboxItem> = try { authed { inbox() } } catch (e: HttpException) { if (e.code() in setOf(404, 405, 501)) emptyList() else throw e }
     override suspend fun sendFeedback(body: FeedbackRequest) = authed { feedback(body) }
     override suspend fun myFeedback() = authed { myFeedback() }
-    override suspend fun deleteFeedbackContact(id: String) { authed { deleteFeedbackContact(id) }.let { if (!it.isSuccessful && it.code() != 404) throw HttpException(it) } }
+    /**
+     * With the report's contactToken: no sign-in needed (the report isn't linked to the account), so withdrawing never
+     * registers anything. Without one (older feedback): as its author. 404 = already gone.
+     */
+    override suspend fun deleteFeedbackContact(id: String, token: String?) {
+        val r = if (token != null) api.deleteFeedbackContact(id, token) else authed { deleteFeedbackContact(id, null) }
+        if (!r.isSuccessful && r.code() != 404) throw HttpException(r)
+    }
+    override suspend fun deleteCrashContact(id: String, token: String) {
+        val r = api.deleteCrashContact(id, token)
+        if (!r.isSuccessful && r.code() != 404) throw HttpException(r)
+    }
+    override suspend fun flagPlace(placeId: String, reason: String) { authed { flagPlace(placeId, FlagRequest(reason)) }.orThrow() }
     override suspend fun sendCrashReport(body: CrashReportRequest) = authed { crashReport(body) }
 
     override suspend fun createPlace(body: CreatePlaceRequest) = authed { createPlace(body) }
@@ -188,6 +209,7 @@ class RemoteRepository(
     override suspend fun deleteReview(reviewId: String) { authed { deleteReview(reviewId) }.orThrow() }
     override suspend fun helpful(reviewId: String) { authed { helpful(reviewId) }.orThrow() }
     override suspend fun flagReview(reviewId: String, reason: String) { authed { flagReview(reviewId, FlagRequest(reason)) }.orThrow() }
+    override suspend fun flagPhoto(photoId: String, reason: String) { authed { flagPhoto(photoId, FlagRequest(reason)) }.orThrow() }
 
     override suspend fun uploadPhoto(placeId: String, jpeg: ByteArray, caption: String?): Photo = authed {
         val part = MultipartBody.Part.createFormData("file", "photo.jpg", jpeg.toRequestBody("image/jpeg".toMediaType()))

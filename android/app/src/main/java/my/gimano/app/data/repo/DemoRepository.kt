@@ -18,6 +18,11 @@ class DemoRepository(
     /** Saves demo photo bytes somewhere loadable and returns its URL (file:// in the app). */
     private val photoSink: (id: String, bytes: ByteArray) -> String = { id, _ -> "demo://photos/$id.webp" },
 ) : GimanoRepository {
+    companion object {
+        /** Contact tokens issued by demo mode: a withdrawal with one goes to demo data, never the server. */
+        const val DEMO_CONTACT_TOKEN = "demo-ct-"
+    }
+
 
     /** Real OSM road geometry (assets/demo-routes), loaded on first use. */
     val canned: CannedRoutes by lazy { CannedRoutes.parse(cannedDocs()) }
@@ -300,15 +305,21 @@ class DemoRepository(
     override suspend fun sendFeedback(body: FeedbackRequest): FeedbackCreated {
         latency()
         val f = FeedbackSummary(UUID.randomUUID().toString(), body.category, body.message, "received", Instant.now().toString(), hasContact = body.contact != null)
-        feedbackStore.add(0, f)
-        return FeedbackCreated(f.id, f.createdAt)
+        // As on the server: a report with a contact is not linked to the account (not in /me/feedback) and gets a token.
+        if (body.contact == null) feedbackStore.add(0, f)
+        return FeedbackCreated(f.id, f.createdAt, contactToken = if (body.contact != null) DEMO_CONTACT_TOKEN + UUID.randomUUID().toString().take(12) else null)
     }
 
     override suspend fun myFeedback(): List<FeedbackSummary> = feedbackStore.toList()
-    override suspend fun deleteFeedbackContact(id: String) {
+    override suspend fun deleteFeedbackContact(id: String, token: String?) {
         feedbackStore.replaceAll { if (it.id == id) it.copy(hasContact = false) else it }
     }
-    override suspend fun sendCrashReport(body: CrashReportRequest): CrashCreated { latency(); return CrashCreated("demo-crash-" + UUID.randomUUID().toString().take(8)) }
+    override suspend fun deleteCrashContact(id: String, token: String) {}
+    override suspend fun flagPlace(placeId: String, reason: String) {}
+    override suspend fun sendCrashReport(body: CrashReportRequest): CrashCreated {
+        latency()
+        return CrashCreated("demo-crash-" + UUID.randomUUID().toString().take(8), contactToken = body.contact?.let { DEMO_CONTACT_TOKEN + UUID.randomUUID().toString().take(12) })
+    }
 
     override suspend fun inbox(): List<InboxItem> {
         val now = Instant.now()
@@ -322,7 +333,21 @@ class DemoRepository(
     // --- Community places, reviews, photos (demo) ------------------------------------------
     private val community = java.util.concurrent.ConcurrentHashMap<String, Place>()
     private val verifications = java.util.concurrent.ConcurrentHashMap<String, Int>()
-    private val reviewStore = java.util.concurrent.ConcurrentHashMap<String, MutableList<Review>>()
+    /**
+     * Three sample reviews on Masjid Negara by three sample authors, each with an opaque author handle, so "Block this
+     * user" can be tried in demo mode. Demo data only.
+     */
+    private val reviewStore = java.util.concurrent.ConcurrentHashMap<String, MutableList<Review>>().apply {
+        val now = Instant.now()
+        fun r(id: String, rating: Int, text: String, name: String, ref: String, hoursAgo: Long) =
+            Review(id, "masjidnegara", rating, text, author = Author(name, 3, 12, authorRef = ref), helpfulCount = 2,
+                createdAt = now.minusSeconds(hoursAgo * 3600).toString())
+        put("masjidnegara", java.util.concurrent.CopyOnWriteArrayList(listOf(
+            r("demo-rv-1", 5, "Bersih, parkir mudah selepas Isyak.", "Badak 5880", "demo-author-badak", 48),
+            r("demo-rv-2", 4, "Cantik waktu malam. Parkir penuh hari Jumaat.", "Kancil 1204", "demo-author-kancil", 120),
+            r("demo-rv-3", 4, "Good for visitors; the guides are friendly.", "Helang 77", "demo-author-helang", 300),
+        )))
+    }
     private val photoStore = java.util.concurrent.ConcurrentHashMap<String, MutableList<Photo>>()
     private val photoUploadedAt = java.util.concurrent.ConcurrentHashMap<String, Long>()
 
@@ -415,6 +440,7 @@ class DemoRepository(
     }
 
     override suspend fun flagReview(reviewId: String, reason: String) {}
+    override suspend fun flagPhoto(photoId: String, reason: String) {}
 
     override suspend fun uploadPhoto(placeId: String, jpeg: ByteArray, caption: String?): Photo {
         delay(600)

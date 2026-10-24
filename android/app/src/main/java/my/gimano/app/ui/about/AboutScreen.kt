@@ -33,6 +33,8 @@ import my.gimano.app.ui.theme.Gimano
 
 private const val SITE = "https://manotu.app/"
 const val GITHUB = "https://github.com/erymuzuan/manotu"
+/** Privacy, account deletion and content reports. */
+const val CONTACT_EMAIL = "privacy@bukitbunga.com"
 
 /** Settings → "Tentang Manotu": version, server, updates, links and map attribution. */
 @Composable
@@ -76,6 +78,8 @@ fun AboutScreen(c: AppContainer, live: Boolean, onBack: () -> Unit, onLicences: 
             Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(col.surface)) {
                 LinkRow(stringResource(R.string.about_privacy)) { open(SITE + "privacy/") }
                 LinkRow(stringResource(R.string.about_terms)) { open(SITE + "terms/") }
+                // Contact for privacy, deletion and content reports (store listings use the same address).
+                LinkRow(stringResource(R.string.about_contact, CONTACT_EMAIL)) { open("mailto:$CONTACT_EMAIL") }
                 LinkRow(stringResource(R.string.about_source)) { open(GITHUB) }
                 LinkRow(stringResource(R.string.about_licences), onLicences)
             }
@@ -134,8 +138,10 @@ fun LicencesScreen(onBack: () -> Unit) {
                 Column(Modifier.fillMaxWidth().padding(top = 12.dp).clip(RoundedCornerShape(16.dp)).background(androidx.compose.ui.graphics.Color(0xFFFFF1CC)).padding(14.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text(stringResource(R.string.closed_title), fontSize = 17.sp, fontWeight = FontWeight.Black, color = androidx.compose.ui.graphics.Color(0xFF5C3D00))
-                    Text(stringResource(R.string.closed_intro), fontSize = 14.sp, fontWeight = FontWeight.Bold, color = androidx.compose.ui.graphics.Color(0xFF5C3D00))
-                    listOf(R.string.closed_location, R.string.closed_drive, R.string.closed_integrity).forEach {
+                    // Play build: no Drive backup, so Google sign-in / Drive authorisation is never used there.
+                    val drive = my.gimano.app.BuildConfig.DRIVE_BACKUP
+                    Text(stringResource(if (drive) R.string.closed_intro else R.string.closed_intro_no_drive), fontSize = 14.sp, fontWeight = FontWeight.Bold, color = androidx.compose.ui.graphics.Color(0xFF5C3D00))
+                    listOf(R.string.closed_location, if (drive) R.string.closed_drive else R.string.closed_drive_not_used, R.string.closed_integrity).forEach {
                         Text("• " + stringResource(it), fontSize = 14.sp, color = androidx.compose.ui.graphics.Color(0xFF3D2900))
                     }
                 }
