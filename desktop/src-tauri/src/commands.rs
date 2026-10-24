@@ -542,18 +542,23 @@ pub async fn import_file_pick(
     }))
 }
 
+/// Accepts both code kinds: the 8-character code of suite-2 files and the 52-character code of
+/// older suite-1 files (§5.2). Suite 2 runs Argon2id, so the file is opened off the UI thread.
 #[tauri::command]
-pub fn import_file_preview(
+pub async fn import_file_preview(
     state: State<'_, AppState>,
     secret_code: String,
 ) -> CmdResult<ImportPreview> {
     let code = Zeroizing::new(secret_code);
-    let mut core = lock(&state)?;
-    let bytes = core
+    let bytes = lock(&state)?
         .pending_file
         .clone()
         .ok_or_else(|| CmdError::new("no_import", "choose a file first"))?;
-    let opened = event_core::open_file(&bytes, &code).map_err(|e| {
+    let opened = tauri::async_runtime::spawn_blocking(move || event_core::open_file(&bytes, &code))
+        .await
+        .map_err(|e| CmdError::new("internal", e.to_string()))?;
+    let mut core = lock(&state)?;
+    let opened = opened.map_err(|e| {
         let code = e.code();
         let msg = if code == "invalid_secret_code" {
             e.to_string()

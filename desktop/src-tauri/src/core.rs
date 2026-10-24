@@ -451,10 +451,21 @@ impl Core {
 
     // -- publishing ---------------------------------------------------------------------------
 
-    /// The event's signing seed and pack key, created on first use. They never leave Rust.
+    /// The event's signing seed, link key and file secret code, created on first use. They never
+    /// leave Rust (the code only when the host asks to see or copy it). Secrets stored before
+    /// suite 2 get their file code here, once, and keep it for every later revision.
     pub fn secrets(&self, event_id: &str, now: DateTime<Utc>) -> CmdResult<EventSecrets> {
         if let Some(rec) = self.store.get(KIND_SECRET, event_id, now)? {
-            return Ok(serde_json::from_slice(&rec.data)?);
+            let mut s: EventSecrets = serde_json::from_slice(&rec.data)?;
+            if s.ensure_file_code()? {
+                self.store.put(
+                    KIND_SECRET,
+                    event_id,
+                    rec.expires_at,
+                    &Zeroizing::new(serde_json::to_vec(&s)?),
+                )?;
+            }
+            return Ok(s);
         }
         let s = EventSecrets::generate()?;
         self.store.put(
@@ -506,7 +517,7 @@ impl Core {
         };
         let secrets = self.secrets(&doc_id, now)?;
         let (sealed, key) = publish::seal_bytes(&prepared.bytes, &secrets)?;
-        let file_bytes = publish::file(&sealed).map_or(0, |f| f.len());
+        let file_bytes = publish::file_len(&sealed);
         let full_fragment_len = publish::fragment_len(&sealed, &key);
         let variant = if prepared.event.routes.is_empty() {
             None
@@ -553,12 +564,13 @@ impl Core {
         let secrets = self.secrets(&doc_id, now)?;
         let stops_only = matches!(target, PublishTarget::Link { stops_only: true });
         let bytes = publish::pack_bytes(&prepared, stops_only)?;
-        let (sealed, key) = publish::seal_bytes(&bytes, &secrets)?;
         let out = match target {
             PublishTarget::Link { .. } => {
+                let (sealed, key) = publish::seal_bytes(&bytes, &secrets)?;
                 Published::Link(publish::link(&self.settings.invite_site, &sealed, &key)?)
             }
-            PublishTarget::File => Published::File(publish::file(&sealed)?),
+            // Always the full event (§5.5), under the event's file secret code (§5.2 suite 2).
+            PublishTarget::File => Published::File(publish::file(&bytes, &secrets)?),
         };
         let ws = self.ws_mut()?;
         publish::record(&mut ws.doc, &prepared);
@@ -578,10 +590,10 @@ impl Core {
     pub fn secret_code(&self, now: DateTime<Utc>) -> CmdResult<Zeroizing<String>> {
         let id = self.ws()?.doc.id.clone();
         let s = self.secrets(&id, now)?;
-        let key = s
-            .pack_key()
-            .ok_or_else(|| CmdError::new("crypto", "pack key unreadable"))?;
-        Ok(Zeroizing::new(key.to_secret_code()))
+        let code = s
+            .file_code()
+            .ok_or_else(|| CmdError::new("crypto", "file secret code unreadable"))?;
+        Ok(Zeroizing::new(code.to_owned()))
     }
 
     // -- import -------------------------------------------------------------------------------

@@ -745,6 +745,87 @@ fn publish_revisions_link_and_file_round_trip() {
 }
 
 #[test]
+fn file_uses_stable_eight_character_code_with_fresh_salt() {
+    let mut core = core_with_store();
+    core.open_new(
+        templates::new_event(Template::Kenduri, KL, event_core::Lang::Ms, now()),
+        now(),
+    )
+    .unwrap();
+    let code = core.secret_code(now()).unwrap();
+    assert_eq!(code.len(), 9);
+    assert_eq!(&code[4..5], "-");
+    assert!(event_core::parse_secret_code_v2(&code).is_ok());
+
+    let Published::File(f1) = core.publish(PublishTarget::File, now()).unwrap() else {
+        panic!()
+    };
+    let Published::File(f2) = core.publish(PublishTarget::File, now()).unwrap() else {
+        panic!()
+    };
+    assert_eq!(&f1[..6], b"MNTE\x01\x02");
+    assert_ne!(f1[6..22], f2[6..22], "fresh salt per file");
+    assert_eq!(event_core::open_file(&f1, &code).unwrap().event.rev, 1);
+
+    // Rev 2 keeps the same code.
+    let mut m = core.ws.as_ref().unwrap().doc.meta.clone();
+    m.title = "Kenduri Aqil & Sofea".into();
+    let later = now() + Duration::hours(1);
+    core.edit(EditOp::SetMeta { meta: m }, later).unwrap();
+    let Published::File(f3) = core.publish(PublishTarget::File, later).unwrap() else {
+        panic!()
+    };
+    assert_eq!(*core.secret_code(later).unwrap(), *code);
+    assert_eq!(event_core::open_file(&f3, &code).unwrap().event.rev, 2);
+    // The preview's size matches the file actually written.
+    assert_eq!(
+        core.publish_preview(false, later).unwrap().file_bytes,
+        f3.len()
+    );
+}
+
+#[test]
+fn secrets_from_before_suite_two_get_a_file_code_once() {
+    let mut core = core_with_store();
+    let doc = templates::new_event(Template::Kenduri, KL, event_core::Lang::Ms, now());
+    let id = doc.id.clone();
+    core.open_new(doc, now()).unwrap();
+    // Secrets as stored before suite 2: seed and link key only.
+    let old = serde_json::json!({
+        "seed": event_core::b64u(&[7u8; 32]),
+        "packKey": event_core::b64u(&[8u8; 32]),
+    });
+    core.store
+        .put(
+            crate::core::KIND_SECRET,
+            &id,
+            None,
+            &serde_json::to_vec(&old).unwrap(),
+        )
+        .unwrap();
+
+    let Published::File(file) = core.publish(PublishTarget::File, now()).unwrap() else {
+        panic!()
+    };
+    let code = core.secret_code(now()).unwrap();
+    let opened = event_core::open_file(&file, &code).unwrap();
+    // Same organizer key as before the migration.
+    assert_eq!(
+        opened.organizer_pub,
+        event_core::OrganizerKey::from_seed(&[7u8; 32]).public_key()
+    );
+    let rec = core
+        .store
+        .get(crate::core::KIND_SECRET, &id, now())
+        .unwrap()
+        .unwrap();
+    let stored: serde_json::Value = serde_json::from_slice(&rec.data).unwrap();
+    assert_eq!(stored["fileCode"].as_str(), Some(code.as_str()));
+    assert_eq!(stored["packKey"], old["packKey"]);
+    assert_eq!(*core.secret_code(now()).unwrap(), *code, "generated once");
+}
+
+#[test]
 fn import_link_then_newer_revision() {
     // Organizer side.
     let mut org = core_with_store();

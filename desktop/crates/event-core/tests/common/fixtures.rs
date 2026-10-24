@@ -34,6 +34,29 @@ pub fn material(name: &str) -> Material {
     }
 }
 
+/// Fixed suite-2 file inputs (§5.2): the 8-character code, the salt and the file's own nonce.
+pub struct FileMaterial {
+    pub code: String,
+    pub salt: [u8; 16],
+    pub nonce: [u8; 24],
+}
+
+pub fn file_material(name: &str) -> FileMaterial {
+    FileMaterial {
+        code: event_core::encode_secret_code_v2(
+            fixed32(&format!("manotu-vector:{name}:file-code"))[..5]
+                .try_into()
+                .unwrap(),
+        ),
+        salt: fixed32(&format!("manotu-vector:{name}:file-salt"))[..16]
+            .try_into()
+            .unwrap(),
+        nonce: fixed32(&format!("manotu-vector:{name}:file-nonce"))[..24]
+            .try_into()
+            .unwrap(),
+    }
+}
+
 impl Material {
     pub fn organizer(&self) -> OrganizerKey {
         OrganizerKey::from_seed(&self.seed)

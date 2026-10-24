@@ -3,8 +3,9 @@ mod common;
 use common::fixtures::{self, fixed_id};
 use event_core::{
     Error, Event, ImportCandidate, ImportDecision, LatLng, OrganizerKey, PackKey, ParentCheck,
-    SealedPack, StoredEvent, StoredRevision, decide_import, encode_file, encode_link, inflate_raw,
-    limits, new_event_id, new_item_id, open, open_file, open_link, parse_file, parse_link, seal,
+    SealedPack, StoredEvent, StoredRevision, decide_import, encode_file, encode_link,
+    encode_secret_code, generate_secret_code_v2, inflate_raw, limits, new_event_id, new_item_id,
+    open, open_file, open_link, parse_file, parse_link, seal, seal_file,
 };
 use route_core::encode_polyline;
 
@@ -27,12 +28,46 @@ fn seal_and_open_round_trip_with_random_keys() {
     assert_eq!(opened.event, event.simplified());
     assert_eq!(opened.organizer_pub, organizer.public_key());
 
-    let file = encode_file(&sealed).unwrap();
-    assert_eq!(&file[..6], b"MNTE\x01\x01");
-    assert_eq!(open_file(&file, &key.to_secret_code()).unwrap(), opened);
+    let (bytes, _) = seal(&event, &organizer, &key).unwrap();
+    let code = generate_secret_code_v2().unwrap();
+    let file = seal_file(&bytes, &organizer, &code).unwrap();
+    assert_eq!(&file[..6], b"MNTE\x01\x02");
+    assert_eq!(open_file(&file, &code).unwrap(), opened);
+    assert_eq!(
+        open_file(&file, &code.to_lowercase().replace('-', " ")).unwrap(),
+        opened
+    );
+    // The file key is independent of the link key: the link's raw key does not open it.
+    assert!(matches!(
+        open_file(&file, &key.to_secret_code()),
+        Err(Error::InvalidSecretCode(_))
+    ));
 
     let (_, other) = seal(&event, &organizer, &key).unwrap();
     assert_ne!(other.nonce, sealed.nonce, "fresh nonce per seal");
+    // Same code, fresh salt and nonce per written file.
+    let again = seal_file(&bytes, &organizer, &code).unwrap();
+    assert_ne!(again[6..22], file[6..22], "fresh salt per file");
+    assert_ne!(again[22..46], file[22..46], "fresh nonce per file");
+    assert_eq!(open_file(&again, &code).unwrap(), opened);
+}
+
+#[test]
+fn suite_one_files_still_open() {
+    let event = fixtures::kenduri();
+    let organizer = OrganizerKey::generate().unwrap();
+    let key = PackKey::generate().unwrap();
+    let (_, sealed) = seal(&event, &organizer, &key).unwrap();
+    let mut file = b"MNTE\x01\x01".to_vec();
+    file.extend_from_slice(&sealed.nonce);
+    file.extend_from_slice(&sealed.ciphertext);
+    let opened = open_file(&file, &key.to_secret_code()).unwrap();
+    assert_eq!(opened.event, event.simplified());
+    // An 8-character code does not fit a suite-1 file.
+    assert!(matches!(
+        open_file(&file, "K7M4-QX9P"),
+        Err(Error::InvalidSecretCode(_))
+    ));
 }
 
 #[test]
@@ -160,8 +195,17 @@ fn file_parsing_errors() {
         nonce: [4; 24],
         ciphertext: vec![5; 40],
     };
-    let file = encode_file(&sealed).unwrap();
-    assert_eq!(parse_file(&file).unwrap(), sealed);
+    let salt = [6u8; 16];
+    let file = encode_file(&salt, &sealed).unwrap();
+    let parsed = parse_file(&file).unwrap();
+    assert_eq!(parsed.sealed, sealed);
+    assert_eq!(parsed.suite, event_core::FileSuite::Code { salt });
+    let mut v1 = b"MNTE\x01\x01".to_vec();
+    v1.extend_from_slice(&sealed.nonce);
+    v1.extend_from_slice(&sealed.ciphertext);
+    let parsed = parse_file(&v1).unwrap();
+    assert_eq!(parsed.sealed, sealed);
+    assert_eq!(parsed.suite, event_core::FileSuite::RawKey);
     let mut bad = file.clone();
     bad[0] = b'X';
     assert_eq!(parse_file(&bad).unwrap_err(), Error::MalformedFile);
@@ -181,6 +225,19 @@ fn file_parsing_errors() {
         open_file(&file, "not-a-code"),
         Err(Error::InvalidSecretCode(_))
     ));
+    // Look-alikes are rejected before deriving; a suite-1 code is the wrong kind for suite 2.
+    for bad in ["K7M4-QX9O", "K7M4-QX90", "K7M4-QX9I", "K7M4-QX91"] {
+        assert_eq!(
+            open_file(&file, bad).unwrap_err().code(),
+            "invalid_secret_code"
+        );
+    }
+    assert!(matches!(
+        open_file(&file, &encode_secret_code(&[3; 32])),
+        Err(Error::InvalidSecretCode(_))
+    ));
+    // A well-formed but wrong code fails like a wrong key.
+    assert_eq!(open_file(&file, "2222-2222").unwrap_err(), Error::Decrypt);
 }
 
 #[test]

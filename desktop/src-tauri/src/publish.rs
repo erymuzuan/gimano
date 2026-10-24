@@ -3,8 +3,9 @@
 
 use chrono::{DateTime, Utc};
 use event_core::{
-    Error as PackError, Event, GeometrySource, OpenedPack, OrganizerKey, PackKey, b64u,
-    b64u_decode, encode_file, encode_link, link_fragment, revision_hash_b64u, stops_only_variant,
+    Error as PackError, Event, FILE_V2_OVERHEAD, GeometrySource, OpenedPack, OrganizerKey, PackKey,
+    b64u, b64u_decode, encode_link, generate_secret_code_v2, link_fragment, parse_secret_code_v2,
+    revision_hash_b64u, stops_only_variant,
 };
 use route_core::decode_polyline;
 use serde::{Deserialize, Serialize};
@@ -22,7 +23,12 @@ use crate::editing::next_generation;
 #[serde(rename_all = "camelCase")]
 pub struct EventSecrets {
     seed: String,
+    /// The link key (§5.1).
     pack_key: String,
+    /// The 8-character file secret code `XXXX-XXXX` (§5.2 suite 2), the same for every revision.
+    /// Absent in secrets stored before suite 2; [`EventSecrets::ensure_file_code`] adds it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    file_code: Option<String>,
 }
 
 impl EventSecrets {
@@ -32,7 +38,31 @@ impl EventSecrets {
         Ok(Self {
             seed: b64u(&Zeroizing::new(org.to_seed())[..]),
             pack_key: b64u(key.as_bytes()),
+            file_code: Some(generate_secret_code_v2()?),
         })
+    }
+
+    /// Migration for events created before suite 2: generates the file code once. Returns true
+    /// when it was added (the caller persists the secrets).
+    pub fn ensure_file_code(&mut self) -> Result<bool, PackError> {
+        if self
+            .file_code
+            .as_deref()
+            .is_some_and(|c| parse_secret_code_v2(c).is_ok())
+        {
+            return Ok(false);
+        }
+        if let Some(old) = self.file_code.as_mut() {
+            use zeroize::Zeroize;
+            old.zeroize();
+        }
+        self.file_code = Some(generate_secret_code_v2()?);
+        Ok(true)
+    }
+
+    /// The file secret code as shown to the host, `XXXX-XXXX`.
+    pub fn file_code(&self) -> Option<&str> {
+        self.file_code.as_deref()
     }
 
     pub fn organizer(&self) -> Option<OrganizerKey> {
@@ -52,6 +82,9 @@ impl Drop for EventSecrets {
         use zeroize::Zeroize;
         self.seed.zeroize();
         self.pack_key.zeroize();
+        if let Some(c) = self.file_code.as_mut() {
+            c.zeroize();
+        }
     }
 }
 
@@ -168,8 +201,20 @@ pub fn link(
     encode_link(site, key, sealed)
 }
 
-pub fn file(sealed: &event_core::SealedPack) -> Result<Vec<u8>, PackError> {
-    encode_file(sealed)
+/// A suite-2 `.manotu-event` file (§5.2) of exactly these bytes: key from the event's stable
+/// secret code with a fresh salt, fresh nonce. Runs Argon2id (64 MiB).
+pub fn file(bytes: &[u8], secrets: &EventSecrets) -> Result<Vec<u8>, PackError> {
+    let org = secrets.organizer().ok_or(PackError::Random)?;
+    let code = secrets
+        .file_code()
+        .ok_or(PackError::InvalidSecretCode("missing"))?;
+    event_core::seal_file(bytes, &org, code)
+}
+
+/// The size of the file for a pack sealed for the link: the same ciphertext length plus the
+/// suite-2 header, salt and nonce (no Argon2id needed for the preview).
+pub fn file_len(sealed: &event_core::SealedPack) -> usize {
+    FILE_V2_OVERHEAD + sealed.ciphertext.len()
 }
 
 // ---------------------------------------------------------------------------------------------

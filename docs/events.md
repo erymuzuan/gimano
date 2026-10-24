@@ -145,9 +145,15 @@ ignore spaces and `-`, and reject any other character before deriving (`invalid_
 `decrypt`. Each written file gets a fresh salt and nonce; the code itself stays the same for every revision of an
 event (stored with the organiser's keys) so guests keep one code. The file key is independent of the link key.
 
-The 40-bit code is a deliberate trade-off (owner decision, 24 Oct 2026): short enough to read out, while the
-Argon2id cost (≈0.3–1 s per guess on a phone) makes guessing a forwarded file take years. Hosts of very sensitive
-events can still share the link only with trusted people.
+Code rules: exactly 8 code characters after removing spaces and `-`; a 52-character code on a suite-2 file, an
+8-character code on a suite-1 file, a wrong length or a look-alike (`0 O 1 I`) are all `invalid_secret_code`. An
+Argon2 allocation failure is `key_derivation`. Events published before suite 2 get a new 8-character code on their
+next file; the old 52-character code still opens the old file only.
+
+The 40-bit code is a deliberate trade-off (owner decision, 24 Oct 2026): short enough to read out. Each guess costs
+one Argon2id run (≈70 ms on a desktop core, slower on phones, 64 MiB each), so trying every code is ≈1 200 core-years;
+a well-funded attacker with many machines can cut that a lot. For very sensitive events, share the link only with
+trusted people. The web viewer does not open files (files are for Manotu users), so it needs no Argon2.
 
 **Suite 1 (older files):** the 52-character Crockford base32 code *is* the 32-byte key (no derivation). Readers keep
 opening these; writers no longer produce them.

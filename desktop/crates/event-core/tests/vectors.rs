@@ -7,10 +7,11 @@ use std::path::PathBuf;
 
 use common::fixtures;
 use event_core::{
-    Envelope, Error, Event, ImportCandidate, ImportDecision, OrganizerKey, PackKey, ParentCheck,
-    SealedPack, StoredEvent, StoredRevision, b64u, b64u_decode, bytes_hash, decide_import, decrypt,
-    encode_file, encode_link, encrypt, inflate_raw, open, open_file, open_link, parse_file,
-    parse_link, revision_hash_b64u, safety_code, seal_parts, stops_only_variant,
+    Envelope, Error, Event, FileSuite, ImportCandidate, ImportDecision, OrganizerKey, PackKey,
+    ParentCheck, SealedPack, StoredEvent, StoredRevision, b64u, b64u_decode, bytes_hash,
+    decide_import, decrypt, derive_file_key, encode_file, encode_link, encrypt, inflate_raw, open,
+    open_file, open_link, parse_file, parse_link, parse_secret_code_v2, revision_hash_b64u,
+    safety_code, seal_file_parts, seal_parts, stops_only_variant,
 };
 use serde_json::Value;
 
@@ -110,8 +111,71 @@ fn check_positive(name: &str, fixture: Event) {
         encode_link(s(&v, "site"), &key, &sealed).unwrap(),
         s(&v, "link")
     );
-    assert_eq!(encode_file(&sealed).unwrap(), bytes(&v, "fileB64u"));
+    // Suite-1 framing (read only now): MNTE 01 01 nonce ciphertext.
+    let file_v1 = bytes(&v, "fileB64u");
+    assert_eq!(&file_v1[..6], b"MNTE\x01\x01");
+    assert_eq!(parse_file(&file_v1).unwrap().sealed, sealed);
     assert_eq!(open(&key, &parts.sealed).unwrap(), opened);
+
+    if v.get("fileV2B64u").is_some() {
+        check_file_v2(&v, &fixture, &organizer, &opened);
+    }
+}
+
+/// Suite-2 file (§5.2): Argon2id key from the 8-character code and salt, own nonce.
+fn check_file_v2(
+    v: &Value,
+    fixture: &Event,
+    organizer: &OrganizerKey,
+    opened: &event_core::OpenedPack,
+) {
+    let file = bytes(v, "fileV2B64u");
+    let code = s(v, "secretCodeV2");
+    let salt: [u8; 16] = arr(v, "fileSaltB64u");
+    let nonce: [u8; 24] = arr(v, "fileNonceV2B64u");
+    assert_eq!(code.len(), 9);
+    assert_eq!(&file[..6], b"MNTE\x01\x02");
+    assert_eq!(file[6..22], salt);
+    assert_eq!(file[22..46], nonce);
+
+    // Reader direction.
+    assert_eq!(open_file(&file, code).unwrap(), *opened);
+    assert_eq!(
+        open_file(&file, &code.to_lowercase().replace('-', " ")).unwrap(),
+        *opened
+    );
+    let key = derive_file_key(code, &salt).unwrap();
+    assert_eq!(b64u(key.as_bytes()), s(v, "fileKeyV2B64u"));
+    let parsed = parse_file(&file).unwrap();
+    assert_eq!(parsed.suite, FileSuite::Code { salt });
+    // The same deflated envelope as the link, under the file key.
+    assert_eq!(
+        decrypt(&key, &nonce, &parsed.sealed.ciphertext).unwrap(),
+        bytes(v, "deflatedB64u")
+    );
+    // The file key is independent of the link key.
+    assert_ne!(s(v, "fileKeyV2B64u"), s(v, "keyB64u"));
+
+    // Writer direction: identical bytes with the vector's code, salt and nonce.
+    let ct = encrypt(&key, &nonce, &bytes(v, "deflatedB64u")).unwrap();
+    assert_eq!(ct, parsed.sealed.ciphertext);
+    assert_eq!(
+        encode_file(
+            &salt,
+            &SealedPack {
+                nonce,
+                ciphertext: ct
+            }
+        )
+        .unwrap(),
+        file
+    );
+    let (parts, _) =
+        seal_file_parts(&fixture.to_bytes().unwrap(), organizer, code, salt, nonce).unwrap();
+    assert_eq!(
+        inflate_raw(&parts.deflated, 1 << 20).unwrap(),
+        bytes(v, "envelopeB64u")
+    );
 }
 
 #[test]
@@ -164,6 +228,53 @@ fn negative_wrong_key() {
 }
 
 #[test]
+fn negative_wrong_secret_code() {
+    let v = negative("negative-wrong-secret-code");
+    let kenduri = load("kenduri-one-day.json");
+    assert_eq!(s(&v, "fileB64u"), s(&kenduri, "fileV2B64u"));
+    assert_ne!(s(&v, "secretCode"), s(&kenduri, "secretCodeV2"));
+    let err = open_file(&bytes(&v, "fileB64u"), s(&v, "secretCode")).unwrap_err();
+    assert_eq!(err, Error::Decrypt);
+    assert_eq!(err.code(), s(&v, "expectedError"));
+}
+
+#[test]
+fn negative_invalid_secret_code() {
+    let v = negative("negative-invalid-secret-code");
+    let file = bytes(&v, "fileB64u");
+    let codes = v["secretCodes"].as_array().unwrap();
+    assert!(!codes.is_empty());
+    for c in codes {
+        let c = c.as_str().unwrap();
+        assert!(c.contains(['O', 'o', '0', 'I', 'i', '1']), "{c}");
+        let err = open_file(&file, c).unwrap_err();
+        assert!(matches!(err, Error::InvalidSecretCode(_)), "{c}");
+        assert_eq!(err.code(), s(&v, "expectedError"));
+    }
+}
+
+#[test]
+fn argon2_known_answers() {
+    let v = load("argon2-kat.json");
+    assert_eq!(s(&v, "kind"), "kat");
+    let p = &v["params"];
+    assert_eq!(p["opslimit"].as_u64(), Some(3));
+    assert_eq!(p["memlimitBytes"].as_u64(), Some(64 * 1024 * 1024));
+    let kat = v["argon2Kat"].as_array().unwrap();
+    assert!(kat.len() >= 5);
+    for k in kat {
+        let code = s(k, "code");
+        assert_eq!(
+            parse_secret_code_v2(code).unwrap().as_str(),
+            s(k, "password")
+        );
+        let salt: [u8; 16] = arr(k, "saltB64u");
+        let key = derive_file_key(code, &salt).unwrap();
+        assert_eq!(b64u(key.as_bytes()), s(k, "keyB64u"), "{code}");
+    }
+}
+
+#[test]
 fn negative_expired() {
     let v = negative("negative-expired");
     let opened = open_link(s(&v, "linkFragment")).unwrap();
@@ -193,7 +304,7 @@ fn negative_oversized_fragment() {
     assert_eq!(opened.event, fixtures::ride_long_route());
     // And the writer refuses to build that link.
     let key = PackKey::from_secret_code(s(&v, "secretCode")).unwrap();
-    let err = encode_link("https://x.test", &key, &parse_file(&file).unwrap()).unwrap_err();
+    let err = encode_link("https://x.test", &key, &parse_file(&file).unwrap().sealed).unwrap_err();
     assert!(matches!(err, Error::FragmentTooLong { .. }));
 }
 

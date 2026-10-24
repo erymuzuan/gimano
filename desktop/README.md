@@ -93,7 +93,10 @@ TypeScript UI (webview)  ──typed invoke──►  src-tauri commands  ──
   https://tiles.openfreemap.org`, `worker-src 'self' blob:`, no frames, no objects. All HTTP to the API is done in Rust.
 - **Keys never cross into JS.** Links (which contain the pack key) are written to the clipboard by Rust; the UI only
   learns the fragment length. The file secret code is shown only when the organizer presses *Tunjuk kod* (it must be
-  read out or typed into another channel, §5.2). Seeds and the data key never leave Rust and are zeroized on drop.
+  read out or typed into another channel, §5.2). Files are suite 2: an 8-character code (`XXXX-XXXX`, generated once
+  per event and stored with its keys, so every revision uses the same code) and Argon2id with a fresh salt per file;
+  the import dialog also accepts the 52-character codes of older suite-1 files. Seeds and the data key never leave
+  Rust and are zeroized on drop.
 - **IPC is narrow.** `build.rs` declares every app command; `capabilities/main.json` grants exactly those to the main
   window. No `fs`, `shell`, `http`, `dialog` or `clipboard` permission is given to the webview (dialogs and
   clipboard are driven from Rust).
