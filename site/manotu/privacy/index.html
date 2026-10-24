@@ -15,7 +15,7 @@
 </header>
 <main>
   <h1>Privacy Policy</h1>
-  <p class="lede">Effective 23 October 2026 · Applies to the Manotu apps for Android and iOS and the Manotu service.</p>
+  <p class="lede">Effective 24 October 2026 · Applies to the Manotu apps for Android and iOS and the Manotu service.</p>
 
   <div class="card"><b>In short:</b> your personal places and history stay on your phone. We never store them on our
   servers. We only receive what you choose to share publicly or send us (feedback, crash reports), plus anonymous speed points while you navigate, which
@@ -42,8 +42,10 @@
   <p>Your public contributions are credited to a random pseudonym that only your phone and your own backup can sign
   for. We never ask for your email, phone number, name or a Google/Apple login to use Manotu. Your contributor tier (Baharu, Perak,
   Emas) describes your public work, not you. When you vote on whether a community-added place exists, the vote is
-  linked to your pseudonym only until the place is decided; after that it is unlinked from you. Verifier identities
-  are never shown to anyone.<br>
+  linked to your pseudonym only until the place is decided; after that it is unlinked from you. The same goes for votes
+  on road and place complaints. Road reports and the "still there?" votes on them are unlinked from you about an hour
+  after the report expires (the votes are deleted), so we keep no history of where you reported things. Verifier
+  identities are never shown to anyone.<br>
   <span class="ms">Kami tidak pernah tahu siapa anda: sumbangan anda dikreditkan kepada nama samaran rawak. Kami tidak pernah
   meminta e-mel, nombor telefon atau nama anda untuk menggunakan Manotu.</span></p>
 
@@ -54,8 +56,8 @@
     <tr><td>Contributor pseudonym, public signing key, tier and contribution counters</td><td>To credit and weigh public contributions</td><td>Until you delete your account</td></tr>
     <tr><td>Your votes on whether a new place exists</td><td>To verify community-added places and prevent double votes</td><td>Linked to your pseudonym only until the place is decided; after that the vote is unlinked from you (kept only as an anonymous, salted count)</td></tr>
     <tr><td>Speed points while navigating (position, speed, heading, time), tagged with a pseudonym that changes every hour</td><td>To compute live road traffic for everyone</td><td>Processed in memory and discarded within minutes; only road-level speeds (not linked to you) are kept</td></tr>
-    <tr><td>Things you choose to share publicly: road reports and votes, public places, reviews, photos</td><td>To show them on the map for all users</td><td>While relevant; reports expire automatically</td></tr>
-    <tr><td>Feedback you send: your message, and an optional rating and screenshot. Device info (app version, OS, model, screen size) only if you tick it; coarse location (rounded to ~1 km) only if you tick that separately</td><td>To fix bugs and improve the app</td><td>Up to 24 months, or until you delete your account</td></tr>
+    <tr><td>Things you choose to share publicly: road reports and votes, public places, reviews, photos</td><td>To show them on the map for all users</td><td>While relevant. Road reports expire automatically and are unlinked from you about an hour later (their votes are deleted). Places, reviews and photos stay until you delete them or your account (then they are anonymised)</td></tr>
+    <tr><td>Feedback you send: your message, and an optional rating and screenshot. Device info (app version, OS, model, screen size) only if you tick it; coarse location (rounded to ~1 km) only if you tick that separately</td><td>To fix bugs and improve the app</td><td>Up to 24 months, then deleted. If you delete your account sooner, screenshots are deleted and the rest is kept without any link to you</td></tr>
     <tr><td>Crash reports, sent only if you agree after a crash: the stack trace and device info, scrubbed of locations and personal data on your phone before sending. We use no third-party crash SDKs</td><td>To find and fix crashes</td><td>90 days</td></tr>
     <tr><td>Searches you type: sent to our server to find results, never stored with your account or device. Search history stays on your phone. If a search finds nothing, we count the cleaned-up search text anonymously (emails, phone numbers, house numbers and postcodes removed), with only a ~11 km area and the week, and no account, token, IP address or exact location<br><span class="ms">Carian yang tidak menemui apa-apa dikira tanpa nama (teks carian, kawasan ~11 km, minggu) untuk memperbaiki carian. Tiada akaun, IP atau lokasi tepat disimpan.</span></td><td>To learn which local words, brands and places our search is missing</td><td>Counts seen fewer than 5 times in a week are deleted when the week ends; all counts are deleted after 26 weeks</td></tr>
     <tr><td>Route requests (start, stops, destination)</td><td>To calculate your route</td><td>Not stored beyond a 3-hour cache used for rerouting</td></tr>
@@ -65,9 +67,9 @@
   <h2>5. If you leave your email or WhatsApp</h2>
   <p>When you send feedback or a crash report, you may <b>choose</b> to leave an email address or WhatsApp number so we
   can reply. It is optional and asked for per report. It is used only to reply about that report, is never linked to
-  your pseudonym or profile, and is stored encrypted. It is deleted automatically 30 days after the report is closed,
-  and in any case after 90 days. You can delete it at any time from <b>My feedback</b> in the app, or by deleting your
-  account.<br>
+  your pseudonym or profile (a report that carries a contact is stored without any link to your account), and is stored
+  encrypted. It is deleted automatically 30 days after the report is closed, and in any case after 90 days. You can
+  withdraw it at any time from that report in the app.<br>
   <span class="ms">Jika anda memilih untuk meninggalkan e-mel/WhatsApp pada laporan, ia hanya digunakan untuk membalas
   laporan itu dan kemudian dipadam.</span></p>
 
@@ -78,8 +80,9 @@
 
   <h2>7. Your choices and rights</h2>
   <p>You can delete any on-device data in the app, delete your backups from your own Drive/iCloud, and delete your Manotu
-  account in Settings. That removes every server record linked to you; your public reports and reviews stay on the map
-  but are anonymised. You may also contact us to access or correct data we hold, consistent with Malaysia's Personal Data
+  account in the app (<b>Menu → Account → Delete my Manotu account</b>). That removes every server record linked to you;
+  your public reports, places, reviews and photos stay on the map but are anonymised. Details, and how to ask us by email
+  if you no longer have the app: <a href="../delete/">manotu.app/delete</a>. You may also contact us to access or correct data we hold, consistent with Malaysia's Personal Data
   Protection Act 2010.</p>
 
   <h2>8. Open source</h2>
