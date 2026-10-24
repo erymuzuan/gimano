@@ -58,7 +58,9 @@ fun AboutScreen(c: AppContainer, live: Boolean, onBack: () -> Unit, onLicences: 
             Text(stringResource(R.string.app_name), fontSize = 28.sp, fontWeight = FontWeight.Black, color = col.text)
             Text(stringResource(R.string.about_version, BuildConfig.VERSION_NAME, BuildConfig.VERSION_CODE), fontSize = 17.sp, fontWeight = FontWeight.ExtraBold, color = col.text)
             Text(stringResource(R.string.about_server, host, stringResource(if (live) R.string.mode_live else R.string.mode_demo)), fontSize = 14.sp, fontWeight = FontWeight.Bold, color = col.textMuted)
-            Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(col.surface).padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            // Google Play build: Play delivers updates, so no in-app updater card, just where the app came from.
+            if (!BuildConfig.SELF_UPDATE) Text(stringResource(R.string.about_distribution_play), fontSize = 14.sp, fontWeight = FontWeight.Bold, color = col.textMuted)
+            else Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(col.surface).padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 val latest = when (val d = u.decision) { is UpdateDecision.Available -> d.manifest.versionName; is UpdateDecision.Required -> d.manifest.versionName; else -> null }
                 Text(if (latest != null) stringResource(R.string.update_latest, latest) else stringResource(R.string.update_up_to_date), fontWeight = FontWeight.Black, color = if (latest != null) col.brand else col.text)
                 if (u.lastCheckMs > 0) Text(stringResource(R.string.update_checked, my.gimano.app.core.format.Formatters.localStamp(java.time.Instant.ofEpochMilli(u.lastCheckMs).toString())), fontSize = 13.sp, color = col.textMuted)

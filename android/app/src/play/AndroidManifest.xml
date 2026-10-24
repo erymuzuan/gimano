@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Google Play build (buildType "play"): no self-update outside Play. Removes the restricted
+     REQUEST_INSTALL_PACKAGES permission and the sideload updater's receivers from the merged manifest. -->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" tools:node="remove" />
+
+    <application>
+        <receiver android:name="my.gimano.app.data.update.InstallResultReceiver" tools:node="remove" />
+        <receiver android:name="my.gimano.app.data.update.PackageReplacedReceiver" tools:node="remove" />
+    </application>
+</manifest>
