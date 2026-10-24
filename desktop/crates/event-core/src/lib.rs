@@ -35,8 +35,8 @@ pub use import::{
 };
 pub use keys::{NONCE_LEN, OrganizerKey, PackKey, new_event_id, new_item_id, random_nonce};
 pub use link::{
-    DEFAULT_SITE, LINK_VERSION, MAX_FRAGMENT_CHARS, encode_link, link_fragment, open_link,
-    parse_link,
+    DEFAULT_SITE, LEGACY_SITE, LINK_VERSION, MAX_FRAGMENT_CHARS, encode_link, link_fragment,
+    open_link, parse_link,
 };
 pub use model::{
     Event, Lang, Organizer, Session, Stop, StopKind, Template, TimeWindow, VARIANT_STOPS_ONLY,

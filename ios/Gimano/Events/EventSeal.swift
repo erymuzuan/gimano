@@ -107,15 +107,10 @@ extension EventPack {
     }
 }
 
-/// Where invitation links point: the site the app already uses for "Share my drive" (`ShareCrypto.viewerBase`
-/// without its `/s/`), i.e. `https://www.bukitbunga.com/gimano` today (docs/events.md §5.1).
+/// Where invitation links point: `https://manotu.app/a/#…` (docs/events.md §5.1). Older links on
+/// `https://www.bukitbunga.com/gimano/a/` still open.
 enum EventLinks {
-    static var site: String {
-        var s = ShareCrypto.viewerBase
-        while s.hasSuffix("/") { s.removeLast() }
-        if s.hasSuffix("/s") { s.removeLast(2) }
-        return s
-    }
+    static var site: String { "https://manotu.app" }
 }
 
 // MARK: - Share messages

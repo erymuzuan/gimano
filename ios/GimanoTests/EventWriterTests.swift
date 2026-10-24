@@ -168,7 +168,7 @@ struct EventHostTests {
         #expect(v1.doc.rev == 1 && v1.doc.parent == nil && !v1.reused)
         #expect(secrets.count == 1)
         let link = try #require(v1.link)
-        #expect(link.hasPrefix("https://www.bukitbunga.com/gimano/a/#1."))
+        #expect(link.hasPrefix("https://manotu.app/a/#1."))
         let g1 = try EventPack.openLink(link)
         #expect(g1.eventBytes == v1.eventBytes)
         let file = try EventPack.openFile(v1.fileBytes, secretCode: v1.secretCode)

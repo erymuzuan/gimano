@@ -690,7 +690,7 @@ fn publish_revisions_link_and_file_round_trip() {
     else {
         panic!()
     };
-    assert!(link.starts_with("https://www.bukitbunga.com/gimano/a/#1."));
+    assert!(link.starts_with("https://manotu.app/a/#1."));
     let opened = event_core::open_link(&link).unwrap();
     assert_eq!((opened.event.rev, opened.event.parent.clone()), (1, None));
     let rev1 = opened.event_bytes.clone();

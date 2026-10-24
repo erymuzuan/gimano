@@ -114,7 +114,7 @@ points in total, 20 MiB file, 16 000-character link fragment.
 https://<site>/a/#1.<b64u(key)>.<b64u(nonce ‖ ciphertext)>
 ```
 
-- `<site>` is configurable (`https://www.bukitbunga.com/gimano` today; the Manotu domain later). The page is
+- `<site>` is `https://manotu.app` (links made before 24 Oct 2026 on `https://www.bukitbunga.com/gimano` keep working). The page is
   static (`site/manotu/a/`): browsers never send the fragment, and the page never transmits it or calls our API.
 - Writers **simplify route geometry before signing** (§5.4), so most multi-day rides still fit in a link.
 - If the fragment still exceeds 16 000 characters, the app offers the file instead, or a **stops-only link**

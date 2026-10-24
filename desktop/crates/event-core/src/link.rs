@@ -5,7 +5,9 @@ use crate::error::Error;
 use crate::keys::{NONCE_LEN, PackKey};
 use crate::pack::{OpenedPack, SealedPack, open};
 
-pub const DEFAULT_SITE: &str = "https://www.bukitbunga.com/gimano";
+pub const DEFAULT_SITE: &str = "https://manotu.app";
+/// Where links pointed before manotu.app; still opened (§5.1). The test vectors use it.
+pub const LEGACY_SITE: &str = "https://www.bukitbunga.com/gimano";
 pub const LINK_VERSION: &str = "1";
 /// Characters after `#`.
 pub const MAX_FRAGMENT_CHARS: usize = crate::validate::limits::MAX_FRAGMENT_CHARS;

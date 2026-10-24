@@ -302,7 +302,7 @@ class SealedInvitation(val full: SealedPack, val fullFragmentLength: Int, val st
 /** Writer side of §5.1 / §5.2 framing. */
 object EventLinks {
     /** Where the static viewer lives (`site/manotu/a/`): the same base as share-my-drive's `/s/` viewer. */
-    const val DEFAULT_SITE = "https://www.bukitbunga.com/gimano"
+    const val DEFAULT_SITE = "https://manotu.app"
 
     /** `1.<b64u(key)>.<b64u(nonce ‖ ciphertext)>`, whatever its length. */
     fun fragmentUnchecked(key: ByteArray, sealed: SealedPack): String =

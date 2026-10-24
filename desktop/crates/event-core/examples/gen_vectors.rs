@@ -6,7 +6,7 @@ mod fixtures;
 use std::path::PathBuf;
 
 use event_core::{
-    DEFAULT_SITE, Envelope, Event, ImportCandidate, ImportDecision, OpenedPack, PackKey,
+    Envelope, Event, ImportCandidate, ImportDecision, LEGACY_SITE, OpenedPack, PackKey,
     ParentCheck, SealedPack, StoredEvent, StoredRevision, b64u, bytes_hash, decide_import,
     deflate_raw, encode_file, encrypt, link_fragment, open, open_link, revision_hash_b64u,
     safety_code, seal_parts, stops_only_variant,
@@ -28,7 +28,7 @@ fn fragment_unchecked(key: &[u8; 32], sealed: &SealedPack) -> String {
 }
 
 fn link_of(fragment: &str) -> String {
-    format!("{DEFAULT_SITE}/a/#{fragment}")
+    format!("{LEGACY_SITE}/a/#{fragment}")
 }
 
 fn positive(name: &str, description: &str, event: &Event, now: &str) -> Value {
@@ -60,7 +60,7 @@ fn positive_bytes(name: &str, description: &str, m: &Material, bytes: &[u8], now
         "name": name,
         "kind": "positive",
         "description": description,
-        "site": DEFAULT_SITE,
+        "site": LEGACY_SITE,
         "now": now,
         "ed25519SeedHex": hex(&m.seed),
         "ed25519SeedB64u": b64u(&m.seed),

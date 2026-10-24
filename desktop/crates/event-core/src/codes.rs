@@ -79,7 +79,9 @@ pub const SAFETY_ALPHABET: &[u8; 32] = b"23456789ABCDEFGHJKLMNPQRSTUVWXYZ";
 pub fn safety_code(organizer_pub: &[u8; 32]) -> String {
     let h = Sha256::digest(organizer_pub);
     let v = u32::from_be_bytes([h[0], h[1], h[2], h[3]]);
-    (0..6).map(|i| SAFETY_ALPHABET[((v >> (27 - 5 * i)) & 31) as usize] as char).collect()
+    (0..6)
+        .map(|i| SAFETY_ALPHABET[((v >> (27 - 5 * i)) & 31) as usize] as char)
+        .collect()
 }
 
 #[cfg(test)]
