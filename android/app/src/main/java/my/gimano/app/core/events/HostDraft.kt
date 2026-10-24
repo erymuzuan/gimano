@@ -107,6 +107,24 @@ data class DraftIssue(val code: Code, val stop: Int? = null, val route: Int? = n
         TOO_MANY_ROUTES,
         /** Routes have more than 50 000 polyline points in total. */
         TOO_MANY_ROUTE_POINTS }
+
+    /**
+     * Where the editor scrolls to when "Kongsi jemputan" is blocked by this issue: "title", "alias", "description",
+     * "time", "expiry", "add_stop", "stop:<i>", "route:<i>", "routes", or "issues" (the list of problems at the end).
+     */
+    val anchor: String get() = when (code) {
+        Code.TITLE_REQUIRED, Code.TITLE_TOO_LONG -> "title"
+        Code.ALIAS_TOO_LONG -> "alias"
+        Code.DESCRIPTION_TOO_LONG -> "description"
+        Code.BAD_TIME, Code.TOO_LONG_EVENT -> "time"
+        Code.EXPIRED -> "expiry"
+        Code.NO_STOPS, Code.TOO_MANY_STOPS -> "add_stop"
+        Code.STOP_LABEL_REQUIRED, Code.STOP_LABEL_TOO_LONG, Code.STOP_NOTES_TOO_LONG, Code.STOP_AUDIENCE_TOO_LONG, Code.STOP_POSITION ->
+            stop?.let { "stop:$it" } ?: "add_stop"
+        Code.ROUTE_NOT_READY, Code.ROUTE_UNMATCHED -> route?.let { "route:$it" } ?: "routes"
+        Code.TOO_MANY_ROUTES, Code.TOO_MANY_ROUTE_POINTS -> "routes"
+        Code.INVALID -> "issues"
+    }
 }
 
 object HostDraftRules {

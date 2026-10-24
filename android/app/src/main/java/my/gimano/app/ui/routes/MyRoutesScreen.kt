@@ -20,6 +20,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -77,7 +78,7 @@ fun MyRoutesScreen(
                             maxLines = 1, overflow = TextOverflow.Ellipsis)
                         val meta = listOfNotNull(
                             Formatters.distance(sum.distanceM.toDouble()),
-                            stringResource(R.string.rb_points_n, p.route.points.size),
+                            pluralStringResource(R.plurals.rb_points_n, p.route.points.size, p.route.points.size),
                             if (sum.source != null && sum.source != GeometrySource.ROUTED) stringResource(R.string.rb_sketch) else null,
                         )
                         Text(meta.joinToString(" · "), fontSize = 14.sp, color = c.textMuted)

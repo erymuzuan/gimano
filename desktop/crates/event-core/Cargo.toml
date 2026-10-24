@@ -19,3 +19,4 @@ ed25519-dalek.workspace = true
 miniz_oxide.workspace = true
 getrandom.workspace = true
 zeroize.workspace = true
+argon2.workspace = true

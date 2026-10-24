@@ -10,8 +10,11 @@ extension EventTravelMode {
 }
 
 extension AppModel {
-    /// Routing for the builder: the live server (also in auto mode). Demo mode has none, so legs wait offline.
+    /// Routing for the builder: the live server (also in auto mode). Demo mode has none.
     var routeBuilderTransport: (any RouteBuilderTransport)? { repo as? any RouteBuilderTransport }
+    /// Demo data chosen in Settings: the builder says roads aren't calculated, instead of "no connection".
+    /// (An unreachable server falling back to demo data is a real connection problem and stays `.offline`.)
+    var routeBuilderIsDemo: Bool { config.isDemoMode }
 }
 
 enum RouteFormat {
@@ -41,8 +44,9 @@ struct RouteBuilderView: View {
     private let start: LatLng
 
     init(route: RouteDraft, stops: [HostedStopDraft] = [], context: RouteBuilderContext, days: [String] = [],
-         transport: (any RouteBuilderTransport)?, start: LatLng, onSave: @escaping (RouteDraft, [HostedStopDraft]) -> Void) {
-        _b = State(initialValue: RouteBuilderModel(route: route, stops: stops, context: context, transport: transport))
+         transport: (any RouteBuilderTransport)?, isDemo: Bool = false, start: LatLng,
+         onSave: @escaping (RouteDraft, [HostedStopDraft]) -> Void) {
+        _b = State(initialValue: RouteBuilderModel(route: route, stops: stops, context: context, transport: transport, isDemo: isDemo))
         self.days = days
         self.onSave = onSave
         self.start = route.points.first?.location ?? stops.first?.location ?? start
@@ -261,13 +265,25 @@ struct RouteBuilderView: View {
             Label { Text("Calculating…") } icon: { ProgressView().controlSize(.small) }
                 .font(Tokens.Font.small).foregroundStyle(Color.textMuted)
         } else if r.needsCalculation > 0 {
-            HStack {
+            // Demo data mode has no server: say so honestly instead of "no connection", and don't offer a retry.
+            let failed = r.legs.filter { $0.state == .unresolved }
+            let demo = !failed.isEmpty && failed.allSatisfy { $0.problem == .demo }
+            VStack(alignment: .leading, spacing: 6) {
                 Label { Text("\(r.needsCalculation) to calculate") } icon: { Image(systemName: "exclamationmark.icloud") }
                     .font(Tokens.Font.small).foregroundStyle(Color.amberInk)
                     .accessibilityIdentifier("routeNeedsCalculation")
-                Spacer()
-                chip("Retry", icon: "arrow.clockwise", id: "routeRetry") { b.retryAll() }
+                if demo {
+                    Text("Demo mode: roads aren't calculated. Keep as sketch or turn off demo mode.")
+                        .font(Tokens.Font.small).foregroundStyle(Color.textMuted)
+                        .accessibilityIdentifier("routeDemoMode")
+                }
+                HStack(spacing: Tokens.Space.s) {
+                    if !demo { chip("Retry", icon: "arrow.clockwise", id: "routeRetry") { b.retryAll() } }
+                    // One tap turns every waiting or failed leg into a sketch (one undo step).
+                    chip("Keep as sketch", icon: "pencil.line", id: "routeKeepAllSketch") { b.keepOpenLegsAsSketch() }
+                }
             }
+            .accessibilityElement(children: .contain)
         } else if let n = b.notice {
             Text(verbatim: n).font(Tokens.Font.small).foregroundStyle(Color.amberInk)
                 .onTapGesture { b.notice = nil }

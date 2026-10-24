@@ -226,17 +226,72 @@ enum EventDraftIssue: Equatable, Sendable {
         default: nil
         }
     }
+
+    /// Scroll targets in the event editor (`.id(...)`), so a blocked "Share invitation" can show the first problem.
+    enum Anchor {
+        static let title = "anchor.title"
+        static let alias = "anchor.alias"
+        static let description = "anchor.description"
+        static let time = "anchor.time"
+        static let expiry = "anchor.expiry"
+        static let addPlace = "anchor.addPlace"
+        static let routes = "anchor.routes"
+        static let problems = "anchor.problems"
+        static func stop(_ id: String) -> String { "anchor.stop.\(id)" }
+        static func route(_ id: String) -> String { "anchor.route.\(id)" }
+    }
+
+    /// Where the editor scrolls to for this problem: its field, place or route row, else the list of problems.
+    var anchor: String {
+        switch self {
+        case .titleMissing, .titleTooLong: Anchor.title
+        case .aliasTooLong: Anchor.alias
+        case .descriptionTooLong: Anchor.description
+        case .endBeforeStart, .tooLong: Anchor.time
+        case .expired: Anchor.expiry
+        case .noStops, .tooManyStops: Anchor.addPlace
+        case .stopLabel(let id), .stopNotes(let id), .stopAudience(let id): Anchor.stop(id)
+        case .routeIncomplete(let id), .routeUnmatched(let id): Anchor.route(id)
+        case .tooManyRoutes, .tooManyRoutePoints: Anchor.routes
+        case .invalid: Anchor.problems
+        }
+    }
 }
 
 // MARK: - Secrets (Keychain, this device only)
 
-/// Per-event secrets: the 32-byte Ed25519 seed and the 32-byte pack key. Never reused across events.
+/// Per-event secrets: the 32-byte Ed25519 seed, the 32-byte pack key (links) and the 8-character file code
+/// (`XXXX-XXXX`, §5.2 suite 2). Never reused across events. The file code is made once per event and kept for every
+/// revision so guests keep one code; events published before suite 2 have none until their next file (`withFileCode`).
 struct EventSecrets: Sendable, Equatable {
     var seed: [UInt8]
     var packKey: [UInt8]
+    var fileCode: String?
 
     static func generate() -> EventSecrets {
-        EventSecrets(seed: EventRandom.bytes(32), packKey: EventRandom.bytes(EventPack.keyBytes))
+        EventSecrets(seed: EventRandom.bytes(32), packKey: EventRandom.bytes(EventPack.keyBytes), fileCode: SecretCodeV2.generate())
+    }
+
+    /// Keychain item bytes: seed ‖ pack key, then the code's 8 ASCII characters when there is one (72 bytes).
+    var itemBytes: [UInt8] {
+        seed + packKey + (fileCode.flatMap { try? SecretCodeV2.parse($0) }.map { Array($0.utf8) } ?? [])
+    }
+
+    /// 64 bytes (before suite 2) or 72 bytes; anything else is not ours.
+    init?(itemBytes b: [UInt8]) {
+        guard b.count == 64 || b.count == 64 + SecretCodeV2.chars else { return nil }
+        seed = Array(b[0..<32])
+        packKey = Array(b[32..<64])
+        if b.count > 64 {
+            guard let raw = String(bytes: b[64...], encoding: .ascii), let password = try? SecretCodeV2.parse(raw) else { return nil }
+            fileCode = SecretCodeV2.display(password)
+        }
+    }
+
+    init(seed: [UInt8], packKey: [UInt8], fileCode: String? = nil) {
+        self.seed = seed
+        self.packKey = packKey
+        self.fileCode = fileCode
     }
 }
 
@@ -261,15 +316,14 @@ struct KeychainEventSecretStore: EventSecretStore {
         q[kSecReturnData as String] = true
         q[kSecMatchLimit as String] = kSecMatchLimitOne
         var out: CFTypeRef?
-        guard SecItemCopyMatching(q as CFDictionary, &out) == errSecSuccess, let data = out as? Data, data.count == 64 else { return nil }
-        let b = [UInt8](data)
-        return EventSecrets(seed: Array(b[0..<32]), packKey: Array(b[32..<64]))
+        guard SecItemCopyMatching(q as CFDictionary, &out) == errSecSuccess, let data = out as? Data else { return nil }
+        return EventSecrets(itemBytes: [UInt8](data))
     }
 
     func save(_ secrets: EventSecrets, eventId: String) -> Bool {
         SecItemDelete(base(eventId) as CFDictionary)
         var add = base(eventId)
-        add[kSecValueData as String] = Data(secrets.seed + secrets.packKey)
+        add[kSecValueData as String] = Data(secrets.itemBytes)
         add[kSecAttrAccessible as String] = kSecAttrAccessibleWhenUnlockedThisDeviceOnly
         return SecItemAdd(add as CFDictionary, nil) == errSecSuccess
     }
@@ -406,6 +460,7 @@ struct PublishedInvite: Equatable, Sendable {
     var stopsOnlyLink: String?
     /// The file always carries the full event.
     var fileBytes: [UInt8]
+    /// The event's 8-character file code `XXXX-XXXX` (the same for every revision).
     var secretCode: String
     var changes: [EventChange]
 }
@@ -459,6 +514,7 @@ enum EventPublisher {
     }
 
     /// Validates, signs with the event's own key, seals with a fresh nonce, re-opens to verify, records the revision.
+    /// The file runs Argon2id (64 MiB, a fraction of a second): call this off the main actor.
     static func publish(eventId: String, store: EventStore, secrets: any EventSecretStore, site: String = EventLinks.site,
                         now: Date = .now) -> Result<PublishedInvite, EventPublishError> {
         guard let hosted = try? store.hostedEvent(id: eventId) else { return .failure(.notFound) }
@@ -476,19 +532,26 @@ enum EventPublisher {
             guard secrets.save(fresh, eventId: eventId), secrets.load(eventId: eventId) == fresh else { return .failure(.keychain) }
             s = fresh
         }
-        guard let s, let organizer = EventOrganizerKey(seed: s.seed) else { return .failure(.keychain) }
+        // Events published before suite 2 get their 8-character file code now, once, kept for every later file.
+        if var old = s, old.fileCode == nil {
+            old.fileCode = SecretCodeV2.generate()
+            guard secrets.save(old, eventId: eventId), secrets.load(eventId: eventId) == old else { return .failure(.keychain) }
+            s = old
+        }
+        guard let s, let code = s.fileCode, let organizer = EventOrganizerKey(seed: s.seed) else { return .failure(.keychain) }
         if let pinned = hosted.organizerPub, pinned != organizer.publicKey { return .failure(.keyMissing) }
         if hosted.organizerPub == nil { try? store.setHostedOrganizer(eventId: eventId, pub: organizer.publicKey) }
         do {
             let sealed = try EventPack.seal(eventBytes: prepared.bytes, organizer: organizer, key: s.packKey)
             let fragment = EventPack.fragment(key: s.packKey, sealed: sealed)
             let link = try? EventPack.link(site: site, key: s.packKey, sealed: sealed)
-            let file = try EventPack.fileBytes(sealed)
+            // Suite 2 (§5.2): the event's stable code, a fresh salt and nonce; Argon2id runs here (off the main actor).
+            let file = try EventPack.sealFile(eventBytes: prepared.bytes, organizer: organizer, code: code)
             let stopsOnly = link == nil ? stopsOnlyLink(fullBytes: prepared.bytes, organizer: organizer, key: s.packKey, site: site) : nil
             if !prepared.reused { try? store.recordHostedRevision(eventId: eventId, doc: prepared.doc, bytes: prepared.bytes) }
             return .success(PublishedInvite(doc: prepared.doc, eventBytes: prepared.bytes, reused: prepared.reused, link: link,
                                             fragmentLength: fragment.count, stopsOnlyLink: stopsOnly, fileBytes: file,
-                                            secretCode: SecretCode.encode(s.packKey),
+                                            secretCode: code,
                                             changes: prepared.previous.map { EventChange.between($0, prepared.doc) } ?? []))
         } catch {
             return .failure(.pack(error))

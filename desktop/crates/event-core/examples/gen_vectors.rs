@@ -6,12 +6,13 @@ mod fixtures;
 use std::path::PathBuf;
 
 use event_core::{
-    Envelope, Event, ImportCandidate, ImportDecision, LEGACY_SITE, OpenedPack, PackKey,
-    ParentCheck, SealedPack, StoredEvent, StoredRevision, b64u, bytes_hash, decide_import,
-    deflate_raw, encode_file, encrypt, link_fragment, open, open_link, revision_hash_b64u,
-    safety_code, seal_parts, stops_only_variant,
+    Envelope, Event, FILE_KDF_MEMLIMIT_KIB, FILE_KDF_OPSLIMIT, ImportCandidate, ImportDecision,
+    LEGACY_SITE, OpenedPack, PackKey, ParentCheck, SealedPack, StoredEvent, StoredRevision, b64u,
+    bytes_hash, decide_import, deflate_raw, derive_file_key, encode_file, encrypt, link_fragment,
+    open, open_file, open_link, parse_secret_code_v2, revision_hash_b64u, safety_code, seal_parts,
+    stops_only_variant,
 };
-use fixtures::{Material, material};
+use fixtures::{FileMaterial, Material, file_material, material};
 use serde_json::{Value, json};
 
 const NOW: &str = "2026-11-01T03:00:00Z";
@@ -25,6 +26,24 @@ fn fragment_unchecked(key: &[u8; 32], sealed: &SealedPack) -> String {
     let mut data = sealed.nonce.to_vec();
     data.extend_from_slice(&sealed.ciphertext);
     format!("1.{}.{}", b64u(key), b64u(&data))
+}
+
+/// Suite-1 framing (`MNTE 01 01 nonce ciphertext`): no longer written by the core, kept so the
+/// vectors still test readers on older files.
+fn file_v1(sealed: &SealedPack) -> Vec<u8> {
+    let mut out = b"MNTE\x01\x01".to_vec();
+    out.extend_from_slice(&sealed.nonce);
+    out.extend_from_slice(&sealed.ciphertext);
+    out
+}
+
+/// The suite-2 file of these event bytes with the vector's fixed code, salt and nonce.
+fn file_v2(bytes: &[u8], m: &Material, f: &FileMaterial) -> (PackKey, Vec<u8>) {
+    let key = derive_file_key(&f.code, &f.salt).unwrap();
+    let sealed = seal_parts(bytes, &m.organizer(), &key, f.nonce)
+        .unwrap()
+        .sealed;
+    (key.clone(), encode_file(&f.salt, &sealed).unwrap())
 }
 
 fn link_of(fragment: &str) -> String {
@@ -47,7 +66,7 @@ fn positive_bytes(name: &str, description: &str, m: &Material, bytes: &[u8], now
     let parts = seal_parts(&bytes, &m.organizer(), &m.pack_key(), m.nonce).unwrap();
     let key = m.pack_key();
     let fragment = link_fragment(&key, &parts.sealed).unwrap();
-    let file = encode_file(&parts.sealed).unwrap();
+    let file = file_v1(&parts.sealed);
     let opened = open(&key, &parts.sealed).unwrap();
     let decision = decide_import(&ImportCandidate::from(&opened), None, now.parse().unwrap());
     let points: usize = event
@@ -98,6 +117,28 @@ fn positive_bytes(name: &str, description: &str, m: &Material, bytes: &[u8], now
     })
 }
 
+/// Adds the suite-2 file fields (§5.2) after `secretCode`; every other field is unchanged.
+fn with_file_v2(name: &str, v: Value) -> Value {
+    let m = material(name);
+    let f = file_material(name);
+    let bytes = event_core::b64u_decode(v["eventB64u"].as_str().unwrap()).unwrap();
+    let (key, file) = file_v2(&bytes, &m, &f);
+    let opened = open_file(&file, &f.code).unwrap();
+    assert_eq!(opened.event_bytes, bytes);
+    let mut out = serde_json::Map::new();
+    for (k, val) in v.as_object().unwrap() {
+        out.insert(k.clone(), val.clone());
+        if k == "secretCode" {
+            out.insert("secretCodeV2".into(), json!(f.code));
+            out.insert("fileSaltB64u".into(), json!(b64u(&f.salt)));
+            out.insert("fileNonceV2B64u".into(), json!(b64u(&f.nonce)));
+            out.insert("fileKeyV2B64u".into(), json!(b64u(key.as_bytes())));
+            out.insert("fileV2B64u".into(), json!(b64u(&file)));
+        }
+    }
+    Value::Object(out)
+}
+
 fn negative(name: &str, description: &str, expected: &str, fields: Value) -> Value {
     let mut v = json!({
         "name": name,
@@ -129,22 +170,26 @@ fn main() {
     };
 
     let kenduri = fixtures::kenduri();
-    write(
-        "kenduri-one-day.json",
-        &positive(
+    let kenduri_v = with_file_v2(
+        "kenduri-one-day",
+        positive(
             "kenduri-one-day",
             "One-day kenduri: 3 stops (parking with vehicle entrance and arrival window, drop-off, venue), 2 sessions, no route.",
             &kenduri,
             NOW,
         ),
     );
+    write("kenduri-one-day.json", &kenduri_v);
     write(
         "ride-two-day.json",
-        &positive(
+        &with_file_v2(
             "ride-two-day",
-            "Two-day bicycle ride: 5 stops, 2 sessions, 1 routed route (7-point precision-6 polyline, two legs, ascent/descent).",
-            &fixtures::ride(),
-            NOW,
+            positive(
+                "ride-two-day",
+                "Two-day bicycle ride: 5 stops, 2 sessions, 1 routed route (7-point precision-6 polyline, two legs, ascent/descent).",
+                &fixtures::ride(),
+                NOW,
+            ),
         ),
     );
 
@@ -202,7 +247,7 @@ fn main() {
             "decrypt",
             json!({
                 "linkFragment": fragment_unchecked(&wrong, &ks),
-                "fileB64u": b64u(&encode_file(&ks).unwrap()),
+                "fileB64u": b64u(&file_v1(&ks)),
                 "secretCode": PackKey::from_bytes(wrong).to_secret_code(),
             }),
         ),
@@ -238,14 +283,95 @@ fn main() {
                 "now": NOW,
                 "fragmentLength": fragment.len(),
                 "linkFragment": fragment,
-                "fileB64u": b64u(&encode_file(&ls).unwrap()),
+                "fileB64u": b64u(&file_v1(&ls)),
                 "secretCode": lm.pack_key().to_secret_code(),
                 "fileEventId": long_event.id,
             }),
         ),
     );
 
+    file_code_vectors(&write, &kenduri_v);
     stops_only_vectors(&write);
+}
+
+/// §5.2 suite 2: wrong / malformed codes for the kenduri file, and Argon2id known answers.
+fn file_code_vectors(write: &dyn Fn(&str, &Value), kenduri_v: &Value) {
+    let file_b64u = kenduri_v["fileV2B64u"].as_str().unwrap();
+    let file = event_core::b64u_decode(file_b64u).unwrap();
+    let right = kenduri_v["secretCodeV2"].as_str().unwrap();
+    let wrong = file_material("negative-wrong-secret-code").code;
+    assert_ne!(wrong, right);
+    assert_eq!(open_file(&file, &wrong).unwrap_err().code(), "decrypt");
+    write(
+        "negative-wrong-secret-code.json",
+        &negative(
+            "negative-wrong-secret-code",
+            "kenduri-one-day suite-2 file (fileV2B64u) with a well-formed but different 8-character code: Argon2id runs, decryption must fail.",
+            "decrypt",
+            json!({ "fileB64u": file_b64u, "secretCode": wrong }),
+        ),
+    );
+
+    // One look-alike per code, each in a different position, plus otherwise valid characters.
+    let invalid = [
+        "O7M4-QX9P",
+        "K0M4-QX9P",
+        "K7M4-QI9P",
+        "K7M4-QX91",
+        "k7m4-qx9o",
+    ];
+    for c in invalid {
+        assert_eq!(
+            open_file(&file, c).unwrap_err().code(),
+            "invalid_secret_code"
+        );
+    }
+    write(
+        "negative-invalid-secret-code.json",
+        &negative(
+            "negative-invalid-secret-code",
+            "kenduri-one-day suite-2 file with codes containing O, 0, I or 1 (not in the code alphabet): each must be rejected as invalid_secret_code before any key derivation.",
+            "invalid_secret_code",
+            json!({ "fileB64u": file_b64u, "secretCodes": invalid }),
+        ),
+    );
+
+    let mut kat = Vec::new();
+    let mut add = |code: &str, salt: [u8; 16]| {
+        let password = parse_secret_code_v2(code).unwrap();
+        let key = derive_file_key(code, &salt).unwrap();
+        kat.push(json!({
+            "code": code,
+            "password": password.as_str(),
+            "saltHex": hex(&salt),
+            "saltB64u": b64u(&salt),
+            "keyHex": hex(key.as_bytes()),
+            "keyB64u": b64u(key.as_bytes()),
+        }));
+    };
+    add("2222-2222", [0u8; 16]);
+    add("ZZZZ-ZZZZ", [0xff; 16]);
+    add("k7m4 qx9p", std::array::from_fn(|i| i as u8));
+    for name in ["kenduri-one-day", "ride-two-day"] {
+        let f = file_material(name);
+        add(&f.code, f.salt);
+    }
+    write(
+        "argon2-kat.json",
+        &json!({
+            "name": "argon2-kat",
+            "kind": "kat",
+            "description": "docs/events.md §5.2 suite-2 file key: Argon2id v1.3 (libsodium crypto_pwhash, crypto_pwhash_ALG_ARGON2ID13) with opslimit 3, memlimit 67108864 bytes (64 MiB = m_cost 65536 KiB), 1 lane, 32-byte output. The password is the code read leniently (`password`: upper case, no separator, 8 ASCII characters); the salt is 16 bytes.",
+            "params": {
+                "alg": "argon2id13",
+                "opslimit": FILE_KDF_OPSLIMIT,
+                "memlimitBytes": u64::from(FILE_KDF_MEMLIMIT_KIB) * 1024,
+                "parallelism": 1,
+                "outlen": 32,
+            },
+            "argon2Kat": kat,
+        }),
+    );
 }
 
 /// Signs, deflates and encrypts arbitrary event bytes (also invalid ones, for negatives).

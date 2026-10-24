@@ -46,6 +46,9 @@ pub enum Error {
     UnsupportedSuite(u8),
     #[error("secret code is invalid: {0}")]
     InvalidSecretCode(&'static str),
+    /// Argon2id failed to run (allocation); never a wrong code, which is [`Error::Decrypt`].
+    #[error("file key derivation failed")]
+    KeyDerivation,
     /// Wrong key or tampered ciphertext; indistinguishable by design.
     #[error("pack cannot be decrypted")]
     Decrypt,
@@ -89,6 +92,7 @@ impl Error {
             Error::UnsupportedFileFormat(_) => "unsupported_file_format",
             Error::UnsupportedSuite(_) => "unsupported_suite",
             Error::InvalidSecretCode(_) => "invalid_secret_code",
+            Error::KeyDerivation => "key_derivation",
             Error::Decrypt => "decrypt",
             Error::Inflate => "inflate",
             Error::InflateTooLarge { .. } => "inflate_too_large",

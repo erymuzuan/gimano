@@ -21,6 +21,8 @@ enum EventPackError: Error, Equatable, Sendable {
     case unsupportedFileFormat(UInt8)
     case unsupportedSuite(UInt8)
     case invalidSecretCode(String)
+    /// Argon2id could not run (e.g. it could not allocate its 64 MiB), suite-2 files only.
+    case keyDerivation
     /// Wrong key or tampered ciphertext; indistinguishable by design.
     case decrypt
     case inflate
@@ -49,6 +51,7 @@ enum EventPackError: Error, Equatable, Sendable {
         case .unsupportedFileFormat: "unsupported_file_format"
         case .unsupportedSuite: "unsupported_suite"
         case .invalidSecretCode: "invalid_secret_code"
+        case .keyDerivation: "key_derivation"
         case .decrypt: "decrypt"
         case .inflate: "inflate"
         case .inflateTooLarge: "inflate_too_large"
@@ -69,6 +72,8 @@ enum EventPackError: Error, Equatable, Sendable {
             String(localized: "This invitation link is too long. Ask the organizer for the .manotu-event file instead.")
         case .invalidSecretCode:
             String(localized: "The secret code is not valid. Check it and try again.")
+        case .keyDerivation:
+            String(localized: "This phone couldn't unlock the file right now. Close other apps and try again.")
         default:
             String(localized: "This invitation can't be opened or verified.")
         }
@@ -155,7 +160,7 @@ enum B64u {
     }
 }
 
-/// Crockford base32 secret code for the file key (§5.2): 52 characters in groups of 4.
+/// Suite-1 file secret code (§5.2, read only): the 32-byte key itself as Crockford base32, 52 characters in groups of 4.
 enum SecretCode {
     private static let alphabet = Array("0123456789ABCDEFGHJKMNPQRSTVWXYZ")
     static let keyChars = 52
@@ -212,6 +217,70 @@ enum SecretCode {
     }
 }
 
+/// Suite-2 file secret code (§5.2): 8 characters of `23456789ABCDEFGHJKLMNPQRSTUVWXYZ` (40 bits), shown `XXXX-XXXX`.
+/// It is not the key: the file key is Argon2id over these characters and the file's salt (`EventFileKey`).
+enum SecretCodeV2 {
+    static let alphabet = Array("23456789ABCDEFGHJKLMNPQRSTUVWXYZ")
+    static let chars = 8
+    static let randomBytes = 5
+
+    /// 40 bits, most significant first, as `XXXX-XXXX` (`encode_secret_code_v2`).
+    static func encode(_ bits: [UInt8]) -> String {
+        precondition(bits.count == randomBytes)
+        let v = bits.reduce(UInt64(0)) { ($0 << 8) | UInt64($1) }
+        var s = ""
+        for i in 0..<chars {
+            if i == 4 { s.append("-") }
+            s.append(alphabet[Int((v >> UInt64(35 - 5 * i)) & 31)])
+        }
+        return s
+    }
+
+    /// A fresh code from libsodium's CSPRNG, e.g. `K7M4-QX9P`.
+    static func generate() -> String { encode(EventRandom.bytes(randomBytes)) }
+
+    /// Reads a typed code: case-insensitive, spaces and `-` ignored, anything else outside the alphabet (including
+    /// the look-alikes `0 O 1 I`) rejected, exactly 8 characters. Returns the Argon2id password (8 upper-case ASCII).
+    static func parse(_ code: String) throws(EventPackError) -> String {
+        var out = ""
+        for c in code {
+            if c == "-" || c.isWhitespace { continue }
+            guard c.isASCII, let u = c.uppercased().first, alphabet.contains(u) else { throw .invalidSecretCode("invalid character") }
+            if out.count == chars { throw .invalidSecretCode("too long") }
+            out.append(u)
+        }
+        guard out.count == chars else { throw .invalidSecretCode("wrong length") }
+        return out
+    }
+
+    /// `K7M4QX9P` → `K7M4-QX9P`.
+    static func display(_ password: String) -> String {
+        "\(password.prefix(4))-\(password.dropFirst(4))"
+    }
+
+    /// Text that reads as an 8-character code (not a pasted 52-character one).
+    static func isWellFormed(_ code: String) -> Bool { (try? parse(code)) != nil }
+}
+
+/// The suite-2 file key (§5.2): libsodium `crypto_pwhash` Argon2id13, opslimit 3, memlimit 64 MiB, 32 bytes, over the
+/// 8 code characters with the file's 16-byte salt. Deliberately slow (64 MiB, a fraction of a second): never call it on
+/// the main actor.
+enum EventFileKey {
+    static let saltBytes = 16
+    static let opsLimit = 3
+    static let memLimit = 67_108_864
+
+    /// The code is checked first, so a typo fails as `invalid_secret_code` without running Argon2id.
+    static func derive(code: String, salt: [UInt8]) throws(EventPackError) -> [UInt8] {
+        let password = try SecretCodeV2.parse(code)
+        guard salt.count == saltBytes else { throw .malformedFile }
+        guard let key = Sodium().pwHash.hash(outputLength: EventPack.keyBytes, passwd: Array(password.utf8), salt: salt,
+                                             opsLimit: opsLimit, memLimit: memLimit, alg: .Argon2ID13),
+              key.count == EventPack.keyBytes else { throw .keyDerivation }
+        return key
+    }
+}
+
 enum EventCodes {
     /// Digits and upper-case letters without the look-alikes 0/O and 1/I.
     private static let safetyAlphabet = Array("23456789ABCDEFGHJKLMNPQRSTUVWXYZ")
@@ -249,6 +318,19 @@ struct SealedEventPack: Equatable, Sendable {
     var ciphertext: [UInt8]
 }
 
+/// How a `.manotu-event` file's key is obtained (§5.2).
+enum EventFileSuite: Equatable, Sendable {
+    /// Suite 1 (read only): the 52-character code is the key.
+    case rawKey
+    /// Suite 2: Argon2id over the 8-character code and this salt.
+    case code(salt: [UInt8])
+}
+
+struct ParsedEventFile: Equatable, Sendable {
+    var suite: EventFileSuite
+    var sealed: SealedEventPack
+}
+
 /// A decrypted pack whose signature verified and whose event passed validation.
 struct OpenedEventPack: Equatable, Sendable {
     var event: EventDoc
@@ -271,7 +353,10 @@ enum EventPack {
 
     static let fileMagic = Array("MNTE".utf8)
     static let fileFormatV1: UInt8 = 0x01
+    /// Suite 1: the raw key, shared as a 52-character code. Read only.
     static let fileSuiteRawKey: UInt8 = 0x01
+    /// Suite 2: the key is derived with Argon2id from an 8-character code and the file's salt. Written since 24 Oct 2026.
+    static let fileSuiteCode: UInt8 = 0x02
     static let fileExtension = "manotu-event"
     static let fileUTType = "my.manotu.event"
     static let linkVersion = "1"
@@ -315,20 +400,45 @@ enum EventPack {
 
     // MARK: file (§5.2)
 
-    static func parseFile(_ bytes: [UInt8]) throws(EventPackError) -> SealedEventPack {
+    /// Suite 2: `"MNTE" ‖ 01 ‖ 02 ‖ salt(16) ‖ nonce(24) ‖ ciphertext`; suite 1: `"MNTE" ‖ 01 ‖ 01 ‖ nonce(24) ‖ ciphertext`.
+    static func parseFile(_ bytes: [UInt8]) throws(EventPackError) -> ParsedEventFile {
         if bytes.count > EventLimits.maxFileBytes { throw .fileTooLarge }
         let header = 6
-        guard bytes.count >= header + nonceBytes + tagBytes, Array(bytes[0..<4]) == fileMagic else { throw .malformedFile }
+        guard bytes.count >= header, Array(bytes[0..<4]) == fileMagic else { throw .malformedFile }
         guard bytes[4] == fileFormatV1 else { throw .unsupportedFileFormat(bytes[4]) }
-        guard bytes[5] == fileSuiteRawKey else { throw .unsupportedSuite(bytes[5]) }
-        return SealedEventPack(nonce: Array(bytes[header..<header + nonceBytes]), ciphertext: Array(bytes[(header + nonceBytes)...]))
+        var at = header
+        let suite: EventFileSuite
+        switch bytes[5] {
+        case fileSuiteRawKey:
+            suite = .rawKey
+        case fileSuiteCode:
+            guard bytes.count >= at + EventFileKey.saltBytes else { throw .malformedFile }
+            suite = .code(salt: Array(bytes[at..<at + EventFileKey.saltBytes]))
+            at += EventFileKey.saltBytes
+        default:
+            throw .unsupportedSuite(bytes[5])
+        }
+        guard bytes.count >= at + nonceBytes + tagBytes else { throw .malformedFile }
+        return ParsedEventFile(suite: suite, sealed: SealedEventPack(nonce: Array(bytes[at..<at + nonceBytes]),
+                                                                     ciphertext: Array(bytes[(at + nonceBytes)...])))
     }
 
-    /// Opens a file with the secret code the organizer sent through another channel.
+    /// The key of a parsed file from the code the organizer sent: suite 1 takes the 52-character code (the key itself),
+    /// suite 2 the 8-character code (Argon2id: slow, call it off the main actor). The other suite's code is
+    /// `invalid_secret_code`, checked before any derivation.
+    static func fileKey(_ suite: EventFileSuite, secretCode: String) throws(EventPackError) -> [UInt8] {
+        switch suite {
+        case .rawKey: try SecretCode.decode(secretCode)
+        case .code(let salt): try EventFileKey.derive(code: secretCode, salt: salt)
+        }
+    }
+
+    /// Opens a file of either suite with the secret code the organizer sent through another channel.
+    /// Suite 2 runs Argon2id (64 MiB): never call this on the main actor.
     static func openFile(_ bytes: [UInt8], secretCode: String) throws(EventPackError) -> OpenedEventPack {
-        let sealed = try parseFile(bytes)
-        let key = try SecretCode.decode(secretCode)
-        return try open(key: key, sealed: sealed)
+        let parsed = try parseFile(bytes)
+        let key = try fileKey(parsed.suite, secretCode: secretCode)
+        return try open(key: key, sealed: parsed.sealed)
     }
 
     /// Cheap check for "is this a .manotu-event file" before asking for the secret code.

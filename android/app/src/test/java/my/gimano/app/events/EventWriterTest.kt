@@ -43,6 +43,11 @@ class EventWriterTest {
     private val sodium = LazySodiumJava(SodiumJava())
     private val reader = EventPackReader(sodium)
     private val writer = EventPackWriter(sodium)
+    private val files = EventFileWriter(writer, reader)
+
+    /** Suite-1 framing (read only since suite 2): only the vectors still carry it. */
+    private fun suite1File(sealed: SealedPack) =
+        EventTransport.FILE_MAGIC + byteArrayOf(EventTransport.FILE_FORMAT_V1, EventTransport.FILE_SUITE_RAW_KEY) + sealed.nonce + sealed.ciphertext
 
     private fun vector(name: String): JsonObject =
         Json.parseToJsonElement(javaClass.classLoader!!.getResourceAsStream("event-vectors/$name.json")!!.bufferedReader().use { it.readText() }).jsonObject
@@ -69,7 +74,19 @@ class EventWriterTest {
         val sealed = SealedPack(nonce, ct)
         assertEquals(v.s("linkFragment"), EventLinks.fragment(key, sealed))
         assertEquals(v.s("link"), EventLinks.link(v.s("site"), key, sealed))
-        assertEquals(v.s("fileB64u"), B64u.encode(EventLinks.file(sealed)))
+        assertEquals(v.s("fileB64u"), B64u.encode(suite1File(sealed)))
+        // Suite-2 file: Argon2id(code, salt) key, the vector's own nonce, the same deflated envelope.
+        val salt = v.b("fileSaltB64u")
+        val fileKey = reader.deriveFileKey(v.s("secretCodeV2"), salt)
+        assertEquals(v.s("fileKeyV2B64u"), B64u.encode(fileKey))
+        assertFalse("file key independent of the link key", fileKey.contentEquals(key))
+        val fileCt = writer.encrypt(fileKey, v.b("fileNonceV2B64u"), v.b("deflatedB64u"))
+        assertEquals(v.s("fileV2B64u"), B64u.encode(EventLinks.file(salt, SealedPack(v.b("fileNonceV2B64u"), fileCt))))
+        val own = files.sealParts(eventBytes, seed, v.s("secretCodeV2"), salt, v.b("fileNonceV2B64u"))
+        assertArrayEquals(fileKey, own.key)
+        assertEquals(v.s("signatureB64u"), B64u.encode(own.parts.signature))
+        assertEquals(v.s("eventJson"), reader.openFile(own.bytes, v.s("secretCodeV2")).eventBytes.toString(Charsets.UTF_8))
+        assertEquals(SecretCodeV2.format(v.s("secretCodeV2")), v.s("secretCodeV2"))
         // Codes and revision hash.
         assertEquals(v.s("secretCode"), SecretCode.encode(key))
         assertEquals(v.s("safetyCode"), EventHashes.safetyCode(writer.organizerPub(seed)))
@@ -98,8 +115,20 @@ class EventWriterTest {
         val viaLink = reader.openLink(EventLinks.link(EventLinks.DEFAULT_SITE, key, a))
         assertArrayEquals(bytes, viaLink.eventBytes)
         assertArrayEquals(writer.organizerPub(seed), viaLink.organizerPub)
-        val viaFile = reader.openFile(EventLinks.file(a), SecretCode.encode(key))
+        // The writer's file is suite 2: Argon2id over the event's code, fresh salt and nonce each time.
+        val code = writer.newSecretCode()
+        val f1 = files.seal(bytes, seed, code)
+        val f2 = files.seal(bytes, seed, code)
+        assertEquals(EventTransport.FILE_SUITE_CODE, f1[5])
+        val p1 = EventTransport.parseFile(f1); val p2 = EventTransport.parseFile(f2)
+        assertFalse("fresh salt per file", p1.salt!!.contentEquals(p2.salt!!))
+        assertFalse("fresh nonce per file", p1.sealed.nonce.contentEquals(p2.sealed.nonce))
+        val viaFile = reader.openFile(f1, code)
         assertArrayEquals(bytes, viaFile.eventBytes)
+        assertArrayEquals(writer.organizerPub(seed), viaFile.organizerPub)
+        assertArrayEquals(bytes, reader.openFile(f2, code.lowercase().replace("-", " ")).eventBytes)
+        // The link key is not the file key, and a link-key code (52 chars) is not a suite-2 code.
+        try { reader.openFile(f1, SecretCode.encode(key)); fail() } catch (e: EventPackException) { assertEquals(EventPackException.INVALID_SECRET_CODE, e.code) }
     }
 
     @Test fun oversizedFragmentIsRefusedButFileWorks() {
@@ -107,7 +136,7 @@ class EventWriterTest {
         val sealed = SealedPack(ByteArray(24), ByteArray(13_000))
         try { EventLinks.fragment(key, sealed); fail() } catch (e: EventPackException) { assertEquals(EventPackException.FRAGMENT_TOO_LONG, e.code) }
         assertTrue(EventLinks.fragmentUnchecked(key, sealed).length > EventLimits.MAX_FRAGMENT_CHARS)
-        assertEquals(6 + 24 + 13_000, EventLinks.file(sealed).size)
+        assertEquals(6 + 16 + 24 + 13_000, EventLinks.file(ByteArray(16), sealed).size)
     }
 
     // --- Event JSON writer --------------------------------------------------------------------------------
@@ -218,8 +247,8 @@ class EventWriterTest {
         for (p in listOf(r.plan, r.plan.copy(lang = "en"))) {
             val f = InviteMessages.fileMessage(p, download)
             assertTrue(f.contains(download))
-            val code = SecretCode.encode(key)
-            for (secret in listOf(code, code.replace("-", ""), B64u.encode(key), link)) assertFalse("file message leaks $secret", f.contains(secret))
+            val code = writer.newSecretCode()
+            for (secret in listOf(code, code.replace("-", ""), SecretCode.encode(key), B64u.encode(key), link)) assertFalse("file message leaks $secret", f.contains(secret))
             assertTrue(InviteMessages.codeMessage(p, code).contains(code))
         }
         assertEquals("Kenduri-Aqil-Sofea.manotu-event", InviteMessages.fileName(r.plan))
@@ -242,12 +271,18 @@ class EventWriterTest {
         assertFalse(host.isOwn(d.id, ByteArray(32)))
         assertEquals(p1.plan.expiresAt.toEpochMilli(), dao.rows.value[d.id]!!.expiresAt)
 
-        // Re-share without changes: same rev, new nonce, same key (same secret code), same signed bytes.
+        // The file is suite 2 under the event's 8-character code.
+        assertTrue(Regex("[2-9A-HJ-NP-Z]{4}-[2-9A-HJ-NP-Z]{4}").matches(p1.secretCode))
+        assertEquals(EventTransport.FILE_SUITE_CODE, p1.file()[5])
+        assertArrayEquals(opened1.eventBytes, reader.openFile(p1.file(), p1.secretCode).eventBytes)
+
+        // Re-share without changes: same rev, new nonce, same key, same secret code (new salt), same signed bytes.
         clock = now.plusSeconds(10)
         val again = host.publish(d.id)
         assertTrue(again.reused)
         assertEquals(p1.secretCode, again.secretCode)
         assertFalse(p1.sealed.nonce.contentEquals(again.sealed.nonce))
+        assertFalse(EventTransport.parseFile(p1.file()).salt!!.contentEquals(EventTransport.parseFile(again.file()).salt!!))
         assertArrayEquals(opened1.eventBytes, reader.openLink(again.link(EventLinks.DEFAULT_SITE)!!).eventBytes)
 
         // Edit → rev 2 with the same id and organizer key.
@@ -256,6 +291,9 @@ class EventWriterTest {
         assertTrue(host.load(d.id)!!.changed)
         val p2 = host.publish(d.id)
         assertEquals(2L, p2.plan.rev)
+        // A new revision keeps the event's code; the file gets a fresh salt.
+        assertEquals(p1.secretCode, p2.secretCode)
+        assertFalse(EventTransport.parseFile(p1.file()).salt!!.contentEquals(EventTransport.parseFile(p2.file()).salt!!))
         val opened2 = reader.openFile(p2.file(), p2.secretCode)
         assertArrayEquals(opened1.organizerPub, opened2.organizerPub)
         assertEquals(opened1.revisionHashB64u, opened2.event.parent)
@@ -289,6 +327,39 @@ class EventWriterTest {
         assertNull(host.load(d.id))
     }
 
+    /** Events hosted before file suite 2 (64-byte secrets) get a code on their next file, kept from then on. */
+    @Test fun existingHostedEventGetsACodeOnItsNextFile() = runTest {
+        var clock = now
+        val dao = FakeHostDao()
+        val vault = TestVault()
+        val host = HostStore(dao, vault, writer, clock = { clock })
+        val d = draft()
+        host.create(d)
+        // Rewind the row to the pre-suite-2 layout: seed ‖ link key only.
+        val row = dao.rows.value.getValue(d.id)
+        val old = vault.open(row.secrets)
+        assertEquals(72, old.size)
+        val legacy = old.copyOfRange(0, 64)
+        dao.update(row.copy(secrets = vault.seal(legacy)))
+        val seedBefore = legacy.copyOfRange(0, 32); val keyBefore = legacy.copyOfRange(32, 64)
+
+        val p1 = host.publish(d.id)
+        val upgraded = vault.open(dao.rows.value.getValue(d.id).secrets)
+        assertEquals("code stored with the organiser keys", 72, upgraded.size)
+        assertArrayEquals("organiser seed kept", seedBefore, upgraded.copyOfRange(0, 32))
+        assertArrayEquals("link key kept", keyBefore, upgraded.copyOfRange(32, 64))
+        assertEquals(p1.secretCode.replace("-", ""), String(upgraded, 64, 8, Charsets.US_ASCII))
+        assertArrayEquals(keyBefore, p1.key)
+        assertArrayEquals(reader.openLink(p1.link(EventLinks.DEFAULT_SITE)!!).eventBytes, reader.openFile(p1.file(), p1.secretCode).eventBytes)
+
+        clock = now.plusSeconds(3600)
+        host.save(d.copy(title = "Kenduri (dikemas kini)"))
+        val p2 = host.publish(d.id)
+        assertEquals(2L, p2.plan.rev)
+        assertEquals("the code is not regenerated", p1.secretCode, p2.secretCode)
+        assertEquals("Kenduri (dikemas kini)", reader.openFile(p2.file(), p1.secretCode).event.title)
+    }
+
     @Test fun editorValidatesBeforePublishing() = runTest {
         val dispatcher = StandardTestDispatcher(testScheduler)
         val host = HostStore(FakeHostDao(), TestVault(), writer, clock = { now })
@@ -313,16 +384,17 @@ class EventWriterTest {
         val r = EventRevisions.prepare(d, null, Instant.now())
         val sealed = writer.seal(r.bytes, seed, key)
         val link = EventLinks.link(EventLinks.DEFAULT_SITE, key, sealed)
-        val file = EventLinks.file(sealed)
+        val code = writer.newSecretCode()
+        val file = files.seal(r.bytes, seed, code)
         assertArrayEquals(r.bytes, reader.openLink(link).eventBytes)
-        assertArrayEquals(r.bytes, reader.openFile(file, SecretCode.encode(key)).eventBytes)
+        assertArrayEquals(r.bytes, reader.openFile(file, code).eventBytes)
         val dir = File("/private/tmp/claude-501/-Users-erymuzuan-orca-projects-gimano/4c362b48-62f2-404a-9ad2-ad6fe71abb8c/scratchpad")
         if (!dir.isDirectory) return   // only on the machine that asked for it
         File(dir, "android-sample.manotu-event").writeBytes(file)
         File(dir, "android-sample-link.txt").writeText(buildString {
             appendLine("link: $link")
             appendLine("file: ${File(dir, "android-sample.manotu-event").absolutePath}")
-            appendLine("secretCode: ${SecretCode.encode(key)}")
+            appendLine("secretCodeV2: $code")
             appendLine("safetyCode: ${EventHashes.safetyCode(writer.organizerPub(seed))}")
             appendLine("revisionHashB64u: ${B64u.encode(EventHashes.revisionHash(r.bytes))}")
             appendLine("eventJson: ${r.bytes.toString(Charsets.UTF_8)}")

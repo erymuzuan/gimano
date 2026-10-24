@@ -70,6 +70,8 @@ data class BuilderLeg(
 
 object RouteProblem {
     const val OFFLINE = "offline"
+    /** Demo data mode: there is no server, so roads are never calculated (not a connection problem). */
+    const val DEMO = "demo"
     const val NO_ROUTE = "no_route"
     const val UNAVAILABLE = "unavailable"
     /** `POST /routes/match` is not on this server yet (404/405): "Lukis ikut jalan belum tersedia". */

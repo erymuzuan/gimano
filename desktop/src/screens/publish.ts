@@ -97,7 +97,7 @@ export function openPublishDialog(onPublished: () => void): void {
       offer, active,
       copyBtn,
     );
-    const codeOut = h("p", { class: "code secret", "aria-live": "polite" }, "•••• •••• ••••");
+    const codeOut = h("p", { class: "code secret", "aria-live": "polite" }, "••••-••••");
     const filePanel = h("section", { class: "stack" },
       h("p", { class: "muted" }, `${Math.ceil(p.fileBytes / 1024)} KB · .manotu-event`),
       button(t("saveFile"), async () => {
@@ -110,6 +110,7 @@ export function openPublishDialog(onPublished: () => void): void {
         } catch (e) { status.replaceChildren(h("p", { class: "error" }, errorMessage(e))); }
       }, "primary"),
       h("div", { class: "safety" }, h("p", { class: "label" }, t("secretCode")), codeOut,
+        h("p", { class: "small muted" }, t("codeHint")),
         h("div", { class: "row" },
           button(t("showCode"), async () => {
             try { codeOut.textContent = await api.secretCodeReveal(); } catch (e) { fail(e); }

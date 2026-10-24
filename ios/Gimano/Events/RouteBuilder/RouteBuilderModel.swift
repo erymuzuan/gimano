@@ -33,14 +33,18 @@ final class RouteBuilderModel {
     private(set) var inFlight: Set<Int> = []
 
     @ObservationIgnored let transport: (any RouteBuilderTransport)?
+    /// Demo data mode (no server): legs fail with `.demo` ("Demo mode: roads aren't calculated"), not `.offline`.
+    let isDemo: Bool
     /// Answers already received, by leg version: undo/redo back to a waiting leg needs no new request.
     @ObservationIgnored private var answers: [Int: LegResolution] = [:]
     @ObservationIgnored private let maxParallel = 4
 
-    init(route: RouteDraft, stops: [HostedStopDraft] = [], context: RouteBuilderContext, transport: (any RouteBuilderTransport)?) {
+    init(route: RouteDraft, stops: [HostedStopDraft] = [], context: RouteBuilderContext, transport: (any RouteBuilderTransport)?,
+         isDemo: Bool = false) {
         snapshot = Snapshot(route: route, stops: stops)
         self.context = context
         self.transport = transport
+        self.isDemo = isDemo
     }
 
     var route: RouteDraft { snapshot.route }
@@ -122,6 +126,8 @@ final class RouteBuilderModel {
     func setTitle(_ t: String) { edit { $0.route.title = t } }
     func setDay(_ d: String?) { edit { $0.route.day = d } }
     func keepAsSketch(_ i: Int) { edit { $0.route.keepAsSketch(i) } }
+    /// Every waiting or failed leg becomes a sketch at once (one undo step).
+    func keepOpenLegsAsSketch() { edit { $0.route.keepOpenLegsAsSketch() } }
     func splitAtUnmatched(_ i: Int) { edit { $0.route.splitAtUnmatched(i) } }
     func retryAll() { edit { $0.route.retryAll() } }
 
@@ -162,9 +168,10 @@ final class RouteBuilderModel {
             }
             guard inFlight.count < maxParallel else { break }
             inFlight.insert(leg.generation)
-            let transport = transport
+            let transport = transport, demo = isDemo
             Task { [weak self] in
-                let r = await RouteBuilderService.resolve(from: leg.from, to: leg.to, drawn: leg.drawn, mode: mode, transport: transport)
+                let r = demo ? LegResolution.failed(.demo)
+                    : await RouteBuilderService.resolve(from: leg.from, to: leg.to, drawn: leg.drawn, mode: mode, transport: transport)
                 self?.finish(r, generation: leg.generation)
             }
         }

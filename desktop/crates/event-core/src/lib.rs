@@ -2,7 +2,8 @@
 //!
 //! ```text
 //! event JSON bytes ─sign(Ed25519, per-event key)─► envelope JSON ─raw DEFLATE─►
-//! XChaCha20-Poly1305(AD "manotu-event-v1") ─► invitation link (§5.1) or .manotu-event file (§5.2)
+//! XChaCha20-Poly1305(AD "manotu-event-v1") ─► invitation link (§5.1, random key) or
+//! .manotu-event file (§5.2, key = Argon2id(8-character code, salt))
 //! ```
 //!
 //! Privacy: a pack carries only guest-visible data. Organizer-only working notes deliberately have
@@ -22,12 +23,18 @@ mod pack;
 mod revision;
 mod validate;
 
-pub use codes::{decode_secret_code, encode_secret_code, safety_code};
+pub use codes::{
+    SAFETY_ALPHABET, SECRET_CODE_V2_BYTES, SECRET_CODE_V2_CHARS, decode_secret_code,
+    encode_secret_code, encode_secret_code_v2, generate_secret_code_v2, parse_secret_code_v2,
+    safety_code,
+};
 pub use encoding::{b64u, b64u_decode};
 pub use error::{Error, ValidationError};
 pub use file::{
-    FILE_EXTENSION, FILE_FORMAT_V1, FILE_MAGIC, FILE_MIME, FILE_SUITE_RAW_KEY, encode_file,
-    open_file, parse_file,
+    FILE_EXTENSION, FILE_FORMAT_V1, FILE_KDF_MEMLIMIT_KIB, FILE_KDF_OPSLIMIT, FILE_MAGIC,
+    FILE_MIME, FILE_SALT_LEN, FILE_SUITE_CODE, FILE_SUITE_RAW_KEY, FILE_V2_OVERHEAD, FileSuite,
+    ParsedFile, derive_file_key, encode_file, file_key, open_file, parse_file, random_salt,
+    seal_file, seal_file_parts,
 };
 pub use import::{
     ImportCandidate, ImportDecision, ParentCheck, StoredEvent, StoredRevision, decide_import,

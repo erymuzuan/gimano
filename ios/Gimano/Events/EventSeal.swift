@@ -99,11 +99,33 @@ extension EventPack {
         return "\(base)/a/#\(f)"
     }
 
-    /// `"MNTE" ‖ 0x01 ‖ 0x01 ‖ nonce ‖ ciphertext`.
-    static func fileBytes(_ sealed: SealedEventPack) throws(EventPackError) -> [UInt8] {
-        let bytes = fileMagic + [fileFormatV1, fileSuiteRawKey] + sealed.nonce + sealed.ciphertext
+    /// Suite 2 framing (`encode_file`): `"MNTE" ‖ 0x01 ‖ 0x02 ‖ salt(16) ‖ nonce(24) ‖ ciphertext`, for a pack sealed
+    /// under `EventFileKey.derive(code:salt:)`. Suite 1 is read only and never written.
+    static func fileBytes(salt: [UInt8], sealed: SealedEventPack) throws(EventPackError) -> [UInt8] {
+        guard salt.count == EventFileKey.saltBytes else { throw .malformedFile }
+        let bytes = fileMagic + [fileFormatV1, fileSuiteCode] + salt + sealed.nonce + sealed.ciphertext
         if bytes.count > EventLimits.maxFileBytes { throw .fileTooLarge }
         return bytes
+    }
+
+    /// Deterministic suite-2 writer (vectors, `seal_file_parts`): derives the key, signs, compresses, encrypts and
+    /// frames. Never reuse a salt/nonce pair; `sealFile` picks fresh ones. Runs Argon2id: not on the main actor.
+    static func sealFileParts(eventBytes: [UInt8], organizer: EventOrganizerKey, code: String, salt: [UInt8],
+                              nonce: [UInt8]) throws(EventPackError) -> (parts: SealedEventParts, file: [UInt8]) {
+        let key = try EventFileKey.derive(code: code, salt: salt)
+        let parts = try sealParts(eventBytes: eventBytes, organizer: organizer, key: key, nonce: nonce)
+        return (parts, try fileBytes(salt: salt, sealed: parts.sealed))
+    }
+
+    /// The writer path for files (`seal_file`): these exact event bytes, a fresh salt and nonce, the event's stable
+    /// 8-character code. Opened again to prove it verifies before it is offered. Runs Argon2id: not on the main actor.
+    static func sealFile(eventBytes: [UInt8], organizer: EventOrganizerKey, code: String) throws(EventPackError) -> [UInt8] {
+        let salt = EventRandom.bytes(EventFileKey.saltBytes)
+        let key = try EventFileKey.derive(code: code, salt: salt)
+        let parts = try sealParts(eventBytes: eventBytes, organizer: organizer, key: key, nonce: EventRandom.bytes(nonceBytes))
+        let check = try open(key: key, sealed: parts.sealed)
+        guard check.eventBytes == eventBytes, check.organizerPub == organizer.publicKey else { throw .badSignature }
+        return try fileBytes(salt: salt, sealed: parts.sealed)
     }
 }
 

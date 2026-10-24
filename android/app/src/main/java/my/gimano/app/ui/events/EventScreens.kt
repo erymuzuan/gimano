@@ -23,6 +23,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -102,9 +103,15 @@ fun EventImportDialogs(
             },
         )
         is EventImportUi.NeedCode -> {
+            // 8 characters (XXXX-XXXX) for current files; a pasted 52-character code still opens an older file.
             var code by remember { mutableStateOf("") }
+            val error = when {
+                s.invalid -> R.string.event_code_invalid
+                s.wrong -> R.string.event_code_wrong
+                else -> null
+            }
             AlertDialog(
-                onDismissRequest = importer::dismiss,
+                onDismissRequest = { if (!s.opening) importer.dismiss() },
                 title = { Text(stringResource(R.string.event_code_title)) },
                 text = {
                     Column {
@@ -112,17 +119,28 @@ fun EventImportDialogs(
                         Spacer(Modifier.height(12.dp))
                         OutlinedTextField(
                             code, { code = it.take(80) }, Modifier.fillMaxWidth(),
-                            placeholder = { Text("XXXX-XXXX-…") },
-                            textStyle = LocalTextStyle.current.copy(fontFamily = FontFamily.Monospace),
-                            isError = s.wrong,
-                            supportingText = if (s.wrong) { { Text(stringResource(R.string.event_code_wrong)) } } else null,
+                            enabled = !s.opening,
+                            singleLine = true,
+                            placeholder = { Text("XXXX-XXXX", fontFamily = FontFamily.Monospace) },
+                            textStyle = LocalTextStyle.current.copy(fontFamily = FontFamily.Monospace, fontSize = 20.sp, letterSpacing = 2.sp),
+                            isError = error != null && !s.opening,
+                            supportingText = if (error != null && !s.opening) { { Text(stringResource(error)) } } else null,
                             keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Characters, keyboardType = KeyboardType.Ascii, autoCorrectEnabled = false),
                             shape = RoundedCornerShape(Radius.md),
                         )
+                        if (s.opening) Row(Modifier.padding(top = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+                            CircularProgressIndicator(Modifier.size(22.dp), color = c.brand, strokeWidth = 3.dp)
+                            Spacer(Modifier.width(12.dp))
+                            Text(stringResource(R.string.event_code_opening), color = c.text, fontSize = 15.sp)
+                        }
                     }
                 },
-                confirmButton = { TextButton(onClick = { importer.submitCode(code) }, enabled = code.isNotBlank()) { Text(stringResource(R.string.event_open), fontWeight = FontWeight.ExtraBold) } },
-                dismissButton = { TextButton(onClick = importer::dismiss) { Text(stringResource(R.string.cancel)) } },
+                confirmButton = {
+                    TextButton(onClick = { importer.submitCode(code) }, enabled = code.isNotBlank() && !s.opening) {
+                        Text(stringResource(R.string.event_open), fontWeight = FontWeight.ExtraBold)
+                    }
+                },
+                dismissButton = { TextButton(onClick = importer::dismiss, enabled = !s.opening) { Text(stringResource(R.string.cancel)) } },
             )
         }
         is EventImportUi.Review -> if (s.previous != null && s.decision !is ImportDecision.New)
@@ -171,7 +189,7 @@ private fun ReviewSheet(s: EventImportUi.Review, use24h: Boolean, lang: Lang, on
                 fontSize = 15.sp, fontWeight = FontWeight.Bold, color = c.textMuted)
             Spacer(Modifier.height(12.dp))
             InfoLine(eventWhen(p, use24h, lang))
-            InfoLine(stringResource(R.string.event_stops_n, p.stops.size) + " · " + stringResource(R.string.event_rev, p.rev.toInt()))
+            InfoLine(pluralStringResource(R.plurals.event_stops_n, p.stops.size, p.stops.size) + " · " + stringResource(R.string.event_rev, p.rev.toInt()))
             InfoLine(stringResource(R.string.event_access_until, instantText(p.expiresAt, EventSchedule.zone(p), use24h, lang)))
             Spacer(Modifier.height(14.dp))
             Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(Radius.md)).background(c.brandMist).padding(14.dp)) {
@@ -258,7 +276,7 @@ fun EventsListScreen(
                     Column(Modifier.weight(1f)) {
                         Text(e.plan.title, fontSize = 17.sp, fontWeight = FontWeight.ExtraBold, color = c.text, maxLines = 1, overflow = TextOverflow.Ellipsis)
                         Text(eventWhen(e.plan, use24h, lang), fontSize = 14.sp, color = c.textMuted)
-                        Text(stringResource(R.string.event_stops_n, e.plan.stops.size), fontSize = 13.sp, color = c.textMuted)
+                        Text(pluralStringResource(R.plurals.event_stops_n, e.plan.stops.size, e.plan.stops.size), fontSize = 13.sp, color = c.textMuted)
                     }
                 }
             }

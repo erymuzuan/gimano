@@ -59,7 +59,8 @@ export function openImportDialog(onImported: () => void): void {
     }, "primary"),
   );
 
-  const codeInput = h("input", { class: "input mono", type: "text", spellcheck: "false", autocomplete: "off" });
+  // 8-character codes (XXXX-XXXX) and the 52-character codes of older files both work (§5.2).
+  const codeInput = h("input", { class: "input mono", type: "text", spellcheck: "false", autocomplete: "off", autocapitalize: "characters", placeholder: "XXXX-XXXX" });
   const fileLabel = h("span", { class: "muted" });
   const filePanel = h("section", { class: "stack" },
     h("div", { class: "row" },

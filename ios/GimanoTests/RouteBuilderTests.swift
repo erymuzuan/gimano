@@ -434,3 +434,61 @@ struct RouteRoutingTests {
         #expect(try events.legacyPersonalRoutes().isEmpty)
     }
 }
+
+@Suite("Route builder: demo mode, keep as sketch, blockers and plurals")
+struct RouteBuilderFixesTests {
+    @Test("Keep as sketch turns every waiting or failed leg into a sketch at once; road legs stay")
+    func keepOpenLegsAsSketch() {
+        var r = RouteDraft()
+        r.addPoint(RB.a); r.addPoint(RB.b); r.addPoint(RB.c); r.addPoint(RB.a)
+        let legs = r.pendingLegs
+        r.apply(RB.routed(legs[0].from, legs[0].to), generation: legs[0].generation)
+        r.apply(.failed(.demo), generation: legs[1].generation)
+        #expect(r.legs.map(\.state) == [.routed, .unresolved, .pending] && r.needsCalculation == 2)
+        let road = r.legs[0]
+        r.keepOpenLegsAsSketch()
+        #expect(r.legs.map(\.state) == [.routed, .sketch, .sketch] && r.needsCalculation == 0)
+        #expect(r.legs[0] == road && r.legs[1].geometry == [RB.b, RB.c])
+    }
+
+    @Test("Demo data mode: legs fail with .demo (not .offline), and keep-as-sketch for all is one undo step")
+    @MainActor
+    func demoModel() async {
+        let t = MockRouteTransport()
+        let m = RouteBuilderModel(route: RouteDraft(), context: .personal, transport: t, isDemo: true)
+        m.tap(RB.a); m.tap(RB.b); m.tap(RB.c); m.tap(RB.a)
+        await m.settle()
+        #expect(m.route.legs.map(\.state) == [.unresolved, .unresolved, .unresolved])
+        #expect(m.route.legs.allSatisfy { $0.problem == .demo })
+        #expect(t.routeRequests.isEmpty)   // the server is never asked
+        m.keepOpenLegsAsSketch()
+        #expect(m.route.legs.allSatisfy { $0.state == .sketch } && m.route.needsCalculation == 0)
+        m.undo()
+        #expect(m.route.legs.allSatisfy { $0.state == .unresolved } && m.route.points.count == 4)
+    }
+
+    @Test("A blocked \"Share invitation\" scrolls to the first problem's field, place or route")
+    func issueAnchors() {
+        #expect(EventDraftIssue.noStops.anchor == EventDraftIssue.Anchor.addPlace)
+        #expect(EventDraftIssue.titleMissing.anchor == EventDraftIssue.Anchor.title)
+        #expect(EventDraftIssue.stopLabel("s1").anchor == EventDraftIssue.Anchor.stop("s1"))
+        #expect(EventDraftIssue.routeIncomplete("r1").anchor == EventDraftIssue.Anchor.route("r1"))
+        #expect(EventDraftIssue.invalid(.malformedLink).anchor == EventDraftIssue.Anchor.problems)
+    }
+
+    @Test("Counts use plural variations: 1 place / 3 places, BM 1 tempat / 3 tempat")
+    func plurals() {
+        func s(_ r: LocalizedStringResource, _ lang: String) -> String {
+            var r = r
+            r.locale = Locale(identifier: lang)
+            return String(localized: r)
+        }
+        #expect(s("\(1) places", "en") == "1 place")
+        #expect(s("\(3) places", "en") == "3 places")
+        #expect(s("\(1) routes", "en") == "1 route")
+        #expect(s("\(2) routes", "en") == "2 routes")
+        #expect(s("Point list, \(1) points", "en") == "Point list, 1 point")
+        #expect(s("\(1) places", "ms") == "1 tempat")
+        #expect(s("\(3) places", "ms") == "3 tempat")
+    }
+}

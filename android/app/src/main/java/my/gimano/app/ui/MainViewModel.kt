@@ -1286,9 +1286,13 @@ class MainViewModel(private val c: AppContainer) : ViewModel() {
         openPickOnMap(SearchPurpose.EVENT_ENTRANCE, start = s.entrance ?: GeoPoint(s.lat, s.lng))
     }
 
-    fun shareHostEvent() = viewModelScope.launch {
+    /** "Kongsi jemputan". [onBlocked] runs (main thread) when problems stop it, so the editor can show the first one. */
+    fun shareHostEvent(onBlocked: () -> Unit = {}) = viewModelScope.launch {
         if (c.hostEditor.publish()) _ui.update { it.copy(screen = Screen.EventShare) }
+        else if (c.hostEditor.issues.value.isNotEmpty()) onBlocked()
     }
+
+    fun toastText(text: String) = _events.tryEmit(UiEvent.ToastText(text))
 
     // --- Route builder ("Bina laluan") and "Laluan saya" ------------------------------------------------------
 

@@ -11,6 +11,8 @@ import Foundation
 enum LegProblem: String, Codable, Sendable, Hashable {
     /// The phone is offline or the server can't be reached.
     case offline
+    /// Demo data mode: there is no server, so roads are never calculated (not a connection problem).
+    case demo
     /// 422: no road between the points / nothing matched.
     case noRoute
     /// 503: routing engine down.
@@ -267,6 +269,12 @@ struct RouteDraft: Codable, Hashable, Sendable, Identifiable {
         let line = legs[i].drawn ?? [points[i].location, points[i + 1].location]
         legs[i] = BuilderLeg(state: .sketch, geometry: line,
                              distanceM: RouteGeo.length(line), durationS: nil, drawn: legs[i].drawn)
+    }
+
+    /// "Simpan sebagai lakaran" for every leg still waiting or failed, in one edit (one undo step in the builder).
+    /// Road, matched and sketch legs stay as they are.
+    mutating func keepOpenLegsAsSketch() {
+        for i in legs.indices where legs[i].state == .pending || legs[i].state == .unresolved { keepAsSketch(i) }
     }
 
     /// "Tambah titik" for a drawing with gaps: points at the ends of every unmatched stretch, routed legs between.
