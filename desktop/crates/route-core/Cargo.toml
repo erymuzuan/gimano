@@ -1,0 +1,21 @@
+[package]
+name = "route-core"
+version.workspace = true
+edition.workspace = true
+publish.workspace = true
+
+# Route model, precision-6 polylines, distances, elevation, bounded GPX import/export and the
+# stateless routing client. Nothing here stores or logs routes.
+[features]
+default = ["http"]
+http = ["dep:reqwest"]
+
+[dependencies]
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+roxmltree.workspace = true
+reqwest = { workspace = true, optional = true }
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["macros", "rt-multi-thread", "net", "io-util"] }

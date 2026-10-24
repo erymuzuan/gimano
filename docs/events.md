@@ -96,6 +96,13 @@ session/arrival times carry the event's local offset (e.g. `2026-11-15T11:00:00+
 }
 ```
 
+Reader rules fixed by the Rust reference (`desktop/crates/event-core`, see its `tests/vectors/README.md`):
+optional fields are omitted when absent (`parent` is always written, `null` on rev 1) and readers accept missing
+or `null`; text lengths count Unicode code points; ids decode to exactly 16 (event) or 8 (item) bytes and are
+unique; stop references must resolve; unknown `template`/`kind` read as `other`, unknown `lang`/`mode`/`source`
+are rejected; `distanceM`/`durationS`/`ascentM`/`descentM` are non-negative integers; rev 1 has `parent: null`
+and later revisions must have a parent. Session title 1–120, alias ≤ 80, `dwellMin` ≤ 20 160.
+
 Limits (reject above them): 14 days between `start` and `end`, 200 stops, 50 sessions, 20 routes, 50 000 polyline
 points in total, 20 MiB file, 16 000-character link fragment.
 
@@ -145,7 +152,8 @@ POST /routes/match
 2. Inflate (bounded to 20 MiB output), parse the envelope, verify the signature, then parse `event`.
 3. First time an event `id` is seen: pin `pub` after showing the organizer alias and a **safety code**
    (first 8 bytes of SHA-256(pub) as 4 groups of 4 hex, e.g. `4F2A 91C0 7B3E 02D9`).
-4. Later revisions must have the same `pub` (else reject: "penganjur berbeza"). Lower `rev` than stored → keep the
+4. Identical bytes already stored → "sudah diimport", nothing changes.
+   Later revisions must have the same `pub` (else reject: "penganjur berbeza"). Lower `rev` than stored → keep the
    stored one ("versi lebih lama"). Same `rev`, different bytes → fork warning, keep both, user chooses.
    `parent` mismatch with the stored previous revision → warn, still allowed (missed revisions).
 5. `expiresAt` in the past → do not import, show "Acara telah tamat". Stored events are deleted (keys, payload,

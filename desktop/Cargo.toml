@@ -1,0 +1,30 @@
+[workspace]
+# src-tauri joins the members when the desktop shell lands.
+members = ["crates/event-core", "crates/route-core"]
+resolver = "3"
+
+[workspace.package]
+edition = "2024"
+rust-version = "1.99"
+version = "0.1.0"
+publish = false
+
+[workspace.dependencies]
+serde = { version = "=1.0.229", features = ["derive"] }
+serde_json = "=1.0.154"
+thiserror = "=2.0.21"
+base64 = "=0.22.1"
+sha2 = "=0.10.9"
+chrono = { version = "=0.4.45", default-features = false, features = ["std", "serde"] }
+chacha20poly1305 = { version = "=0.10.1", default-features = false, features = ["alloc"] }
+ed25519-dalek = { version = "=2.1.1", default-features = false, features = ["std", "zeroize"] }
+miniz_oxide = { version = "=0.8.9", default-features = false, features = ["with-alloc"] }
+getrandom = { version = "=0.2.17", features = ["std"] }
+zeroize = "=1.9.1"
+roxmltree = { version = "=0.21.1", default-features = false, features = ["std"] }
+reqwest = { version = "=0.12.28", default-features = false, features = ["rustls-tls-native-roots"] }
+tokio = { version = "=1.53.3", default-features = false }
+
+[profile.release]
+lto = "thin"
+strip = true
